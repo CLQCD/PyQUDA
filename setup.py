@@ -9,7 +9,7 @@ DESCRIPTION = "Python wrapper for quda written in Cython."
 ext_modules = cythonize(
     [
         Extension(
-            "pyquda/pyquda",
+            "pyquda.pyquda",
             ["pyquda/src/pyquda.pyx"],
             language="c",
             include_dirs=["pyquda/include", numpy.get_include()],
