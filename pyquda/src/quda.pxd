@@ -1211,7 +1211,7 @@ cdef extern from "quda.h":
 
     void set_dim(int *)
     void pack_ghost(void **cpuLink, void **cpuGhost, int nFace,
-        QudaPrecision precision)
+                    QudaPrecision precision)
 
     void computeKSLinkQuda(void* fatlink, void* longlink, void* ulink, void* inlink,
                            double *path_coeff, QudaGaugeParam *param)
