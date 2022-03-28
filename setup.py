@@ -4,7 +4,7 @@ import numpy
 
 VERSION = "0.0.1"
 LICENSE = "MIT"
-DESCRIPTION = "Python wrapper for quda."
+DESCRIPTION = "Python wrapper for quda written in Cython."
 
 ext_modules = cythonize(
     [

@@ -1,84 +1,25 @@
-import os, sys
-import io
-from contextlib import contextmanager
-from tempfile import TemporaryFile
-
-import ctypes
-import cython
+from typing import Union
 
 import numpy
-cimport numpy
 
-cimport quda
+from . import enum_quda
 
-libc = ctypes.CDLL(None)
-c_stdout = ctypes.c_void_p.in_dll(libc, 'stdout')
 
-@contextmanager
-def redirect_stdout(stream):
-    stdout_fd = sys.stdout.fileno()
+class Pointer:
+    def __init__(self, ndarray: Union[str, numpy.ndarray]):
+        ...
 
-    def _redirect_stdout(to_fd):
-        """Redirect stdout to the given file descriptor."""
-        libc.fflush(c_stdout)
-        sys.stdout.close()
-        os.dup2(to_fd, stdout_fd)
-        sys.stdout = io.TextIOWrapper(os.fdopen(stdout_fd, 'wb'))
 
-    saved_stdout_fd = os.dup(stdout_fd)
-    try:
-        tfile = TemporaryFile(mode='w+b')
-        _redirect_stdout(tfile.fileno())
-        yield
-        _redirect_stdout(saved_stdout_fd)
-        tfile.flush()
-        tfile.seek(0, io.SEEK_SET)
-        stream.write(tfile.read())
-    finally:
-        tfile.close()
-        os.close(saved_stdout_fd)
+def getPointerArray(ndarrays) -> Pointer:
+    ...
 
-def getPointerArray(ndarrays):
-    cdef double[:, :] data = numpy.ascontiguousarray(ndarrays)
-    cdef double *ret[4]
-    for i in range(4):
-        ret[i] = <double *>&data[i, 0]
-    ptr = Pointer("void")
-    ptr.set_ptr(<void *>(&ret[0]))
-    return ptr
 
-cdef class Pointer:
-    cdef void* ptr
-    cdef str dtype
+class QudaGaugeParam:
+    def __init__(self) -> None:
+        ...
 
-    def __init__(self, ndarray):
-        if isinstance(ndarray, str):
-            self.dtype = ndarray
-        else:
-            self.dtype = "void"
-            self.set_ptr_from_ndarray(numpy.ascontiguousarray(ndarray))
-
-    cdef set_ptr(self, void *ptr):
-        self.ptr = ptr
-
-    cdef set_ptr_from_ndarray(self, numpy.ndarray ndarray):
-        self.ptr = ndarray.data
-
-cdef class QudaGaugeParam:
-    cdef quda.QudaGaugeParam param
-
-    def __init__(self):
-        self.param = quda.newQudaGaugeParam()
-
-    def __repr__(self):
-        buf = io.BytesIO()
-        with redirect_stdout(buf):
-            quda.printQudaGaugeParam(&self.param)
-        ret = buf.getvalue().decode("utf-8")
-        return ret
-
-    cdef from_ptr(self, quda.QudaGaugeParam *ptr):
-        self.param = cython.operator.dereference(ptr)
+    def __repr__(self) -> str:
+        ...
 
     @property
     def struct_size(self):
@@ -400,21 +341,13 @@ cdef class QudaGaugeParam:
     def site_size(self, value):
         self.param.site_size = value
 
-cdef class QudaInvertParam:
-    cdef quda.QudaInvertParam param
 
-    def __init__(self):
-        self.param = quda.newQudaInvertParam()
+class QudaInvertParam:
+    def __init__(self) -> None:
+        ...
 
-    def __repr__(self):
-        buf = io.BytesIO()
-        with redirect_stdout(buf):
-            quda.printQudaInvertParam(&self.param)
-        ret = buf.getvalue().decode("utf-8")
-        return ret
-
-    cdef from_ptr(self, quda.QudaInvertParam *ptr):
-        self.param = cython.operator.dereference(ptr)
+    def __repr__(self) -> str:
+        ...
 
     @property
     def struct_size(self):
@@ -1186,10 +1119,6 @@ cdef class QudaInvertParam:
     def preconditioner(self, value):
         self.set_preconditioner
 
-    cdef set_preconditioner(self, Pointer value):
-        assert value.dtype == "void"
-        self.param.preconditioner = value.ptr
-
     @property
     def deflation_op(self):
         ptr = Pointer("void")
@@ -1200,10 +1129,6 @@ cdef class QudaInvertParam:
     def deflation_op(self, value):
         self.set_deflation_op
 
-    cdef set_deflation_op(self, Pointer value):
-        assert value.dtype == "void"
-        self.param.deflation_op = value.ptr
-
     @property
     def eig_param(self):
         ptr = Pointer("void")
@@ -1213,10 +1138,6 @@ cdef class QudaInvertParam:
     @eig_param.setter
     def eig_param(self, value):
         self.set_eig_param
-
-    cdef set_eig_param(self, Pointer value):
-        assert value.dtype == "void"
-        self.param.eig_param = value.ptr
 
     @property
     def deflate(self):
@@ -1466,21 +1387,13 @@ cdef class QudaInvertParam:
     def native_blas_lapack(self, value):
         self.param.native_blas_lapack = value
 
-cdef class QudaMultigridParam:
-    cdef quda.QudaMultigridParam param
 
-    def __init__(self):
-        self.param = quda.newQudaMultigridParam()
+class QudaMultigridParam:
+    def __init__(self) -> None:
+        ...
 
-    def __repr__(self):
-        buf = io.BytesIO()
-        with redirect_stdout(buf):
-            quda.printQudaMultigridParam(&self.param)
-        ret = buf.getvalue().decode("utf-8")
-        return ret
-
-    cdef from_ptr(self, quda.QudaMultigridParam *ptr):
-        self.param = cython.operator.dereference(ptr)
+    def __repr__(self) -> str:
+        ...
 
     @property
     def struct_size(self):
@@ -1500,9 +1413,6 @@ cdef class QudaMultigridParam:
     def invert_param(self, value):
         self.set_invert_param(value)
 
-    cdef set_invert_param(self, QudaInvertParam value):
-        self.param.invert_param = &value.param
-
     @property
     def eig_param(self):
         params = []
@@ -1516,9 +1426,6 @@ cdef class QudaMultigridParam:
     def eig_param(self, value):
         for i in range(self.param.n_level):
             self.set_eig_param(value[i], i)
-
-    cdef set_eig_param(self, QudaEigParam value, int i):
-        self.param.eig_param[i] = &(value.param)
 
     @property
     def n_level(self):
@@ -1992,21 +1899,13 @@ cdef class QudaMultigridParam:
     def thin_update_only(self, value):
         self.param.thin_update_only = value
 
-cdef class QudaEigParam:
-    cdef quda.QudaEigParam param
 
-    def __init__(self):
-        self.param = quda.newQudaEigParam()
+class QudaEigParam:
+    def __init__(self) -> None:
+        ...
 
-    def __repr__(self):
-        buf = io.BytesIO()
-        with redirect_stdout(buf):
-            quda.printQudaEigParam(&self.param)
-        ret = buf.getvalue().decode("utf-8")
-        return ret
-
-    cdef from_ptr(self, quda.QudaEigParam *ptr):
-        self.param = cython.operator.dereference(ptr)
+    def __repr__(self) -> str:
+        ...
 
     @property
     def struct_size(self):
@@ -2025,9 +1924,6 @@ cdef class QudaEigParam:
     @invert_param.setter
     def invert_param(self, value):
         self.set_invert_param(value)
-
-    cdef set_invert_param(self, QudaInvertParam value):
-        self.param.invert_param = &value.param
 
     @property
     def eig_type(self):
@@ -2086,10 +1982,6 @@ cdef class QudaEigParam:
     @preserve_deflation_space.setter
     def preserve_deflation_space(self, value):
         self.set_preserve_deflation_space(value)
-
-    cdef set_preserve_deflation_space(self, Pointer value):
-        assert value.dtype == "void"
-        self.param.preserve_deflation_space = value.ptr
 
     @property
     def preserve_evals(self):
@@ -2379,21 +2271,13 @@ cdef class QudaEigParam:
     def extlib_type(self, value):
         self.param.extlib_type = value
 
-cdef class QudaGaugeObservableParam:
-    cdef quda.QudaGaugeObservableParam param
 
-    def __init__(self):
-        self.param = quda.newQudaGaugeObservableParam()
+class QudaGaugeObservableParam:
+    def __init__(self) -> None:
+        ...
 
-    def __repr__(self):
-        buf = io.BytesIO()
-        with redirect_stdout(buf):
-            quda.printQudaGaugeObservableParam(&self.param)
-        ret = buf.getvalue().decode("utf-8")
-        return ret
-
-    cdef from_ptr(self, quda.QudaGaugeObservableParam *ptr):
-        self.param = cython.operator.dereference(ptr)
+    def __repr__(self) -> str:
+        ...
 
     @property
     def struct_size(self):
@@ -2469,25 +2353,13 @@ cdef class QudaGaugeObservableParam:
     def qcharge_density(self, value):
         self.set_qcharge_density(value)
 
-    cdef set_qcharge_density(self, Pointer value):
-        assert value.dtype == "void"
-        self.param.qcharge_density = &value.ptr
 
-cdef class QudaBLASParam:
-    cdef quda.QudaBLASParam param
+class QudaBLASParam:
+    def __init__(self) -> None:
+        ...
 
-    def __init__(self):
-        self.param = quda.newQudaBLASParam()
-
-    def __repr__(self):
-        buf = io.BytesIO()
-        with redirect_stdout(buf):
-            quda.printQudaBLASParam(&self.param)
-        ret = buf.getvalue().decode("utf-8")
-        return ret
-
-    cdef from_ptr(self, quda.QudaBLASParam *ptr):
-        self.param = cython.operator.dereference(ptr)
+    def __repr__(self) -> str:
+        ...
 
     @property
     def struct_size(self):
@@ -2650,65 +2522,65 @@ cdef class QudaBLASParam:
         self.param.data_order = value
 
 
-def setVerbosityQuda(quda.QudaVerbosity verbosity, const char prefix[], Pointer outfile):
-    assert outfile.dtype == "FILE"
-    quda.setVerbosityQuda(verbosity, prefix, <quda.FILE *>outfile.ptr)
+def setVerbosityQuda(verbosity: enum_quda.QudaVerbosity, prefix: str, outfile: Pointer) -> None:
+    ...
 
-def initQudaDevice(int device):
-    quda.initQudaDevice(device)
 
-def initQudaMemory():
-    quda.initQudaMemory()
+def initQudaDevice(device: int) -> None:
+    ...
 
-def initQuda(int device):
-    quda.initQuda(device)
 
-def endQuda():
-    quda.endQuda()
+def initQudaMemory() -> None:
+    ...
 
-def loadGaugeQuda(Pointer h_gauge, QudaGaugeParam param):
-    assert h_gauge.dtype == "void"
-    quda.loadGaugeQuda(h_gauge.ptr, &param.param)
 
-def freeGaugeQuda():
-    quda.freeGaugeQuda()
+def initQuda(device: int) -> None:
+    ...
 
-def saveGaugeQuda(Pointer h_gauge, QudaGaugeParam param):
-    assert h_gauge.dtype == "void"
-    quda.saveGaugeQuda(h_gauge.ptr, &param.param)
 
-def loadCloverQuda(Pointer h_clover, Pointer h_clovinv, QudaInvertParam inv_param):
-    assert h_clover.dtype == "void"
-    assert h_clovinv.dtype == "void"
-    quda.loadCloverQuda(h_clover.ptr, h_clovinv.ptr, &inv_param.param)
+def endQuda() -> None:
+    ...
 
-def freeCloverQuda():
-    quda.freeCloverQuda()
 
-def invertQuda(Pointer h_x, Pointer h_b, QudaInvertParam param):
-    assert h_x.dtype == "void"
-    assert h_b.dtype == "void"
-    quda.invertQuda(h_x.ptr, h_b.ptr, &param.param)
+def loadGaugeQuda(h_gauge: Pointer, param: QudaGaugeParam) -> None:
+    ...
 
-def dslashQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param, quda.QudaParity parity):
-    assert h_out.dtype == "void"
-    assert h_in.dtype == "void"
-    quda.dslashQuda(h_out.ptr, h_in.ptr, &inv_param.param, parity)
 
-def cloverQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param, quda.QudaParity parity, int inverse):
-    assert h_out.dtype == "void"
-    assert h_in.dtype == "void"
-    quda.cloverQuda(h_out.ptr, h_in.ptr, &inv_param.param, parity, inverse)
+def freeGaugeQuda() -> None:
+    ...
 
-def MatQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param):
-    assert h_out.dtype == "void"
-    assert h_in.dtype == "void"
-    quda.MatQuda(h_out.ptr, h_in.ptr, &inv_param.param)
 
-def MatDagMatQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param):
-    assert h_out.dtype == "void"
-    assert h_in.dtype == "void"
-    quda.MatDagMatQuda(h_out.ptr, h_in.ptr, &inv_param.param)
+def saveGaugeQuda(h_gauge: Pointer, param: QudaGaugeParam) -> None:
+    ...
 
-def createCloverQuda(QudaInvertParam param):
-    quda.createCloverQuda(&param.param)
+
+def loadCloverQuda(h_clover: Pointer, h_clovinv: Pointer, inv_param: QudaInvertParam) -> None:
+    ...
+
+
+def freeCloverQuda() -> None:
+    ...
+
+
+def invertQuda(h_x: Pointer, h_b: Pointer, param: QudaInvertParam) -> None:
+    ...
+
+
+def dslashQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam, parity: enum_quda.QudaParity) -> None:
+    ...
+
+
+def cloverQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam, parity: enum_quda.QudaParity, inverse: int) -> None:
+    ...
+
+
+def MatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> None:
+    ...
+
+
+def MatDagMatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> None:
+    ...
+
+
+def createCloverQuda(param: QudaInvertParam) -> None:
+    ...
