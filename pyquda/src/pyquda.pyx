@@ -51,18 +51,27 @@ cdef class Pointer:
     cdef void* ptr
     cdef str dtype
 
-    def __init__(self, ndarray):
-        if isinstance(ndarray, str):
-            self.dtype = ndarray
-        else:
-            self.dtype = "void"
-            self.set_ptr_from_ndarray(numpy.ascontiguousarray(ndarray))
+    def __init__(self, dtype):
+        self.dtype = dtype
 
     cdef set_ptr(self, void *ptr):
         self.ptr = ptr
 
-    cdef set_ptr_from_ndarray(self, numpy.ndarray ndarray):
-        self.ptr = ndarray.data
+cdef class EvenPointer(Pointer):
+    def __init__(self, ndarray):
+        self.dtype = "void"
+        self.set_ptr_from_ndarray(ndarray)
+        
+    cdef set_ptr_from_ndarray(self, numpy.ndarray[numpy.float64_t, ndim=2] ndarray):
+        self.ptr = &ndarray[0, 0]
+
+cdef class OddPointer(Pointer):
+    def __init__(self, ndarray):
+        self.dtype = "void"
+        self.set_ptr_from_ndarray(ndarray)
+        
+    cdef set_ptr_from_ndarray(self, numpy.ndarray[numpy.float64_t, ndim=2] ndarray):
+        self.ptr = &ndarray[1, 0]
 
 cdef class QudaGaugeParam:
     cdef quda.QudaGaugeParam param

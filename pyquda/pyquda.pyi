@@ -6,28 +6,30 @@ size_t = int
 double = float
 double_complex = complex
 
-# from enum_quda import (
-#     QudaConstant, qudaError_t, QudaMemoryType, QudaLinkType, QudaGaugeFieldOrder, QudaTboundary, QudaPrecision, QudaReconstructType, QudaGaugeFixed,
-#     QudaDslashType, QudaInverterType, QudaEigType, QudaEigSpectrumType, QudaSolutionType, QudaSolveType, QudaMultigridCycleType, QudaSchwarzType,
-#     QudaResidualType, QudaCABasis, QudaMatPCType, QudaDagType, QudaMassNormalization, QudaSolverNormalization, QudaPreserveSource, QudaDiracFieldOrder,
-#     QudaCloverFieldOrder, QudaVerbosity, QudaTune, QudaPreserveDirac, QudaParity, QudaDiracType, QudaFieldLocation, QudaSiteSubset, QudaSiteOrder,
-#     QudaFieldOrder, QudaFieldCreate, QudaGammaBasis, QudaSourceType, QudaNoiseType, QudaProjectionType, QudaPCType, QudaTwistFlavorType, QudaTwistDslashType,
-#     QudaTwistCloverDslashType, QudaTwistGamma5Type, QudaUseInitGuess, QudaDeflatedGuess, QudaComputeNullVector, QudaSetupType, QudaTransferType, QudaBoolean,
-#     QUDA_BOOLEAN_NO, QUDA_BOOLEAN_YES, QudaBLASOperation, QudaBLASDataType, QudaBLASDataOrder, QudaDirection, QudaLinkDirection, QudaFieldGeometry,
-#     QudaGhostExchange, QudaStaggeredPhase, QudaContractType, QudaContractGamma, QudaWFlowType, QudaExtLibType
-# )
-
-from enum_quda import (
-    QudaConstant, QudaMemoryType, QudaLinkType, QudaGaugeFieldOrder, QudaTboundary, QudaPrecision, QudaReconstructType, QudaGaugeFixed, QudaDslashType,
-    QudaInverterType, QudaEigType, QudaEigSpectrumType, QudaSolutionType, QudaSolveType, QudaMultigridCycleType, QudaSchwarzType, QudaResidualType,
-    QudaCABasis, QudaMatPCType, QudaDagType, QudaMassNormalization, QudaSolverNormalization, QudaPreserveSource, QudaDiracFieldOrder, QudaCloverFieldOrder,
-    QudaVerbosity, QudaTune, QudaParity, QudaFieldLocation, QudaGammaBasis, QudaTwistFlavorType, QudaUseInitGuess, QudaComputeNullVector, QudaSetupType,
-    QudaTransferType, QudaBoolean, QudaBLASOperation, QudaBLASDataType, QudaBLASDataOrder, QudaStaggeredPhase, QudaExtLibType
+from enum_quda import (  # noqa: F401
+    QudaConstant, qudaError_t, QudaMemoryType, QudaLinkType, QudaGaugeFieldOrder, QudaTboundary, QudaPrecision, QudaReconstructType, QudaGaugeFixed,
+    QudaDslashType, QudaInverterType, QudaEigType, QudaEigSpectrumType, QudaSolutionType, QudaSolveType, QudaMultigridCycleType, QudaSchwarzType,
+    QudaResidualType, QudaCABasis, QudaMatPCType, QudaDagType, QudaMassNormalization, QudaSolverNormalization, QudaPreserveSource, QudaDiracFieldOrder,
+    QudaCloverFieldOrder, QudaVerbosity, QudaTune, QudaPreserveDirac, QudaParity, QudaDiracType, QudaFieldLocation, QudaSiteSubset, QudaSiteOrder,
+    QudaFieldOrder, QudaFieldCreate, QudaGammaBasis, QudaSourceType, QudaNoiseType, QudaProjectionType, QudaPCType, QudaTwistFlavorType, QudaTwistDslashType,
+    QudaTwistCloverDslashType, QudaTwistGamma5Type, QudaUseInitGuess, QudaDeflatedGuess, QudaComputeNullVector, QudaSetupType, QudaTransferType, QudaBoolean,
+    QUDA_BOOLEAN_NO, QUDA_BOOLEAN_YES, QudaBLASOperation, QudaBLASDataType, QudaBLASDataOrder, QudaDirection, QudaLinkDirection, QudaFieldGeometry,
+    QudaGhostExchange, QudaStaggeredPhase, QudaContractType, QudaContractGamma, QudaWFlowType, QudaExtLibType
 )
 
 
 class Pointer:
-    def __init__(self, ndarray: Union[str, numpy.ndarray]):
+    def __init__(self, ndarray: str):
+        ...
+
+
+class EvenPointer(Pointer):
+    def __init__(self, ndarray: numpy.ndarray):
+        ...
+
+
+class OddPointer(Pointer):
+    def __init__(self, ndarray: numpy.ndarray):
         ...
 
 
