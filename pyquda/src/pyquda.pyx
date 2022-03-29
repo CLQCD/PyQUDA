@@ -1204,7 +1204,7 @@ cdef class QudaInvertParam:
 
     @preconditioner.setter
     def preconditioner(self, value):
-        self.set_preconditioner
+        self.set_preconditioner(value)
 
     cdef set_preconditioner(self, Pointer value):
         assert value.dtype == "void"
@@ -1218,7 +1218,7 @@ cdef class QudaInvertParam:
 
     @deflation_op.setter
     def deflation_op(self, value):
-        self.set_deflation_op
+        self.set_deflation_op(value)
 
     cdef set_deflation_op(self, Pointer value):
         assert value.dtype == "void"
@@ -1232,7 +1232,7 @@ cdef class QudaInvertParam:
 
     @eig_param.setter
     def eig_param(self, value):
-        self.set_eig_param
+        self.set_eig_param(value)
 
     cdef set_eig_param(self, Pointer value):
         assert value.dtype == "void"
@@ -1538,7 +1538,7 @@ cdef class QudaMultigridParam:
             self.set_eig_param(value[i], i)
 
     cdef set_eig_param(self, QudaEigParam value, int i):
-        self.param.eig_param[i] = &(value.param)
+        self.param.eig_param[i] = &value.param
 
     @property
     def n_level(self):
