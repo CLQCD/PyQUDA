@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List
 
 import numpy
 
@@ -7,14 +7,17 @@ double = float
 double_complex = complex
 
 from enum_quda import (  # noqa: F401
-    QudaConstant, qudaError_t, QudaMemoryType, QudaLinkType, QudaGaugeFieldOrder, QudaTboundary, QudaPrecision, QudaReconstructType, QudaGaugeFixed,
-    QudaDslashType, QudaInverterType, QudaEigType, QudaEigSpectrumType, QudaSolutionType, QudaSolveType, QudaMultigridCycleType, QudaSchwarzType,
-    QudaResidualType, QudaCABasis, QudaMatPCType, QudaDagType, QudaMassNormalization, QudaSolverNormalization, QudaPreserveSource, QudaDiracFieldOrder,
-    QudaCloverFieldOrder, QudaVerbosity, QudaTune, QudaPreserveDirac, QudaParity, QudaDiracType, QudaFieldLocation, QudaSiteSubset, QudaSiteOrder,
-    QudaFieldOrder, QudaFieldCreate, QudaGammaBasis, QudaSourceType, QudaNoiseType, QudaProjectionType, QudaPCType, QudaTwistFlavorType, QudaTwistDslashType,
-    QudaTwistCloverDslashType, QudaTwistGamma5Type, QudaUseInitGuess, QudaDeflatedGuess, QudaComputeNullVector, QudaSetupType, QudaTransferType, QudaBoolean,
-    QUDA_BOOLEAN_NO, QUDA_BOOLEAN_YES, QudaBLASOperation, QudaBLASDataType, QudaBLASDataOrder, QudaDirection, QudaLinkDirection, QudaFieldGeometry,
-    QudaGhostExchange, QudaStaggeredPhase, QudaContractType, QudaContractGamma, QudaWFlowType, QudaExtLibType
+    QudaConstant, qudaError_t, QudaMemoryType, QudaLinkType, QudaGaugeFieldOrder, QudaTboundary, QudaPrecision,
+    QudaReconstructType, QudaGaugeFixed, QudaDslashType, QudaInverterType, QudaEigType, QudaEigSpectrumType,
+    QudaSolutionType, QudaSolveType, QudaMultigridCycleType, QudaSchwarzType, QudaResidualType, QudaCABasis,
+    QudaMatPCType, QudaDagType, QudaMassNormalization, QudaSolverNormalization, QudaPreserveSource,
+    QudaDiracFieldOrder, QudaCloverFieldOrder, QudaVerbosity, QudaTune, QudaPreserveDirac, QudaParity, QudaDiracType,
+    QudaFieldLocation, QudaSiteSubset, QudaSiteOrder, QudaFieldOrder, QudaFieldCreate, QudaGammaBasis, QudaSourceType,
+    QudaNoiseType, QudaProjectionType, QudaPCType, QudaTwistFlavorType, QudaTwistDslashType, QudaTwistCloverDslashType,
+    QudaTwistGamma5Type, QudaUseInitGuess, QudaDeflatedGuess, QudaComputeNullVector, QudaSetupType, QudaTransferType,
+    QudaBoolean, QUDA_BOOLEAN_NO, QUDA_BOOLEAN_YES, QudaBLASOperation, QudaBLASDataType, QudaBLASDataOrder,
+    QudaDirection, QudaLinkDirection, QudaFieldGeometry, QudaGhostExchange, QudaStaggeredPhase, QudaContractType,
+    QudaContractGamma, QudaWFlowType, QudaExtLibType,
 )
 
 
@@ -260,8 +263,8 @@ class QudaEigParam:
     batched_rotate: int
     block_size: int
     arpack_check: QudaBoolean
-    arpack_logfile: str[512]
-    QUDA_logfile: str[512]
+    arpack_logfile: bytes[512]
+    QUDA_logfile: bytes[512]
     nk: int
     np: int
     import_vectors: QudaBoolean
@@ -269,8 +272,8 @@ class QudaEigParam:
     mem_type_ritz: QudaMemoryType
     location: QudaFieldLocation
     run_verify: QudaBoolean
-    vec_infile: str[256]
-    vec_outfile: str[256]
+    vec_infile: bytes[256]
+    vec_outfile: bytes[256]
     save_prec: QudaPrecision
     io_parity_inflate: QudaBoolean
     gflops: double
@@ -336,9 +339,9 @@ class QudaMultigridParam:
     run_low_mode_check: QudaBoolean
     run_oblique_proj_check: QudaBoolean
     vec_load: List[QudaBoolean, QudaConstant.QUDA_MAX_MG_LEVEL]
-    vec_infile: List[str[256], QudaConstant.QUDA_MAX_MG_LEVEL]
+    vec_infile: List[bytes[256], QudaConstant.QUDA_MAX_MG_LEVEL]
     vec_store: List[QudaBoolean, QudaConstant.QUDA_MAX_MG_LEVEL]
-    vec_outfile: List[str[256], QudaConstant.QUDA_MAX_MG_LEVEL]
+    vec_outfile: List[bytes[256], QudaConstant.QUDA_MAX_MG_LEVEL]
     coarse_guess: QudaBoolean
     preserve_deflation: QudaBoolean
     gflops: double
