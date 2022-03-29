@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from pyquda import quda
+from pyquda import quda, LatticeGauge, LatticeFermion
 from pyquda.enum_quda import (
     QudaDagType, QudaDiracFieldOrder, QudaDslashType, QudaGammaBasis, QudaGaugeFieldOrder, QudaGaugeFixed, QudaInverterType, QudaLinkType,
     QudaMassNormalization, QudaMatPCType, QudaParity, QudaPrecision, QudaPreserveSource, QudaReconstructType, QudaSolutionType, QudaSolveType, QudaTboundary,
@@ -71,33 +71,30 @@ Seo = (Sx + Sy + Sz + St) % 2
 
 quda.initQuda(0)
 
-gauge = np.identity(Nc, "<c16").reshape(1, -1).repeat(Nd * Vol, 0).view("<f8").reshape(Nd, 2, Lt, -1)
+gauge = LatticeGauge([Lx, Ly, Lz, Lt], np.identity(Nc, "<c16").reshape(1, -1).repeat(Nd * Vol, 0).view("<f8").reshape(-1))
 if gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
-    gauge[Nd - 1, :, -1] *= -1
-gauge = gauge.reshape(Nd, -1)
-quda.loadGaugeQuda(quda.getPointerArray(gauge), gauge_param)
+    gauge.setAntiPeroidicT()
+quda.loadGaugeQuda(gauge.ptr, gauge_param)
 
 propagator = np.zeros((Vol, Ns, Ns, Nc, Nc, 2))
 for spin in range(Ns):
     for color in range(Nc):
-        x = np.zeros((2, Vol // 2 * Ns * Nc * 2))
-        b = np.zeros((2, Vol // 2 * Ns * Nc * 2))
-        tmp = np.zeros((2, Vol // 2 * Ns * Nc * 2))
+        x = LatticeFermion([Lx, Ly, Lz, Lt])
+        b = LatticeFermion([Lx, Ly, Lz, Lt])
+        tmp = LatticeFermion([Lx, Ly, Lz, Lt])
 
-        b = b.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc, 2)
-        b[Seo, St, Sz, Sy, Sx // 2, spin, color, 0] = 1
-        b = b.reshape(2, -1)
+        b[St, Sz, Sy, Sx, spin, color] = 1
 
-        quda.dslashQuda(quda.OddPointer(tmp), quda.EvenPointer(b), quda_inv_param, QudaParity.QUDA_ODD_PARITY)
-        b[1] += quda_inv_param.kappa * tmp[1]
+        quda.dslashQuda(tmp.odd_ptr, b.even_ptr, quda_inv_param, QudaParity.QUDA_ODD_PARITY)
+        b.odd += quda_inv_param.kappa * tmp.odd
 
-        quda.invertQuda(quda.OddPointer(x), quda.OddPointer(b), quda_inv_param)
-        x[0] = 2 * quda_inv_param.kappa * b[0]
+        quda.invertQuda(x.odd_ptr, b.odd_ptr, quda_inv_param)
+        x.even = 2 * quda_inv_param.kappa * b.even
 
-        quda.dslashQuda(quda.EvenPointer(tmp), quda.OddPointer(x), quda_inv_param, QudaParity.QUDA_EVEN_PARITY)
-        x[0] += quda_inv_param.kappa * tmp[0]
+        quda.dslashQuda(tmp.even_ptr, x.odd_ptr, quda_inv_param, QudaParity.QUDA_EVEN_PARITY)
+        x.even += quda_inv_param.kappa * tmp.even
 
-        propagator[:, spin, :, color, :] = x.reshape(Vol, Ns, Nc, 2)
+        propagator[:, spin, :, color, :] = x.data.reshape(Vol, Ns, Nc, 2)
 
 quda.endQuda()
 
