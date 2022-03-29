@@ -43,12 +43,12 @@ def getPointerArray(ndarrays):
     cdef double *ret[4]
     for i in range(4):
         ret[i] = <double *>&data[i, 0]
-    ptr = Pointer("void")
-    ptr.set_ptr(<void *>(&ret[0]))
+    ptr = Pointers("void")
+    ptr.set_ptr(<void **>ret, 4)
     return ptr
 
 cdef class Pointer:
-    cdef void* ptr
+    cdef void *ptr
     cdef str dtype
 
     def __init__(self, dtype):
@@ -56,6 +56,17 @@ cdef class Pointer:
 
     cdef set_ptr(self, void *ptr):
         self.ptr = ptr
+
+cdef class Pointers:
+    cdef void *ptr[32]
+    cdef str dtype
+
+    def __init__(self, dtype):
+        self.dtype = dtype
+
+    cdef set_ptr(self, void **ptr, int n):
+        for i in range(n):
+            self.ptr[i] = ptr[i]
 
 cdef class EvenPointer(Pointer):
     def __init__(self, ndarray):
@@ -2675,9 +2686,9 @@ def initQuda(int device):
 def endQuda():
     quda.endQuda()
 
-def loadGaugeQuda(Pointer h_gauge, QudaGaugeParam param):
+def loadGaugeQuda(Pointers h_gauge, QudaGaugeParam param):
     assert h_gauge.dtype == "void"
-    quda.loadGaugeQuda(h_gauge.ptr, &param.param)
+    quda.loadGaugeQuda(<void *>h_gauge.ptr, &param.param)
 
 def freeGaugeQuda():
     quda.freeGaugeQuda()
