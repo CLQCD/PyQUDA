@@ -96,7 +96,7 @@ quda_inv_param.clover_cuda_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
 quda_inv_param.clover_cuda_prec_sloppy = QudaPrecision.QUDA_HALF_PRECISION
 quda_inv_param.clover_cuda_prec_precondition = QudaPrecision.QUDA_HALF_PRECISION
 
-quda_inv_param.clover_order = QudaCloverFieldOrder.QUDA_FLOAT_CLOVER_ORDER
+quda_inv_param.clover_order = QudaCloverFieldOrder.QUDA_PACKED_CLOVER_ORDER
 
 quda_inv_param.tune = QudaTune.QUDA_TUNE_YES
 
