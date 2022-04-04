@@ -9,4 +9,3 @@ dist
 *.egg-info
 MANIFEST
 utils
-*.xml
