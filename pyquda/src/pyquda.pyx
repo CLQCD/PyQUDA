@@ -73,7 +73,7 @@ cdef class EvenPointer(Pointer):
         self.dtype = "void"
         self.set_ptr_from_ndarray(ndarray)
         
-    cdef set_ptr_from_ndarray(self, numpy.ndarray[numpy.float64_t, ndim=2] ndarray):
+    cdef set_ptr_from_ndarray(self, numpy.ndarray[numpy.complex128_t, ndim=2] ndarray):
         self.ptr = &ndarray[0, 0]
 
 cdef class OddPointer(Pointer):
@@ -81,7 +81,7 @@ cdef class OddPointer(Pointer):
         self.dtype = "void"
         self.set_ptr_from_ndarray(ndarray)
         
-    cdef set_ptr_from_ndarray(self, numpy.ndarray[numpy.float64_t, ndim=2] ndarray):
+    cdef set_ptr_from_ndarray(self, numpy.ndarray[numpy.complex128_t, ndim=2] ndarray):
         self.ptr = &ndarray[1, 0]
 
 cdef class QudaGaugeParam:

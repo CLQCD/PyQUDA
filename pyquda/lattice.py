@@ -20,11 +20,11 @@ Ns = LatticeConstant.Ns
 def newLatticeFieldData(lattSize: List[int], dtype: str) -> np.ndarray:
     Lx, Ly, Lz, Lt = lattSize
     if dtype.capitalize() == "Gauge":
-        return np.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc, 2))
+        return np.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
     elif dtype.capitalize() == "Fermion":
-        return np.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc, 2))
+        return np.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
     elif dtype.capitalize() == "Propagator":
-        return np.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc, 2))
+        return np.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), "<c16")
 
 
 class LatticeField:
@@ -55,15 +55,6 @@ class LatticeFermion(LatticeField):
     def __init__(self, lattSize: List[int]) -> None:
         self.lattSize = lattSize
         self.data = newLatticeFieldData(lattSize, "Fermion").reshape(-1)
-
-    def __setitem__(self, key, value):
-        t, z, y, x, s, c = key
-        Lx, Ly, Lz, Lt = self.lattSize
-        eo = (x + y + z + t) % 2
-        data = self.data.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc, 2)
-        data[eo, t, z, y, x // 2, s, c, 0] = value.real
-        data[eo, t, z, y, x // 2, s, c, 1] = value.imag
-        self.data = data.reshape(-1)
 
     @property
     def even(self):
