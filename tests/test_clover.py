@@ -158,7 +158,7 @@ for spin in range(Ns):
         tmp2.even *= -kappa
         x.even = tmp.even - tmp2.even
 
-        propagator[:, spin, :, color, :] = x.data.reshape(Vol, Ns, Nc)
+        propagator[:, spin, :, color, :] = x.data.reshape(Vol, Ns, Nc).get()
 
 quda.endQuda()
 

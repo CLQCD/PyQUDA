@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import cupy as cp
 from pyquda import core, gauge_utils, LatticePropagator
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
@@ -31,5 +32,5 @@ for spin in range(Ns):
 
 inverter.endQuda()
 
-propagator_chroma = np.fromfile("wl_prop_1", ">c16", offset=8).reshape(Vol, Ns, Ns, Nc, Nc)
-print(np.linalg.norm(propagator.data.reshape(Vol, Ns, Ns, Nc, Nc) - propagator_chroma))
+propagator_chroma = cp.array(np.fromfile("wl_prop_1", ">c16", offset=8).astype("<c16")).reshape(Vol, Ns, Ns, Nc, Nc)
+print(cp.linalg.norm(propagator.data.reshape(Vol, Ns, Ns, Nc, Nc) - propagator_chroma))
