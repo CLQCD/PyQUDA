@@ -8,6 +8,7 @@ import cython
 
 import numpy
 cimport numpy
+import cupy
 
 cimport quda
 
@@ -38,11 +39,27 @@ def redirect_stdout(stream):
         tfile.close()
         os.close(saved_stdout_fd)
 
-def getGaugePointer(ndarrays):
-    cdef numpy.complex128_t[:, :] data = numpy.ascontiguousarray(ndarrays)
-    cdef double *ret[4]
-    for i in range(4):
-        ret[i] = <double *>&data[i, 0]
+# def getGaugePointer(ndarrays):
+#     cdef numpy.complex128_t[:, :] data = numpy.ascontiguousarray(ndarrays)
+#     cdef double *ret[4]
+#     for i in range(4):
+#         ret[i] = <double *>&data[i, 0]
+#     ptr = Pointers("void")
+#     ptr.set_ptr(<void **>ret, 4)
+#     return ptr
+
+def getGaugePointer(gauge):
+    cdef size_t tmp
+    cdef void *ret[4]
+    cdef double complex[:, :] data
+    if isinstance(gauge, numpy.ndarray):
+        data = gauge
+        for i in range(4):
+            ret[i] = <void *>&data[i, 0]
+    elif isinstance(gauge, cupy.ndarray):
+        for i in range(4):
+            tmp = gauge[i].data.ptr
+            ret[i] = <void *>tmp
     ptr = Pointers("void")
     ptr.set_ptr(<void **>ret, 4)
     return ptr
@@ -71,18 +88,32 @@ cdef class Pointers:
 cdef class EvenPointer(Pointer):
     def __init__(self, ndarray):
         self.dtype = "void"
-        self.set_ptr_from_ndarray(ndarray)
-        
-    cdef set_ptr_from_ndarray(self, numpy.ndarray[numpy.complex128_t, ndim=2] ndarray):
+        if isinstance(ndarray, numpy.ndarray):
+            self.set_ptr_from_numpy(ndarray)
+        elif isinstance(ndarray, cupy.ndarray):
+            self.set_ptr_from_cupy(ndarray)
+
+    cdef set_ptr_from_numpy(self, numpy.ndarray[numpy.complex128_t, ndim=2] ndarray):
         self.ptr = &ndarray[0, 0]
+
+    cdef set_ptr_from_cupy(self, ndarray):
+        cdef size_t tmp = ndarray[0].data.ptr
+        self.ptr = <void *>tmp
 
 cdef class OddPointer(Pointer):
     def __init__(self, ndarray):
         self.dtype = "void"
-        self.set_ptr_from_ndarray(ndarray)
-        
-    cdef set_ptr_from_ndarray(self, numpy.ndarray[numpy.complex128_t, ndim=2] ndarray):
+        if isinstance(ndarray, numpy.ndarray):
+            self.set_ptr_from_numpy(ndarray)
+        elif isinstance(ndarray, cupy.ndarray):
+            self.set_ptr_from_cupy(ndarray)
+
+    cdef set_ptr_from_numpy(self, numpy.ndarray[numpy.complex128_t, ndim=2] ndarray):
         self.ptr = &ndarray[1, 0]
+
+    cdef set_ptr_from_cupy(self, ndarray):
+        cdef size_t tmp = ndarray[1].data.ptr
+        self.ptr = <void *>tmp
 
 cdef class QudaGaugeParam:
     cdef quda.QudaGaugeParam param

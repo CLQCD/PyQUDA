@@ -2,6 +2,7 @@ from typing import List, Union
 from enum import IntEnum
 from math import sqrt
 import numpy as np
+import cupy as cp
 
 from .pyquda import (
     Pointer, getGaugePointer, EvenPointer, OddPointer, QudaGaugeParam, QudaInvertParam, initQuda, endQuda,
@@ -33,14 +34,14 @@ Nd = LatticeConstant.Nd
 Ns = LatticeConstant.Ns
 
 
-def newLatticeFieldData(latt_size: List[int], dtype: str) -> np.ndarray:
+def newLatticeFieldData(latt_size: List[int], dtype: str) -> cp.ndarray:
     Lx, Ly, Lz, Lt = latt_size
     if dtype.capitalize() == "Gauge":
-        return np.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
+        return cp.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
     elif dtype.capitalize() == "Fermion":
-        return np.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
+        return cp.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
     elif dtype.capitalize() == "Propagator":
-        return np.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), "<c16")
+        return cp.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), "<c16")
 
 
 class LatticeField:

@@ -5,6 +5,7 @@ from typing import Dict, List, Tuple
 from xml.etree import ElementTree as ET
 
 import numpy as np
+import cupy as cp
 
 from .core import Nc, Nd, Ns, LatticeGauge
 
@@ -56,7 +57,7 @@ def readIldg(filename: str):
                     gauge[:, 0, t, z, y, :, :, :] = gauge_raw[t, z, y, 1::2, :, :, :].transpose(1, 0, 2, 3)
                     gauge[:, 1, t, z, y, :, :, :] = gauge_raw[t, z, y, 0::2, :, :, :].transpose(1, 0, 2, 3)
 
-    return LatticeGauge(latt_size, gauge)
+    return LatticeGauge(latt_size, cp.array(gauge))
 
 
 def readIldgBin(filename: str, dtype: str, latt_size: List[int]):
@@ -75,4 +76,4 @@ def readIldgBin(filename: str, dtype: str, latt_size: List[int]):
                     gauge[:, 0, t, z, y, :, :, :] = gauge_raw[t, z, y, 1::2, :, :, :].transpose(1, 0, 2, 3)
                     gauge[:, 1, t, z, y, :, :, :] = gauge_raw[t, z, y, 0::2, :, :, :].transpose(1, 0, 2, 3)
 
-    return LatticeGauge(latt_size, gauge)
+    return LatticeGauge(latt_size, cp.array(gauge))
