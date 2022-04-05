@@ -22,7 +22,12 @@ from enum_quda import (  # noqa: F401
 
 
 class Pointer:
-    def __init__(self, ndarray: str):
+    def __init__(self, dtype: str):
+        ...
+
+
+class Pointers:
+    def __init__(self, dtype: str):
         ...
 
 
@@ -36,7 +41,7 @@ class OddPointer(Pointer):
         ...
 
 
-def getPointerArray(ndarrays) -> Pointer:
+def getGaugePointer(ndarrays) -> Pointers:
     ...
 
 

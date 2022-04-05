@@ -38,8 +38,8 @@ def redirect_stdout(stream):
         tfile.close()
         os.close(saved_stdout_fd)
 
-def getPointerArray(ndarrays):
-    cdef double[:, :] data = numpy.ascontiguousarray(ndarrays)
+def getGaugePointer(ndarrays):
+    cdef numpy.complex128_t[:, :] data = numpy.ascontiguousarray(ndarrays)
     cdef double *ret[4]
     for i in range(4):
         ret[i] = <double *>&data[i, 0]
