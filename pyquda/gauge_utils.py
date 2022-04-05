@@ -56,7 +56,7 @@ def readIldg(filename: str):
                     gauge[:, 0, t, z, y, :, :, :] = gauge_raw[t, z, y, 1::2, :, :, :].transpose(1, 0, 2, 3)
                     gauge[:, 1, t, z, y, :, :, :] = gauge_raw[t, z, y, 0::2, :, :, :].transpose(1, 0, 2, 3)
 
-    return LatticeGauge(latt_size, gauge.reshape(-1))
+    return LatticeGauge(latt_size, gauge)
 
 
 def readIldgBin(filename: str, dtype: str, latt_size: List[int]):
@@ -75,4 +75,4 @@ def readIldgBin(filename: str, dtype: str, latt_size: List[int]):
                     gauge[:, 0, t, z, y, :, :, :] = gauge_raw[t, z, y, 1::2, :, :, :].transpose(1, 0, 2, 3)
                     gauge[:, 1, t, z, y, :, :, :] = gauge_raw[t, z, y, 0::2, :, :, :].transpose(1, 0, 2, 3)
 
-    return LatticeGauge(latt_size, gauge.reshape(-1))
+    return LatticeGauge(latt_size, gauge)
