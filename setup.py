@@ -13,7 +13,7 @@ ext_modules = cythonize(
             ["pyquda/src/pyquda.pyx"],
             language="c",
             include_dirs=["pyquda/include", numpy.get_include()],
-            define_macros=[("NPY_NO_DEPRECATED_API", 0)],
+            define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
             library_dirs=["."],
             libraries=["quda"],
         )
