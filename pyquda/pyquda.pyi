@@ -466,3 +466,23 @@ def MatDagMatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> 
 
 def createCloverQuda(param: QudaInvertParam) -> None:
     ...
+
+
+def plaqQuda(plaq: List[double, 3]) -> None:
+    ...
+
+
+def performAPEnStep(n_steps: int, alpha: double, meas_interval: int):
+    ...
+
+
+def performSTOUTnStep(n_steps: int, rho: double, meas_interval: int):
+    ...
+
+
+def performOvrImpSTOUTnStep(n_steps: int, rho: double, epsilon: double, meas_interval: int):
+    ...
+
+
+def performWFlownStep(n_steps: int, step_size: double, meas_interval: int, wflow_type: QudaWFlowType):
+    ...

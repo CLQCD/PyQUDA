@@ -39,15 +39,6 @@ def redirect_stdout(stream):
         tfile.close()
         os.close(saved_stdout_fd)
 
-# def getGaugePointer(ndarrays):
-#     cdef numpy.complex128_t[:, :] data = numpy.ascontiguousarray(ndarrays)
-#     cdef double *ret[4]
-#     for i in range(4):
-#         ret[i] = <double *>&data[i, 0]
-#     ptr = Pointers("void")
-#     ptr.set_ptr(<void **>ret, 4)
-#     return ptr
-
 def getGaugePointer(gauge):
     cdef size_t tmp
     cdef void *ret[4]
@@ -2717,6 +2708,9 @@ def initQuda(int device):
 def endQuda():
     quda.endQuda()
 
+def updateR():
+    quda.updateR()
+
 def loadGaugeQuda(Pointers h_gauge, QudaGaugeParam param):
     assert h_gauge.dtype == "void"
     quda.loadGaugeQuda(<void *>h_gauge.ptr, &param.param)
@@ -2724,7 +2718,7 @@ def loadGaugeQuda(Pointers h_gauge, QudaGaugeParam param):
 def freeGaugeQuda():
     quda.freeGaugeQuda()
 
-def saveGaugeQuda(Pointer h_gauge, QudaGaugeParam param):
+def saveGaugeQuda(Pointers h_gauge, QudaGaugeParam param):
     assert h_gauge.dtype == "void"
     quda.saveGaugeQuda(h_gauge.ptr, &param.param)
 
@@ -2736,15 +2730,32 @@ def loadCloverQuda(Pointer h_clover, Pointer h_clovinv, QudaInvertParam inv_para
 def freeCloverQuda():
     quda.freeCloverQuda()
 
+# def lanczosQuda(int k0, int m, Pointer hp_Apsi, Pointer hp_r, Pointer hp_V, Pointer hp_alpha, Pointer hp_beta, QudaEigParam eig_param)
+# def eigensolveQuda(Pointers h_evecs, Pointer<double_complex> h_evals, QudaEigParam param)
+
 def invertQuda(Pointer h_x, Pointer h_b, QudaInvertParam param):
     assert h_x.dtype == "void"
     assert h_b.dtype == "void"
     quda.invertQuda(h_x.ptr, h_b.ptr, &param.param)
+    
+# def invertMultiSrcQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, Pointer h_gauge, QudaGaugeParam gauge_param)
+# def invertMultiSrcStaggeredQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, Pointer milc_fatlinks, Pointer milc_longlinks, QudaGaugeParam gauge_param)
+# def invertMultiSrcCloverQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, Pointer h_gauge, QudaGaugeParam gauge_param, Pointer h_clover, Pointer h_clovinv)
+# def invertMultiShiftQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param)
+
+# def newMultigridQuda(QudaMultigridParam param) -> Pointer
+# def destroyMultigridQuda(Pointer mg_instance)
+# def updateMultigridQuda(Pointer mg_instance, QudaMultigridParam param)
+# def dumpMultigridQuda(Pointer mg_instance, QudaMultigridParam param)
 
 def dslashQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param, quda.QudaParity parity):
     assert h_out.dtype == "void"
     assert h_in.dtype == "void"
     quda.dslashQuda(h_out.ptr, h_in.ptr, &inv_param.param, parity)
+
+# def dslashMultiSrcQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, QudaParity parity, Pointer h_gauge, QudaGaugeParam gauge_param)
+# def dslashMultiSrcStaggeredQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, QudaParity parity, Pointers milc_fatlinks, Pointers milc_longlinks, QudaGaugeParam gauge_param)
+# def dslashMultiSrcCloverQuda(Pointers_hp_x, Pointers_hp_b, QudaInvertParam param, QudaParity parity, Pointer h_gauge, QudaGaugeParam gauge_param, Pointer h_clover, Pointer h_clovinv)
 
 def cloverQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param, quda.QudaParity parity, int inverse):
     assert h_out.dtype == "void"
@@ -2761,5 +2772,72 @@ def MatDagMatQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param):
     assert h_in.dtype == "void"
     quda.MatDagMatQuda(h_out.ptr, h_in.ptr, &inv_param.param)
 
+# void set_dim(int *)
+# void pack_ghost(void **cpuLink, void **cpuGhost, int nFace, QudaPrecision precision)
+# void computeKSLinkQuda(void* fatlink, void* longlink, void* ulink, void* inlink, double *path_coeff, QudaGaugeParam *param)
+
+# void momResidentQuda(void *mom, QudaGaugeParam *param)
+# int computeGaugeForceQuda(void* mom, void* sitelink,  int*** input_path_buf, int* path_length, double* loop_coeff, int num_paths, int max_length, double dt, QudaGaugeParam* qudaGaugeParam)
+# void updateGaugeFieldQuda(void* gauge, void* momentum, double dt, int conj_mom, int exact, QudaGaugeParam* param)
+# void staggeredPhaseQuda(void *gauge_h, QudaGaugeParam *param)
+# void projectSU3Quda(void *gauge_h, double tol, QudaGaugeParam *param)
+# double momActionQuda(void* momentum, QudaGaugeParam* param)
+
+# void* createGaugeFieldQuda(void* gauge, int geometry, QudaGaugeParam* param)
+# void saveGaugeFieldQuda(void* outGauge, void* inGauge, QudaGaugeParam* param)
+# void destroyGaugeFieldQuda(void* gauge)
+
 def createCloverQuda(QudaInvertParam param):
     quda.createCloverQuda(&param.param)
+
+# void computeCloverForceQuda(void *mom, double dt, void **x, void **p, double *coeff, double kappa2, double ck, int nvector, double multiplicity, void *gauge, QudaGaugeParam *gauge_param, QudaInvertParam *inv_param)
+# void computeStaggeredForceQuda(void *mom, double dt, double delta, void *gauge, void **x, QudaGaugeParam *gauge_param, QudaInvertParam *invert_param)
+# void computeHISQForceQuda(void* momentum, double dt, const double level2_coeff[6], const double fat7_coeff[6], const void* const w_link, const void* const v_link, const void* const u_link, void** quark, int num, int num_naik, double** coeff, QudaGaugeParam* param)
+
+# void gaussGaugeQuda(unsigned long long seed, double sigma)
+
+def plaqQuda(list plaq):
+    cdef double c_plaq[3]
+    quda.plaqQuda(c_plaq)
+    for i in range(3):
+        plaq[i] = c_plaq[i]
+
+# void copyExtendedResidentGaugeQuda(void* resident_gauge, QudaFieldLocation loc)
+
+# void performWuppertalnStep(void *h_out, void *h_in, QudaInvertParam *param, unsigned int n_steps, double alpha)
+
+def performAPEnStep(unsigned int n_steps, double alpha, int meas_interval):
+    quda.performAPEnStep(n_steps, alpha, meas_interval)
+
+def performSTOUTnStep(unsigned int n_steps, double rho, int meas_interval):
+    quda.performSTOUTnStep(n_steps, rho, meas_interval)
+
+def performOvrImpSTOUTnStep(unsigned int n_steps, double rho, double epsilon, int meas_interval):
+    quda.performOvrImpSTOUTnStep(n_steps, rho, epsilon, meas_interval)
+
+def performWFlownStep(unsigned int n_steps, double step_size, int meas_interval, quda.QudaWFlowType wflow_type):
+    quda.performWFlownStep(n_steps, step_size, meas_interval, wflow_type)
+
+# void gaugeObservablesQuda(QudaGaugeObservableParam *param)
+
+# void contractQuda(const void *x, const void *y, void *result, const QudaContractType cType, QudaInvertParam *param,
+#                     const int *X)
+
+# int computeGaugeFixingOVRQuda(void *gauge, const unsigned int gauge_dir, const unsigned int Nsteps,
+#                                 const unsigned int verbose_interval, const double relax_boost, const double tolerance,
+#                                 const unsigned int reunit_interval, const unsigned int stopWtheta,
+#                                 QudaGaugeParam *param, double *timeinfo)
+# int computeGaugeFixingFFTQuda(void *gauge, const unsigned int gauge_dir, const unsigned int Nsteps,
+#                                 const unsigned int verbose_interval, const double alpha, const unsigned int autotune,
+#                                 const double tolerance, const unsigned int stopWtheta, QudaGaugeParam *param,
+#                                 double *timeinfo)
+
+# void blasGEMMQuda(void *arrayA, void *arrayB, void *arrayC, QudaBoolean native, QudaBLASParam *param)
+
+# void flushChronoQuda(int index)
+
+# void openMagma()
+# void closeMagma()
+
+# void* newDeflationQuda(QudaEigParam *param)
+# void destroyDeflationQuda(void *df_instance)

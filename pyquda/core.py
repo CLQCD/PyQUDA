@@ -5,8 +5,8 @@ import numpy as np
 import cupy as cp
 
 from .pyquda import (
-    Pointer, getGaugePointer, EvenPointer, OddPointer, QudaGaugeParam, QudaInvertParam, initQuda, endQuda,
-    loadCloverQuda, loadGaugeQuda, invertQuda, dslashQuda, cloverQuda
+    Pointer, getGaugePointer, EvenPointer, OddPointer, QudaGaugeParam, QudaInvertParam, loadCloverQuda, loadGaugeQuda,
+    invertQuda, dslashQuda, cloverQuda
 )
 from .enum_quda import (  # noqa: F401
     QudaConstant, qudaError_t, QudaMemoryType, QudaLinkType, QudaGaugeFieldOrder, QudaTboundary, QudaPrecision,
@@ -58,10 +58,13 @@ class LatticeGauge(LatticeField):
             self.data = value.reshape(-1)
 
     def setAntiPeroidicT(self):
-        Lx, Ly, Lz, Lt = self.latt_size
+        Lt = self.latt_size[Nd - 1]
         data = self.data.reshape(Nd, 2, Lt, -1)
         data[Nd - 1, :, Lt - 1] *= -1
-        self.data = data.reshape(-1)
+
+    def setAnisotropy(self, anisotropy: float):
+        data = self.data.reshape(Nd, -1)
+        data[:Nd - 1] /= anisotropy
 
     @property
     def ptr(self):
@@ -81,7 +84,6 @@ class LatticeFermion(LatticeField):
     def even(self, value):
         data = self.data.reshape(2, -1)
         data[0] = value.reshape(-1)
-        self.data = data.reshape(-1)
 
     @property
     def odd(self):
@@ -91,7 +93,6 @@ class LatticeFermion(LatticeField):
     def odd(self, value):
         data = self.data.reshape(2, -1)
         data[1] = value.reshape(-1)
-        self.data = data.reshape(-1)
 
     @property
     def even_ptr(self):
@@ -175,12 +176,13 @@ def _newQudaInvertParam(kappa: float, tol: float, maxiter: float):
 
 
 def _loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
+    anisotropy = gauge_param.anisotropy
+
     gauge_data_bak = gauge.data.copy()
     if gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
         gauge.setAntiPeroidicT()
-    if gauge_param.anisotropy != 1.0:
-        data = gauge.data.reshape(Nd, -1)
-        data[:3] /= gauge_param.anisotropy
+    if anisotropy != 1.0:
+        gauge.setAnisotropy(anisotropy)
     loadGaugeQuda(gauge.ptr, gauge_param)
     gauge.data = gauge_data_bak
 
@@ -201,11 +203,11 @@ def _loadClover(
     invert_param.compute_clover = 1
     invert_param.compute_clover_inverse = 1
 
+    anisotropy = gauge_param.anisotropy
+
     gauge_data_bak = gauge.data.copy()
     if clover_anisotropy != 1.0:
-        data = gauge.data.reshape(Nd, -1)
-        data[:3] /= clover_anisotropy
-    anisotropy = gauge_param.anisotropy
+        gauge.setAnisotropy(clover_anisotropy)
     gauge_param.anisotropy = 1.0
     loadGaugeQuda(gauge.ptr, gauge_param)
     loadCloverQuda(Pointer("void"), Pointer("void"), invert_param)
@@ -291,12 +293,6 @@ class QudaInverter:
         self.clover = clover
         self.gauge_param = _newQudaGaugeParam(latt_size, xi)
         self.invert_param = _newQudaInvertParam(kappa, tol, maxiter)
-
-    def initQuda(self, device: int):
-        initQuda(device)
-
-    def endQuda(self):
-        endQuda()
 
     def loadGauge(self, gauge: LatticeGauge):
         if self.clover:
