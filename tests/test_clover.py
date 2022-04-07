@@ -128,13 +128,13 @@ quda_inv_param.compute_clover = 1
 quda_inv_param.compute_clover_inverse = 1
 data = gauge_clover.data.reshape(Nd, -1)
 data[:3] /= xi_clover
-quda.loadGaugeQuda(gauge_clover.ptr, gauge_param)
+quda.loadGaugeQuda(gauge_clover.data_ptrs, gauge_param)
 quda.loadCloverQuda(quda.Pointer("void"), quda.Pointer("void"), quda_inv_param)
 
 gauge_param.anisotropy = xi
 data = gauge.data.reshape(Nd, -1)
 data[:3] /= xi
-quda.loadGaugeQuda(gauge.ptr, gauge_param)
+quda.loadGaugeQuda(gauge.data_ptrs, gauge_param)
 
 propagator = np.zeros((Vol, Ns, Ns, Nc, Nc), "<c16")
 for spin in range(Ns):

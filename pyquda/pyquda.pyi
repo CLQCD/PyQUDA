@@ -26,22 +26,24 @@ class Pointer:
         ...
 
 
-class Pointers:
+class Pointers(Pointer):
     def __init__(self, dtype: str):
         ...
 
 
-class EvenPointer(Pointer):
-    def __init__(self, ndarray: numpy.ndarray):
-        ...
+def getDataPointers(ndarray: numpy.ndarray, n: int) -> Pointers:
+    ...
 
 
-class OddPointer(Pointer):
-    def __init__(self, ndarray: numpy.ndarray):
-        ...
+def getDataPointer(ndarray: numpy.ndarray) -> Pointer:
+    ...
 
 
-def getGaugePointer(ndarrays) -> Pointers:
+def getEvenPointer(ndarray: numpy.ndarray) -> Pointer:
+    ...
+
+
+def getOddPointer(ndarray: numpy.ndarray) -> Pointer:
     ...
 
 

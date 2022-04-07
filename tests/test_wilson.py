@@ -102,7 +102,7 @@ if gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
     gauge.setAntiPeroidicT()
 data = gauge.data.reshape(Nd, -1)
 data[:3] /= xi
-quda.loadGaugeQuda(gauge.ptr, gauge_param)
+quda.loadGaugeQuda(gauge.data_ptrs, gauge_param)
 
 propagator = np.zeros((Vol, Ns, Ns, Nc, Nc), "<c16")
 for spin in range(Ns):

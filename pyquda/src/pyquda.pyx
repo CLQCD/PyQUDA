@@ -39,22 +39,6 @@ def redirect_stdout(stream):
         tfile.close()
         os.close(saved_stdout_fd)
 
-def getGaugePointer(gauge):
-    cdef size_t tmp
-    cdef void *ret[4]
-    cdef double complex[:, :] data
-    if isinstance(gauge, numpy.ndarray):
-        data = gauge
-        for i in range(4):
-            ret[i] = <void *>&data[i, 0]
-    elif isinstance(gauge, cupy.ndarray):
-        for i in range(4):
-            tmp = gauge[i].data.ptr
-            ret[i] = <void *>tmp
-    ptr = Pointers("void")
-    ptr.set_ptr(<void **>ret, 4)
-    return ptr
-
 cdef class Pointer:
     cdef void *ptr
     cdef str dtype
@@ -65,46 +49,68 @@ cdef class Pointer:
     cdef set_ptr(self, void *ptr):
         self.ptr = ptr
 
-cdef class Pointers:
-    cdef void *ptr[32]
-    cdef str dtype
+cdef class Pointers(Pointer):
+    cdef void *ptrs[32]
 
     def __init__(self, dtype):
         self.dtype = dtype
 
-    cdef set_ptr(self, void **ptr, int n):
+    cdef set_ptrs(self, void **ptrs, int n):
         for i in range(n):
-            self.ptr[i] = ptr[i]
+            self.ptrs[i] = ptrs[i]
+        self.ptr = <void *>self.ptrs
 
-cdef class EvenPointer(Pointer):
-    def __init__(self, ndarray):
-        self.dtype = "void"
-        if isinstance(ndarray, numpy.ndarray):
-            self.set_ptr_from_numpy(ndarray)
-        elif isinstance(ndarray, cupy.ndarray):
-            self.set_ptr_from_cupy(ndarray)
+def getDataPointers(ndarray, int n):
+    cdef size_t tmp
+    cdef double complex[:, :] data
+    cdef void *ptrs[32]
+    ptr = Pointers("void")
+    if isinstance(ndarray, numpy.ndarray):
+        data = ndarray
+        for i in range(n):
+            ptrs[i] = <void *>&data[i, 0]
+    elif isinstance(ndarray, cupy.ndarray):
+        for i in range(n):
+            tmp = ndarray[i].data.ptr
+            ptrs[i] = <void *>tmp
+    ptr.set_ptrs(ptrs, n)
+    return ptr
 
-    cdef set_ptr_from_numpy(self, numpy.ndarray[numpy.complex128_t, ndim=2] ndarray):
-        self.ptr = &ndarray[0, 0]
+def getDataPointer(ndarray):
+    cdef size_t tmp
+    cdef double complex[:] data
+    ptr = Pointer("void")
+    if isinstance(ndarray, numpy.ndarray):
+        data = ndarray
+        ptr.set_ptr(<void *>&data[0])
+    elif isinstance(ndarray, cupy.ndarray):
+        tmp = ndarray.data.ptr
+        ptr.set_ptr(<void *>tmp)
+    return ptr
 
-    cdef set_ptr_from_cupy(self, ndarray):
-        cdef size_t tmp = ndarray[0].data.ptr
-        self.ptr = <void *>tmp
+def getEvenPointer(ndarray):
+    cdef size_t tmp
+    cdef double complex[:, :] data
+    ptr = Pointer("void")
+    if isinstance(ndarray, numpy.ndarray):
+        data = ndarray
+        ptr.set_ptr(<void *>&data[0, 0])
+    elif isinstance(ndarray, cupy.ndarray):
+        tmp = ndarray[0].data.ptr
+        ptr.set_ptr(<void *>tmp)
+    return ptr
 
-cdef class OddPointer(Pointer):
-    def __init__(self, ndarray):
-        self.dtype = "void"
-        if isinstance(ndarray, numpy.ndarray):
-            self.set_ptr_from_numpy(ndarray)
-        elif isinstance(ndarray, cupy.ndarray):
-            self.set_ptr_from_cupy(ndarray)
-
-    cdef set_ptr_from_numpy(self, numpy.ndarray[numpy.complex128_t, ndim=2] ndarray):
-        self.ptr = &ndarray[1, 0]
-
-    cdef set_ptr_from_cupy(self, ndarray):
-        cdef size_t tmp = ndarray[1].data.ptr
-        self.ptr = <void *>tmp
+def getOddPointer(ndarray):
+    cdef size_t tmp
+    cdef double complex[:, :] data
+    ptr = Pointer("void")
+    if isinstance(ndarray, numpy.ndarray):
+        data = ndarray
+        ptr.set_ptr(<void *>&data[1, 0])
+    elif isinstance(ndarray, cupy.ndarray):
+        tmp = ndarray[1].data.ptr
+        ptr.set_ptr(<void *>tmp)
+    return ptr
 
 cdef class QudaGaugeParam:
     cdef quda.QudaGaugeParam param
@@ -2711,14 +2717,14 @@ def endQuda():
 def updateR():
     quda.updateR()
 
-def loadGaugeQuda(Pointers h_gauge, QudaGaugeParam param):
+def loadGaugeQuda(Pointer h_gauge, QudaGaugeParam param):
     assert h_gauge.dtype == "void"
     quda.loadGaugeQuda(<void *>h_gauge.ptr, &param.param)
 
 def freeGaugeQuda():
     quda.freeGaugeQuda()
 
-def saveGaugeQuda(Pointers h_gauge, QudaGaugeParam param):
+def saveGaugeQuda(Pointer h_gauge, QudaGaugeParam param):
     assert h_gauge.dtype == "void"
     quda.saveGaugeQuda(h_gauge.ptr, &param.param)
 

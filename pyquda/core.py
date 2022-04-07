@@ -5,8 +5,8 @@ import numpy as np
 import cupy as cp
 
 from .pyquda import (
-    Pointer, getGaugePointer, EvenPointer, OddPointer, QudaGaugeParam, QudaInvertParam, loadCloverQuda, loadGaugeQuda,
-    invertQuda, dslashQuda, cloverQuda
+    Pointer, getDataPointers, getDataPointer, getEvenPointer, getOddPointer, QudaGaugeParam, QudaInvertParam,
+    loadCloverQuda, loadGaugeQuda, invertQuda, dslashQuda, cloverQuda
 )
 from .enum_quda import (  # noqa: F401
     QudaConstant, qudaError_t, QudaMemoryType, QudaLinkType, QudaGaugeFieldOrder, QudaTboundary, QudaPrecision,
@@ -67,8 +67,12 @@ class LatticeGauge(LatticeField):
         data[:Nd - 1] /= anisotropy
 
     @property
-    def ptr(self):
-        return getGaugePointer(self.data.reshape(4, -1))
+    def data_ptr(self):
+        return getDataPointers(self.data.reshape(4, -1), 4)
+
+    @property
+    def data_ptrs(self):
+        return getDataPointers(self.data.reshape(4, -1), 4)
 
 
 class LatticeFermion(LatticeField):
@@ -95,12 +99,16 @@ class LatticeFermion(LatticeField):
         data[1] = value.reshape(-1)
 
     @property
+    def data_ptr(self):
+        return getDataPointer(self.data)
+
+    @property
     def even_ptr(self):
-        return EvenPointer(self.data.reshape(2, -1))
+        return getEvenPointer(self.data.reshape(2, -1))
 
     @property
     def odd_ptr(self):
-        return OddPointer(self.data.reshape(2, -1))
+        return getOddPointer(self.data.reshape(2, -1))
 
 
 class LatticePropagator(LatticeField):
@@ -183,7 +191,7 @@ def _loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
         gauge.setAntiPeroidicT()
     if anisotropy != 1.0:
         gauge.setAnisotropy(anisotropy)
-    loadGaugeQuda(gauge.ptr, gauge_param)
+    loadGaugeQuda(gauge.data_ptrs, gauge_param)
     gauge.data = gauge_data_bak
 
 
@@ -209,7 +217,7 @@ def _loadClover(
     if clover_anisotropy != 1.0:
         gauge.setAnisotropy(clover_anisotropy)
     gauge_param.anisotropy = 1.0
-    loadGaugeQuda(gauge.ptr, gauge_param)
+    loadGaugeQuda(gauge.data_ptrs, gauge_param)
     loadCloverQuda(Pointer("void"), Pointer("void"), invert_param)
     gauge_param.anisotropy = anisotropy
     gauge.data = gauge_data_bak
