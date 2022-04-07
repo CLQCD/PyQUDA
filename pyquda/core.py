@@ -117,7 +117,7 @@ class LatticePropagator(LatticeField):
         self.data = newLatticeFieldData(latt_size, "Propagator").reshape(-1)
 
 
-def _newQudaGaugeParam(X: List[int], anisotropy: float):
+def newQudaGaugeParam(X: List[int], anisotropy: float):
     Lx, Ly, Lz, Lt = X
     Lmin = min(Lx, Ly, Lz, Lt)
     ga_pad = Lx * Ly * Lz * Lt // Lmin
@@ -140,7 +140,7 @@ def _newQudaGaugeParam(X: List[int], anisotropy: float):
     return gauge_param
 
 
-def _newQudaInvertParam(kappa: float, tol: float, maxiter: float):
+def newQudaInvertParam(kappa: float, tol: float, maxiter: float, pc: bool):
     invert_param = QudaInvertParam()
 
     invert_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
@@ -151,8 +151,12 @@ def _newQudaInvertParam(kappa: float, tol: float, maxiter: float):
     invert_param.reliable_delta = 0.001
     invert_param.pipeline = 0
 
-    invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
-    invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE
+    if pc:
+        invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
+        invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE
+    else:
+        invert_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
+        invert_param.solve_type = QudaSolveType.QUDA_NORMOP_SOLVE
     invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
 
     invert_param.dagger = QudaDagType.QUDA_DAG_NO
@@ -223,26 +227,48 @@ def _loadClover(
     gauge.data = gauge_data_bak
 
 
-def _invert(b: LatticeFermion, invert_param: QudaInvertParam):
+def invert(b: LatticeFermion, invert_param: QudaInvertParam, pc: bool = None):
     kappa = invert_param.kappa
     x = LatticeFermion(b.latt_size)
     tmp = LatticeFermion(b.latt_size)
-    tmp2 = LatticeFermion(b.latt_size)
 
-    if invert_param.dslash_type == QudaDslashType.QUDA_WILSON_DSLASH:
-        tmp.even = b.even
-        tmp.odd = b.odd
-    elif invert_param.dslash_type == QudaDslashType.QUDA_CLOVER_WILSON_DSLASH:
-        cloverQuda(tmp.even_ptr, b.even_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY, 1)
-        cloverQuda(tmp.odd_ptr, b.odd_ptr, invert_param, QudaParity.QUDA_ODD_PARITY, 1)
+    if pc is None:
+        solve_type = invert_param.solve_type
+        solution_type = invert_param.solution_type
+        solve_pc = (
+            solve_type == QudaSolveType.QUDA_DIRECT_PC_SOLVE or
+            solve_type == QudaSolveType.QUDA_NORMOP_PC_SOLVE or
+            solve_type == QudaSolveType.QUDA_NORMERR_PC_SOLVE
+        )  # yapf: disable
+        solution_pc = (
+            solution_type == QudaSolutionType.QUDA_MATPC_SOLUTION or
+            solution_type == QudaSolutionType.QUDA_MATPC_DAG_SOLUTION or
+            solution_type == QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION or
+            solution_type == QudaSolutionType.QUDA_MATPCDAG_MATPC_SHIFT_SOLUTION
+        )  # yapf: disable
+        assert solve_pc == solution_pc, "solution_type and solve_type must have the same pc setting"
+        pc = solve_pc
+
+    if pc:
+        tmp2 = LatticeFermion(b.latt_size)
+
+        if invert_param.dslash_type == QudaDslashType.QUDA_WILSON_DSLASH:
+            tmp.even = b.even
+            tmp.odd = b.odd
+        elif invert_param.dslash_type == QudaDslashType.QUDA_CLOVER_WILSON_DSLASH:
+            cloverQuda(tmp.even_ptr, b.even_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY, 1)
+            cloverQuda(tmp.odd_ptr, b.odd_ptr, invert_param, QudaParity.QUDA_ODD_PARITY, 1)
+        else:
+            raise NotImplementedError(f"Dslash type {invert_param.dslash_type} is not implemented yet.")
+        tmp.data *= 2 * kappa
+        dslashQuda(tmp2.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
+        tmp.odd = tmp.odd + kappa * tmp2.odd
+        invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
+        dslashQuda(tmp2.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
+        x.even = tmp.even + kappa * tmp2.even
     else:
-        raise NotImplementedError(f"Dslash type {invert_param.dslash_type} is not implemented yet.")
-    tmp.data *= 2 * kappa
-    dslashQuda(tmp2.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
-    tmp.odd = tmp.odd + kappa * tmp2.odd
-    invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
-    dslashQuda(tmp2.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
-    x.even = tmp.even + kappa * tmp2.even
+        invertQuda(x.data_ptr, b.data_ptr, invert_param)
+        x.data *= 2 * kappa
 
     return x
 
@@ -264,7 +290,7 @@ def source(latt_size: List[int], source_type: str, t_srce: Union[int, List[int]]
     return b
 
 
-class QudaInverter:
+class QudaFieldLoader:
     def __init__(
         self,
         latt_size,
@@ -299,8 +325,8 @@ class QudaInverter:
         self.clover_coeff = kappa * clover_coeff
         self.clover_xi = clover_xi
         self.clover = clover
-        self.gauge_param = _newQudaGaugeParam(latt_size, xi)
-        self.invert_param = _newQudaInvertParam(kappa, tol, maxiter)
+        self.gauge_param = newQudaGaugeParam(latt_size, xi)
+        self.invert_param = newQudaInvertParam(kappa, tol, maxiter, True)
 
     def loadGauge(self, gauge: LatticeGauge):
         if self.clover:
@@ -308,4 +334,4 @@ class QudaInverter:
         _loadGauge(gauge, self.gauge_param)
 
     def invert(self, b: LatticeFermion):
-        return _invert(b, self.invert_param)
+        return invert(b, self.invert_param, True)

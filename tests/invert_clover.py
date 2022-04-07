@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import cupy as cp
-from pyquda import core, gauge_utils, LatticePropagator
+from pyquda import core, quda, gauge_utils, LatticePropagator
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
@@ -16,21 +16,21 @@ latt_size = gauge.latt_size
 Lx, Ly, Lz, Lt = latt_size
 Vol = Lx * Ly * Lz * Lt
 
-inverter = core.QudaInverter(latt_size, mass, 1e-9, 1000, xi_0, nu, coeff_t, coeff_r)
+loader = core.QudaFieldLoader(latt_size, mass, 1e-9, 1000, xi_0, nu, coeff_t, coeff_r)
 
-inverter.initQuda(0)
+quda.initQuda(0)
 
-inverter.loadGauge(gauge)
+loader.loadGauge(gauge)
 
 propagator = LatticePropagator(latt_size)
 data = propagator.data.reshape(Vol, Ns, Ns, Nc, Nc)
 for spin in range(Ns):
     for color in range(Nc):
         b = core.source(latt_size, "wall", 0, spin, color)
-        x = inverter.invert(b)
+        x = loader.invert(b)
         data[:, spin, :, color, :] = x.data.reshape(Vol, Ns, Nc)
 
-inverter.endQuda()
+quda.endQuda()
 
 propagator_chroma = cp.array(np.fromfile("wl_prop_1", ">c16", offset=8).astype("<c16")).reshape(Vol, Ns, Ns, Nc, Nc)
 print(cp.linalg.norm(propagator.data.reshape(Vol, Ns, Ns, Nc, Nc) - propagator_chroma))
