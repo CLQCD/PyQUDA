@@ -7,7 +7,7 @@ from xml.etree import ElementTree as ET
 import numpy as np
 import cupy as cp
 
-from .core import Nc, Nd, Ns, LatticeGauge
+from ..core import Nc, Nd, LatticeGauge
 
 
 def prod(a):

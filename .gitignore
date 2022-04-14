@@ -8,5 +8,5 @@ build
 dist
 *.egg-info
 MANIFEST
-utils
+scripts
 logs

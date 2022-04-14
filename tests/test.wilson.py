@@ -5,8 +5,9 @@ import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(test_dir, ".."))
-from pyquda import core, quda, gauge_utils
+from pyquda import core, quda
 from pyquda.core import Nc, Ns
+from pyquda.utils import gauge_utils
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 

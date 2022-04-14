@@ -1,10 +1,10 @@
 from typing import Sequence, Union
 from enum import IntEnum
 from math import sqrt
-import numpy as np
+
 import cupy as cp
 
-from .pyquda import Pointer, getDataPointers, getDataPointer, getEvenPointer, getOddPointer
+from .pyquda import getDataPointers, getDataPointer, getEvenPointer, getOddPointer
 
 
 class LatticeConstant(IntEnum):
