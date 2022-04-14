@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import Sequence, Union
 from enum import IntEnum
 from math import sqrt
 import numpy as np
@@ -18,7 +18,7 @@ Nd = LatticeConstant.Nd
 Ns = LatticeConstant.Ns
 
 
-def newLatticeFieldData(latt_size: List[int], dtype: str) -> cp.ndarray:
+def newLatticeFieldData(latt_size: Sequence[int], dtype: str) -> cp.ndarray:
     Lx, Ly, Lz, Lt = latt_size
     if dtype.capitalize() == "Gauge":
         return cp.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
@@ -34,7 +34,7 @@ class LatticeField:
 
 
 class LatticeGauge(LatticeField):
-    def __init__(self, latt_size: List[int], value=None) -> None:
+    def __init__(self, latt_size: Sequence[int], value=None) -> None:
         self.latt_size = latt_size
         if value is None:
             self.data = newLatticeFieldData(latt_size, "Gauge").reshape(-1)
@@ -60,7 +60,7 @@ class LatticeGauge(LatticeField):
 
 
 class LatticeFermion(LatticeField):
-    def __init__(self, latt_size: List[int]) -> None:
+    def __init__(self, latt_size: Sequence[int]) -> None:
         self.latt_size = latt_size
         self.data = newLatticeFieldData(latt_size, "Fermion").reshape(-1)
 
@@ -96,12 +96,14 @@ class LatticeFermion(LatticeField):
 
 
 class LatticePropagator(LatticeField):
-    def __init__(self, latt_size: List[int]) -> None:
+    def __init__(self, latt_size: Sequence[int]) -> None:
         self.latt_size = latt_size
         self.data = newLatticeFieldData(latt_size, "Propagator").reshape(-1)
 
 
-def source(latt_size: List[int], source_type: str, t_srce: Union[int, List[int]], spin: int, color: int, phase=None):
+def source(
+    latt_size: Sequence[int], source_type: str, t_srce: Union[int, Sequence[int]], spin: int, color: int, phase=None
+):
     Lx, Ly, Lz, Lt = latt_size
     b = LatticeFermion(latt_size)
     data = b.data.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
