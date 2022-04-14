@@ -161,12 +161,12 @@ class QudaFieldLoader:
             self.invert_param = loader.newQudaInvertParam(kappa, tol, maxiter)
         else:
             from .dslash import clover_wilson as loader
-            self.invert_param = loader.newQudaInvertParam(kappa, tol, maxiter, clover_xi, clover_coeff)
+            self.invert_param = loader.newQudaInvertParam(kappa, tol, maxiter, clover_xi, kappa * clover_coeff)
         self.loader = loader
         self.gauge_param = loader.newQudaGaugeParam(latt_size, xi)
 
     def loadGauge(self, gauge: LatticeGauge):
-        self.loader.loadGauge(gauge, self.gauge_param)
+        self.loader.loadGauge(gauge, self.gauge_param, self.invert_param)
 
     def invert(self, b: LatticeFermion):
         return self.loader.invert(b, self.invert_param)

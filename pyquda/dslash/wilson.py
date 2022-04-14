@@ -88,7 +88,7 @@ def newQudaInvertParam(kappa: float, tol: float, maxiter: float):
     return invert_param
 
 
-def loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
+def loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam, invert_param: QudaInvertParam):
     anisotropy = gauge_param.anisotropy
 
     gauge_data_bak = gauge.data.copy()
@@ -100,7 +100,7 @@ def loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     gauge.data = gauge_data_bak
 
 
-def invert(b: LatticeFermion, invert_param: QudaInvertParam, pc: bool = None):
+def invert(b: LatticeFermion, invert_param: QudaInvertParam):
     kappa = invert_param.kappa
 
     x = LatticeFermion(b.latt_size)
