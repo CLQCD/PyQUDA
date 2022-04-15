@@ -10,13 +10,6 @@ import cupy as cp
 from ..core import Nc, Nd, LatticeGauge
 
 
-def prod(a):
-    p = 1
-    for i in a:
-        p *= i
-    return p
-
-
 def readIldg(filename: str):
     with open(filename, "rb") as f:
         meta: Dict[str, Tuple[int]] = {}

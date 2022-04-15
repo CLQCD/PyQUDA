@@ -5,17 +5,17 @@ import cupy as cp
 
 class _Constant:
     @staticmethod
-    @lru_cache
+    @lru_cache(1)
     def zero():
         return cp.zeros((4, 4))
 
     @staticmethod
-    @lru_cache
+    @lru_cache(1)
     def one():
         return cp.identity(4)
 
     @staticmethod
-    @lru_cache
+    @lru_cache(1)
     def gamma_0():
         return cp.array([
             [0, 0, 0, 1j],
@@ -25,7 +25,7 @@ class _Constant:
         ])
 
     @staticmethod
-    @lru_cache
+    @lru_cache(1)
     def gamma_1():
         return cp.array([
             [0, 0, 0, -1],
@@ -35,7 +35,7 @@ class _Constant:
         ])
 
     @staticmethod
-    @lru_cache
+    @lru_cache(1)
     def gamma_2():
         return cp.array([
             [0, 0, 1j, 0],
@@ -45,7 +45,7 @@ class _Constant:
         ])
 
     @staticmethod
-    @lru_cache
+    @lru_cache(1)
     def gamma_3():
         return cp.array([
             [0, 0, 1, 0],
