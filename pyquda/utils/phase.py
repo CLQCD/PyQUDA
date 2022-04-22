@@ -3,6 +3,38 @@ from typing import Sequence
 import cupy as cp
 
 
+def isqrt(n):
+    if n > 0:
+        x = 1 << (n.bit_length() + 1 >> 1)
+        while True:
+            y = (x + n // x) >> 1
+            if y >= x:
+                return x
+            x = y
+    elif n == 0:
+        return 0
+    else:
+        raise ValueError("Integer square root not defined for negative numbers.")
+
+
+def getMomList(mom2_max, mom2_min=0):
+    mom_list = []
+    radius = isqrt(mom2_max)
+    for npz in range(-radius, radius + 1):
+        for npy in range(-radius, radius + 1):
+            for npx in range(-radius, radius + 1):
+                np2 = npx**2 + npy**2 + npz**2
+                if np2 <= mom2_max and np2 >= mom2_min:
+                    mom_list.append((npx, npy, npz))
+    return mom_list
+
+
+def getMomDict(mom2_max, mom2_min=0):
+    mom_list = getMomList(mom2_max, mom2_min)
+    mom_dict = {key: " ".join([str(np) for np in val]) for key, val in enumerate(mom_list)}
+    return mom_dict
+
+
 class Phase:
     def __init__(self, latt_size: Sequence[int]) -> None:
         Lx, Ly, Lz, Lt = latt_size
