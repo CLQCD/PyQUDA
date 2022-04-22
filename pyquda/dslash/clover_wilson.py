@@ -47,17 +47,15 @@ def newQudaInvertParam(kappa: float, tol: float, maxiter: float, clover_anisotro
     invert_param = QudaInvertParam()
 
     invert_param.dslash_type = QudaDslashType.QUDA_CLOVER_WILSON_DSLASH
-    invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
+    invert_param.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
     invert_param.kappa = kappa
     invert_param.tol = tol
     invert_param.maxiter = maxiter
     invert_param.reliable_delta = 0.001
     invert_param.pipeline = 0
 
-    # invert_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
-    # invert_param.solve_type = QudaSolveType.QUDA_NORMOP_SOLVE
     invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
-    invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE
+    invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE
     invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
 
     invert_param.dagger = QudaDagType.QUDA_DAG_NO

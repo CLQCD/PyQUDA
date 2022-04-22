@@ -32,9 +32,9 @@ for spin in range(Ns):
     for color in range(Nc):
         b = core.source(latt_size, "point", [0, 0, 0, 0], spin, color)
         x = loader.invert(b)
-        data[:, spin, :, color, :] = x.data.reshape(Vol, Ns, Nc)
+        data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
 
 quda.endQuda()
 
 propagator_chroma = cp.array(np.fromfile("pt_prop_0", ">c16", offset=8).astype("<c16"))
-print(cp.linalg.norm(propagator.data - propagator_chroma))
+print(cp.linalg.norm(propagator.transpose() - propagator_chroma))

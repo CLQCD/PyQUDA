@@ -100,6 +100,29 @@ class LatticePropagator(LatticeField):
         self.latt_size = latt_size
         self.data = newLatticeFieldData(latt_size, "Propagator").reshape(-1)
 
+    def lexico(self):
+        Lx, Ly, Lz, Lt = self.latt_size
+        data_cb2 = self.data.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc)
+        data_lex = cp.zeros((Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc), "<c16")
+        for t in range(Lt):
+            for y in range(Lz):
+                for z in range(Ly):
+                    eo = (t + z + y) % 2
+                    if eo == 0:
+                        data_lex[t, z, y, 0::2] = data_cb2[0, t, z, y, :]
+                        data_lex[t, z, y, 1::2] = data_cb2[1, t, z, y, :]
+                    else:
+                        data_lex[t, z, y, 1::2] = data_cb2[0, t, z, y, :]
+                        data_lex[t, z, y, 0::2] = data_cb2[1, t, z, y, :]
+        return data_lex.reshape(-1)
+
+    def transpose(self):
+        Lx, Ly, Lz, Lt = self.latt_size
+        Vol = Lx * Ly * Lz * Lt
+        data = self.data.reshape(Vol, Ns, Ns, Nc, Nc)
+        data_T = data.transpose(0, 2, 1, 4, 3).copy()
+        return data_T.reshape(-1)
+
 
 def source(
     latt_size: Sequence[int], source_type: str, t_srce: Union[int, Sequence[int]], spin: int, color: int, phase=None
