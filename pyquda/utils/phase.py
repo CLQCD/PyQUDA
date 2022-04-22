@@ -1,5 +1,6 @@
 from typing import Sequence
 
+import numpy as np
 import cupy as cp
 
 
@@ -38,30 +39,33 @@ def getMomDict(mom2_max, mom2_min=0):
 class Phase:
     def __init__(self, latt_size: Sequence[int]) -> None:
         Lx, Ly, Lz, Lt = latt_size
-        x = cp.arange(Lx).reshape(1, 1, 1, Lx).repeat(Lt, 0).repeat(Lz, 1).repeat(Ly, 2) * (2j * cp.pi / Lx)
-        y = cp.arange(Ly).reshape(1, 1, Ly, 1).repeat(Lt, 0).repeat(Lz, 1).repeat(Lx, 3) * (2j * cp.pi / Ly)
-        z = cp.arange(Lz).reshape(1, Lz, 1, 1).repeat(Lt, 0).repeat(Ly, 2).repeat(Lx, 3) * (2j * cp.pi / Lz)
-        self.x = cp.ones((2, Lt, Lz, Ly, Lx // 2), "<c16")
-        self.y = cp.ones((2, Lt, Lz, Ly, Lx // 2), "<c16")
-        self.z = cp.ones((2, Lt, Lz, Ly, Lx // 2), "<c16")
+        x = np.arange(Lx).reshape(1, 1, 1, Lx).repeat(Lt, 0).repeat(Lz, 1).repeat(Ly, 2) * (2j * np.pi / Lx)
+        y = np.arange(Ly).reshape(1, 1, Ly, 1).repeat(Lt, 0).repeat(Lz, 1).repeat(Lx, 3) * (2j * np.pi / Ly)
+        z = np.arange(Lz).reshape(1, Lz, 1, 1).repeat(Lt, 0).repeat(Ly, 2).repeat(Lx, 3) * (2j * np.pi / Lz)
+        x_cb2 = np.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
+        y_cb2 = np.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
+        z_cb2 = np.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
         for it in range(Lt):
             for iz in range(Lz):
                 for iy in range(Ly):
                     ieo = (it + iz + iy) % 2
                     if ieo == 0:
-                        self.x[0, it, iz, iy] = x[it, iz, iy, 0::2]
-                        self.x[1, it, iz, iy] = x[it, iz, iy, 1::2]
-                        self.y[0, it, iz, iy] = y[it, iz, iy, 0::2]
-                        self.y[1, it, iz, iy] = y[it, iz, iy, 1::2]
-                        self.z[0, it, iz, iy] = z[it, iz, iy, 0::2]
-                        self.z[1, it, iz, iy] = z[it, iz, iy, 1::2]
+                        x_cb2[0, it, iz, iy] = x[it, iz, iy, 0::2]
+                        x_cb2[1, it, iz, iy] = x[it, iz, iy, 1::2]
+                        y_cb2[0, it, iz, iy] = y[it, iz, iy, 0::2]
+                        y_cb2[1, it, iz, iy] = y[it, iz, iy, 1::2]
+                        z_cb2[0, it, iz, iy] = z[it, iz, iy, 0::2]
+                        z_cb2[1, it, iz, iy] = z[it, iz, iy, 1::2]
                     else:
-                        self.x[1, it, iz, iy] = x[it, iz, iy, 0::2]
-                        self.x[0, it, iz, iy] = x[it, iz, iy, 1::2]
-                        self.y[1, it, iz, iy] = y[it, iz, iy, 0::2]
-                        self.y[0, it, iz, iy] = y[it, iz, iy, 1::2]
-                        self.z[1, it, iz, iy] = z[it, iz, iy, 0::2]
-                        self.z[0, it, iz, iy] = z[it, iz, iy, 1::2]
+                        x_cb2[1, it, iz, iy] = x[it, iz, iy, 0::2]
+                        x_cb2[0, it, iz, iy] = x[it, iz, iy, 1::2]
+                        y_cb2[1, it, iz, iy] = y[it, iz, iy, 0::2]
+                        y_cb2[0, it, iz, iy] = y[it, iz, iy, 1::2]
+                        z_cb2[1, it, iz, iy] = z[it, iz, iy, 0::2]
+                        z_cb2[0, it, iz, iy] = z[it, iz, iy, 1::2]
+        self.x = cp.array(x_cb2)
+        self.y = cp.array(y_cb2)
+        self.z = cp.array(z_cb2)
 
     def __getitem__(self, momentum: Sequence[int]):
         npx, npy, npz = momentum
