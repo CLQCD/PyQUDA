@@ -146,6 +146,20 @@ def source(
     return b
 
 
+def source12(latt_size: Sequence[int], source_type: str, t_srce: Union[int, Sequence[int]], phase=None):
+    Lx, Ly, Lz, Lt = latt_size
+    Vol = Lx * Ly * Lz * Lt
+
+    b12 = LatticePropagator(latt_size)
+    data = b12.data.reshape(Vol, Ns, Ns, Nc, Nc)
+    for spin in range(Ns):
+        for color in range(Nc):
+            b = source(latt_size, source_type, t_srce, spin, color, phase)
+            data[:, :, spin, :, color] = b.data.reshape(Vol, Ns, Nc)
+
+    return b12
+
+
 class QudaFieldLoader:
     def __init__(
         self,
@@ -195,3 +209,20 @@ class QudaFieldLoader:
 
     def invert(self, b: LatticeFermion):
         return self.loader.invert(b, self.invert_param)
+
+    def invert12(self, b12: LatticePropagator):
+        latt_size = self.latt_size
+        Lx, Ly, Lz, Lt = latt_size
+        Vol = Lx * Ly * Lz * Lt
+
+        x12 = LatticePropagator(latt_size)
+        for spin in range(Ns):
+            for color in range(Nc):
+                b = LatticeFermion(latt_size)
+                data = b.data.reshape(Vol, Ns, Nc)
+                data[:] = b12.data.reshape(Vol, Ns, Ns, Nc, Nc)[:, :, spin, :, color]
+                x = self.invert(b)
+                data = x12.data.reshape(Vol, Ns, Ns, Nc, Nc)
+                data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
+
+        return x12
