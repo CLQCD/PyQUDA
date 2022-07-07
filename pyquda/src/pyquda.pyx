@@ -2829,14 +2829,15 @@ def performWFlownStep(unsigned int n_steps, double step_size, int meas_interval,
 # void contractQuda(const void *x, const void *y, void *result, const QudaContractType cType, QudaInvertParam *param,
 #                     const int *X)
 
-# int computeGaugeFixingOVRQuda(void *gauge, const unsigned int gauge_dir, const unsigned int Nsteps,
-#                                 const unsigned int verbose_interval, const double relax_boost, const double tolerance,
-#                                 const unsigned int reunit_interval, const unsigned int stopWtheta,
-#                                 QudaGaugeParam *param, double *timeinfo)
-# int computeGaugeFixingFFTQuda(void *gauge, const unsigned int gauge_dir, const unsigned int Nsteps,
-#                                 const unsigned int verbose_interval, const double alpha, const unsigned int autotune,
-#                                 const double tolerance, const unsigned int stopWtheta, QudaGaugeParam *param,
-#                                 double *timeinfo)
+def computeGaugeFixingOVRQuda(Pointer gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double relax_boost, double tolerance, unsigned int reunit_interval, unsigned int stopWtheta, QudaGaugeParam param, numpy.ndarray timeinfo):
+    assert gauge.dtype == "void"
+    cdef double[:] timeinfo_view = timeinfo
+    return quda.computeGaugeFixingOVRQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, relax_boost, tolerance, reunit_interval, stopWtheta, &param.param, &timeinfo_view[0])
+
+def computeGaugeFixingFFTQuda(Pointer gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double alpha, unsigned int autotune, double tolerance, unsigned int stopWtheta, QudaGaugeParam param, numpy.ndarray timeinfo):
+    assert gauge.dtype == "void"
+    cdef double[:] timeinfo_view = timeinfo
+    return quda.computeGaugeFixingFFTQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta, &param.param, &timeinfo_view[0])
 
 # void blasGEMMQuda(void *arrayA, void *arrayB, void *arrayC, QudaBoolean native, QudaBLASParam *param)
 

@@ -488,3 +488,17 @@ def performOvrImpSTOUTnStep(n_steps: int, rho: double, epsilon: double, meas_int
 
 def performWFlownStep(n_steps: int, step_size: double, meas_interval: int, wflow_type: QudaWFlowType):
     ...
+
+
+def computeGaugeFixingOVRQuda(
+    gauge: Pointer, gauge_dir: int, Nsteps: int, verbose_interval: int, relax_boost: double, tolerance: double,
+    reunit_interval: int, stopWtheta: int, param: QudaGaugeParam, timeinfo: numpy.ndarray[double]
+) -> int:
+    ...
+
+
+def computeGaugeFixingFFTQuda(
+    gauge: Pointer, gauge_dir: int, Nsteps: int, verbose_interval: int, alpha: double, autotune: int,
+    tolerance: double, stopWtheta: int, param: QudaGaugeParam, timeinfo: numpy.ndarray[double]
+) -> int:
+    ...
