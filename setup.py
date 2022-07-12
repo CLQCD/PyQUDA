@@ -23,6 +23,8 @@ ext_modules = cythonize(
 
 packages = [
     "pyquda",
+    "pyquda.dslash",
+    "pyquda.utils",
 ]
 package_dir = {
     "pyquda": "pyquda",

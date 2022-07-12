@@ -2786,7 +2786,11 @@ def MatDagMatQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param):
 # int computeGaugeForceQuda(void* mom, void* sitelink,  int*** input_path_buf, int* path_length, double* loop_coeff, int num_paths, int max_length, double dt, QudaGaugeParam* qudaGaugeParam)
 # void updateGaugeFieldQuda(void* gauge, void* momentum, double dt, int conj_mom, int exact, QudaGaugeParam* param)
 # void staggeredPhaseQuda(void *gauge_h, QudaGaugeParam *param)
-# void projectSU3Quda(void *gauge_h, double tol, QudaGaugeParam *param)
+
+def projectSU3Quda(Pointer gauge_h, double tol, QudaGaugeParam param):
+    assert gauge_h.dtype == "void"
+    quda.projectSU3Quda(gauge_h.ptr, tol, &param.param)
+
 # double momActionQuda(void* momentum, QudaGaugeParam* param)
 
 # void* createGaugeFieldQuda(void* gauge, int geometry, QudaGaugeParam* param)

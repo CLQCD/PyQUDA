@@ -466,6 +466,10 @@ def MatDagMatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> 
     ...
 
 
+def projectSU3Quda(gauge_h: Pointer, tol: double, param: QudaGaugeParam):
+    ...
+
+
 def createCloverQuda(param: QudaInvertParam) -> None:
     ...
 

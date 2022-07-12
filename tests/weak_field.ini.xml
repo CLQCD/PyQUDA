@@ -11,7 +11,7 @@
           <object_type>Multi1dLatticeColorMatrix</object_type>
         </NamedObject>
         <File>
-          <file_name>./weak_field.lime</file_name>
+          <file_name>tests/weak_field.lime</file_name>
           <file_volfmt>SINGLEFILE</file_volfmt>
         </File>
       </elem>
