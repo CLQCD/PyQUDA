@@ -4,6 +4,9 @@ from math import sqrt
 
 import cupy as cp
 
+from pyquda.enum_quda import QudaLinkType
+
+from . import pyquda as quda
 from .pyquda import getDataPointers, getDataPointer, getEvenPointer, getOddPointer
 
 
@@ -160,13 +163,22 @@ def source12(latt_size: Sequence[int], source_type: str, t_srce: Union[int, Sequ
     return b12
 
 
+def smear(latt_size: Sequence[int], gauge: LatticeGauge, nstep: int, rho: float):
+    loader = QudaFieldLoader(latt_size, 0, 0, 0)
+    loader.loadGauge(gauge)
+    quda.performSTOUTnStep(nstep, rho, 1)
+    loader.gauge_param.type = QudaLinkType.QUDA_SMEARED_LINKS
+    quda.saveGaugeQuda(gauge.data_ptr, loader.gauge_param)
+    gauge.setAntiPeroidicT()
+
+
 class QudaFieldLoader:
     def __init__(
         self,
-        latt_size,
-        mass,
-        tol,
-        maxiter,
+        latt_size: Sequence[int],
+        mass: float,
+        tol: float,
+        maxiter: int,
         xi_0: float = 1.0,
         nu: float = 1.0,
         clover_coeff_t: float = 0.0,

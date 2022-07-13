@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+<chroma>
+  <annotation>
+; $Id: fermstate.ini.xml,v 1.1 2006-09-21 20:18:15 edwards Exp $
+;
+; Test input file for chroma main program
+;
+  </annotation>
+  <Param>
+    <InlineMeasurements>
+
+      <elem>
+        <Name>LINK_SMEAR</Name>
+        <Frequency>1</Frequency>
+        <Param>
+          <LinkSmearingType>STOUT_SMEAR</LinkSmearingType>
+          <link_smear_fact>0.241</link_smear_fact>
+          <link_smear_num>1</link_smear_num>
+          <no_smear_dir>3</no_smear_dir>
+        </Param>
+        <NamedObject>
+          <gauge_id>default_gauge_field</gauge_id>
+          <linksmear_id>stout</linksmear_id>
+        </NamedObject>
+      </elem>
+
+      <elem>
+        <Name>QIO_WRITE_NAMED_OBJECT</Name>
+        <Frequency>1</Frequency>
+        <NamedObject>
+          <object_id>stout</object_id>
+          <object_type>Multi1dLatticeColorMatrix</object_type>
+        </NamedObject>
+        <File>
+          <file_name>stout.lime</file_name>
+          <file_volfmt>SINGLEFILE</file_volfmt>
+        </File>
+      </elem>
+
+    </InlineMeasurements>
+    <nrow>4 4 4 8</nrow>
+  </Param>
+
+  <RNG>
+    <Seed>
+      <elem>11</elem>
+      <elem>11</elem>
+      <elem>11</elem>
+      <elem>0</elem>
+    </Seed>
+  </RNG>
+
+  <Cfg>
+    <cfg_type>SZINQIO</cfg_type>
+    <cfg_file>tests/weak_field.lime</cfg_file>
+  </Cfg>
+</chroma>
