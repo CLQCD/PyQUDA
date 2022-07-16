@@ -1,7 +1,7 @@
 from typing import List
 
 from ..pyquda import (  # noqa: F401
-    Pointer, QudaGaugeParam, QudaInvertParam, loadGaugeQuda, invertQuda, dslashQuda
+    Pointer, QudaGaugeParam, QudaInvertParam, loadGaugeQuda, invertQuda, invertMultiShiftQuda
 )
 from ..enum_quda import (  # noqa: F401
     QudaConstant, qudaError_t, QudaMemoryType, QudaLinkType, QudaGaugeFieldOrder, QudaTboundary, QudaPrecision,
@@ -54,9 +54,8 @@ def newQudaInvertParam(kappa: float, tol: float, maxiter: float):
     invert_param.reliable_delta = 0.001
     invert_param.pipeline = 0
 
-    invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
-    invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE
-    invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
+    invert_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
+    invert_param.solve_type = QudaSolveType.QUDA_DIRECT_SOLVE
 
     invert_param.dagger = QudaDagType.QUDA_DAG_NO
     invert_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
@@ -102,31 +101,9 @@ def invert(b: LatticeFermion, invert_param: QudaInvertParam):
     kappa = invert_param.kappa
 
     x = LatticeFermion(b.latt_size)
-    tmp = LatticeFermion(b.latt_size)
-    tmp2 = LatticeFermion(b.latt_size)
 
-    # if pc is None:
-    #     solve_type = invert_param.solve_type
-    #     solution_type = invert_param.solution_type
-    #     solve_pc = (
-    #         solve_type == QudaSolveType.QUDA_DIRECT_PC_SOLVE or
-    #         solve_type == QudaSolveType.QUDA_NORMOP_PC_SOLVE or
-    #         solve_type == QudaSolveType.QUDA_NORMERR_PC_SOLVE
-    #     )  # yapf: disable
-    #     solution_pc = (
-    #         solution_type == QudaSolutionType.QUDA_MATPC_SOLUTION or
-    #         solution_type == QudaSolutionType.QUDA_MATPC_DAG_SOLUTION or
-    #         solution_type == QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION or
-    #         solution_type == QudaSolutionType.QUDA_MATPCDAG_MATPC_SHIFT_SOLUTION
-    #     )  # yapf: disable
-    #     assert solve_pc == solution_pc, "solution_type and solve_type must have the same pc setting"
-    #     pc = solve_pc
-
-    tmp.data = 2 * kappa * b.data
-    dslashQuda(tmp2.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
-    tmp.odd = tmp.odd + kappa * tmp2.odd
-    invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
-    dslashQuda(tmp2.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
-    x.even = tmp.even + kappa * tmp2.even
+    # invertMultiShiftQuda(x.data_ptr, b.data_ptr, invert_param)
+    invertQuda(x.data_ptr, b.data_ptr, invert_param)
+    x.data *= 2 * kappa
 
     return x

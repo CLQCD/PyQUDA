@@ -2747,7 +2747,11 @@ def invertQuda(Pointer h_x, Pointer h_b, QudaInvertParam param):
 # def invertMultiSrcQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, Pointer h_gauge, QudaGaugeParam gauge_param)
 # def invertMultiSrcStaggeredQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, Pointer milc_fatlinks, Pointer milc_longlinks, QudaGaugeParam gauge_param)
 # def invertMultiSrcCloverQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, Pointer h_gauge, QudaGaugeParam gauge_param, Pointer h_clover, Pointer h_clovinv)
-# def invertMultiShiftQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param)
+
+def invertMultiShiftQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param):
+    assert _hp_x.dtype == "void"
+    assert _hp_b.dtype == "void"
+    quda.invertMultiShiftQuda(_hp_x.ptr, _hp_b.ptr, &param.param)
 
 # def newMultigridQuda(QudaMultigridParam param) -> Pointer
 # def destroyMultigridQuda(Pointer mg_instance)
@@ -2828,7 +2832,8 @@ def performOvrImpSTOUTnStep(unsigned int n_steps, double rho, double epsilon, in
 def performWFlownStep(unsigned int n_steps, double step_size, int meas_interval, quda.QudaWFlowType wflow_type):
     quda.performWFlownStep(n_steps, step_size, meas_interval, wflow_type)
 
-# void gaugeObservablesQuda(QudaGaugeObservableParam *param)
+def gaugeObservablesQuda(QudaGaugeObservableParam param):
+    quda.gaugeObservablesQuda(&param.param)
 
 # void contractQuda(const void *x, const void *y, void *result, const QudaContractType cType, QudaInvertParam *param,
 #                     const int *X)

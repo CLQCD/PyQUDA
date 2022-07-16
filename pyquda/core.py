@@ -176,8 +176,8 @@ class QudaFieldLoader:
     def __init__(
         self,
         latt_size: Sequence[int],
-        mass: float,
-        tol: float,
+        mass: Union[float, Sequence[float]],
+        tol: Union[float, Sequence[float]],
         maxiter: int,
         xi_0: float = 1.0,
         nu: float = 1.0,
@@ -207,12 +207,16 @@ class QudaFieldLoader:
         self.clover_coeff = kappa * clover_coeff
         self.clover_xi = clover_xi
         self.clover = clover
-        if not clover:
-            from .dslash import wilson as loader
-            self.invert_param = loader.newQudaInvertParam(kappa, tol, maxiter)
+        if isinstance(mass, float):
+            if not clover:
+                from .dslash import wilson as loader
+                self.invert_param = loader.newQudaInvertParam(kappa, tol, maxiter)
+            else:
+                from .dslash import clover_wilson as loader
+                self.invert_param = loader.newQudaInvertParam(kappa, tol, maxiter, clover_xi, kappa * clover_coeff)
         else:
-            from .dslash import clover_wilson as loader
-            self.invert_param = loader.newQudaInvertParam(kappa, tol, maxiter, clover_xi, kappa * clover_coeff)
+            from .dslash import wilson_multishift as loader
+            self.invert_param = loader.newQudaInvertParam(kappa, tol, maxiter)
         self.loader = loader
         self.gauge_param = loader.newQudaGaugeParam(latt_size, xi)
 

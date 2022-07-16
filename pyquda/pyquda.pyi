@@ -450,6 +450,10 @@ def invertQuda(h_x: Pointer, h_b: Pointer, param: QudaInvertParam) -> None:
     ...
 
 
+def invertMultiShiftQuda(_hp_x: Pointer, _hp_b: Pointer, param: QudaInvertParam) -> None:
+    ...
+
+
 def dslashQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam, parity: QudaParity) -> None:
     ...
 
@@ -491,6 +495,10 @@ def performOvrImpSTOUTnStep(n_steps: int, rho: double, epsilon: double, meas_int
 
 
 def performWFlownStep(n_steps: int, step_size: double, meas_interval: int, wflow_type: QudaWFlowType):
+    ...
+
+
+def gaugeObservablesQuda(param: QudaGaugeObservableParam):
     ...
 
 
