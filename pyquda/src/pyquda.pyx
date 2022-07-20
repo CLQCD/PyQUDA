@@ -2751,7 +2751,7 @@ def invertQuda(Pointer h_x, Pointer h_b, QudaInvertParam param):
 def invertMultiShiftQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param):
     assert _hp_x.dtype == "void"
     assert _hp_b.dtype == "void"
-    quda.invertMultiShiftQuda(_hp_x.ptr, _hp_b.ptr, &param.param)
+    quda.invertMultiShiftQuda(_hp_x.ptrs, _hp_b.ptrs, &param.param)
 
 # def newMultigridQuda(QudaMultigridParam param) -> Pointer
 # def destroyMultigridQuda(Pointer mg_instance)

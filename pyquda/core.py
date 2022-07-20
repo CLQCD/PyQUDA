@@ -53,6 +53,22 @@ class LatticeGauge(LatticeField):
         data = self.data.reshape(Nd, -1)
         data[:Nd - 1] /= anisotropy
 
+    def lexico(self):
+        Lx, Ly, Lz, Lt = self.latt_size
+        data_cb2 = self.data.reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc)
+        data_lex = cp.zeros((Nd, Lt, Lz, Ly, Lx, Nc, Nc), "<c16")
+        for t in range(Lt):
+            for y in range(Lz):
+                for z in range(Ly):
+                    eo = (t + z + y) % 2
+                    if eo == 0:
+                        data_lex[:, t, z, y, 0::2] = data_cb2[:, 0, t, z, y, :]
+                        data_lex[:, t, z, y, 1::2] = data_cb2[:, 1, t, z, y, :]
+                    else:
+                        data_lex[:, t, z, y, 1::2] = data_cb2[:, 0, t, z, y, :]
+                        data_lex[:, t, z, y, 0::2] = data_cb2[:, 1, t, z, y, :]
+        return data_lex.reshape(-1)
+
     @property
     def data_ptr(self):
         return getDataPointers(self.data.reshape(4, -1), 4)
@@ -169,7 +185,6 @@ def smear(latt_size: Sequence[int], gauge: LatticeGauge, nstep: int, rho: float)
     quda.performSTOUTnStep(nstep, rho, 1)
     loader.gauge_param.type = QudaLinkType.QUDA_SMEARED_LINKS
     quda.saveGaugeQuda(gauge.data_ptr, loader.gauge_param)
-    gauge.setAntiPeroidicT()
 
 
 class QudaFieldLoader:
