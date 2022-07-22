@@ -21,7 +21,7 @@ gauge = gauge_utils.readIldg(os.path.join(test_dir, "weak_field.lime"))
 quda.initQuda(0)
 
 core.smear(latt_size, gauge, 1, 0.241)
-# gauge_quda.setAntiPeroidicT()
+gauge.setAntiPeroidicT()  # for fermion smearing
 
 quda.endQuda()
 

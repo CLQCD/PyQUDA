@@ -2702,6 +2702,12 @@ def setVerbosityQuda(quda.QudaVerbosity verbosity, const char prefix[], Pointer 
     assert outfile.dtype == "FILE"
     quda.setVerbosityQuda(verbosity, prefix, <quda.FILE *>outfile.ptr)
 
+def initCommsGridQuda(int nDim, list dims):
+    cdef int c_dims[4]
+    for i in range(nDim):
+        c_dims[i] = dims[i]
+    quda.initCommsGridQuda(nDim, c_dims, NULL, NULL)
+
 def initQudaDevice(int device):
     quda.initQudaDevice(device)
 
@@ -2838,15 +2844,21 @@ def gaugeObservablesQuda(QudaGaugeObservableParam param):
 # void contractQuda(const void *x, const void *y, void *result, const QudaContractType cType, QudaInvertParam *param,
 #                     const int *X)
 
-def computeGaugeFixingOVRQuda(Pointer gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double relax_boost, double tolerance, unsigned int reunit_interval, unsigned int stopWtheta, QudaGaugeParam param, numpy.ndarray timeinfo):
+def computeGaugeFixingOVRQuda(Pointer gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double relax_boost, double tolerance, unsigned int reunit_interval, unsigned int stopWtheta, QudaGaugeParam param, list timeinfo):
     assert gauge.dtype == "void"
-    cdef double[:] timeinfo_view = timeinfo
-    return quda.computeGaugeFixingOVRQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, relax_boost, tolerance, reunit_interval, stopWtheta, &param.param, &timeinfo_view[0])
+    cdef double c_timeinfo[3]
+    ret = quda.computeGaugeFixingOVRQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, relax_boost, tolerance, reunit_interval, stopWtheta, &param.param, c_timeinfo)
+    for i in range(3):
+        timeinfo[i] = c_timeinfo[i]
+    return ret
 
-def computeGaugeFixingFFTQuda(Pointer gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double alpha, unsigned int autotune, double tolerance, unsigned int stopWtheta, QudaGaugeParam param, numpy.ndarray timeinfo):
+def computeGaugeFixingFFTQuda(Pointer gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double alpha, unsigned int autotune, double tolerance, unsigned int stopWtheta, QudaGaugeParam param, list timeinfo):
     assert gauge.dtype == "void"
-    cdef double[:] timeinfo_view = timeinfo
-    return quda.computeGaugeFixingFFTQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta, &param.param, &timeinfo_view[0])
+    cdef double c_timeinfo[3]
+    ret = quda.computeGaugeFixingFFTQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta, &param.param, c_timeinfo)
+    for i in range(3):
+        timeinfo[i] = c_timeinfo[i]
+    return ret
 
 # void blasGEMMQuda(void *arrayA, void *arrayB, void *arrayC, QudaBoolean native, QudaBLASParam *param)
 

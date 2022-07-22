@@ -409,6 +409,8 @@ class QudaBLASParam:
 def setVerbosityQuda(verbosity: QudaVerbosity, prefix: str, outfile: Pointer) -> None:
     ...
 
+def initCommsGridQuda(nDim: int, dims: List[int, 4]):
+    ...
 
 def initQudaDevice(device: int) -> None:
     ...
@@ -504,13 +506,13 @@ def gaugeObservablesQuda(param: QudaGaugeObservableParam):
 
 def computeGaugeFixingOVRQuda(
     gauge: Pointer, gauge_dir: int, Nsteps: int, verbose_interval: int, relax_boost: double, tolerance: double,
-    reunit_interval: int, stopWtheta: int, param: QudaGaugeParam, timeinfo: numpy.ndarray[double]
+    reunit_interval: int, stopWtheta: int, param: QudaGaugeParam, timeinfo: List[double, 3]
 ) -> int:
     ...
 
 
 def computeGaugeFixingFFTQuda(
     gauge: Pointer, gauge_dir: int, Nsteps: int, verbose_interval: int, alpha: double, autotune: int,
-    tolerance: double, stopWtheta: int, param: QudaGaugeParam, timeinfo: numpy.ndarray[double]
+    tolerance: double, stopWtheta: int, param: QudaGaugeParam, timeinfo: List[double, 3]
 ) -> int:
     ...

@@ -2,6 +2,7 @@ from typing import Sequence, Union
 from enum import IntEnum
 from math import sqrt
 
+import numpy as np
 import cupy as cp
 
 from pyquda.enum_quda import QudaLinkType
@@ -37,17 +38,19 @@ class LatticeField:
 
 
 class LatticeGauge(LatticeField):
-    def __init__(self, latt_size: Sequence[int], value=None) -> None:
+    def __init__(self, latt_size: Sequence[int], value=None, t_boundary=True) -> None:
         self.latt_size = latt_size
         if value is None:
             self.data = newLatticeFieldData(latt_size, "Gauge").reshape(-1)
         else:
             self.data = value.reshape(-1)
+        self.t_boundary = t_boundary
 
     def setAntiPeroidicT(self):
-        Lt = self.latt_size[Nd - 1]
-        data = self.data.reshape(Nd, 2, Lt, -1)
-        data[Nd - 1, :, Lt - 1] *= -1
+        if self.t_boundary:
+            Lt = self.latt_size[Nd - 1]
+            data = self.data.reshape(Nd, 2, Lt, -1)
+            data[Nd - 1, :, Lt - 1] *= -1
 
     def setAnisotropy(self, anisotropy: float):
         data = self.data.reshape(Nd, -1)
@@ -55,11 +58,11 @@ class LatticeGauge(LatticeField):
 
     def lexico(self):
         Lx, Ly, Lz, Lt = self.latt_size
-        data_cb2 = self.data.reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc)
-        data_lex = cp.zeros((Nd, Lt, Lz, Ly, Lx, Nc, Nc), "<c16")
+        data_cb2 = self.data.reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc).get()
+        data_lex = np.zeros((Nd, Lt, Lz, Ly, Lx, Nc, Nc), "<c16")
         for t in range(Lt):
-            for y in range(Lz):
-                for z in range(Ly):
+            for z in range(Lz):
+                for y in range(Ly):
                     eo = (t + z + y) % 2
                     if eo == 0:
                         data_lex[:, t, z, y, 0::2] = data_cb2[:, 0, t, z, y, :]
@@ -121,11 +124,11 @@ class LatticePropagator(LatticeField):
 
     def lexico(self):
         Lx, Ly, Lz, Lt = self.latt_size
-        data_cb2 = self.data.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc)
-        data_lex = cp.zeros((Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc), "<c16")
+        data_cb2 = self.data.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc).get()
+        data_lex = np.zeros((Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc), "<c16")
         for t in range(Lt):
-            for y in range(Lz):
-                for z in range(Ly):
+            for z in range(Lz):
+                for y in range(Ly):
                     eo = (t + z + y) % 2
                     if eo == 0:
                         data_lex[t, z, y, 0::2] = data_cb2[0, t, z, y, :]
