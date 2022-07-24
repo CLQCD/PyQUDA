@@ -7,10 +7,11 @@ from xml.etree import ElementTree as ET
 import numpy as np
 import cupy as cp
 
+from .. import mpi
 from ..core import Nc, Nd, LatticeGauge
 
 
-def readIldg(filename: str, grid_size: List[int] = None, rank: int = 0):
+def readIldg(filename: str, grid_size: List[int] = None):
     with open(filename, "rb") as f:
         meta: Dict[str, Tuple[int]] = {}
         buffer = f.read(8)
@@ -40,13 +41,9 @@ def readIldg(filename: str, grid_size: List[int] = None, rank: int = 0):
 
     if grid_size is not None:
         Gx, Gy, Gz, Gt = grid_size
-        assert rank < Gx * Gy * Gz * Gt
         latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
         Lx, Ly, Lz, Lt = latt_size
-        gt = rank % Gt
-        gz = rank // Gt % Gz
-        gy = rank // Gt // Gz % Gy
-        gx = rank // Gt // Gz // Gy
+        gx, gy, gz, gt = mpi.coord
         gauge_raw = gauge_raw[gt * Lt:(gt + 1) * Lt, gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
                               gx * Lx:(gx + 1) * Lx]
     else:
@@ -69,7 +66,7 @@ def readIldg(filename: str, grid_size: List[int] = None, rank: int = 0):
     return LatticeGauge(latt_size, cp.array(gauge), gt == Gt - 1)
 
 
-def readIldgBin(filename: str, dtype: str, latt_size: List[int], grid_size: List[int] = None, rank: int = 0):
+def readIldgBin(filename: str, dtype: str, latt_size: List[int], grid_size: List[int] = None):
     Lx, Ly, Lz, Lt = latt_size
     gauge_raw = np.fromfile(filename, dtype).astype("<c16").reshape(Lt, Lz, Ly, Lx, Nd, Nc, Nc)
 
@@ -77,11 +74,7 @@ def readIldgBin(filename: str, dtype: str, latt_size: List[int], grid_size: List
         Gx, Gy, Gz, Gt = grid_size
         latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
         Lx, Ly, Lz, Lt = latt_size
-        assert rank < Gx * Gy * Gz * Gt
-        gt = rank % Gt
-        gz = rank // Gt % Gz
-        gy = rank // Gt // Gz % Gy
-        gx = rank // Gt // Gz // Gy
+        gx, gy, gz, gt = mpi.coord
         gauge_raw = gauge_raw[gt * Lt:(gt + 1) * Lt, gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
                               gx * Lx:(gx + 1) * Lx]
     else:

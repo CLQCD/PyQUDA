@@ -18,7 +18,7 @@ Vol = Lx * Ly * Lz * Lt
 
 gauge = gauge_utils.readIldg(os.path.join(test_dir, "weak_field.lime"))
 
-quda.initQuda(0)
+quda.initQuda(-1)
 
 core.smear(latt_size, gauge, 1, 0.241)
 gauge.setAntiPeroidicT()  # for fermion smearing
