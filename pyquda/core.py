@@ -146,42 +146,6 @@ class LatticePropagator(LatticeField):
         return data_T.reshape(-1)
 
 
-def source(
-    latt_size: Sequence[int], source_type: str, t_srce: Union[int, Sequence[int]], spin: int, color: int, phase=None
-):
-    Lx, Ly, Lz, Lt = latt_size
-    b = LatticeFermion(latt_size)
-    data = b.data.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
-    if source_type.lower() == "point":
-        x, y, z, t = t_srce
-        eo = (x + y + z + t) % 2
-        data[eo, t, z, y, x // 2, spin, color] = 1
-    elif source_type.lower() == "wall":
-        t = t_srce
-        data[:, t, :, :, :, spin, color] = 1
-    elif source_type.lower() == "momentum":
-        t = t_srce
-        data[:, t, :, :, :, spin, color] = phase[:, t, :, :, :]
-    else:
-        raise NotImplementedError(f"{source_type} source is not implemented yet.")
-
-    return b
-
-
-def source12(latt_size: Sequence[int], source_type: str, t_srce: Union[int, Sequence[int]], phase=None):
-    Lx, Ly, Lz, Lt = latt_size
-    Vol = Lx * Ly * Lz * Lt
-
-    b12 = LatticePropagator(latt_size)
-    data = b12.data.reshape(Vol, Ns, Ns, Nc, Nc)
-    for spin in range(Ns):
-        for color in range(Nc):
-            b = source(latt_size, source_type, t_srce, spin, color, phase)
-            data[:, :, spin, :, color] = b.data.reshape(Vol, Ns, Nc)
-
-    return b12
-
-
 def smear(latt_size: Sequence[int], gauge: LatticeGauge, nstep: int, rho: float):
     loader = QudaFieldLoader(latt_size, 0, 0, 0)
     loader.loadGauge(gauge)

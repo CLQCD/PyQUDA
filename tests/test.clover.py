@@ -7,7 +7,7 @@ test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(test_dir, ".."))
 from pyquda import core, quda
 from pyquda.core import Nc, Ns
-from pyquda.utils import gauge_utils
+from pyquda.utils import gauge_utils, source
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
@@ -33,7 +33,7 @@ propagator = core.LatticePropagator(latt_size)
 data = propagator.data.reshape(Vol, Ns, Ns, Nc, Nc)
 for spin in range(Ns):
     for color in range(Nc):
-        b = core.source(latt_size, "point", [0, 0, 0, 0], spin, color)
+        b = source.source(latt_size, "point", [0, 0, 0, 0], spin, color)
         x = loader.invert(b)
         data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
 

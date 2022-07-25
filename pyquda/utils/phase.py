@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import List
 
 import numpy as np
 import cupy as cp
@@ -37,7 +37,7 @@ def getMomDict(mom2_max, mom2_min=0):
 
 
 class Phase:
-    def __init__(self, latt_size: Sequence[int]) -> None:
+    def __init__(self, latt_size: List[int]) -> None:
         Lx, Ly, Lz, Lt = latt_size
         x = np.arange(Lx).reshape(1, 1, 1, Lx).repeat(Lt, 0).repeat(Lz, 1).repeat(Ly, 2) * (2j * np.pi / Lx)
         y = np.arange(Ly).reshape(1, 1, Ly, 1).repeat(Lt, 0).repeat(Lz, 1).repeat(Lx, 3) * (2j * np.pi / Ly)
@@ -67,11 +67,11 @@ class Phase:
         self.y = cp.array(y_cb2)
         self.z = cp.array(z_cb2)
 
-    def __getitem__(self, momentum: Sequence[int]):
+    def __getitem__(self, momentum: List[int]):
         npx, npy, npz = momentum
         return cp.exp(npx * self.x + npy * self.y + npz * self.z)
 
-    def cache(self, mom_list: Sequence[Sequence[int]]):
+    def cache(self, mom_list: List[List[int]]):
         ret = []
         for mom in mom_list:
             ret.append(self.__getitem__(mom))

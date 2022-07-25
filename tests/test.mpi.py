@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join(test_dir, ".."))
 from pyquda import mpi
 from pyquda import quda, core
 from pyquda.core import Nc, Nd, Ns
-from pyquda.utils import gauge_utils, prop_utils
+from pyquda.utils import source, gauge_utils, prop_utils
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
@@ -36,16 +36,8 @@ quda.initQuda(-1)
 
 loader.loadGauge(gauge)
 
-propagator = core.LatticePropagator(latt_size)
-data = propagator.data.reshape(Vol, Ns, Ns, Nc, Nc)
-for spin in range(Ns):
-    for color in range(Nc):
-        b = core.LatticeFermion(latt_size)
-        b_data = b.data.reshape(Vol, Ns, Nc)
-        if mpi.rank == 0:
-            b_data[0, spin, color] = 1
-        x = loader.invert(b)
-        data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
+b = source.source12(latt_size, "point", [0, 0, 0, 0])
+propagator = loader.invert12(b)
 
 quda.endQuda()
 
