@@ -8,7 +8,6 @@ sys.path.insert(0, os.path.join(test_dir, ".."))
 
 from pyquda import mpi
 from pyquda import quda, core
-from pyquda.core import Nc, Nd, Ns
 from pyquda.utils import source, gauge_utils, prop_utils
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"

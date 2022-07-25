@@ -406,11 +406,13 @@ class QudaBLASParam:
     data_order: QudaBLASDataOrder
 
 
-def setVerbosityQuda(verbosity: QudaVerbosity, prefix: str, outfile: Pointer) -> None:
+def setVerbosityQuda(verbosity: QudaVerbosity, prefix: bytes) -> None:
     ...
+
 
 def initCommsGridQuda(nDim: int, dims: List[int, 4]):
     ...
+
 
 def initQudaDevice(device: int) -> None:
     ...
@@ -428,7 +430,7 @@ def endQuda() -> None:
     ...
 
 
-def loadGaugeQuda(h_gauge: Pointer, param: QudaGaugeParam) -> None:
+def loadGaugeQuda(h_gauge: Pointers, param: QudaGaugeParam) -> None:
     ...
 
 
@@ -436,7 +438,7 @@ def freeGaugeQuda() -> None:
     ...
 
 
-def saveGaugeQuda(h_gauge: Pointer, param: QudaGaugeParam) -> None:
+def saveGaugeQuda(h_gauge: Pointers, param: QudaGaugeParam) -> None:
     ...
 
 
@@ -452,7 +454,7 @@ def invertQuda(h_x: Pointer, h_b: Pointer, param: QudaInvertParam) -> None:
     ...
 
 
-def invertMultiShiftQuda(_hp_x: Pointer, _hp_b: Pointer, param: QudaInvertParam) -> None:
+def invertMultiShiftQuda(_hp_x: Pointers, _hp_b: Pointer, param: QudaInvertParam) -> None:
     ...
 
 
@@ -472,7 +474,7 @@ def MatDagMatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> 
     ...
 
 
-def projectSU3Quda(gauge_h: Pointer, tol: double, param: QudaGaugeParam):
+def projectSU3Quda(gauge_h: Pointers, tol: double, param: QudaGaugeParam):
     ...
 
 
@@ -505,14 +507,14 @@ def gaugeObservablesQuda(param: QudaGaugeObservableParam):
 
 
 def computeGaugeFixingOVRQuda(
-    gauge: Pointer, gauge_dir: int, Nsteps: int, verbose_interval: int, relax_boost: double, tolerance: double,
+    gauge: Pointers, gauge_dir: int, Nsteps: int, verbose_interval: int, relax_boost: double, tolerance: double,
     reunit_interval: int, stopWtheta: int, param: QudaGaugeParam, timeinfo: List[double, 3]
 ) -> int:
     ...
 
 
 def computeGaugeFixingFFTQuda(
-    gauge: Pointer, gauge_dir: int, Nsteps: int, verbose_interval: int, alpha: double, autotune: int,
+    gauge: Pointers, gauge_dir: int, Nsteps: int, verbose_interval: int, alpha: double, autotune: int,
     tolerance: double, stopWtheta: int, param: QudaGaugeParam, timeinfo: List[double, 3]
 ) -> int:
     ...

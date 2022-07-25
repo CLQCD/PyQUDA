@@ -1,4 +1,5 @@
-import os, sys
+import os
+import sys
 import io
 from contextlib import contextmanager
 from tempfile import TemporaryFile
@@ -9,6 +10,8 @@ import cython
 import numpy
 cimport numpy
 import cupy
+
+from libc.stdio cimport stdout
 
 cimport quda
 
@@ -2698,14 +2701,13 @@ cdef class QudaBLASParam:
         self.param.data_order = value
 
 
-def setVerbosityQuda(quda.QudaVerbosity verbosity, const char prefix[], Pointer outfile):
-    assert outfile.dtype == "FILE"
-    quda.setVerbosityQuda(verbosity, prefix, <quda.FILE *>outfile.ptr)
+def setVerbosityQuda(quda.QudaVerbosity verbosity, const char prefix[]):
+    quda.setVerbosityQuda(verbosity, prefix, stdout)
 
 def initCommsGridQuda(int nDim, list dims):
+    assert nDim == 4 and len(dims) >= 4
     cdef int c_dims[4]
-    for i in range(nDim):
-        c_dims[i] = dims[i]
+    c_dims = dims
     quda.initCommsGridQuda(nDim, c_dims, NULL, NULL)
 
 def initQudaDevice(int device):
@@ -2723,14 +2725,14 @@ def endQuda():
 def updateR():
     quda.updateR()
 
-def loadGaugeQuda(Pointer h_gauge, QudaGaugeParam param):
+def loadGaugeQuda(Pointers h_gauge, QudaGaugeParam param):
     assert h_gauge.dtype == "void"
-    quda.loadGaugeQuda(<void *>h_gauge.ptr, &param.param)
+    quda.loadGaugeQuda(h_gauge.ptr, &param.param)
 
 def freeGaugeQuda():
     quda.freeGaugeQuda()
 
-def saveGaugeQuda(Pointer h_gauge, QudaGaugeParam param):
+def saveGaugeQuda(Pointers h_gauge, QudaGaugeParam param):
     assert h_gauge.dtype == "void"
     quda.saveGaugeQuda(h_gauge.ptr, &param.param)
 
@@ -2754,10 +2756,10 @@ def invertQuda(Pointer h_x, Pointer h_b, QudaInvertParam param):
 # def invertMultiSrcStaggeredQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, Pointer milc_fatlinks, Pointer milc_longlinks, QudaGaugeParam gauge_param)
 # def invertMultiSrcCloverQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, Pointer h_gauge, QudaGaugeParam gauge_param, Pointer h_clover, Pointer h_clovinv)
 
-def invertMultiShiftQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param):
+def invertMultiShiftQuda(Pointers _hp_x, Pointer _hp_b, QudaInvertParam param):
     assert _hp_x.dtype == "void"
     assert _hp_b.dtype == "void"
-    quda.invertMultiShiftQuda(_hp_x.ptrs, _hp_b.ptrs, &param.param)
+    quda.invertMultiShiftQuda(_hp_x.ptrs, _hp_b.ptr, &param.param)
 
 # def newMultigridQuda(QudaMultigridParam param) -> Pointer
 # def destroyMultigridQuda(Pointer mg_instance)
@@ -2797,7 +2799,7 @@ def MatDagMatQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param):
 # void updateGaugeFieldQuda(void* gauge, void* momentum, double dt, int conj_mom, int exact, QudaGaugeParam* param)
 # void staggeredPhaseQuda(void *gauge_h, QudaGaugeParam *param)
 
-def projectSU3Quda(Pointer gauge_h, double tol, QudaGaugeParam param):
+def projectSU3Quda(Pointers gauge_h, double tol, QudaGaugeParam param):
     assert gauge_h.dtype == "void"
     quda.projectSU3Quda(gauge_h.ptr, tol, &param.param)
 
@@ -2817,10 +2819,10 @@ def createCloverQuda(QudaInvertParam param):
 # void gaussGaugeQuda(unsigned long long seed, double sigma)
 
 def plaqQuda(list plaq):
+    assert len(plaq) >= 3
     cdef double c_plaq[3]
     quda.plaqQuda(c_plaq)
-    for i in range(3):
-        plaq[i] = c_plaq[i]
+    plaq = c_plaq
 
 # void copyExtendedResidentGaugeQuda(void* resident_gauge, QudaFieldLocation loc)
 
@@ -2844,20 +2846,20 @@ def gaugeObservablesQuda(QudaGaugeObservableParam param):
 # void contractQuda(const void *x, const void *y, void *result, const QudaContractType cType, QudaInvertParam *param,
 #                     const int *X)
 
-def computeGaugeFixingOVRQuda(Pointer gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double relax_boost, double tolerance, unsigned int reunit_interval, unsigned int stopWtheta, QudaGaugeParam param, list timeinfo):
+def computeGaugeFixingOVRQuda(Pointers gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double relax_boost, double tolerance, unsigned int reunit_interval, unsigned int stopWtheta, QudaGaugeParam param, list timeinfo):
+    assert len(timeinfo) >= 3
     assert gauge.dtype == "void"
     cdef double c_timeinfo[3]
     ret = quda.computeGaugeFixingOVRQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, relax_boost, tolerance, reunit_interval, stopWtheta, &param.param, c_timeinfo)
-    for i in range(3):
-        timeinfo[i] = c_timeinfo[i]
+    timeinfo = c_timeinfo
     return ret
 
-def computeGaugeFixingFFTQuda(Pointer gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double alpha, unsigned int autotune, double tolerance, unsigned int stopWtheta, QudaGaugeParam param, list timeinfo):
+def computeGaugeFixingFFTQuda(Pointers gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double alpha, unsigned int autotune, double tolerance, unsigned int stopWtheta, QudaGaugeParam param, list timeinfo):
+    assert len(timeinfo) >= 3
     assert gauge.dtype == "void"
     cdef double c_timeinfo[3]
     ret = quda.computeGaugeFixingFFTQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta, &param.param, c_timeinfo)
-    for i in range(3):
-        timeinfo[i] = c_timeinfo[i]
+    timeinfo = c_timeinfo
     return ret
 
 # void blasGEMMQuda(void *arrayA, void *arrayB, void *arrayC, QudaBoolean native, QudaBLASParam *param)
