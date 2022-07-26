@@ -1,4 +1,4 @@
-from typing import Sequence, Union
+from typing import List, Union
 from enum import IntEnum
 from math import sqrt
 
@@ -22,7 +22,7 @@ Nd = LatticeConstant.Nd
 Ns = LatticeConstant.Ns
 
 
-def newLatticeFieldData(latt_size: Sequence[int], dtype: str) -> cp.ndarray:
+def newLatticeFieldData(latt_size: List[int], dtype: str) -> cp.ndarray:
     Lx, Ly, Lz, Lt = latt_size
     if dtype.capitalize() == "Gauge":
         return cp.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
@@ -38,7 +38,7 @@ class LatticeField:
 
 
 class LatticeGauge(LatticeField):
-    def __init__(self, latt_size: Sequence[int], value=None, t_boundary=True) -> None:
+    def __init__(self, latt_size: List[int], value=None, t_boundary=True) -> None:
         self.latt_size = latt_size
         if value is None:
             self.data = newLatticeFieldData(latt_size, "Gauge").reshape(-1)
@@ -82,7 +82,7 @@ class LatticeGauge(LatticeField):
 
 
 class LatticeFermion(LatticeField):
-    def __init__(self, latt_size: Sequence[int]) -> None:
+    def __init__(self, latt_size: List[int]) -> None:
         self.latt_size = latt_size
         self.data = newLatticeFieldData(latt_size, "Fermion").reshape(-1)
 
@@ -118,7 +118,7 @@ class LatticeFermion(LatticeField):
 
 
 class LatticePropagator(LatticeField):
-    def __init__(self, latt_size: Sequence[int]) -> None:
+    def __init__(self, latt_size: List[int]) -> None:
         self.latt_size = latt_size
         self.data = newLatticeFieldData(latt_size, "Propagator").reshape(-1)
 
@@ -146,7 +146,7 @@ class LatticePropagator(LatticeField):
         return data_T.reshape(-1)
 
 
-def smear(latt_size: Sequence[int], gauge: LatticeGauge, nstep: int, rho: float):
+def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
     loader = QudaFieldLoader(latt_size, 0, 0, 0)
     loader.loadGauge(gauge)
     quda.performSTOUTnStep(nstep, rho, 1)
@@ -157,9 +157,9 @@ def smear(latt_size: Sequence[int], gauge: LatticeGauge, nstep: int, rho: float)
 class QudaFieldLoader:
     def __init__(
         self,
-        latt_size: Sequence[int],
-        mass: Union[float, Sequence[float]],
-        tol: Union[float, Sequence[float]],
+        latt_size: List[int],
+        mass: float,
+        tol: float,
         maxiter: int,
         xi_0: float = 1.0,
         nu: float = 1.0,
@@ -189,24 +189,18 @@ class QudaFieldLoader:
         self.clover_coeff = kappa * clover_coeff
         self.clover_xi = clover_xi
         self.clover = clover
-        if isinstance(mass, float):
-            if not clover:
-                from .dslash import wilson as loader
-                self.invert_param = loader.newQudaInvertParam(kappa, tol, maxiter)
-            else:
-                from .dslash import clover_wilson as loader
-                self.invert_param = loader.newQudaInvertParam(kappa, tol, maxiter, clover_xi, kappa * clover_coeff)
+        if not clover:
+            from .dslash import wilson as loader
+            self.dslash = loader.Wilson(latt_size, kappa, tol, maxiter, xi, -1)
         else:
-            from .dslash import wilson_multishift as loader
-            self.invert_param = loader.newQudaInvertParam(kappa, tol, maxiter)
-        self.loader = loader
-        self.gauge_param = loader.newQudaGaugeParam(latt_size, xi)
+            from .dslash import clover_wilson as loader
+            self.dslash = loader.CloverWilson(latt_size, kappa, tol, maxiter, xi, clover_coeff, clover_xi, -1)
 
     def loadGauge(self, gauge: LatticeGauge):
-        self.loader.loadGauge(gauge, self.gauge_param, self.invert_param)
+        self.dslash.loadGauge(gauge)
 
     def invert(self, b: LatticeFermion):
-        return self.loader.invert(b, self.invert_param)
+        return self.dslash.invert(b)
 
     def invert12(self, b12: LatticePropagator):
         latt_size = self.latt_size

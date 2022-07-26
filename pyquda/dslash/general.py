@@ -1,7 +1,7 @@
 from typing import List
 
 from ..pyquda import (  # noqa: F401
-    Pointer, QudaGaugeParam, QudaInvertParam, loadGaugeQuda, invertQuda, invertMultiShiftQuda
+    Pointer, QudaGaugeParam, QudaInvertParam, loadCloverQuda, loadGaugeQuda, invertQuda, dslashQuda, cloverQuda
 )
 from ..enum_quda import (  # noqa: F401
     QudaConstant, qudaError_t, QudaMemoryType, QudaLinkType, QudaGaugeFieldOrder, QudaTboundary, QudaPrecision,
@@ -19,8 +19,12 @@ from ..enum_quda import (  # noqa: F401
 
 from ..core import LatticeGauge, LatticeFermion
 
+cpu_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
+gpu_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
+gpu_half_prec = QudaPrecision.QUDA_HALF_PRECISION
 
-def newQudaGaugeParam(X: List[int], anisotropy: float):
+
+def newQudaGaugeParam(X: List[int], anisotropy: float, t_boundary: int):
     Lx, Ly, Lz, Lt = X
     Lmin = min(Lx, Ly, Lz, Lt)
     ga_pad = Lx * Ly * Lz * Lt // Lmin
@@ -30,11 +34,11 @@ def newQudaGaugeParam(X: List[int], anisotropy: float):
     gauge_param.X = X
     gauge_param.type = QudaLinkType.QUDA_WILSON_LINKS
     gauge_param.gauge_order = QudaGaugeFieldOrder.QUDA_QDP_GAUGE_ORDER
-    gauge_param.t_boundary = QudaTboundary.QUDA_ANTI_PERIODIC_T
-    gauge_param.cpu_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
-    gauge_param.cuda_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
+    gauge_param.t_boundary = QudaTboundary.QUDA_ANTI_PERIODIC_T if t_boundary == -1 else QudaTboundary.QUDA_PERIODIC_T
+    gauge_param.cpu_prec = cpu_prec
+    gauge_param.cuda_prec = gpu_prec
+    gauge_param.cuda_prec_sloppy = gpu_half_prec
     gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
-    gauge_param.cuda_prec_sloppy = QudaPrecision.QUDA_HALF_PRECISION
     gauge_param.reconstruct_sloppy = QudaReconstructType.QUDA_RECONSTRUCT_12
     gauge_param.gauge_fix = QudaGaugeFixed.QUDA_GAUGE_FIXED_NO
     gauge_param.anisotropy = anisotropy
@@ -43,11 +47,11 @@ def newQudaGaugeParam(X: List[int], anisotropy: float):
     return gauge_param
 
 
-def newQudaInvertParam(kappa: float, tol: float, maxiter: float):
+def newQudaInvertParam(kappa: float, tol: float, maxiter: int, clover_coeff: float, clover_anisotropy: float):
     invert_param = QudaInvertParam()
 
-    invert_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
-    invert_param.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
+    # invert_param.dslash_type = QudaDslashType.QUDA_CLOVER_WILSON_DSLASH
+    # invert_param.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
     invert_param.kappa = kappa
     invert_param.tol = tol
     invert_param.maxiter = maxiter
@@ -55,15 +59,29 @@ def newQudaInvertParam(kappa: float, tol: float, maxiter: float):
     invert_param.pipeline = 0
 
     invert_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
-    invert_param.solve_type = QudaSolveType.QUDA_DIRECT_SOLVE
+    # invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE
+    invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
 
     invert_param.dagger = QudaDagType.QUDA_DAG_NO
     invert_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
 
-    invert_param.cpu_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
-    invert_param.cuda_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
-    invert_param.cuda_prec_sloppy = QudaPrecision.QUDA_HALF_PRECISION
-    invert_param.cuda_prec_precondition = QudaPrecision.QUDA_HALF_PRECISION
+    if clover_coeff != 0.0:
+        invert_param.clover_cpu_prec = cpu_prec
+        invert_param.clover_cuda_prec = gpu_prec
+        invert_param.clover_cuda_prec_sloppy = gpu_half_prec
+        invert_param.clover_cuda_prec_precondition = gpu_half_prec
+
+        invert_param.clover_order = QudaCloverFieldOrder.QUDA_FLOAT2_CLOVER_ORDER
+        invert_param.clover_csw = clover_anisotropy  # to save clover_anisotropy, not real csw
+        invert_param.clover_coeff = clover_coeff
+        invert_param.compute_clover = 1
+        invert_param.compute_clover_inverse = 1
+
+    invert_param.cpu_prec = cpu_prec
+    invert_param.cuda_prec = gpu_prec
+    invert_param.cuda_prec_sloppy = gpu_half_prec
+    invert_param.cuda_prec_precondition = gpu_half_prec
+
     invert_param.preserve_source = QudaPreserveSource.QUDA_PRESERVE_SOURCE_NO
     invert_param.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
     invert_param.dirac_order = QudaDiracFieldOrder.QUDA_DIRAC_ORDER
@@ -85,7 +103,21 @@ def newQudaInvertParam(kappa: float, tol: float, maxiter: float):
     return invert_param
 
 
-def loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam, invert_param: QudaInvertParam):
+def loadClover(gauge: LatticeGauge, gauge_param: QudaGaugeParam, invert_param: QudaInvertParam):
+    clover_anisotropy = invert_param.clover_csw
+    anisotropy = gauge_param.anisotropy
+
+    gauge_data_bak = gauge.data.copy()
+    if clover_anisotropy != 1.0:
+        gauge.setAnisotropy(clover_anisotropy)
+    gauge_param.anisotropy = 1.0
+    loadGaugeQuda(gauge.data_ptrs, gauge_param)
+    loadCloverQuda(Pointer("void"), Pointer("void"), invert_param)
+    gauge_param.anisotropy = anisotropy
+    gauge.data = gauge_data_bak.copy()
+
+
+def loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     anisotropy = gauge_param.anisotropy
 
     gauge_data_bak = gauge.data.copy()
@@ -102,8 +134,33 @@ def invert(b: LatticeFermion, invert_param: QudaInvertParam):
 
     x = LatticeFermion(b.latt_size)
 
-    # invertMultiShiftQuda(x.data_ptr, b.data_ptr, invert_param)
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
     x.data *= 2 * kappa
+
+    return x
+
+
+def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
+    kappa = invert_param.kappa
+
+    x = LatticeFermion(b.latt_size)
+    tmp = LatticeFermion(b.latt_size)
+    tmp2 = LatticeFermion(b.latt_size)
+
+    # tmp.data = 2 * kappa * b.data
+    # dslashQuda(tmp2.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
+    # tmp.odd = tmp.odd + kappa * tmp2.odd
+    # invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
+    # dslashQuda(tmp2.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
+    # x.even = tmp.even + kappa * tmp2.even
+
+    cloverQuda(tmp.even_ptr, b.even_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY, 1)
+    cloverQuda(tmp.odd_ptr, b.odd_ptr, invert_param, QudaParity.QUDA_ODD_PARITY, 1)
+    tmp.data *= 2 * kappa
+    dslashQuda(tmp2.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
+    tmp.odd = tmp.odd + kappa * tmp2.odd
+    invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
+    dslashQuda(tmp2.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
+    x.even = tmp.even + kappa * tmp2.even
 
     return x
