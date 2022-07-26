@@ -22,7 +22,7 @@ mass = 1 / (2 * kappa) - 4
 loader = core.QudaFieldLoader(latt_size, mass, 1e-9, 1000, xi_0, nu)
 gauge = gauge_utils.readIldg(os.path.join(test_dir, "weak_field.lime"))
 
-quda.initQuda(-1)
+quda.initQuda(0)
 
 loader.loadGauge(gauge)
 

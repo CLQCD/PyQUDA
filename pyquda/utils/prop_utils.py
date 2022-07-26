@@ -15,7 +15,10 @@ def collect(propagator: LatticePropagator, grid_size: List[int], root: int = 0):
         recvbuf = np.zeros((Gt * Gz * Gy * Gx, Lt * Lz * Ly * Lx * Ns * Ns * Nc * Nc), "<c16")
     else:
         recvbuf = None
-    mpi.comm.Gatherv(sendbuf, recvbuf, root)
+    if mpi.comm is not None:
+        mpi.comm.Gatherv(sendbuf, recvbuf, root)
+    else:
+        recvbuf[0] = sendbuf
     if mpi.rank == root:
         data = np.zeros((2, Lt * Gt, Lz * Gz, Ly * Gy, Lx * Gx // 2, Ns, Ns, Nc, Nc), "<c16")
         for i in range(Gx * Gy * Gz * Gt):

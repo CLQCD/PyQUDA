@@ -1581,11 +1581,15 @@ cdef class QudaMultigridParam:
 
     @property
     def geo_block_size(self):
-        return self.param.geo_block_size
+        size = []
+        for i in range(self.n_level):
+            size.append(self.param.geo_block_size[i])
+        return size
 
     @geo_block_size.setter
     def geo_block_size(self, value):
-        self.param.geo_block_size = value
+        for i in range(self.n_level):
+            self.param.geo_block_size[i] = value[i]
 
     @property
     def spin_block_size(self):
@@ -2761,10 +2765,20 @@ def invertMultiShiftQuda(Pointers _hp_x, Pointer _hp_b, QudaInvertParam param):
     assert _hp_b.dtype == "void"
     quda.invertMultiShiftQuda(_hp_x.ptrs, _hp_b.ptr, &param.param)
 
-# def newMultigridQuda(QudaMultigridParam param) -> Pointer
-# def destroyMultigridQuda(Pointer mg_instance)
-# def updateMultigridQuda(Pointer mg_instance, QudaMultigridParam param)
-# def dumpMultigridQuda(Pointer mg_instance, QudaMultigridParam param)
+def newMultigridQuda(QudaMultigridParam param) -> Pointer:
+    mg_instance = Pointer("void")
+    cdef void *ptr = quda.newMultigridQuda(&param.param)
+    mg_instance.set_ptr(ptr)
+    return mg_instance
+
+def destroyMultigridQuda(Pointer mg_instance):
+    quda.destroyMultigridQuda(mg_instance.ptr)
+
+def updateMultigridQuda(Pointer mg_instance, QudaMultigridParam param):
+    quda.updateMultigridQuda(mg_instance.ptr, &param.param)
+
+def dumpMultigridQuda(Pointer mg_instance, QudaMultigridParam param):
+    quda.dumpMultigridQuda(mg_instance.ptr, &param.param)
 
 def dslashQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param, quda.QudaParity parity):
     assert h_out.dtype == "void"

@@ -458,6 +458,22 @@ def invertMultiShiftQuda(_hp_x: Pointers, _hp_b: Pointer, param: QudaInvertParam
     ...
 
 
+def newMultigridQuda(param: QudaMultigridParam) -> Pointer:
+    ...
+
+
+def destroyMultigridQuda(mg_instance: Pointer):
+    ...
+
+
+def updateMultigridQuda(mg_instance: Pointer, param: QudaMultigridParam):
+    ...
+
+
+def dumpMultigridQuda(mg_instance: Pointer, param: QudaMultigridParam):
+    ...
+
+
 def dslashQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam, parity: QudaParity) -> None:
     ...
 
