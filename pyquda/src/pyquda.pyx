@@ -48,6 +48,7 @@ cdef class Pointer:
 
     def __init__(self, dtype):
         self.dtype = dtype
+        self.ptr = NULL
 
     cdef set_ptr(self, void *ptr):
         self.ptr = ptr
@@ -57,6 +58,8 @@ cdef class Pointers(Pointer):
 
     def __init__(self, dtype):
         self.dtype = dtype
+        for i in range(32):
+            self.ptrs[i] = NULL
 
     cdef set_ptrs(self, void **ptrs, int n):
         for i in range(n):
