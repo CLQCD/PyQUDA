@@ -1,0 +1,181 @@
+<?xml version="1.0"?>
+<chroma>
+  <annotation>
+Meson Spectrum input
+</annotation>
+  <Param>
+    <InlineMeasurements>
+
+      <elem>
+        <Name>MAKE_SOURCE</Name>
+        <Frequency>1</Frequency>
+        <Param>
+          <version>6</version>
+          <Source>
+            <version>2</version>
+            <SourceType>POINT_SOURCE</SourceType>
+            <j_decay>3</j_decay>
+            <t_srce>0 0 0 0</t_srce>
+
+            <Displacement>
+              <version>1</version>
+              <DisplacementType>NONE</DisplacementType>
+            </Displacement>
+          </Source>
+        </Param>
+        <NamedObject>
+          <gauge_id>default_gauge_field</gauge_id>
+          <source_id>pt_source_1</source_id>
+        </NamedObject>
+      </elem>
+
+      <elem>
+        <Name>PROPAGATOR</Name>
+        <Frequency>1</Frequency>
+        <Param>
+          <version>10</version>
+          <quarkSpinType>FULL</quarkSpinType>
+          <obsvP>false</obsvP>
+          <numRetries>1</numRetries>
+          <FermionAction>
+            <FermAct>CLOVER</FermAct>
+            <Kappa>0.115</Kappa>
+            <clovCoeff>1.17</clovCoeff>
+            <clovCoeffR>0.91</clovCoeffR>
+            <clovCoeffT>1.07</clovCoeffT>
+            <AnisoParam>
+              <anisoP>true</anisoP>
+              <t_dir>3</t_dir>
+              <xi_0>2.464</xi_0>
+              <nu>0.95</nu>
+            </AnisoParam>
+            <FermionBC>
+              <FermBC>SIMPLE_FERMBC</FermBC>
+              <boundary>1 1 1 -1</boundary>
+            </FermionBC>
+          </FermionAction>
+          <InvertParam>
+            <invType>CG_INVERTER</invType>
+            <RsdCG>1.0e-9</RsdCG>
+            <MaxCG>1000</MaxCG>
+          </InvertParam>
+        </Param>
+        <NamedObject>
+          <gauge_id>default_gauge_field</gauge_id>
+          <source_id>pt_source_1</source_id>
+          <prop_id>pt_prop_1</prop_id>
+        </NamedObject>
+      </elem>
+
+      <elem>
+        <Name>SINK_SMEAR</Name>
+        <Frequency>1</Frequency>
+        <Param>
+          <version>5</version>
+          <Sink>
+            <version>2</version>
+            <SinkType>POINT_SINK</SinkType>
+            <j_decay>3</j_decay>
+
+            <Displacement>
+              <version>1</version>
+              <DisplacementType>NONE</DisplacementType>
+            </Displacement>
+          </Sink>
+        </Param>
+        <NamedObject>
+          <gauge_id>default_gauge_field</gauge_id>
+          <prop_id>pt_prop_1</prop_id>
+          <smeared_prop_id>pt_pt_sink_1</smeared_prop_id>
+        </NamedObject>
+      </elem>
+
+      <elem>
+        <annotation>
+         Compute the meson spectrum. 
+         This version is a clone of the one below, however the xml output is
+         written within the same chroma output file
+      </annotation>
+        <Name>MESON_SPECTRUM</Name>
+        <Frequency>1</Frequency>
+        <Param>
+          <version>1</version>
+          <mom2_max>9</mom2_max>
+          <avg_equiv_mom>false</avg_equiv_mom>
+        </Param>
+        <NamedObject>
+          <gauge_id>default_gauge_field</gauge_id>
+          <correlators>
+            <elem>
+              <source_particle>pion</source_particle>
+              <source_wavetype>1</source_wavetype>
+              <sink_particle>rho_x</sink_particle>
+              <sink_wavetype>1</sink_wavetype>
+              <correlator_terms>
+                <elem>
+                  <first_id>pt_pt_sink_1</first_id>
+                  <second_id>pt_pt_sink_1</second_id>
+                  <factor>1.0</factor>
+
+                  <SourceSpinInsertion>
+                    <version>1</version>
+                    <SpinInsertionType>RIGHT_GAMMA_INSERTION</SpinInsertionType>
+                    <gamma>15</gamma>
+                  </SourceSpinInsertion>
+
+                  <SinkSpinInsertion>
+                    <version>1</version>
+                    <SpinInsertionType>RIGHT_GAMMA_INSERTION</SpinInsertionType>
+                    <gamma>1</gamma>
+                  </SinkSpinInsertion>
+                </elem>
+              </correlator_terms>
+            </elem>
+            <elem>
+              <source_particle>pion</source_particle>
+              <source_wavetype>fred</source_wavetype>
+              <sink_particle>pion</sink_particle>
+              <sink_wavetype>fred</sink_wavetype>
+              <correlator_terms>
+                <elem>
+                  <first_id>pt_pt_sink_1</first_id>
+                  <second_id>pt_pt_sink_1</second_id>
+                  <factor>-1.0</factor>
+
+                  <SourceSpinInsertion>
+                    <version>1</version>
+                    <SpinInsertionType>RIGHT_GAMMA_INSERTION</SpinInsertionType>
+                    <gamma>7</gamma>
+                  </SourceSpinInsertion>
+
+                  <SinkSpinInsertion>
+                    <version>1</version>
+                    <SpinInsertionType>RIGHT_GAMMA_INSERTION</SpinInsertionType>
+                    <gamma>7</gamma>
+                  </SinkSpinInsertion>
+                </elem>
+              </correlator_terms>
+            </elem>
+          </correlators>
+        </NamedObject>
+        <xml_file>mesonspec.dat.xml</xml_file>
+      </elem>
+
+    </InlineMeasurements>
+    <nrow>4 4 4 8</nrow>
+  </Param>
+
+  <RNG>
+    <Seed>
+      <elem>11</elem>
+      <elem>11</elem>
+      <elem>11</elem>
+      <elem>0</elem>
+    </Seed>
+  </RNG>
+
+  <Cfg>
+    <cfg_type>SZINQIO</cfg_type>
+    <cfg_file>tests/weak_field.lime</cfg_file>
+  </Cfg>
+</chroma>
