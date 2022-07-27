@@ -21,7 +21,7 @@ class Wilson(abstract.Dslash):
     ) -> None:
         self.mg_instance = None
         self.newQudaGaugeParam(latt_size, xi, t_boundary)
-        self.newQudaMultigridParam(multigrid, [[4, 4, 4, 4], [2, 2, 2, 2]], 1e-1, 12, 5e-6, 1000, 0, 8)
+        self.newQudaMultigridParam(multigrid, kappa, [[4, 4, 4, 4], [2, 2, 2, 2]], 1e-1, 12, 5e-6, 1000, 0, 8)
         self.newQudaInvertParam(kappa, tol, maxiter)
 
     def newQudaGaugeParam(self, latt_size: List[int], anisotropy: float, t_boundary: int):
@@ -29,16 +29,18 @@ class Wilson(abstract.Dslash):
         self.gauge_param = gauge_param
 
     def newQudaMultigridParam(
-        self, multigrid: bool, geo_block_size: List[List[int]], coarse_tol: float, coarse_maxiter: int,
+        self, multigrid: bool, kappa: float, geo_block_size: List[List[int]], coarse_tol: float, coarse_maxiter: int,
         setup_tol: float, setup_maxiter: int, nu_pre: int, nu_post: int
     ):
         if multigrid:
-            mg_param = general.newQudaMultigridParam(
-                geo_block_size, coarse_tol, coarse_maxiter, setup_tol, setup_maxiter, nu_pre, nu_post
+            mg_param, mg_inv_param = general.newQudaMultigridParam(
+                kappa, geo_block_size, coarse_tol, coarse_maxiter, setup_tol, setup_maxiter, nu_pre, nu_post
             )
+            mg_inv_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
         else:
-            mg_param = None
+            mg_param, mg_inv_param = None, None
         self.mg_param = mg_param
+        self.mg_inv_param = mg_inv_param
 
     def newQudaInvertParam(self, kappa: float, tol: float, maxiter: int):
         invert_param = general.newQudaInvertParam(kappa, tol, maxiter, 0.0, 1.0, self.mg_param)

@@ -9,6 +9,7 @@ class Dslash(ABC):
     gauge_param: QudaGaugeParam
     invert_param: QudaInvertParam
     mg_param: QudaMultigridParam
+    mg_inv_param: QudaMultigridParam
     mg_instance: Pointer
 
     @abstractmethod
@@ -21,7 +22,7 @@ class Dslash(ABC):
 
     @abstractmethod
     def newQudaMultigridParam(
-        self, multigrid: bool, geo_block_size: List[List[int]], coarse_tol: float, coarse_maxiter: int,
+        self, multigrid: bool, kappa: float, geo_block_size: List[List[int]], coarse_tol: float, coarse_maxiter: int,
         setup_tol: float, setup_maxiter: int, nu_pre: int, nu_post: int
     ):
         pass
