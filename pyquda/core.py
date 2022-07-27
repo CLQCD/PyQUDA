@@ -154,6 +154,14 @@ def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
     quda.saveGaugeQuda(gauge.data_ptr, dslash.gauge_param)
 
 
+def smear4(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
+    dslash = getDslash(latt_size, 0, 0, 0)
+    dslash.loadGauge(gauge)
+    quda.performOvrImpSTOUTnStep(nstep, rho, 1.0, 1)
+    dslash.gauge_param.type = QudaLinkType.QUDA_SMEARED_LINKS
+    quda.saveGaugeQuda(gauge.data_ptr, dslash.gauge_param)
+
+
 def invert12(b12: LatticePropagator, dslash):
     latt_size = b12.latt_size
     Lx, Ly, Lz, Lt = latt_size

@@ -24,7 +24,7 @@ class CloverWilson(abstract.Dslash):
     ) -> None:
         self.mg_instance = None
         self.newQudaGaugeParam(latt_size, xi, t_boundary)
-        self.newQudaMultigridParam(multigrid, kappa, [[4, 4, 4, 4], [2, 2, 2, 2]], 1e-1, 200, 5e-6, 1000, 0, 8)
+        self.newQudaMultigridParam(multigrid, kappa, [[4, 4, 4, 4], [2, 2, 2, 2]], 1e-1, 12, 5e-6, 1000, 0, 8)
         self.newQudaInvertParam(kappa, tol, maxiter, clover_coeff, clover_xi)
 
     def newQudaGaugeParam(self, latt_size: List[int], anisotropy: float, t_boundary: int):
