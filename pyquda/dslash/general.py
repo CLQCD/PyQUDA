@@ -206,8 +206,8 @@ def newQudaInvertParam(
     invert_param.gamma_basis = QudaGammaBasis.QUDA_DEGRAND_ROSSI_GAMMA_BASIS
     invert_param.dirac_order = QudaDiracFieldOrder.QUDA_DIRAC_ORDER
 
-    invert_param.input_location = QudaFieldLocation.QUDA_CPU_FIELD_LOCATION
-    invert_param.output_location = QudaFieldLocation.QUDA_CPU_FIELD_LOCATION
+    invert_param.input_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
+    invert_param.output_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
 
     invert_param.sp_pad = 0
     invert_param.cl_pad = 0
