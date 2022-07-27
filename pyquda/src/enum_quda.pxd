@@ -1,6 +1,6 @@
 cdef extern from "enum_quda.h":
     cdef enum:
-        QUDA_INVALID_ENUM = 0x4fffffff - 1
+        QUDA_INVALID_ENUM = -0x7fffffff - 1
 
     ctypedef enum qudaError_t:
         QUDA_SUCCESS = 0

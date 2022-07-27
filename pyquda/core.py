@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List
 from enum import IntEnum
 from math import sqrt
 
@@ -165,6 +165,7 @@ class QudaFieldLoader:
         nu: float = 1.0,
         clover_coeff_t: float = 0.0,
         clover_coeff_r: float = 1.0,
+        multigrid: bool = False,
     ) -> None:
 
         Lx, Ly, Lz, Lt = latt_size
@@ -194,7 +195,7 @@ class QudaFieldLoader:
             self.dslash = loader.Wilson(latt_size, kappa, tol, maxiter, xi, -1)
         else:
             from .dslash import clover_wilson as loader
-            self.dslash = loader.CloverWilson(latt_size, kappa, tol, maxiter, xi, clover_coeff, clover_xi, -1)
+            self.dslash = loader.CloverWilson(latt_size, kappa, tol, maxiter, xi, clover_coeff, clover_xi, -1, multigrid)
 
     def loadGauge(self, gauge: LatticeGauge):
         self.dslash.loadGauge(gauge)

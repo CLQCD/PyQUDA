@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from ..pyquda import QudaGaugeParam, QudaInvertParam, QudaMultigridParam
+from ..pyquda import Pointer, QudaGaugeParam, QudaInvertParam, QudaMultigridParam
 from ..core import LatticeGauge, LatticeFermion
 
 
@@ -10,6 +10,7 @@ class Dslash(ABC):
     invert_param: QudaInvertParam
     mg_param: QudaMultigridParam
     mg_inv_param: QudaInvertParam
+    mg_instance: Pointer
 
     @abstractmethod
     def __init__(self) -> None:

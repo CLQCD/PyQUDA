@@ -2,7 +2,7 @@ from enum import IntEnum
 
 
 class QudaConstant(IntEnum):
-    QUDA_INVALID_ENUM = 0x4fffffff - 1
+    QUDA_INVALID_ENUM = -0x7fffffff - 1
 
     QUDA_VERSION_MAJOR = 1
     QUDA_VERSION_MINOR = 1
