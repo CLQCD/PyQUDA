@@ -5,7 +5,7 @@ import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(test_dir, ".."))
-from pyquda import core, quda
+from pyquda import core, quda, mpi
 from pyquda.core import Nc, Ns
 from pyquda.utils import gauge_utils, source
 
@@ -25,7 +25,7 @@ mass = 1 / (2 * kappa) - 4
 loader = core.QudaFieldLoader(latt_size, mass, 1e-9, 1000, xi_0, nu, coeff_t, coeff_r)
 gauge = gauge_utils.readIldg(os.path.join(test_dir, "weak_field.lime"))
 
-quda.initQuda(0)
+quda.initQuda(mpi.gpuid)
 
 loader.loadGauge(gauge)
 

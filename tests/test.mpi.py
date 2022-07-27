@@ -31,7 +31,7 @@ loader = core.QudaFieldLoader(latt_size, mass, 1e-9, 1000, xi_0, nu, coeff_t, co
 
 gauge = gauge_utils.readIldg(os.path.join(test_dir, "weak_field.lime"), grid_size)
 
-quda.initQuda(-1)
+quda.initQuda(mpi.gpuid)
 
 loader.loadGauge(gauge)
 
