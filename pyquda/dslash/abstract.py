@@ -9,7 +9,6 @@ class Dslash(ABC):
     gauge_param: QudaGaugeParam
     invert_param: QudaInvertParam
     mg_param: QudaMultigridParam
-    mg_inv_param: QudaInvertParam
     mg_instance: Pointer
 
     @abstractmethod
@@ -18,6 +17,13 @@ class Dslash(ABC):
 
     @abstractmethod
     def newQudaGaugeParam(self, latt_size: List[int], anisotropy: float, t_boundary: int):
+        pass
+
+    @abstractmethod
+    def newQudaMultigridParam(
+        self, multigrid: bool, geo_block_size: List[List[int]], coarse_tol: float, coarse_maxiter: int,
+        setup_tol: float, setup_maxiter: int, nu_pre: int, nu_post: int
+    ):
         pass
 
     @abstractmethod
@@ -31,7 +37,3 @@ class Dslash(ABC):
     @abstractmethod
     def invert(self, b: LatticeFermion):
         pass
-
-    # @abstractmethod
-    # def newQudaMultigridParam(self):
-    #     pass

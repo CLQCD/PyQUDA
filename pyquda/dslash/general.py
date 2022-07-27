@@ -17,7 +17,7 @@ from ..enum_quda import (  # noqa: F401
     QudaDirection, QudaLinkDirection, QudaFieldGeometry, QudaGhostExchange, QudaStaggeredPhase, QudaContractType,
     QudaContractGamma, QudaWFlowType, QudaExtLibType
 )
-from ..quda_constants import QUDA_MAX_MG_LEVEL, QUDA_MAX_MULTI_SHIFT
+from ..quda_constants import QUDA_MAX_DIM, QUDA_MAX_MULTI_SHIFT, QUDA_MAX_MG_LEVEL
 
 from ..core import LatticeGauge, LatticeFermion
 
@@ -61,8 +61,8 @@ def newQudaGaugeParam(X: List[int], anisotropy: float, t_boundary: int):
 
 def newQudaMultigridParam(
     geo_block_size: List[List[int]],
-    tol: float,
-    maxiter: int,
+    coarse_tol: float,
+    coarse_maxiter: int,
     setup_tol: float,
     setup_maxiter: int,
     nu_pre: int,
@@ -71,6 +71,8 @@ def newQudaMultigridParam(
     mg_param = QudaMultigridParam()
 
     n_level = len(geo_block_size)
+    for i in range(n_level):
+        geo_block_size[i] = geo_block_size[i] + [1] * (QUDA_MAX_DIM - len(geo_block_size[i]))
     mg_param.n_level = n_level
     mg_param.geo_block_size = geo_block_size
     mg_param.setup_inv_type = [QudaInverterType.QUDA_CG_INVERTER] * QUDA_MAX_MG_LEVEL
@@ -91,8 +93,8 @@ def newQudaMultigridParam(
     mg_param.transfer_type = [QudaTransferType.QUDA_TRANSFER_AGGREGATE] * QUDA_MAX_MG_LEVEL
 
     mg_param.coarse_solver = [QudaInverterType.QUDA_GCR_INVERTER] * QUDA_MAX_MG_LEVEL
-    mg_param.coarse_solver_tol = [tol] * QUDA_MAX_MG_LEVEL
-    mg_param.coarse_solver_maxiter = [maxiter] * QUDA_MAX_MG_LEVEL
+    mg_param.coarse_solver_tol = [coarse_tol] * QUDA_MAX_MG_LEVEL
+    mg_param.coarse_solver_maxiter = [coarse_maxiter] * QUDA_MAX_MG_LEVEL
     mg_param.coarse_grid_solution_type = [QudaSolutionType.QUDA_MATPC_SOLUTION] * QUDA_MAX_MG_LEVEL
 
     mg_param.smoother = [QudaInverterType.QUDA_MR_INVERTER] * QUDA_MAX_MG_LEVEL
@@ -158,9 +160,9 @@ def newQudaInvertParam(
         invert_param.compute_clover = 1
         invert_param.compute_clover_inverse = 1
 
-    invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
+    # invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
     invert_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
-    invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE
+    # invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE
     invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
     invert_param.dagger = QudaDagType.QUDA_DAG_NO
     invert_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
@@ -168,9 +170,6 @@ def newQudaInvertParam(
     invert_param.pipeline = 0
     invert_param.Nsteps = 2
     invert_param.gcrNkrylov = 10
-    # invert_param.ca_basis = QudaCABasis.QUDA_POWER_BASIS
-    # invert_param.ca_lambda_min = 0.0
-    # invert_param.ca_lambda_max = -1.0
     invert_param.tol = tol
     invert_param.tol_restart = 5e3 * tol
     invert_param.tol_hq = 0.0

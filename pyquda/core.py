@@ -192,7 +192,7 @@ class QudaFieldLoader:
         self.clover = clover
         if not clover:
             from .dslash import wilson as loader
-            self.dslash = loader.Wilson(latt_size, kappa, tol, maxiter, xi, -1)
+            self.dslash = loader.Wilson(latt_size, kappa, tol, maxiter, xi, -1, multigrid)
         else:
             from .dslash import clover_wilson as loader
             self.dslash = loader.CloverWilson(latt_size, kappa, tol, maxiter, xi, clover_coeff, clover_xi, -1, multigrid)

@@ -22,18 +22,22 @@ class CloverWilson(abstract.Dslash):
         t_boundary: int = -1,
         multigrid: bool = False,
     ) -> None:
+        self.mg_instance = None
         self.newQudaGaugeParam(latt_size, xi, t_boundary)
-        self.newQudaMultigridParam(multigrid)
+        self.newQudaMultigridParam(multigrid, [[4, 4, 4, 4], [2, 2, 2, 2]], 1e-1, 12, 5e-6, 1000, 0, 8)
         self.newQudaInvertParam(kappa, tol, maxiter, clover_coeff, clover_xi)
 
     def newQudaGaugeParam(self, latt_size: List[int], anisotropy: float, t_boundary: int):
         gauge_param = general.newQudaGaugeParam(latt_size, anisotropy, t_boundary)
         self.gauge_param = gauge_param
 
-    def newQudaMultigridParam(self, multigrid: bool):
+    def newQudaMultigridParam(
+        self, multigrid: bool, geo_block_size: List[List[int]], coarse_tol: float, coarse_maxiter: int,
+        setup_tol: float, setup_maxiter: int, nu_pre: int, nu_post: int
+    ):
         if multigrid:
             mg_param = general.newQudaMultigridParam(
-                [[4, 4, 4, 4, 1, 1], [2, 2, 2, 2, 1, 1]], 1e-12, 12, 5e-6, 1000, 0, 8
+                geo_block_size, coarse_tol, coarse_maxiter, setup_tol, setup_maxiter, nu_pre, nu_post
             )
         else:
             mg_param = None
@@ -55,11 +59,15 @@ class CloverWilson(abstract.Dslash):
         general.loadClover(U, self.gauge_param, self.invert_param)
         general.loadGauge(U, self.gauge_param)
         if self.mg_param is not None:
+            if self.mg_instance is not None:
+                self.destroy()
             self.mg_instance = newMultigridQuda(self.mg_param)
             self.invert_param.preconditioner = self.mg_instance
 
     def destroy(self):
-        destroyMultigridQuda(self.mg_instance)
+        if self.mg_instance is not None:
+            destroyMultigridQuda(self.mg_instance)
+            self.mg_instance = None
 
     def invert(self, b: LatticeFermion):
         return general.invert(b, self.invert_param)
