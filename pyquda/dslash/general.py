@@ -5,19 +5,18 @@ from ..pyquda import (  # noqa: F401
     dslashQuda, cloverQuda, newMultigridQuda
 )
 from ..enum_quda import (  # noqa: F401
-    QudaConstant, qudaError_t, QudaMemoryType, QudaLinkType, QudaGaugeFieldOrder, QudaTboundary, QudaPrecision,
-    QudaReconstructType, QudaGaugeFixed, QudaDslashType, QudaInverterType, QudaEigType, QudaEigSpectrumType,
-    QudaSolutionType, QudaSolveType, QudaMultigridCycleType, QudaSchwarzType, QudaResidualType, QudaCABasis,
-    QudaMatPCType, QudaDagType, QudaMassNormalization, QudaSolverNormalization, QudaPreserveSource,
-    QudaDiracFieldOrder, QudaCloverFieldOrder, QudaVerbosity, QudaTune, QudaPreserveDirac, QudaParity, QudaDiracType,
-    QudaFieldLocation, QudaSiteSubset, QudaSiteOrder, QudaFieldOrder, QudaFieldCreate, QudaGammaBasis, QudaSourceType,
-    QudaNoiseType, QudaProjectionType, QudaPCType, QudaTwistFlavorType, QudaTwistDslashType, QudaTwistCloverDslashType,
-    QudaTwistGamma5Type, QudaUseInitGuess, QudaDeflatedGuess, QudaComputeNullVector, QudaSetupType, QudaTransferType,
-    QudaBoolean, QUDA_BOOLEAN_NO, QUDA_BOOLEAN_YES, QudaBLASOperation, QudaBLASDataType, QudaBLASDataOrder,
-    QudaDirection, QudaLinkDirection, QudaFieldGeometry, QudaGhostExchange, QudaStaggeredPhase, QudaContractType,
-    QudaContractGamma, QudaWFlowType, QudaExtLibType
+    QudaMemoryType, QudaLinkType, QudaGaugeFieldOrder, QudaTboundary, QudaPrecision, QudaReconstructType,
+    QudaGaugeFixed, QudaDslashType, QudaInverterType, QudaEigType, QudaEigSpectrumType, QudaSolutionType,
+    QudaSolveType, QudaMultigridCycleType, QudaSchwarzType, QudaResidualType, QudaCABasis, QudaMatPCType, QudaDagType,
+    QudaMassNormalization, QudaSolverNormalization, QudaPreserveSource, QudaDiracFieldOrder, QudaCloverFieldOrder,
+    QudaVerbosity, QudaTune, QudaPreserveDirac, QudaParity, QudaDiracType, QudaFieldLocation, QudaSiteSubset,
+    QudaSiteOrder, QudaFieldOrder, QudaFieldCreate, QudaGammaBasis, QudaSourceType, QudaNoiseType, QudaProjectionType,
+    QudaPCType, QudaTwistFlavorType, QudaTwistDslashType, QudaTwistCloverDslashType, QudaTwistGamma5Type,
+    QudaUseInitGuess, QudaDeflatedGuess, QudaComputeNullVector, QudaSetupType, QudaTransferType, QudaBoolean,
+    QudaBLASOperation, QudaBLASDataType, QudaBLASDataOrder, QudaDirection, QudaLinkDirection, QudaFieldGeometry,
+    QudaGhostExchange, QudaStaggeredPhase, QudaContractType, QudaContractGamma, QudaWFlowType, QudaExtLibType
 )
-from ..quda_constants import QUDA_MAX_DIM, QUDA_MAX_MULTI_SHIFT, QUDA_MAX_MG_LEVEL
+from ..enum_quda import QUDA_MAX_DIM, QUDA_MAX_MULTI_SHIFT, QUDA_MAX_MG_LEVEL
 
 from ..core import LatticeGauge, LatticeFermion
 
