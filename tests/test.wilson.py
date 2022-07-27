@@ -19,21 +19,22 @@ xi_0, nu = 2.464, 0.95
 kappa = 0.135
 mass = 1 / (2 * kappa) - 4
 
-loader = core.QudaFieldLoader(latt_size, mass, 1e-9, 1000, xi_0, nu)
+dslash = core.getDslash(latt_size, mass, 1e-9, 1000, xi_0, nu, multigrid=False)
 gauge = gauge_utils.readIldg(os.path.join(test_dir, "weak_field.lime"))
 
 quda.initQuda(mpi.gpuid)
 
-loader.loadGauge(gauge)
+dslash.loadGauge(gauge)
 
 propagator = core.LatticePropagator(latt_size)
 data = propagator.data.reshape(Vol, Ns, Ns, Nc, Nc)
 for spin in range(Ns):
     for color in range(Nc):
         b = source.source(latt_size, "point", [0, 0, 0, 0], spin, color)
-        x = loader.invert(b)
+        x = dslash.invert(b)
         data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
 
+dslash.destroy()
 quda.endQuda()
 
 propagator_chroma = cp.array(np.fromfile("pt_prop_0", ">c16", offset=8).astype("<c16"))

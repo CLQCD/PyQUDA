@@ -147,11 +147,57 @@ class LatticePropagator(LatticeField):
 
 
 def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
-    loader = QudaFieldLoader(latt_size, 0, 0, 0)
-    loader.loadGauge(gauge)
+    dslash = getDslash(latt_size, 0, 0, 0)
+    dslash.loadGauge(gauge)
     quda.performSTOUTnStep(nstep, rho, 1)
-    loader.gauge_param.type = QudaLinkType.QUDA_SMEARED_LINKS
-    quda.saveGaugeQuda(gauge.data_ptr, loader.gauge_param)
+    dslash.gauge_param.type = QudaLinkType.QUDA_SMEARED_LINKS
+    quda.saveGaugeQuda(gauge.data_ptr, dslash.gauge_param)
+
+
+def invert12(b12: LatticePropagator, dslash):
+    latt_size = b12.latt_size
+    Lx, Ly, Lz, Lt = latt_size
+    Vol = Lx * Ly * Lz * Lt
+
+    x12 = LatticePropagator(latt_size)
+    for spin in range(Ns):
+        for color in range(Nc):
+            b = LatticeFermion(latt_size)
+            data = b.data.reshape(Vol, Ns, Nc)
+            data[:] = b12.data.reshape(Vol, Ns, Ns, Nc, Nc)[:, :, spin, :, color]
+            x = dslash.invert(b)
+            data = x12.data.reshape(Vol, Ns, Ns, Nc, Nc)
+            data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
+
+    return x12
+
+
+def getDslash(
+    latt_size: List[int],
+    mass: float,
+    tol: float,
+    maxiter: int,
+    xi_0: float = 1.0,
+    nu: float = 1.0,
+    clover_coeff_t: float = 0.0,
+    clover_coeff_r: float = 1.0,
+    multigrid: bool = False,
+):
+    xi = xi_0 / nu
+    kappa = 1 / (2 * (mass + 1 + (Nd - 1) / xi))
+    if xi != 1.0:
+        clover_coeff = xi_0 * clover_coeff_t**2 / clover_coeff_r
+        clover_xi = sqrt(xi_0 * clover_coeff_t / clover_coeff_r)
+    else:
+        clover_coeff = clover_coeff_t
+        clover_xi = 1.0
+
+    if clover_coeff != 0.0:
+        from .dslash import clover_wilson
+        return clover_wilson.CloverWilson(latt_size, kappa, tol, maxiter, xi, clover_coeff, clover_xi, -1, multigrid)
+    else:
+        from .dslash import wilson
+        return wilson.Wilson(latt_size, kappa, tol, maxiter, xi, -1, multigrid)
 
 
 class QudaFieldLoader:
@@ -195,7 +241,9 @@ class QudaFieldLoader:
             self.dslash = loader.Wilson(latt_size, kappa, tol, maxiter, xi, -1, multigrid)
         else:
             from .dslash import clover_wilson as loader
-            self.dslash = loader.CloverWilson(latt_size, kappa, tol, maxiter, xi, clover_coeff, clover_xi, -1, multigrid)
+            self.dslash = loader.CloverWilson(
+                latt_size, kappa, tol, maxiter, xi, clover_coeff, clover_xi, -1, multigrid
+            )
 
     def loadGauge(self, gauge: LatticeGauge):
         self.dslash.loadGauge(gauge)
