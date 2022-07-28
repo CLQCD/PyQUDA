@@ -2839,7 +2839,8 @@ def plaqQuda(list plaq):
     assert len(plaq) >= 3
     cdef double c_plaq[3]
     quda.plaqQuda(c_plaq)
-    plaq = c_plaq
+    for i in range(3):
+        plaq[i] = c_plaq[i]
 
 # void copyExtendedResidentGaugeQuda(void* resident_gauge, QudaFieldLocation loc)
 
@@ -2868,7 +2869,8 @@ def computeGaugeFixingOVRQuda(Pointers gauge, unsigned int gauge_dir, unsigned i
     assert gauge.dtype == "void"
     cdef double c_timeinfo[3]
     ret = quda.computeGaugeFixingOVRQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, relax_boost, tolerance, reunit_interval, stopWtheta, &param.param, c_timeinfo)
-    timeinfo = c_timeinfo
+    for i in range(3):
+        timeinfo[i] = c_timeinfo[i]
     return ret
 
 def computeGaugeFixingFFTQuda(Pointers gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double alpha, unsigned int autotune, double tolerance, unsigned int stopWtheta, QudaGaugeParam param, list timeinfo):
@@ -2876,7 +2878,8 @@ def computeGaugeFixingFFTQuda(Pointers gauge, unsigned int gauge_dir, unsigned i
     assert gauge.dtype == "void"
     cdef double c_timeinfo[3]
     ret = quda.computeGaugeFixingFFTQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta, &param.param, c_timeinfo)
-    timeinfo = c_timeinfo
+    for i in range(3):
+        timeinfo[i] = c_timeinfo[i]
     return ret
 
 # void blasGEMMQuda(void *arrayA, void *arrayB, void *arrayC, QudaBoolean native, QudaBLASParam *param)
