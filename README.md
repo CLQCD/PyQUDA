@@ -30,6 +30,8 @@ popd
 
 Build, install and run the example.
 
+`chroma` is needed here for generating the reference file.
+
 ```bash
 git clone https://github.com/IHEP-LQCD/PyQuda.git
 pushd PyQuda
