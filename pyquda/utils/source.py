@@ -45,6 +45,18 @@ def momentum(latt_size: List[int], t_srce: int, phase, spin: int, color: int):
     return b
 
 
+def colorvec(latt_size: List[int], t_srce: int, phase, spin: int):
+    Lx, Ly, Lz, Lt = latt_size
+    gx, gy, gz, gt = mpi.coord
+    t = t_srce
+    b = LatticeFermion(latt_size)
+    data = b.data.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
+    if gt * Lt <= t < (gt + 1) * Lt:
+        data[:, t - gt * Lt, :, :, :, spin, :] = phase[:, gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
+                                                       gx * Lx // 2:(gx + 1) * Lx // 2, :]
+    return b
+
+
 def source(latt_size: List[int], source_type: str, t_srce: Union[int, List[int]], spin: int, color: int, phase=None):
     if source_type.lower() == "point":
         return point(latt_size, t_srce, spin, color)
@@ -52,6 +64,8 @@ def source(latt_size: List[int], source_type: str, t_srce: Union[int, List[int]]
         return wall(latt_size, t_srce, spin, color)
     elif source_type.lower() == "momentum":
         return momentum(latt_size, t_srce, phase, spin, color)
+    elif source_type.lower() == "colorvec":
+        return colorvec(latt_size, t_srce, phase, spin)
     else:
         raise NotImplementedError(f"{source_type} source is not implemented yet.")
 

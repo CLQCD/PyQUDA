@@ -46,6 +46,11 @@ class LatticeGauge(LatticeField):
             self.data = value.reshape(-1)
         self.t_boundary = t_boundary
 
+    def copy(self):
+        res = LatticeGauge(self.latt_size)
+        res.data[:] = self.data[:]
+        return res
+
     def setAntiPeroidicT(self):
         if self.t_boundary:
             Lt = self.latt_size[Nd - 1]
