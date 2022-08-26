@@ -5,9 +5,8 @@ from math import sqrt
 import numpy as np
 import cupy as cp
 
-from pyquda.enum_quda import QudaLinkType
-
 from . import pyquda as quda
+from . import enum_quda
 from .pyquda import getDataPointers, getDataPointer, getEvenPointer, getOddPointer
 
 
@@ -153,17 +152,19 @@ class LatticePropagator(LatticeField):
 
 def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
     dslash = getDslash(latt_size, 0, 0, 0)
+    dslash.gauge_param.t_boundary = enum_quda.QudaTboundary.QUDA_PERIODIC_T
     dslash.loadGauge(gauge)
     quda.performSTOUTnStep(nstep, rho, 1)
-    dslash.gauge_param.type = QudaLinkType.QUDA_SMEARED_LINKS
+    dslash.gauge_param.type = enum_quda.QudaLinkType.QUDA_SMEARED_LINKS
     quda.saveGaugeQuda(gauge.data_ptr, dslash.gauge_param)
 
 
 def smear4(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
     dslash = getDslash(latt_size, 0, 0, 0)
+    dslash.gauge_param.t_boundary = enum_quda.QudaTboundary.QUDA_PERIODIC_T
     dslash.loadGauge(gauge)
     quda.performOvrImpSTOUTnStep(nstep, rho, 1.0, 1)
-    dslash.gauge_param.type = QudaLinkType.QUDA_SMEARED_LINKS
+    dslash.gauge_param.type = enum_quda.QudaLinkType.QUDA_SMEARED_LINKS
     quda.saveGaugeQuda(gauge.data_ptr, dslash.gauge_param)
 
 

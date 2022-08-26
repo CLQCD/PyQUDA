@@ -6,7 +6,7 @@ size_t = int
 double = float
 double_complex = complex
 
-from enum_quda import (  # noqa: F401
+from .enum_quda import (  # noqa: F401
     QudaConstant, qudaError_t, QudaMemoryType, QudaLinkType, QudaGaugeFieldOrder, QudaTboundary, QudaPrecision,
     QudaReconstructType, QudaGaugeFixed, QudaDslashType, QudaInverterType, QudaEigType, QudaEigSpectrumType,
     QudaSolutionType, QudaSolveType, QudaMultigridCycleType, QudaSchwarzType, QudaResidualType, QudaCABasis,
