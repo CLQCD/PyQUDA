@@ -22,7 +22,7 @@ from ..core import LatticeGauge, LatticeFermion
 
 cpu_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
 cuda_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
-cuda_prec_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION
+cuda_prec_sloppy = QudaPrecision.QUDA_HALF_PRECISION
 link_recon = QudaReconstructType.QUDA_RECONSTRUCT_NO
 link_recon_sloppy = QudaReconstructType.QUDA_RECONSTRUCT_12
 
