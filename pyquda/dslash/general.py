@@ -23,7 +23,7 @@ from ..core import LatticeGauge, LatticeFermion
 cpu_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
 cuda_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
 cuda_prec_sloppy = QudaPrecision.QUDA_HALF_PRECISION
-link_recon = QudaReconstructType.QUDA_RECONSTRUCT_NO
+link_recon = QudaReconstructType.QUDA_RECONSTRUCT_12
 link_recon_sloppy = QudaReconstructType.QUDA_RECONSTRUCT_12
 
 
@@ -263,14 +263,17 @@ def newQudaInvertParam(
 def loadClover(gauge: LatticeGauge, gauge_param: QudaGaugeParam, invert_param: QudaInvertParam):
     clover_anisotropy = invert_param.clover_csw
     anisotropy = gauge_param.anisotropy
+    reconstruct = gauge_param.reconstruct
 
     gauge_data_bak = gauge.data.copy()
     if clover_anisotropy != 1.0:
         gauge.setAnisotropy(clover_anisotropy)
     gauge_param.anisotropy = 1.0
+    gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
     loadGaugeQuda(gauge.data_ptrs, gauge_param)
     loadCloverQuda(Pointer("void"), Pointer("void"), invert_param)
     gauge_param.anisotropy = anisotropy
+    gauge_param.reconstruct = reconstruct
     gauge.data = gauge_data_bak.copy()
 
 

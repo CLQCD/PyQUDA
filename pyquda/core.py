@@ -155,6 +155,7 @@ def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
     dslash.gauge_param.t_boundary = enum_quda.QudaTboundary.QUDA_PERIODIC_T
     dslash.loadGauge(gauge)
     quda.performSTOUTnStep(nstep, rho, 1)
+    dslash.gauge_param.reconstruct = enum_quda.QudaReconstructType.QUDA_RECONSTRUCT_NO
     dslash.gauge_param.type = enum_quda.QudaLinkType.QUDA_SMEARED_LINKS
     quda.saveGaugeQuda(gauge.data_ptr, dslash.gauge_param)
 
@@ -164,6 +165,7 @@ def smear4(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
     dslash.gauge_param.t_boundary = enum_quda.QudaTboundary.QUDA_PERIODIC_T
     dslash.loadGauge(gauge)
     quda.performOvrImpSTOUTnStep(nstep, rho, 1.0, 1)
+    dslash.gauge_param.reconstruct = enum_quda.QudaReconstructType.QUDA_RECONSTRUCT_NO
     dslash.gauge_param.type = enum_quda.QudaLinkType.QUDA_SMEARED_LINKS
     quda.saveGaugeQuda(gauge.data_ptr, dslash.gauge_param)
 
