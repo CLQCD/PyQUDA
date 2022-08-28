@@ -40,7 +40,7 @@ propagator = core.invert12(b, dslash)
 
 quda.endQuda()
 
-propagator_all = prop_utils.collect(propagator, grid_size)
+propagator_all = prop_utils.collect(propagator)
 
 if mpi.rank == 0:
     propagator_chroma = cp.array(np.fromfile("pt_prop_1", ">c16", offset=8).astype("<c16"))

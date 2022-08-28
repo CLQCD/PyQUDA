@@ -7,9 +7,9 @@ from .. import mpi
 from ..core import Nc, Ns, LatticePropagator
 
 
-def collect(propagator: LatticePropagator, grid_size: List[int], root: int = 0):
+def collect(propagator: LatticePropagator, root: int = 0):
     Lx, Ly, Lz, Lt = propagator.latt_size
-    Gx, Gy, Gz, Gt = grid_size
+    Gx, Gy, Gz, Gt = mpi.grid
     sendbuf = propagator.data.get()
     if mpi.rank == root:
         recvbuf = np.zeros((Gt * Gz * Gy * Gx, Lt * Lz * Ly * Lx * Ns * Ns * Nc * Nc), "<c16")
@@ -36,9 +36,9 @@ def collect(propagator: LatticePropagator, grid_size: List[int], root: int = 0):
         return None
 
 
-# def collect(propagator: LatticePropagator, grid_size: List[int], root: int = 0):
+# def collect(propagator: LatticePropagator, root: int = 0):
 #     Lx, Ly, Lz, Lt = propagator.latt_size
-#     Gx, Gy, Gz, Gt = grid_size
+#     Gx, Gy, Gz, Gt = mpi.grid
 #     sendbuf = propagator.lexico()
 #     if mpi.rank == root:
 #         recvbuf = np.zeros((Gt * Gz * Gy * Gx, Lt * Lz * Ly * Lx * Ns * Ns * Nc * Nc), "<c16")
