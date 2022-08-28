@@ -11,7 +11,7 @@ from .. import mpi
 from ..core import Nc, Nd, LatticeGauge
 
 
-def readIldg(filename: str, grid_size: List[int] = None):
+def readIldg(filename: str):
     with open(filename, "rb") as f:
         meta: Dict[str, Tuple[int]] = {}
         buffer = f.read(8)
@@ -39,16 +39,16 @@ def readIldg(filename: str, grid_size: List[int] = None):
     Lx, Ly, Lz, Lt = latt_size
     gauge_raw = np.frombuffer(binary_data, binary_dtype).astype("<c16").reshape(Lt, Lz, Ly, Lx, Nd, Nc, Nc)
 
-    if grid_size is not None:
-        Gx, Gy, Gz, Gt = grid_size
+    if mpi.grid == [1, 1, 1, 1]:
+        Gt = 1
+        gt = 0
+    else:
+        Gx, Gy, Gz, Gt = mpi.grid
         latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
         Lx, Ly, Lz, Lt = latt_size
         gx, gy, gz, gt = mpi.coord
         gauge_raw = gauge_raw[gt * Lt:(gt + 1) * Lt, gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
                               gx * Lx:(gx + 1) * Lx]
-    else:
-        Gt = 1
-        gt = 0
 
     gauge = np.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
 
@@ -66,20 +66,20 @@ def readIldg(filename: str, grid_size: List[int] = None):
     return LatticeGauge(latt_size, cp.array(gauge), gt == Gt - 1)
 
 
-def readIldgBin(filename: str, dtype: str, latt_size: List[int], grid_size: List[int] = None):
+def readIldgBin(filename: str, dtype: str, latt_size: List[int]):
     Lx, Ly, Lz, Lt = latt_size
     gauge_raw = np.fromfile(filename, dtype).astype("<c16").reshape(Lt, Lz, Ly, Lx, Nd, Nc, Nc)
 
-    if grid_size is not None:
-        Gx, Gy, Gz, Gt = grid_size
+    if mpi.grid == [1, 1, 1, 1]:
+        Gt = 1
+        gt = 0
+    else:
+        Gx, Gy, Gz, Gt = mpi.grid
         latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
         Lx, Ly, Lz, Lt = latt_size
         gx, gy, gz, gt = mpi.coord
         gauge_raw = gauge_raw[gt * Lt:(gt + 1) * Lt, gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
                               gx * Lx:(gx + 1) * Lx]
-    else:
-        Gt = 1
-        gt = 0
 
     gauge = np.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
 
