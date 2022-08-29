@@ -30,7 +30,7 @@ def collect(propagator: LatticePropagator, root: int = 0):
                  gx * Lx // 2:(gx + 1) * Lx // 2] = recvbuf[i].reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc)
 
         ret = LatticePropagator([Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt])
-        ret.data = cp.array(data)
+        ret.data.set(data.reshape(-1))
         return ret
     else:
         return None
