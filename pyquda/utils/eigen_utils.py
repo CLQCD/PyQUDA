@@ -29,7 +29,7 @@ def readVersion(f: io.BufferedReader) -> int:
     return struct.unpack(">i", f.read(4))[0]
 
 
-def readTimeSlice(filename: str):
+def readTimeSlice(filename: str, Ne: int = None):
     with open(filename, "rb") as f:
         offsets: Dict[Tuple[int], int] = {}
         assert readStr(f) == "XXXXQDPLazyDiskMapObjFileXXXX"
@@ -43,30 +43,34 @@ def readTimeSlice(filename: str):
             offsets[key] = val
     precision = 32
     binary_dtype = f">c{2*precision//8}"
+    ndarray_dtype = f"<c{2*precision//8}"
     latt_size = [int(x) for x in format.find("lattSize").text.split()]
     Lx, Ly, Lz, Lt = latt_size
-    num_vecs = int(format.find("num_vecs").text)
-    eigen_raw = np.zeros((Lt, num_vecs, Lz, Ly, Lx, Nc), "<c16")
-    eigen = np.zeros((Lt, num_vecs, 2, Lz, Ly, Lx // 2, Nc), "<c16")
+    if Ne is None:
+        num_vecs = int(format.find("num_vecs").text)
+    else:
+        num_vecs = Ne
+    eigen_raw = np.zeros((num_vecs, Lt, Lz, Ly, Lx, Nc), ndarray_dtype)
+    eigen = np.zeros((num_vecs, Lt, 2, Lz, Ly, Lx // 2, Nc), ndarray_dtype)
 
-    for t in range(Lt):
-        for e in range(num_vecs):
-            eigen_raw[t, e] = np.fromfile(
+    for e in range(num_vecs):
+        for t in range(Lt):
+            eigen_raw[e, t] = np.fromfile(
                 filename,
                 binary_dtype,
                 count=Lz * Ly * Lx * Nc,
                 offset=offsets[(t, e)],
-            ).astype("<c16").reshape(Lz, Ly, Lx, Nc)
+            ).astype(ndarray_dtype).reshape(Lz, Ly, Lx, Nc)
 
     for t in range(Lt):
         for z in range(Lz):
             for y in range(Ly):
                 eo = (t + z + y) % 2
                 if eo == 0:
-                    eigen[t, :, 0, z, y, :, :] = eigen_raw[t, :, z, y, 0::2, :]
-                    eigen[t, :, 1, z, y, :, :] = eigen_raw[t, :, z, y, 1::2, :]
+                    eigen[:, t, 0, z, y, :, :] = eigen_raw[:, t, z, y, 0::2, :]
+                    eigen[:, t, 1, z, y, :, :] = eigen_raw[:, t, z, y, 1::2, :]
                 else:
-                    eigen[t, :, 0, z, y, :, :] = eigen_raw[t, :, z, y, 1::2, :]
-                    eigen[t, :, 1, z, y, :, :] = eigen_raw[t, :, z, y, 0::2, :]
+                    eigen[:, t, 0, z, y, :, :] = eigen_raw[:, t, z, y, 1::2, :]
+                    eigen[:, t, 1, z, y, :, :] = eigen_raw[:, t, z, y, 0::2, :]
 
     return eigen
