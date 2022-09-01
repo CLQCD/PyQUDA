@@ -375,6 +375,14 @@ cdef class QudaGaugeParam:
         self.param.overlap = value
 
     @property
+    def overwrite_gauge(self):
+        return self.param.overwrite_gauge
+
+    @overwrite_gauge.setter
+    def overwrite_gauge(self, value):
+        self.param.overwrite_gauge = value
+
+    @property
     def overwrite_mom(self):
         return self.param.overwrite_mom
 
@@ -597,6 +605,14 @@ cdef class QudaInvertParam:
     @mq3.setter
     def mq3(self, value):
         self.param.mq3 = value
+
+    @property
+    def tm_rho(self):
+        return self.param.tm_rho
+
+    @tm_rho.setter
+    def tm_rho(self, value):
+        self.param.tm_rho = value
 
     @property
     def mu(self):
@@ -1159,22 +1175,6 @@ cdef class QudaInvertParam:
         self.param.verbosity = value
 
     @property
-    def sp_pad(self):
-        return self.param.sp_pad
-
-    @sp_pad.setter
-    def sp_pad(self, value):
-        self.param.sp_pad = value
-
-    @property
-    def cl_pad(self):
-        return self.param.cl_pad
-
-    @cl_pad.setter
-    def cl_pad(self, value):
-        self.param.cl_pad = value
-
-    @property
     def iter(self):
         return self.param.iter
 
@@ -1520,6 +1520,14 @@ cdef class QudaInvertParam:
     def native_blas_lapack(self, value):
         self.param.native_blas_lapack = value
 
+    @property
+    def use_mobius_fused_kernel(self):
+        return self.param.use_mobius_fused_kernel
+
+    @use_mobius_fused_kernel.setter
+    def use_mobius_fused_kernel(self, value):
+        self.param.use_mobius_fused_kernel = value
+
 cdef class QudaMultigridParam:
     cdef quda.QudaMultigridParam param
 
@@ -1625,6 +1633,14 @@ cdef class QudaMultigridParam:
     @n_block_ortho.setter
     def n_block_ortho(self, value):
         self.param.n_block_ortho = value
+
+    @property
+    def block_ortho_two_pass(self):
+        return self.param.block_ortho_two_pass
+
+    @block_ortho_two_pass.setter
+    def block_ortho_two_pass(self, value):
+        self.param.block_ortho_two_pass = value
 
     @property
     def verbosity(self):
@@ -2812,7 +2828,8 @@ def MatDagMatQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param):
 # void computeKSLinkQuda(void* fatlink, void* longlink, void* ulink, void* inlink, double *path_coeff, QudaGaugeParam *param)
 
 # void momResidentQuda(void *mom, QudaGaugeParam *param)
-# int computeGaugeForceQuda(void* mom, void* sitelink,  int*** input_path_buf, int* path_length, double* loop_coeff, int num_paths, int max_length, double dt, QudaGaugeParam* qudaGaugeParam)
+# int computeGaugeForceQuda(void *mom, void *sitelink, int ***input_path_buf, int *path_length, double *loop_coeff, int num_paths, int max_length, double dt, QudaGaugeParam *qudaGaugeParam)
+# int computeGaugePathQuda(void *out, void *sitelink, int ***input_path_buf, int *path_length, double *loop_coeff, int num_paths, int max_length, double dt, QudaGaugeParam *qudaGaugeParam)
 # void updateGaugeFieldQuda(void* gauge, void* momentum, double dt, int conj_mom, int exact, QudaGaugeParam* param)
 # void staggeredPhaseQuda(void *gauge_h, QudaGaugeParam *param)
 
@@ -2842,7 +2859,7 @@ def plaqQuda(list plaq):
     for i in range(3):
         plaq[i] = c_plaq[i]
 
-# void copyExtendedResidentGaugeQuda(void* resident_gauge, QudaFieldLocation loc)
+# void copyExtendedResidentGaugeQuda(void *resident_gauge)
 
 # void performWuppertalnStep(void *h_out, void *h_in, QudaInvertParam *param, unsigned int n_steps, double alpha)
 

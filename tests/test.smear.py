@@ -4,7 +4,7 @@ import sys
 import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(test_dir, ".."))
+# sys.path.insert(0, os.path.join(test_dir, ".."))
 from pyquda import quda, core, mpi
 from pyquda.utils import gauge_utils
 

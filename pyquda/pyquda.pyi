@@ -7,10 +7,12 @@ double = float
 double_complex = complex
 
 from .enum_quda import (  # noqa: F401
-    QudaConstant, qudaError_t, QudaMemoryType, QudaLinkType, QudaGaugeFieldOrder, QudaTboundary, QudaPrecision,
-    QudaReconstructType, QudaGaugeFixed, QudaDslashType, QudaInverterType, QudaEigType, QudaEigSpectrumType,
-    QudaSolutionType, QudaSolveType, QudaMultigridCycleType, QudaSchwarzType, QudaResidualType, QudaCABasis,
-    QudaMatPCType, QudaDagType, QudaMassNormalization, QudaSolverNormalization, QudaPreserveSource,
+    QUDA_INVALID_ENUM, QUDA_VERSION_MAJOR, QUDA_VERSION_MINOR, QUDA_VERSION_SUBMINOR, QUDA_VERSION, QUDA_MAX_DIM,
+    QUDA_MAX_GEOMETRY, QUDA_MAX_MULTI_SHIFT, QUDA_MAX_BLOCK_SRC, QUDA_MAX_ARRAY_SIZE, QUDA_MAX_DWF_LS,
+    QUDA_MAX_MG_LEVEL, QUDA_MAX_MULTI_REDUCE, qudaError_t, QudaMemoryType, QudaLinkType, QudaGaugeFieldOrder,
+    QudaTboundary, QudaPrecision, QudaReconstructType, QudaGaugeFixed, QudaDslashType, QudaInverterType, QudaEigType,
+    QudaEigSpectrumType, QudaSolutionType, QudaSolveType, QudaMultigridCycleType, QudaSchwarzType, QudaResidualType,
+    QudaCABasis, QudaMatPCType, QudaDagType, QudaMassNormalization, QudaSolverNormalization, QudaPreserveSource,
     QudaDiracFieldOrder, QudaCloverFieldOrder, QudaVerbosity, QudaTune, QudaPreserveDirac, QudaParity, QudaDiracType,
     QudaFieldLocation, QudaSiteSubset, QudaSiteOrder, QudaFieldOrder, QudaFieldCreate, QudaGammaBasis, QudaSourceType,
     QudaNoiseType, QudaProjectionType, QudaPCType, QudaTwistFlavorType, QudaTwistDslashType, QudaTwistCloverDslashType,
@@ -84,6 +86,7 @@ class QudaGaugeParam:
     staggered_phase_applied: int
     i_mu: double
     overlap: int
+    overwrite_gauge: int
     overwrite_mom: int
     use_resident_gauge: int
     use_resident_mom: int
@@ -112,14 +115,15 @@ class QudaInvertParam:
     kappa: double
     m5: double
     Ls: int
-    b_5: List[double_complex, QudaConstant.QUDA_MAX_DWF_LS]
-    c_5: List[double_complex, QudaConstant.QUDA_MAX_DWF_LS]
+    b_5: List[double_complex, QUDA_MAX_DWF_LS]
+    c_5: List[double_complex, QUDA_MAX_DWF_LS]
     eofa_shift: double
     eofa_pm: int
     mq1: double
     mq2: double
     mq3: double
     mu: double
+    tm_rho: double
     epsilon: double
     twist_flavor: QudaTwistFlavorType
     laplace3D: int
@@ -144,15 +148,15 @@ class QudaInvertParam:
     num_offset: int
     num_src: int
     num_src_per_sub_partition: int
-    split_grid: List[int, QudaConstant.QUDA_MAX_DIM]
+    split_grid: List[int, QUDA_MAX_DIM]
     overlap: int
-    offset: List[double, QudaConstant.QUDA_MAX_MULTI_SHIFT]
-    tol_offset: List[double, QudaConstant.QUDA_MAX_MULTI_SHIFT]
-    tol_hq_offset: List[double, QudaConstant.QUDA_MAX_MULTI_SHIFT]
-    true_res_offset: List[double, QudaConstant.QUDA_MAX_MULTI_SHIFT]
-    iter_res_offset: List[double, QudaConstant.QUDA_MAX_MULTI_SHIFT]
-    true_res_hq_offset: List[double, QudaConstant.QUDA_MAX_MULTI_SHIFT]
-    residue: List[double, QudaConstant.QUDA_MAX_MULTI_SHIFT]
+    offset: List[double, QUDA_MAX_MULTI_SHIFT]
+    tol_offset: List[double, QUDA_MAX_MULTI_SHIFT]
+    tol_hq_offset: List[double, QUDA_MAX_MULTI_SHIFT]
+    true_res_offset: List[double, QUDA_MAX_MULTI_SHIFT]
+    iter_res_offset: List[double, QUDA_MAX_MULTI_SHIFT]
+    true_res_hq_offset: List[double, QUDA_MAX_MULTI_SHIFT]
+    residue: List[double, QUDA_MAX_MULTI_SHIFT]
     compute_action: int
     action: List[double, 2]
     solution_type: QudaSolutionType
@@ -189,8 +193,6 @@ class QudaInvertParam:
     return_clover: int
     return_clover_inverse: int
     verbosity: QudaVerbosity
-    sp_pad: int
-    cl_pad: int
     iter: int
     gflops: double
     secs: double
@@ -232,6 +234,7 @@ class QudaInvertParam:
     chrono_precision: QudaPrecision
     extlib_type: QudaExtLibType
     native_blas_lapack: QudaBoolean
+    use_mobius_fused_kernel: QudaBoolean
 
 
 class QudaEigParam:
@@ -297,64 +300,65 @@ class QudaMultigridParam:
 
     struct_size: size_t
     invert_param: QudaInvertParam
-    eig_param: List[QudaEigParam, QudaConstant.QUDA_MAX_MG_LEVEL]
+    eig_param: List[QudaEigParam, QUDA_MAX_MG_LEVEL]
     n_level: int
-    geo_block_size: List[List[int, QudaConstant.QUDA_MAX_DIM], QudaConstant.QUDA_MAX_MG_LEVEL]
-    spin_block_size: List[int, QudaConstant.QUDA_MAX_MG_LEVEL]
-    n_vec: List[int, QudaConstant.QUDA_MAX_MG_LEVEL]
-    precision_null: List[QudaPrecision, QudaConstant.QUDA_MAX_MG_LEVEL]
-    n_block_ortho: List[int, QudaConstant.QUDA_MAX_MG_LEVEL]
-    verbosity: List[QudaVerbosity, QudaConstant.QUDA_MAX_MG_LEVEL]
-    setup_inv_type: List[QudaInverterType, QudaConstant.QUDA_MAX_MG_LEVEL]
-    num_setup_iter: List[int, QudaConstant.QUDA_MAX_MG_LEVEL]
-    setup_tol: List[double, QudaConstant.QUDA_MAX_MG_LEVEL]
-    setup_maxiter: List[int, QudaConstant.QUDA_MAX_MG_LEVEL]
-    setup_maxiter_refresh: List[int, QudaConstant.QUDA_MAX_MG_LEVEL]
-    setup_ca_basis: List[QudaCABasis, QudaConstant.QUDA_MAX_MG_LEVEL]
-    setup_ca_basis_size: List[int, QudaConstant.QUDA_MAX_MG_LEVEL]
-    setup_ca_lambda_min: List[double, QudaConstant.QUDA_MAX_MG_LEVEL]
-    setup_ca_lambda_max: List[double, QudaConstant.QUDA_MAX_MG_LEVEL]
+    geo_block_size: List[List[int, QUDA_MAX_DIM], QUDA_MAX_MG_LEVEL]
+    spin_block_size: List[int, QUDA_MAX_MG_LEVEL]
+    n_vec: List[int, QUDA_MAX_MG_LEVEL]
+    precision_null: List[QudaPrecision, QUDA_MAX_MG_LEVEL]
+    n_block_ortho: List[int, QUDA_MAX_MG_LEVEL]
+    block_ortho_two_pass: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
+    verbosity: List[QudaVerbosity, QUDA_MAX_MG_LEVEL]
+    setup_inv_type: List[QudaInverterType, QUDA_MAX_MG_LEVEL]
+    num_setup_iter: List[int, QUDA_MAX_MG_LEVEL]
+    setup_tol: List[double, QUDA_MAX_MG_LEVEL]
+    setup_maxiter: List[int, QUDA_MAX_MG_LEVEL]
+    setup_maxiter_refresh: List[int, QUDA_MAX_MG_LEVEL]
+    setup_ca_basis: List[QudaCABasis, QUDA_MAX_MG_LEVEL]
+    setup_ca_basis_size: List[int, QUDA_MAX_MG_LEVEL]
+    setup_ca_lambda_min: List[double, QUDA_MAX_MG_LEVEL]
+    setup_ca_lambda_max: List[double, QUDA_MAX_MG_LEVEL]
     setup_type: QudaSetupType
     pre_orthonormalize: QudaBoolean
     post_orthonormalize: QudaBoolean
-    coarse_solver: List[QudaInverterType, QudaConstant.QUDA_MAX_MG_LEVEL]
-    coarse_solver_tol: List[double, QudaConstant.QUDA_MAX_MG_LEVEL]
-    coarse_solver_maxiter: List[int, QudaConstant.QUDA_MAX_MG_LEVEL]
-    coarse_solver_ca_basis: List[QudaCABasis, QudaConstant.QUDA_MAX_MG_LEVEL]
-    coarse_solver_ca_basis_size: List[int, QudaConstant.QUDA_MAX_MG_LEVEL]
-    coarse_solver_ca_lambda_min: List[double, QudaConstant.QUDA_MAX_MG_LEVEL]
-    coarse_solver_ca_lambda_max: List[double, QudaConstant.QUDA_MAX_MG_LEVEL]
-    smoother: List[QudaInverterType, QudaConstant.QUDA_MAX_MG_LEVEL]
-    smoother_tol: List[double, QudaConstant.QUDA_MAX_MG_LEVEL]
-    nu_pre: List[int, QudaConstant.QUDA_MAX_MG_LEVEL]
-    nu_post: List[int, QudaConstant.QUDA_MAX_MG_LEVEL]
-    omega: List[double, QudaConstant.QUDA_MAX_MG_LEVEL]
-    smoother_halo_precision: List[QudaPrecision, QudaConstant.QUDA_MAX_MG_LEVEL]
-    smoother_schwarz_type: List[QudaSchwarzType, QudaConstant.QUDA_MAX_MG_LEVEL]
-    smoother_schwarz_cycle: List[int, QudaConstant.QUDA_MAX_MG_LEVEL]
-    coarse_grid_solution_type: List[QudaSolutionType, QudaConstant.QUDA_MAX_MG_LEVEL]
-    smoother_solve_type: List[QudaSolveType, QudaConstant.QUDA_MAX_MG_LEVEL]
-    cycle_type: List[QudaMultigridCycleType, QudaConstant.QUDA_MAX_MG_LEVEL]
-    global_reduction: List[QudaBoolean, QudaConstant.QUDA_MAX_MG_LEVEL]
-    location: List[QudaFieldLocation, QudaConstant.QUDA_MAX_MG_LEVEL]
-    setup_location: List[QudaFieldLocation, QudaConstant.QUDA_MAX_MG_LEVEL]
-    use_eig_solver: List[QudaBoolean, QudaConstant.QUDA_MAX_MG_LEVEL]
+    coarse_solver: List[QudaInverterType, QUDA_MAX_MG_LEVEL]
+    coarse_solver_tol: List[double, QUDA_MAX_MG_LEVEL]
+    coarse_solver_maxiter: List[int, QUDA_MAX_MG_LEVEL]
+    coarse_solver_ca_basis: List[QudaCABasis, QUDA_MAX_MG_LEVEL]
+    coarse_solver_ca_basis_size: List[int, QUDA_MAX_MG_LEVEL]
+    coarse_solver_ca_lambda_min: List[double, QUDA_MAX_MG_LEVEL]
+    coarse_solver_ca_lambda_max: List[double, QUDA_MAX_MG_LEVEL]
+    smoother: List[QudaInverterType, QUDA_MAX_MG_LEVEL]
+    smoother_tol: List[double, QUDA_MAX_MG_LEVEL]
+    nu_pre: List[int, QUDA_MAX_MG_LEVEL]
+    nu_post: List[int, QUDA_MAX_MG_LEVEL]
+    omega: List[double, QUDA_MAX_MG_LEVEL]
+    smoother_halo_precision: List[QudaPrecision, QUDA_MAX_MG_LEVEL]
+    smoother_schwarz_type: List[QudaSchwarzType, QUDA_MAX_MG_LEVEL]
+    smoother_schwarz_cycle: List[int, QUDA_MAX_MG_LEVEL]
+    coarse_grid_solution_type: List[QudaSolutionType, QUDA_MAX_MG_LEVEL]
+    smoother_solve_type: List[QudaSolveType, QUDA_MAX_MG_LEVEL]
+    cycle_type: List[QudaMultigridCycleType, QUDA_MAX_MG_LEVEL]
+    global_reduction: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
+    location: List[QudaFieldLocation, QUDA_MAX_MG_LEVEL]
+    setup_location: List[QudaFieldLocation, QUDA_MAX_MG_LEVEL]
+    use_eig_solver: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
     setup_minimize_memory: QudaBoolean
     compute_null_vector: QudaComputeNullVector
     generate_all_levels: QudaBoolean
     run_verify: QudaBoolean
     run_low_mode_check: QudaBoolean
     run_oblique_proj_check: QudaBoolean
-    vec_load: List[QudaBoolean, QudaConstant.QUDA_MAX_MG_LEVEL]
-    vec_infile: List[bytes[256], QudaConstant.QUDA_MAX_MG_LEVEL]
-    vec_store: List[QudaBoolean, QudaConstant.QUDA_MAX_MG_LEVEL]
-    vec_outfile: List[bytes[256], QudaConstant.QUDA_MAX_MG_LEVEL]
+    vec_load: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
+    vec_infile: List[bytes[256], QUDA_MAX_MG_LEVEL]
+    vec_store: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
+    vec_outfile: List[bytes[256], QUDA_MAX_MG_LEVEL]
     coarse_guess: QudaBoolean
     preserve_deflation: QudaBoolean
     gflops: double
     secs: double
-    mu_factor: List[double, QudaConstant.QUDA_MAX_MG_LEVEL]
-    transfer_type: List[QudaTransferType, QudaConstant.QUDA_MAX_MG_LEVEL]
+    mu_factor: List[double, QUDA_MAX_MG_LEVEL]
+    transfer_type: List[QudaTransferType, QUDA_MAX_MG_LEVEL]
     use_mma: QudaBoolean
     thin_update_only: QudaBoolean
 

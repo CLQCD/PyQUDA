@@ -5,7 +5,7 @@ import numpy as np
 import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(test_dir, ".."))
+# sys.path.insert(0, os.path.join(test_dir, ".."))
 from pyquda import quda, core, LatticePropagator, mpi
 from pyquda.utils import gamma, phase, source, gauge_utils
 
