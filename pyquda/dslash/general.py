@@ -103,9 +103,6 @@ def newQudaMultigridParam(
     mg_inv_param.input_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
     mg_inv_param.output_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
 
-    mg_inv_param.sp_pad = 0
-    mg_inv_param.cl_pad = 0
-
     mg_inv_param.tune = QudaBoolean.QUDA_BOOLEAN_TRUE
     mg_inv_param.verbosity = QudaVerbosity.QUDA_SUMMARIZE
     mg_inv_param.verbosity_precondition = QudaVerbosity.QUDA_SILENT
@@ -250,9 +247,6 @@ def newQudaInvertParam(
 
     invert_param.input_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
     invert_param.output_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
-
-    invert_param.sp_pad = 0
-    invert_param.cl_pad = 0
 
     invert_param.tune = QudaTune.QUDA_TUNE_YES
     invert_param.verbosity = QudaVerbosity.QUDA_SUMMARIZE
