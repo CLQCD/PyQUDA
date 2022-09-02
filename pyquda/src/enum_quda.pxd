@@ -98,10 +98,8 @@ cdef extern from "enum_quda.h":
         QUDA_BICGSTAB_INVERTER
         QUDA_GCR_INVERTER
         QUDA_MR_INVERTER
-        QUDA_MPBICGSTAB_INVERTER
         QUDA_SD_INVERTER
         QUDA_PCG_INVERTER
-        QUDA_MPCG_INVERTER
         QUDA_EIGCG_INVERTER
         QUDA_INC_EIGCG_INVERTER
         QUDA_GMRESDR_INVERTER
@@ -167,9 +165,13 @@ cdef extern from "enum_quda.h":
         QUDA_MG_CYCLE_INVALID = QUDA_INVALID_ENUM
 
     ctypedef enum QudaSchwarzType:
-        QUDA_ADDITIVE_SCHWARZ
-        QUDA_MULTIPLICATIVE_SCHWARZ
+        QUDA_ADDITIVE_SCHWARZ = 0
+        QUDA_MULTIPLICATIVE_SCHWARZ = 1
         QUDA_INVALID_SCHWARZ = QUDA_INVALID_ENUM
+
+    ctypedef enum QudaAcceleratorType:
+        QUDA_MADWF_ACCELERATOR = 0 # Use the MADWF accelerator
+        QUDA_INVALID_ACCELERATOR = QUDA_INVALID_ENUM
 
     ctypedef enum QudaResidualType:
         QUDA_L2_RELATIVE_RESIDUAL = 1 # L2 relative residual (default)
@@ -359,6 +361,13 @@ cdef extern from "enum_quda.h":
         QUDA_NOISE_UNIFORM
         QUDA_NOISE_INVALID = QUDA_INVALID_ENUM
 
+    ctypedef enum QudaDilutionType:
+        QUDA_DILUTION_SPIN
+        QUDA_DILUTION_COLOR
+        QUDA_DILUTION_SPIN_COLOR
+        QUDA_DILUTION_SPIN_COLOR_EVEN_ODD
+        QUDA_DILUTION_INVALID = QUDA_INVALID_ENUM
+
     # used to select projection method for deflated solvers
     ctypedef enum QudaProjectionType:
         QUDA_MINRES_PROJECTION
@@ -419,6 +428,7 @@ cdef extern from "enum_quda.h":
         QUDA_TRANSFER_AGGREGATE
         QUDA_TRANSFER_COARSE_KD
         QUDA_TRANSFER_OPTIMIZED_KD
+        QUDA_TRANSFER_OPTIMIZED_KD_DROP_LONG
         QUDA_TRANSFER_INVALID = QUDA_INVALID_ENUM
 
     ctypedef enum QudaBoolean:
@@ -464,6 +474,7 @@ cdef extern from "enum_quda.h":
         QUDA_VECTOR_GEOMETRY = 4
         QUDA_TENSOR_GEOMETRY = 6
         QUDA_COARSE_GEOMETRY = 8
+        QUDA_KDINVERSE_GEOMETRY = 16 # Decomposition of Kahler-Dirac block
         QUDA_INVALID_GEOMETRY = QUDA_INVALID_ENUM
 
     ctypedef enum QudaGhostExchange:
@@ -508,9 +519,16 @@ cdef extern from "enum_quda.h":
         QUDA_WFLOW_TYPE_SYMANZIK
         QUDA_WFLOW_TYPE_INVALID = QUDA_INVALID_ENUM
 
+    ctypedef enum QudaGaugeSmearType:
+        QUDA_GAUGE_SMEAR_APE
+        QUDA_GAUGE_SMEAR_STOUT
+        QUDA_GAUGE_SMEAR_OVRIMP_STOUT
+        QUDA_GAUGE_SMEAR_WILSON_FLOW
+        QUDA_GAUGE_SMEAR_SYMANZIK_FLOW
+        QUDA_GAUGE_SMEAR_INVALID = QUDA_INVALID_ENUM
+
     # Allows to choose an appropriate external library
     ctypedef enum QudaExtLibType:
         QUDA_CUSOLVE_EXTLIB
         QUDA_EIGEN_EXTLIB
-        QUDA_MAGMA_EXTLIB
         QUDA_EXTLIB_INVALID = QUDA_INVALID_ENUM

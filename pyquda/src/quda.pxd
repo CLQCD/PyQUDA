@@ -11,6 +11,7 @@ ctypedef double complex double_complex
 from libc.stdio cimport FILE
 
 cdef extern from "quda.h":
+
     #
     # Parameters having to do with the gauge field or the
     # interpretation of the gauge field by various Dirac operators
@@ -39,7 +40,7 @@ cdef extern from "quda.h":
         QudaReconstructType reconstruct_sloppy # The recontruction type of the sloppy gauge field
 
         QudaPrecision cuda_prec_refinement_sloppy # The precision of the sloppy gauge field for the refinement step in multishift
-        QudaReconstructType reconstruct_refinement_sloppy # The recontruction type of the sloppy gauge field for the refinement step in multishift*/
+        QudaReconstructType reconstruct_refinement_sloppy # The recontruction type of the sloppy gauge field for the refinement step in multishift
 
         QudaPrecision cuda_prec_precondition # The precision of the preconditioner gauge field
         QudaReconstructType reconstruct_precondition # The recontruction type of the preconditioner gauge field
@@ -68,7 +69,7 @@ cdef extern from "quda.h":
         int overwrite_mom   # When computing momentum, should we overwrite it or accumulate to it
 
         int use_resident_gauge  # Use the resident gauge field as input
-        int use_resident_mom    # Use the resident momentum field as input*/
+        int use_resident_mom    # Use the resident momentum field as input
         int make_resident_gauge # Make the result gauge field resident
         int make_resident_mom   # Make the result momentum field resident
         int return_result_gauge # Return the result gauge field
@@ -77,6 +78,7 @@ cdef extern from "quda.h":
         size_t gauge_offset # Offset into MILC site struct to the gauge field (only if gauge_order=MILC_SITE_GAUGE_ORDER)
         size_t mom_offset # Offset into MILC site struct to the momentum field (only if gauge_order=MILC_SITE_GAUGE_ORDER)
         size_t site_size # Size of MILC site struct (only if gauge_order=MILC_SITE_GAUGE_ORDER)
+
 
     #
     # Parameters relating to the solver and the choice of Dirac operator.
@@ -204,7 +206,7 @@ cdef extern from "quda.h":
         # Residuals in the partial faction expansion
         double residue[QUDA_MAX_MULTI_SHIFT]
 
-        # Whether we should evaluate the action after the linear solver*/
+        # Whether we should evaluate the action after the linear solver
         int compute_action
 
         # Computed value of the bilinear action (complex-valued)
@@ -273,7 +275,7 @@ cdef extern from "quda.h":
         # The following parameters are related to the solver
         # preconditioner, if enabled.
         #
-        #
+
         #
         # The inner Krylov solver used in the preconditioner.  Set to
         # QUDA_INVALID_INVERTER to disable the preconditioner entirely.
@@ -315,11 +317,55 @@ cdef extern from "quda.h":
         # Maximum eigenvalue for Chebyshev CA basis
         double ca_lambda_max
 
+        # Basis for CA algorithms in a preconditioned solver
+        QudaCABasis ca_basis_precondition
+
+        # Minimum eigenvalue for Chebyshev CA basis in a preconditioner solver
+        double ca_lambda_min_precondition
+
+        # Maximum eigenvalue for Chebyshev CA basis in a preconditioner solver
+        double ca_lambda_max_precondition
+
         # Number of preconditioner cycles to perform per iteration
         int precondition_cycle
 
         # Whether to use additive or multiplicative Schwarz preconditioning
         QudaSchwarzType schwarz_type
+
+        # The type of accelerator type to use for preconditioner
+        QudaAcceleratorType accelerator_type_precondition
+
+        #
+        # The following parameters are the ones used to perform the adaptive MADWF in MSPCG
+        # See section 3.3 of [arXiv:2104.05615]
+        #
+
+        # The diagonal constant to suppress the low modes when performing 5D transfer
+        double madwf_diagonal_suppressor
+
+        # The target MADWF Ls to be used in the accelerator
+        int madwf_ls
+
+        # The minimum number of iterations after which to generate the null vectors for MADWF
+        int madwf_null_miniter
+
+        # The maximum tolerance after which to generate the null vectors for MADWF
+        double madwf_null_tol
+
+        # The maximum number of iterations for the training iterations
+        int madwf_train_maxiter
+
+        # Whether to load the MADWF parameters from the file system
+        QudaBoolean madwf_param_load
+
+        # Whether to save the MADWF parameters to the file system
+        QudaBoolean madwf_param_save
+
+        # Path to load from the file system
+        char madwf_param_infile[256]
+
+        # Path to save to the file system
+        char madwf_param_outfile[256]
 
         #
         # Whether to use the L2 relative residual, Fermilab heavy-quark
@@ -331,7 +377,7 @@ cdef extern from "quda.h":
         #
         QudaResidualType residual_type
 
-        #Parameters for deflated solvers*/
+        #Parameters for deflated solvers
         # The precision of the Ritz vectors
         QudaPrecision cuda_prec_ritz
         # How many vectors to compute after one solve
@@ -379,7 +425,7 @@ cdef extern from "quda.h":
         # Precision to store the chronological basis in
         QudaPrecision chrono_precision
 
-        # Which external library to use in the linear solvers (MAGMA or Eigen)
+        # Which external library to use in the linear solvers (Eigen)
         QudaExtLibType extlib_type
 
         # Whether to use the platform native or generic BLAS / LAPACK
@@ -387,6 +433,7 @@ cdef extern from "quda.h":
 
         # Whether to use fused kernels for mobius
         QudaBoolean use_mobius_fused_kernel
+
 
     # Parameter set for solving eigenvalue problems.
     ctypedef struct QudaEigParam:
@@ -432,8 +479,10 @@ cdef extern from "quda.h":
         # If use_dagger, use Mdag
         # If use_norm_op, use MdagM
         # If use_norm_op && use_dagger use MMdag.
+        # If use_pc for any, then use the even-odd pc version
         QudaBoolean use_dagger
         QudaBoolean use_norm_op
+        QudaBoolean use_pc
 
         # Use Eigen routines to eigensolve the upper Hessenberg via QR
         QudaBoolean use_eigen_qr
@@ -524,7 +573,7 @@ cdef extern from "quda.h":
         # The time taken by the eigensolver setup
         double secs
 
-        # Which external library to use in the deflation operations (MAGMA or Eigen)
+        # Which external library to use in the deflation operations (Eigen)
         QudaExtLibType extlib_type
         #-------------------------------------------------
 
@@ -576,10 +625,10 @@ cdef extern from "quda.h":
         # Maximum number of iterations for refreshing the null-space vectors
         int setup_maxiter_refresh[QUDA_MAX_MG_LEVEL]
 
-        # Basis to use for CA-CGN(E/R) setup
+        # Basis to use for CA solver setup
         QudaCABasis setup_ca_basis[QUDA_MAX_MG_LEVEL]
 
-        # Basis size for CACG setup
+        # Basis size for CA solver setup
         int setup_ca_basis_size[QUDA_MAX_MG_LEVEL]
 
         # Minimum eigenvalue for Chebyshev CA basis
@@ -606,10 +655,10 @@ cdef extern from "quda.h":
         # Maximum number of iterations for the solver that wraps around the coarse grid correction and smoother
         int coarse_solver_maxiter[QUDA_MAX_MG_LEVEL]
 
-        # Basis to use for CA-CGN(E/R) coarse solver
+        # Basis to use for CA coarse solvers
         QudaCABasis coarse_solver_ca_basis[QUDA_MAX_MG_LEVEL]
 
-        # Basis size for CACG coarse solver
+        # Basis size for CA coarse solvers
         int coarse_solver_ca_basis_size[QUDA_MAX_MG_LEVEL]
 
         # Minimum eigenvalue for Chebyshev CA basis
@@ -630,6 +679,15 @@ cdef extern from "quda.h":
         # Number of post-smoother applications on each level
         int nu_post[QUDA_MAX_MG_LEVEL]
 
+        # Basis to use for CA smoother solvers
+        QudaCABasis smoother_solver_ca_basis[QUDA_MAX_MG_LEVEL]
+
+        # Minimum eigenvalue for Chebyshev CA smoother basis
+        double smoother_solver_ca_lambda_min[QUDA_MAX_MG_LEVEL]
+
+        # Maximum eigenvalue for Chebyshev CA smoother basis
+        double smoother_solver_ca_lambda_max[QUDA_MAX_MG_LEVEL]
+
         # Over/under relaxation factor for the smoother at each level
         double omega[QUDA_MAX_MG_LEVEL]
 
@@ -646,7 +704,7 @@ cdef extern from "quda.h":
         # type of solution to receive back from this coarse grid
         QudaSolutionType coarse_grid_solution_type[QUDA_MAX_MG_LEVEL]
 
-        # The type of smoother solve to do on each grid (e/o preconditioning or not)*/
+        # The type of smoother solve to do on each grid (e/o preconditioning or not)
         QudaSolveType smoother_solve_type[QUDA_MAX_MG_LEVEL]
 
         # The type of multigrid cycle to perform at each level
@@ -661,7 +719,7 @@ cdef extern from "quda.h":
         # Location where the coarse-operator construction will be computedn
         QudaFieldLocation setup_location[QUDA_MAX_MG_LEVEL]
 
-        # Whether to use eigenvectors for the nullspace or, if the coarsest instance deflate*/
+        # Whether to use eigenvectors for the nullspace or, if the coarsest instance deflate
         QudaBoolean use_eig_solver[QUDA_MAX_MG_LEVEL]
 
         # Minimize device memory allocations during the adaptive setup,
@@ -714,6 +772,12 @@ cdef extern from "quda.h":
         # Boolean for aggregation type, implies staggered or not
         QudaTransferType transfer_type[QUDA_MAX_MG_LEVEL]
 
+        # Whether or not to let MG coarsening drop improvements, for ex dropping long links in small aggregation dimensions
+        QudaBoolean allow_truncation
+
+        # Whether or not to use the dagger approximation for the KD preconditioned operator
+        QudaBoolean staggered_kd_dagger_approximation
+
         # Whether to use tensor cores (if available)
         QudaBoolean use_mma
 
@@ -721,8 +785,8 @@ cdef extern from "quda.h":
         QudaBoolean thin_update_only
 
     ctypedef struct QudaGaugeObservableParam:
-        size_t struct_size  # Size of this struct in bytes.  Used to ensure that the host application and QUDA see the same struct*/
-        QudaBoolean su_project               # Whether to porject onto the manifold prior to measurement
+        size_t struct_size  # Size of this struct in bytes.  Used to ensure that the host application and QUDA see the same struct
+        QudaBoolean su_project               # Whether to project onto the manifold prior to measurement
         QudaBoolean compute_plaquette        # Whether to compute the plaquette
         double plaquette[3]                  # Total, spatial and temporal field energies, respectively
         QudaBoolean compute_qcharge          # Whether to compute the topological charge and field energy
@@ -731,8 +795,18 @@ cdef extern from "quda.h":
         QudaBoolean compute_qcharge_density  # Whether to compute the topological charge density
         void *qcharge_density  # Pointer to host array of length volume where the q-charge density will be copied
 
+    ctypedef struct QudaGaugeSmearParam:
+        size_t struct_size # Size of this struct in bytes.  Used to ensure that the host application and QUDA see the same struct
+        unsigned int n_steps # The total number of smearing steps to perform. 
+        double epsilon       # Serves as one of the coefficients in Over Improved Stout smearing, or as the step size in
+                             #  Wilson/Symanzik flow 
+        double alpha         # The single coefficient used in APE smearing 
+        double rho # Serves as one of the coefficients used in Over Improved Stout smearing, or as the single coefficient used in Stout 
+        unsigned int meas_interval    # Perform the requested measurements on the gauge field at this interval 
+        QudaGaugeSmearType smear_type # The smearing type to perform 
+
     ctypedef struct QudaBLASParam:
-        size_t struct_size  # Size of this struct in bytes.  Used to ensure that the host application and QUDA see the same struct*/
+        size_t struct_size  # Size of this struct in bytes.  Used to ensure that the host application and QUDA see the same struct
 
         QudaBLASOperation trans_a  # operation op(A) that is non- or (conj.) transpose.
         QudaBLASOperation trans_b  # operation op(B) that is non- or (conj.) transpose.
@@ -920,9 +994,18 @@ cdef extern from "quda.h":
     # immediately after it's defined (and prior to explicitly setting
     # its members) using this function.  Typical usage is as follows:
     #
-    #   QudaGaugeParam obs_param = newQudaGaugeObservableParam()
+    #   QudaGaugeObservalbeParam obs_param = newQudaGaugeObservableParam();
     #
     QudaGaugeObservableParam newQudaGaugeObservableParam()
+
+    #
+    # A new QudaGaugeSmearParam should always be initialized
+    # immediately after it's defined (and prior to explicitly setting
+    # its members) using this function.  Typical usage is as follows:
+    #
+    #   QudaGaugeSmearParam smear_param = newQudaGaugeSmearParam();
+    #
+    QudaGaugeSmearParam newQudaGaugeSmearParam()
 
     #
     # A new QudaBLASParam should always be initialized immediately
@@ -1442,38 +1525,20 @@ cdef extern from "quda.h":
     void performWuppertalnStep(void *h_out, void *h_in, QudaInvertParam *param, unsigned int n_steps, double alpha)
 
     #
-    # Performs APE smearing on gaugePrecise and stores it in gaugeSmeared
-    # @param n_steps Number of steps to apply.
-    # @param alpha  Alpha coefficient for APE smearing.
-    # @param meas_interval Measure the Q charge every Nth step
+    # Performs APE, Stout, or Over Imroved STOUT smearing on gaugePrecise and stores it in gaugeSmeared
+    # @param[in] smear_param Parameter struct that defines the computation parameters
+    # @param[in,out] obs_param Parameter struct that defines which
+    # observables we are making and the resulting observables.
     #
-    void performAPEnStep(unsigned int n_steps, double alpha, int meas_interval)
-
-    #
-    # Performs STOUT smearing on gaugePrecise and stores it in gaugeSmeared
-    # @param n_steps Number of steps to apply.
-    # @param rho    Rho coefficient for STOUT smearing.
-    # @param meas_interval Measure the Q charge every Nth step
-    #
-    void performSTOUTnStep(unsigned int n_steps, double rho, int meas_interval)
-
-    #
-    # Performs Over Imroved STOUT smearing on gaugePrecise and stores it in gaugeSmeared
-    # @param n_steps Number of steps to apply.
-    # @param rho    Rho coefficient for STOUT smearing.
-    # @param epsilon Epsilon coefficient for Over Improved STOUT smearing.
-    # @param meas_interval Measure the Q charge every Nth step
-    #
-    void performOvrImpSTOUTnStep(unsigned int n_steps, double rho, double epsilon, int meas_interval)
+    void performGaugeSmearQuda(QudaGaugeSmearParam *smear_param, QudaGaugeObservableParam *obs_param)
 
     #
     # Performs Wilson Flow on gaugePrecise and stores it in gaugeSmeared
-    # @param n_steps Number of steps to apply.
-    # @param step_size Size of Wilson Flow step
-    # @param meas_interval Measure the Q charge and field energy every Nth step
-    # @param wflow_type 1x1 Wilson or 2x1 Symanzik flow type
+    # @param[in] smear_param Parameter struct that defines the computation parameters
+    # @param[in,out] obs_param Parameter struct that defines which
+    # observables we are making and the resulting observables.
     #
-    void performWFlownStep(unsigned int n_steps, double step_size, int meas_interval, QudaWFlowType wflow_type)
+    void performWFlowQuda(QudaGaugeSmearParam *smear_param, QudaGaugeObservableParam *obs_param)
 
     #
     # @brief Calculates a variety of gauge-field observables.  If a
@@ -1550,13 +1615,6 @@ cdef extern from "quda.h":
     #
     void flushChronoQuda(int index)
 
-    #
-    # Open/Close MAGMA library
-    #
-    #
-    void openMagma()
-
-    void closeMagma()
 
     #
     # Create deflation solver resources.
@@ -1571,4 +1629,7 @@ cdef extern from "quda.h":
     void destroyDeflationQuda(void *df_instance)
 
     void setMPICommHandleQuda(void *mycomm)
+
+
+
 

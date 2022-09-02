@@ -1345,6 +1345,30 @@ cdef class QudaInvertParam:
         self.param.ca_lambda_max = value
 
     @property
+    def ca_basis_precondition(self):
+        return self.param.ca_basis_precondition
+
+    @ca_basis_precondition.setter
+    def ca_basis_precondition(self, value):
+        self.param.ca_basis_precondition = value
+
+    @property
+    def ca_lambda_min_precondition(self):
+        return self.param.ca_lambda_min_precondition
+
+    @ca_lambda_min_precondition.setter
+    def ca_lambda_min_precondition(self, value):
+        self.param.ca_lambda_min_precondition = value
+
+    @property
+    def ca_lambda_max_precondition(self):
+        return self.param.ca_lambda_max_precondition
+
+    @ca_lambda_max_precondition.setter
+    def ca_lambda_max_precondition(self, value):
+        self.param.ca_lambda_max_precondition = value
+
+    @property
     def precondition_cycle(self):
         return self.param.precondition_cycle
 
@@ -1359,6 +1383,86 @@ cdef class QudaInvertParam:
     @schwarz_type.setter
     def schwarz_type(self, value):
         self.param.schwarz_type = value
+
+    @property
+    def accelerator_type_precondition(self):
+        return self.param.accelerator_type_precondition
+
+    @accelerator_type_precondition.setter
+    def accelerator_type_precondition(self, value):
+        self.param.accelerator_type_precondition = value
+
+    @property
+    def madwf_diagonal_suppressor(self):
+        return self.param.madwf_diagonal_suppressor
+
+    @madwf_diagonal_suppressor.setter
+    def madwf_diagonal_suppressor(self, value):
+        self.param.madwf_diagonal_suppressor = value
+
+    @property
+    def madwf_ls(self):
+        return self.param.madwf_ls
+
+    @madwf_ls.setter
+    def madwf_ls(self, value):
+        self.param.madwf_ls = value
+
+    @property
+    def madwf_null_miniter(self):
+        return self.param.madwf_null_miniter
+
+    @madwf_null_miniter.setter
+    def madwf_null_miniter(self, value):
+        self.param.madwf_null_miniter = value
+
+    @property
+    def madwf_null_tol(self):
+        return self.param.madwf_null_tol
+
+    @madwf_null_tol.setter
+    def madwf_null_tol(self, value):
+        self.param.madwf_null_tol = value
+
+    @property
+    def madwf_train_maxiter(self):
+        return self.param.madwf_train_maxiter
+
+    @madwf_train_maxiter.setter
+    def madwf_train_maxiter(self, value):
+        self.param.madwf_train_maxiter = value
+
+    @property
+    def madwf_param_load(self):
+        return self.param.madwf_param_load
+
+    @madwf_param_load.setter
+    def madwf_param_load(self, value):
+        self.param.madwf_param_load = value
+
+    @property
+    def madwf_param_save(self):
+        return self.param.madwf_param_save
+
+    @madwf_param_save.setter
+    def madwf_param_save(self, value):
+        self.param.madwf_param_save = value
+
+    @property
+    def madwf_param_infile(self):
+        return self.param.madwf_param_infile
+
+    @madwf_param_infile.setter
+    def madwf_param_infile(self, value):
+        self.param.madwf_param_infile = value
+
+    @property
+    def madwf_param_outfile(self):
+        return self.param.madwf_param_outfile
+
+    @madwf_param_outfile.setter
+    def madwf_param_outfile(self, value):
+        self.param.madwf_param_outfile = value
 
     @property
     def residual_type(self):
@@ -1835,6 +1939,30 @@ cdef class QudaMultigridParam:
         self.param.nu_post = value
 
     @property
+    def smoother_solver_ca_basis(self):
+        return self.param.smoother_solver_ca_basis
+
+    @smoother_solver_ca_basis.setter
+    def smoother_solver_ca_basis(self, value):
+        self.param.smoother_solver_ca_basis = value
+
+    @property
+    def smoother_solver_ca_lambda_min(self):
+        return self.param.smoother_solver_ca_lambda_min
+
+    @smoother_solver_ca_lambda_min.setter
+    def smoother_solver_ca_lambda_min(self, value):
+        self.param.smoother_solver_ca_lambda_min = value
+
+    @property
+    def smoother_solver_ca_lambda_max(self):
+        return self.param.smoother_solver_ca_lambda_max
+
+    @smoother_solver_ca_lambda_max.setter
+    def smoother_solver_ca_lambda_max(self, value):
+        self.param.smoother_solver_ca_lambda_max = value
+
+    @property
     def omega(self):
         return self.param.omega
 
@@ -2051,6 +2179,22 @@ cdef class QudaMultigridParam:
         self.param.transfer_type = value
 
     @property
+    def allow_truncation(self):
+        return self.param.allow_truncation
+
+    @allow_truncation.setter
+    def allow_truncation(self, value):
+        self.param.allow_truncation = value
+
+    @property
+    def staggered_kd_dagger_approximation(self):
+        return self.param.staggered_kd_dagger_approximation
+
+    @staggered_kd_dagger_approximation.setter
+    def staggered_kd_dagger_approximation(self, value):
+        self.param.staggered_kd_dagger_approximation = value
+
+    @property
     def use_mma(self):
         return self.param.use_mma
 
@@ -2188,6 +2332,14 @@ cdef class QudaEigParam:
     @use_norm_op.setter
     def use_norm_op(self, value):
         self.param.use_norm_op = value
+
+    @property
+    def use_pc(self):
+        return self.param.use_pc
+
+    @use_pc.setter
+    def use_pc(self, value):
+        self.param.use_pc = value
 
     @property
     def use_eigen_qr(self):
@@ -2547,6 +2699,78 @@ cdef class QudaGaugeObservableParam:
         assert value.dtype == "void"
         self.param.qcharge_density = &value.ptr
 
+cdef class QudaGaugeSmearParam:
+    cdef quda.QudaGaugeSmearParam param
+
+    def __init__(self):
+        self.param = quda.newQudaGaugeSmearParam()
+
+    # def __repr__(self):
+    #     buf = io.BytesIO()
+    #     with redirect_stdout(buf):
+    #         quda.printQudaGaugeSmearParam(&self.param)
+    #     ret = buf.getvalue().decode("utf-8")
+    #     return ret
+
+    cdef from_ptr(self, quda.QudaGaugeSmearParam *ptr):
+        self.param = cython.operator.dereference(ptr)
+
+    @property
+    def struct_size(self):
+        return self.param.struct_size
+
+    @struct_size.setter
+    def struct_size(self, value):
+        self.param.struct_size = value
+
+    @property
+    def n_steps(self):
+        return self.param.n_steps
+
+    @n_steps.setter
+    def n_steps(self, value):
+        self.param.n_steps = value
+
+    @property
+    def epsilon(self):
+        return self.param.epsilon
+
+    @epsilon.setter
+    def epsilon(self, value):
+        self.param.epsilon = value
+
+    @property
+    def alpha(self):
+        return self.param.alpha
+
+    @alpha.setter
+    def alpha(self, value):
+        self.param.alpha = value
+
+    @property
+    def rho(self):
+        return self.param.rho
+
+    @rho.setter
+    def rho(self, value):
+        self.param.rho = value
+
+    @property
+    def meas_interval(self):
+        return self.param.meas_interval
+
+    @meas_interval.setter
+    def meas_interval(self, value):
+        self.param.meas_interval = value
+
+    @property
+    def smear_type(self):
+        return self.param.smear_type
+
+    @smear_type.setter
+    def smear_type(self, value):
+        self.param.smear_type = value
+
 cdef class QudaBLASParam:
     cdef quda.QudaBLASParam param
 
@@ -2863,17 +3087,11 @@ def plaqQuda(list plaq):
 
 # void performWuppertalnStep(void *h_out, void *h_in, QudaInvertParam *param, unsigned int n_steps, double alpha)
 
-def performAPEnStep(unsigned int n_steps, double alpha, int meas_interval):
-    quda.performAPEnStep(n_steps, alpha, meas_interval)
+def performGaugeSmearQuda(QudaGaugeSmearParam smear_param, QudaGaugeObservableParam obs_param):
+    quda.performGaugeSmearQuda(&smear_param.param, &obs_param.param)
 
-def performSTOUTnStep(unsigned int n_steps, double rho, int meas_interval):
-    quda.performSTOUTnStep(n_steps, rho, meas_interval)
-
-def performOvrImpSTOUTnStep(unsigned int n_steps, double rho, double epsilon, int meas_interval):
-    quda.performOvrImpSTOUTnStep(n_steps, rho, epsilon, meas_interval)
-
-def performWFlownStep(unsigned int n_steps, double step_size, int meas_interval, quda.QudaWFlowType wflow_type):
-    quda.performWFlownStep(n_steps, step_size, meas_interval, wflow_type)
+def performWFlowQuda(QudaGaugeSmearParam smear_param, QudaGaugeObservableParam obs_param):
+    quda.performWFlowQuda(&smear_param.param, &obs_param.param)
 
 def gaugeObservablesQuda(QudaGaugeObservableParam param):
     quda.gaugeObservablesQuda(&param.param)
@@ -2902,9 +3120,6 @@ def computeGaugeFixingFFTQuda(Pointers gauge, unsigned int gauge_dir, unsigned i
 # void blasGEMMQuda(void *arrayA, void *arrayB, void *arrayC, QudaBoolean native, QudaBLASParam *param)
 
 # void flushChronoQuda(int index)
-
-# void openMagma()
-# void closeMagma()
 
 # void* newDeflationQuda(QudaEigParam *param)
 # void destroyDeflationQuda(void *df_instance)

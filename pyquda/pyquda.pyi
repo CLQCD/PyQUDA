@@ -9,17 +9,17 @@ double_complex = complex
 from .enum_quda import (  # noqa: F401
     QUDA_INVALID_ENUM, QUDA_VERSION_MAJOR, QUDA_VERSION_MINOR, QUDA_VERSION_SUBMINOR, QUDA_VERSION, QUDA_MAX_DIM,
     QUDA_MAX_GEOMETRY, QUDA_MAX_MULTI_SHIFT, QUDA_MAX_BLOCK_SRC, QUDA_MAX_ARRAY_SIZE, QUDA_MAX_DWF_LS,
-    QUDA_MAX_MG_LEVEL, QUDA_MAX_MULTI_REDUCE, qudaError_t, QudaMemoryType, QudaLinkType, QudaGaugeFieldOrder,
-    QudaTboundary, QudaPrecision, QudaReconstructType, QudaGaugeFixed, QudaDslashType, QudaInverterType, QudaEigType,
-    QudaEigSpectrumType, QudaSolutionType, QudaSolveType, QudaMultigridCycleType, QudaSchwarzType, QudaResidualType,
+    QUDA_MAX_MG_LEVEL, qudaError_t, QudaMemoryType, QudaLinkType, QudaGaugeFieldOrder, QudaTboundary, QudaPrecision,
+    QudaReconstructType, QudaGaugeFixed, QudaDslashType, QudaInverterType, QudaEigType, QudaEigSpectrumType,
+    QudaSolutionType, QudaSolveType, QudaMultigridCycleType, QudaSchwarzType, QudaAcceleratorType, QudaResidualType,
     QudaCABasis, QudaMatPCType, QudaDagType, QudaMassNormalization, QudaSolverNormalization, QudaPreserveSource,
     QudaDiracFieldOrder, QudaCloverFieldOrder, QudaVerbosity, QudaTune, QudaPreserveDirac, QudaParity, QudaDiracType,
     QudaFieldLocation, QudaSiteSubset, QudaSiteOrder, QudaFieldOrder, QudaFieldCreate, QudaGammaBasis, QudaSourceType,
-    QudaNoiseType, QudaProjectionType, QudaPCType, QudaTwistFlavorType, QudaTwistDslashType, QudaTwistCloverDslashType,
-    QudaTwistGamma5Type, QudaUseInitGuess, QudaDeflatedGuess, QudaComputeNullVector, QudaSetupType, QudaTransferType,
-    QudaBoolean, QUDA_BOOLEAN_NO, QUDA_BOOLEAN_YES, QudaBLASOperation, QudaBLASDataType, QudaBLASDataOrder,
-    QudaDirection, QudaLinkDirection, QudaFieldGeometry, QudaGhostExchange, QudaStaggeredPhase, QudaContractType,
-    QudaContractGamma, QudaWFlowType, QudaExtLibType,
+    QudaNoiseType, QudaDilutionType, QudaProjectionType, QudaPCType, QudaTwistFlavorType, QudaTwistDslashType,
+    QudaTwistCloverDslashType, QudaTwistGamma5Type, QudaUseInitGuess, QudaDeflatedGuess, QudaComputeNullVector,
+    QudaSetupType, QudaTransferType, QudaBoolean, QUDA_BOOLEAN_NO, QUDA_BOOLEAN_YES, QudaBLASOperation,
+    QudaBLASDataType, QudaBLASDataOrder, QudaDirection, QudaLinkDirection, QudaFieldGeometry, QudaGhostExchange,
+    QudaStaggeredPhase, QudaContractType, QudaContractGamma, QudaWFlowType, QudaGaugeSmearType, QudaExtLibType,
 )
 
 
@@ -212,8 +212,21 @@ class QudaInvertParam:
     ca_basis: QudaCABasis
     ca_lambda_min: double
     ca_lambda_max: double
+    ca_basis_precondition: QudaCABasis
+    ca_lambda_min_precondition: double
+    ca_lambda_max_precondition: double
     precondition_cycle: int
     schwarz_type: QudaSchwarzType
+    accelerator_type_precondition: QudaAcceleratorType
+    madwf_diagonal_suppressor: double
+    madwf_ls: int
+    madwf_null_miniter: int
+    madwf_null_tol: double
+    madwf_train_maxiter: int
+    madwf_param_load: QudaBoolean
+    madwf_param_save: QudaBoolean
+    madwf_param_infile: bytes[256]
+    madwf_param_outfile: bytes[256]
     residual_type: QudaResidualType
     cuda_prec_ritz: QudaPrecision
     n_ev: int
@@ -257,6 +270,7 @@ class QudaEigParam:
     use_dagger: QudaBoolean
     use_norm_op: QudaBoolean
     use_eigen_qr: QudaBoolean
+    use_pc: QudaBoolean
     compute_svd: QudaBoolean
     compute_gamma5: QudaBoolean
     require_convergence: QudaBoolean
@@ -332,6 +346,9 @@ class QudaMultigridParam:
     smoother_tol: List[double, QUDA_MAX_MG_LEVEL]
     nu_pre: List[int, QUDA_MAX_MG_LEVEL]
     nu_post: List[int, QUDA_MAX_MG_LEVEL]
+    smoother_solver_ca_basis: List[QudaCABasis, QUDA_MAX_MG_LEVEL]
+    smoother_solver_ca_lambda_min: List[double, QUDA_MAX_MG_LEVEL]
+    smoother_solver_ca_lambda_max: List[double, QUDA_MAX_MG_LEVEL]
     omega: List[double, QUDA_MAX_MG_LEVEL]
     smoother_halo_precision: List[QudaPrecision, QUDA_MAX_MG_LEVEL]
     smoother_schwarz_type: List[QudaSchwarzType, QUDA_MAX_MG_LEVEL]
@@ -359,6 +376,8 @@ class QudaMultigridParam:
     secs: double
     mu_factor: List[double, QUDA_MAX_MG_LEVEL]
     transfer_type: List[QudaTransferType, QUDA_MAX_MG_LEVEL]
+    allow_truncation: QudaBoolean
+    staggered_kd_dagger_approximation: QudaBoolean
     use_mma: QudaBoolean
     thin_update_only: QudaBoolean
 
@@ -379,6 +398,22 @@ class QudaGaugeObservableParam:
     energy: List[double, 3]
     compute_qcharge_density: QudaBoolean
     qcharge_density: Pointer
+
+
+class QudaGaugeSmearParam:
+    def __init__(self) -> None:
+        ...
+
+    # def __repr__(self) -> str:
+    #     ...
+
+    struct_size: size_t
+    n_steps: int
+    epsilon: double
+    alpha: double
+    rho: double
+    meas_interval: int
+    smear_type: QudaGaugeSmearType
 
 
 class QudaBLASParam:
@@ -506,19 +541,11 @@ def plaqQuda(plaq: List[double, 3]) -> None:
     ...
 
 
-def performAPEnStep(n_steps: int, alpha: double, meas_interval: int):
+def performGaugeSmearQuda(smear_param: QudaGaugeSmearParam, obs_param: QudaGaugeObservableParam) -> None:
     ...
 
 
-def performSTOUTnStep(n_steps: int, rho: double, meas_interval: int):
-    ...
-
-
-def performOvrImpSTOUTnStep(n_steps: int, rho: double, epsilon: double, meas_interval: int):
-    ...
-
-
-def performWFlownStep(n_steps: int, step_size: double, meas_interval: int, wflow_type: QudaWFlowType):
+def performWFlowQuda(smear_param: QudaGaugeSmearParam, obs_param: QudaGaugeObservableParam) -> None:
     ...
 
 

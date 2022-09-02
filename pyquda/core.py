@@ -151,21 +151,36 @@ class LatticePropagator(LatticeField):
 
 
 def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
+    smear_param = quda.QudaGaugeSmearParam()
+    smear_param.n_steps = nstep
+    smear_param.rho = rho
+    smear_param.meas_interval = nstep + 1
+    smear_param.smear_type = enum_quda.QudaGaugeSmearType.QUDA_GAUGE_SMEAR_STOUT
+    obs_param = quda.QudaGaugeObservableParam()
+    obs_param.compute_qcharge = enum_quda.QudaBoolean.QUDA_BOOLEAN_TRUE
     dslash = getDslash(latt_size, 0, 0, 0)
     dslash.gauge_param.reconstruct = enum_quda.QudaReconstructType.QUDA_RECONSTRUCT_NO
     dslash.gauge_param.t_boundary = enum_quda.QudaTboundary.QUDA_PERIODIC_T
     dslash.loadGauge(gauge)
-    quda.performSTOUTnStep(nstep, rho, 1)
+    quda.performGaugeSmearQuda(smear_param, obs_param)
     dslash.gauge_param.type = enum_quda.QudaLinkType.QUDA_SMEARED_LINKS
     quda.saveGaugeQuda(gauge.data_ptr, dslash.gauge_param)
 
 
 def smear4(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
+    smear_param = quda.QudaGaugeSmearParam()
+    smear_param.n_steps = nstep
+    smear_param.rho = rho
+    smear_param.epsilon = 1.0
+    smear_param.meas_interval = nstep + 1
+    smear_param.smear_type = enum_quda.QudaGaugeSmearType.QUDA_GAUGE_SMEAR_OVRIMP_STOUT
+    obs_param = quda.QudaGaugeObservableParam()
+    obs_param.compute_qcharge = enum_quda.QudaBoolean.QUDA_BOOLEAN_TRUE
     dslash = getDslash(latt_size, 0, 0, 0)
     dslash.gauge_param.reconstruct = enum_quda.QudaReconstructType.QUDA_RECONSTRUCT_NO
     dslash.gauge_param.t_boundary = enum_quda.QudaTboundary.QUDA_PERIODIC_T
     dslash.loadGauge(gauge)
-    quda.performOvrImpSTOUTnStep(nstep, rho, 1.0, 1)
+    quda.performGaugeSmearQuda(smear_param, obs_param)
     dslash.gauge_param.type = enum_quda.QudaLinkType.QUDA_SMEARED_LINKS
     quda.saveGaugeQuda(gauge.data_ptr, dslash.gauge_param)
 
