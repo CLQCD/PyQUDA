@@ -9,7 +9,7 @@ class Dslash(ABC):
     gauge_param: QudaGaugeParam
     invert_param: QudaInvertParam
     mg_param: QudaMultigridParam
-    mg_inv_param: QudaMultigridParam
+    mg_inv_param: QudaInvertParam
     mg_instance: Pointer
 
     @abstractmethod

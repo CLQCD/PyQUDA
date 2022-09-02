@@ -3,7 +3,7 @@ from typing import List
 from ..pyquda import newMultigridQuda, destroyMultigridQuda
 
 from ..core import LatticeGauge, LatticeFermion
-from ..enum_quda import QudaDslashType, QudaInverterType, QudaSolveType
+from ..enum_quda import QudaDslashType, QudaInverterType, QudaSolveType, QudaPrecision
 
 from . import abstract
 from . import general
@@ -24,7 +24,7 @@ class CloverWilson(abstract.Dslash):
     ) -> None:
         self.mg_instance = None
         self.newQudaGaugeParam(latt_size, xi, t_boundary)
-        self.newQudaMultigridParam(multigrid, kappa, [[4, 4, 4, 4], [2, 2, 2, 2]], 1e-1, 12, 5e-6, 1000, 0, 8)
+        self.newQudaMultigridParam(multigrid, kappa, [[2, 2, 2, 2], [4, 4, 4, 4]], 1e-1, 12, 5e-6, 1000, 0, 8)
         self.newQudaInvertParam(kappa, tol, maxiter, clover_coeff, clover_xi)
 
     def newQudaGaugeParam(self, latt_size: List[int], anisotropy: float, t_boundary: int):
@@ -61,6 +61,13 @@ class CloverWilson(abstract.Dslash):
         general.loadClover(U, self.gauge_param, self.invert_param)
         general.loadGauge(U, self.gauge_param)
         if self.mg_param is not None:
+            self.gauge_param.cuda_prec_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION
+            self.mg_inv_param.cuda_prec_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION
+            self.invert_param.cuda_prec_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION
+            self.invert_param.cuda_prec_refinement_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION
+            self.mg_inv_param.clover_cuda_prec_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION
+            self.invert_param.clover_cuda_prec_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION
+            self.invert_param.clover_cuda_prec_refinement_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION
             if self.mg_instance is not None:
                 self.destroy()
             self.mg_instance = newMultigridQuda(self.mg_param)

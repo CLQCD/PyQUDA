@@ -23,6 +23,8 @@ from ..core import LatticeGauge, LatticeFermion
 cpu_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
 cuda_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
 cuda_prec_sloppy = QudaPrecision.QUDA_HALF_PRECISION
+cuda_prec_precondition = QudaPrecision.QUDA_HALF_PRECISION
+cuda_prec_eigensolver = QudaPrecision.QUDA_SINGLE_PRECISION
 link_recon = QudaReconstructType.QUDA_RECONSTRUCT_12
 link_recon_sloppy = QudaReconstructType.QUDA_RECONSTRUCT_12
 
@@ -40,15 +42,15 @@ def newQudaGaugeParam(X: List[int], anisotropy: float, t_boundary: int):
     gauge_param.cpu_prec = cpu_prec
     gauge_param.cuda_prec = cuda_prec
     gauge_param.cuda_prec_sloppy = cuda_prec_sloppy
-    gauge_param.cuda_prec_precondition = cuda_prec_sloppy
-    gauge_param.cuda_prec_eigensolver = cuda_prec_sloppy
     gauge_param.cuda_prec_refinement_sloppy = cuda_prec_sloppy
+    gauge_param.cuda_prec_precondition = cuda_prec_precondition
+    gauge_param.cuda_prec_eigensolver = cuda_prec_eigensolver
 
     gauge_param.reconstruct = link_recon
     gauge_param.reconstruct_sloppy = link_recon_sloppy
+    gauge_param.reconstruct_refinement_sloppy = link_recon_sloppy
     gauge_param.reconstruct_precondition = link_recon_sloppy
     gauge_param.reconstruct_eigensolver = link_recon_sloppy
-    gauge_param.reconstruct_refinement_sloppy = link_recon_sloppy
 
     Lx, Ly, Lz, Lt = X
     ga_pad = Lx * Ly * Lz * Lt // min(Lx, Ly, Lz, Lt) // 2
@@ -87,7 +89,7 @@ def newQudaMultigridParam(
     mg_inv_param.cpu_prec = cpu_prec
     mg_inv_param.cuda_prec = cuda_prec
     mg_inv_param.cuda_prec_sloppy = cuda_prec_sloppy
-    mg_inv_param.cuda_prec_precondition = cuda_prec_sloppy
+    mg_inv_param.cuda_prec_precondition = cuda_prec_precondition
     mg_inv_param.preserve_source = QudaPreserveSource.QUDA_PRESERVE_SOURCE_NO
     mg_inv_param.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
     mg_inv_param.dirac_order = QudaDiracFieldOrder.QUDA_DIRAC_ORDER
@@ -96,8 +98,9 @@ def newQudaMultigridParam(
     mg_inv_param.clover_cpu_prec = cpu_prec
     mg_inv_param.clover_cuda_prec = cuda_prec
     mg_inv_param.clover_cuda_prec_sloppy = cuda_prec_sloppy
-    mg_inv_param.clover_cuda_prec_precondition = cuda_prec_sloppy
-    mg_inv_param.clover_order = QudaCloverFieldOrder.QUDA_PACKED_CLOVER_ORDER
+    mg_inv_param.clover_cuda_prec_precondition = cuda_prec_precondition
+    mg_inv_param.clover_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
+    mg_inv_param.clover_order = QudaCloverFieldOrder.QUDA_FLOAT2_CLOVER_ORDER
     mg_inv_param.clover_coeff = 1.0
 
     mg_inv_param.input_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
@@ -123,7 +126,7 @@ def newQudaMultigridParam(
     mg_param.spin_block_size = [2] + [1] * (QUDA_MAX_MG_LEVEL - 1)
     mg_param.n_vec = [24] * QUDA_MAX_MG_LEVEL
     mg_param.n_block_ortho = [1] * QUDA_MAX_MG_LEVEL
-    mg_param.precision_null = [cuda_prec_sloppy] * QUDA_MAX_MG_LEVEL
+    mg_param.precision_null = [cuda_prec_precondition] * QUDA_MAX_MG_LEVEL
     mg_param.nu_pre = [nu_pre] * QUDA_MAX_MG_LEVEL
     mg_param.nu_post = [nu_post] * QUDA_MAX_MG_LEVEL
     mg_param.mu_factor = [1.0] * QUDA_MAX_MG_LEVEL
@@ -210,9 +213,9 @@ def newQudaInvertParam(
     invert_param.cpu_prec = cpu_prec
     invert_param.cuda_prec = cuda_prec
     invert_param.cuda_prec_sloppy = cuda_prec_sloppy
-    invert_param.cuda_prec_precondition = cuda_prec_sloppy
-    invert_param.cuda_prec_eigensolver = cuda_prec_sloppy
     invert_param.cuda_prec_refinement_sloppy = cuda_prec_sloppy
+    invert_param.cuda_prec_precondition = cuda_prec_precondition
+    invert_param.cuda_prec_eigensolver = cuda_prec_eigensolver
     invert_param.preserve_source = QudaPreserveSource.QUDA_PRESERVE_SOURCE_NO
     invert_param.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
     invert_param.dirac_order = QudaDiracFieldOrder.QUDA_DIRAC_ORDER
@@ -222,10 +225,11 @@ def newQudaInvertParam(
         invert_param.clover_cpu_prec = cpu_prec
         invert_param.clover_cuda_prec = cuda_prec
         invert_param.clover_cuda_prec_sloppy = cuda_prec_sloppy
-        invert_param.clover_cuda_prec_precondition = cuda_prec_sloppy
-        invert_param.clover_cuda_prec_eigensolver = cuda_prec_sloppy
         invert_param.clover_cuda_prec_refinement_sloppy = cuda_prec_sloppy
-        invert_param.clover_order = QudaCloverFieldOrder.QUDA_PACKED_CLOVER_ORDER
+        invert_param.clover_cuda_prec_precondition = cuda_prec_precondition
+        invert_param.clover_cuda_prec_eigensolver = cuda_prec_eigensolver
+        invert_param.clover_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
+        invert_param.clover_order = QudaCloverFieldOrder.QUDA_FLOAT2_CLOVER_ORDER
         invert_param.clover_csw = clover_anisotropy  # to save clover_anisotropy, not real csw
         invert_param.clover_coeff = clover_coeff
         invert_param.compute_clover = 1
