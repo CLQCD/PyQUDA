@@ -6,6 +6,7 @@ from xml.etree import ElementTree as ET
 import numpy as np
 import cupy as cp
 
+from .. import mpi
 from ..core import Nc
 
 
@@ -51,8 +52,6 @@ def readTimeSlice(filename: str, Ne: int = None):
     else:
         num_vecs = Ne
     eigen_raw = np.zeros((num_vecs, Lt, Lz, Ly, Lx, Nc), ndarray_dtype)
-    eigen = np.zeros((num_vecs, Lt, 2, Lz, Ly, Lx // 2, Nc), ndarray_dtype)
-
     for e in range(num_vecs):
         for t in range(Lt):
             eigen_raw[e, t] = np.fromfile(
@@ -61,6 +60,19 @@ def readTimeSlice(filename: str, Ne: int = None):
                 count=Lz * Ly * Lx * Nc,
                 offset=offsets[(t, e)],
             ).astype(ndarray_dtype).reshape(Lz, Ly, Lx, Nc)
+
+    if mpi.grid == [1, 1, 1, 1]:
+        Gt = 1
+        gt = 0
+    else:
+        Gx, Gy, Gz, Gt = mpi.grid
+        latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
+        Lx, Ly, Lz, Lt = latt_size
+        gx, gy, gz, gt = mpi.coord
+        eigen_raw = eigen_raw[:, gt * Lt:(gt + 1) * Lt, gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
+                              gx * Lx:(gx + 1) * Lx]
+
+    eigen = np.zeros((num_vecs, Lt, 2, Lz, Ly, Lx // 2, Nc), ndarray_dtype)
 
     for t in range(Lt):
         for z in range(Lz):
