@@ -446,110 +446,368 @@ class QudaBLASParam:
 
 
 def setVerbosityQuda(verbosity: QudaVerbosity, prefix: bytes) -> None:
+    '''
+    Set parameters related to status reporting.
+
+    In typical usage, this function will be called once (or not at
+    all) just before the call to initQuda(), but it's valid to call
+    it any number of times at any point during execution.  Prior to
+    the first time it's called, the parameters take default values
+    as indicated below.
+
+    @param verbosity:
+        Default verbosity, ranging from QUDA_SILENT to
+        QUDA_DEBUG_VERBOSE.  Within a solver, this
+        parameter is overridden by the "verbosity"
+        member of QudaInvertParam.  The default value
+        is QUDA_SUMMARIZE.
+
+    @param prefix:
+        String to prepend to all messages from QUDA.  This
+        defaults to the empty string (""), but you may
+        wish to specify something like "QUDA: " to
+        distinguish QUDA's output from that of your
+        application.
+    '''
     ...
 
 
 def initCommsGridQuda(nDim: int, dims: List[int, 4]):
+    '''
+    Declare the grid mapping ("logical topology" in QMP parlance)
+    used for communications in a multi-GPU grid.  This function
+    should be called prior to initQuda().  The only case in which
+    it's optional is when QMP is used for communication and the
+    logical topology has already been declared by the application.
+
+    @param nDim:
+        Number of grid dimensions.  "4" is the only supported
+        value currently.
+
+    @param dims:
+        Array of grid dimensions.  dims[0]*dims[1]*dims[2]*dims[3]
+        must equal the total number of MPI ranks or QMP nodes.
+    '''
     ...
 
 
 def initQudaDevice(device: int) -> None:
+    '''
+    Initialize the library.  This is a low-level interface that is
+    called by initQuda.  Calling initQudaDevice requires that the
+    user also call initQudaMemory before using QUDA.
+
+    @param device:
+        CUDA device number to use.  In a multi-GPU build,
+        this parameter may either be set explicitly on a
+        per-process basis or set to -1 to enable a default
+        allocation of devices to processes.
+    '''
     ...
 
 
 def initQudaMemory() -> None:
+    '''
+    Initialize the library persistant memory allocations (both host
+    and device).  This is a low-level interface that is called by
+    initQuda.  Calling initQudaMemory requires that the user has
+    previously called initQudaDevice.
+    '''
     ...
 
 
 def initQuda(device: int) -> None:
+    '''
+    Initialize the library.  This function is actually a wrapper
+    around calls to initQudaDevice() and initQudaMemory().
+
+    @param device:
+        CUDA device number to use.  In a multi-GPU build,
+        this parameter may either be set explicitly on a
+        per-process basis or set to -1 to enable a default
+        allocation of devices to processes.
+    '''
     ...
 
 
 def endQuda() -> None:
+    '''
+    Finalize the library.
+    '''
     ...
 
 
 def loadGaugeQuda(h_gauge: Pointers, param: QudaGaugeParam) -> None:
+    '''
+    Load the gauge field from the host.
+    @param h_gauge:
+        Base pointer to host gauge field (regardless of dimensionality)
+    @param param:
+        Contains all metadata regarding host and device storage
+    '''
     ...
 
 
 def freeGaugeQuda() -> None:
+    '''
+    Free QUDA's internal copy of the gauge field.
+    '''
     ...
 
 
 def saveGaugeQuda(h_gauge: Pointers, param: QudaGaugeParam) -> None:
+    '''
+    Save the gauge field to the host.
+    @param h_gauge:
+        Base pointer to host gauge field (regardless of dimensionality)
+    @param param:
+        Contains all metadata regarding host and device storage
+    '''
     ...
 
 
 def loadCloverQuda(h_clover: Pointer, h_clovinv: Pointer, inv_param: QudaInvertParam) -> None:
+    '''
+    Load the clover term and/or the clover inverse from the host.
+    Either h_clover or h_clovinv may be set to NULL.
+    @param h_clover:
+        Base pointer to host clover field
+    @param h_cloverinv:
+        Base pointer to host clover inverse field
+    @param inv_param:
+        Contains all metadata regarding host and device storage
+    '''
     ...
 
 
 def freeCloverQuda() -> None:
+    '''
+    Free QUDA's internal copy of the clover term and/or clover inverse.
+    '''
     ...
 
 
 def invertQuda(h_x: Pointer, h_b: Pointer, param: QudaInvertParam) -> None:
+    '''
+    Perform the solve, according to the parameters set in param.  It
+    is assumed that the gauge field has already been loaded via
+    loadGaugeQuda().
+    @param h_x:
+        Solution spinor field
+    @param h_b:
+        Source spinor field
+    @param param:
+        Contains all metadata regarding host and device
+        storage and solver parameters
+    '''
     ...
 
 
 def invertMultiShiftQuda(_hp_x: Pointers, _hp_b: Pointer, param: QudaInvertParam) -> None:
+    '''
+    Perform the solve like @invertQuda but for multiple rhs by spliting the comm grid into sub-partitions:
+    each sub-partition invert one or more rhs'.
+    The QudaInvertParam object specifies how the solve should be performed on each sub-partition.
+    Unlike @invertQuda, the interface also takes the host side gauge as input. The gauge pointer and
+    gauge_param are used if for inv_param split_grid[0] * split_grid[1] * split_grid[2] * split_grid[3]
+    is larger than 1, in which case gauge field is not required to be loaded beforehand; otherwise
+    this interface would just work as @invertQuda, which requires gauge field to be loaded beforehand,
+    and the gauge field pointer and gauge_param are not used.
+    @param _hp_x:
+        Array of solution spinor fields
+    @param _hp_b:
+        Array of source spinor fields
+    @param param:
+        Contains all metadata regarding host and device storage and solver parameters
+    @param h_gauge:
+        Base pointer to host gauge field (regardless of dimensionality)
+    @param gauge_param:
+        Contains all metadata regarding host and device storage for gauge field
+    '''
     ...
 
 
 def newMultigridQuda(param: QudaMultigridParam) -> Pointer:
+    '''
+    Setup the multigrid solver, according to the parameters set in param.  It
+    is assumed that the gauge field has already been loaded via
+    loadGaugeQuda().
+    @param param:
+        Contains all metadata regarding host and device
+        storage and solver parameters
+    '''
     ...
 
 
 def destroyMultigridQuda(mg_instance: Pointer):
+    '''
+    Free resources allocated by the multigrid solver
+    @param mg_instance:
+        Pointer to instance of multigrid_solver
+    @param param:
+        Contains all metadata regarding host and device
+        storage and solver parameters
+    '''
     ...
 
 
 def updateMultigridQuda(mg_instance: Pointer, param: QudaMultigridParam):
+    '''
+    Updates the multigrid preconditioner for the new gauge / clover field
+    @param mg_instance:
+        Pointer to instance of multigrid_solver
+    @param param:
+        Contains all metadata regarding host and device
+        storage and solver parameters, of note contains a flag specifying whether
+        to do a full update or a thin update.
+    '''
     ...
 
 
 def dumpMultigridQuda(mg_instance: Pointer, param: QudaMultigridParam):
+    '''
+    Dump the null-space vectors to disk
+    @param[in] mg_instance:
+        Pointer to the instance of multigrid_solver
+    @param[in] param:
+        Contains all metadata regarding host and device
+        storage and solver parameters (QudaMultigridParam::vec_outfile
+        sets the output filename prefix).
+    '''
     ...
 
 
 def dslashQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam, parity: QudaParity) -> None:
+    '''
+    Apply the Dslash operator (D_{eo} or D_{oe}).
+    @param h_out:
+        Result spinor field
+    @param h_in:
+        Input spinor field
+    @param param:
+        Contains all metadata regarding host and device
+        storage
+    @param parity:
+        The destination parity of the field
+    '''
     ...
 
 
 def cloverQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam, parity: QudaParity, inverse: int) -> None:
+    '''
+    Apply the clover operator or its inverse.
+    @param h_out:
+        Result spinor field
+    @param h_in:
+        Input spinor field
+    @param param:
+        Contains all metadata regarding host and device
+        storage
+    @param parity:
+        The source and destination parity of the field
+    @param inverse:
+        Whether to apply the inverse of the clover term
+    '''
     ...
 
 
 def MatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> None:
+    '''
+    Apply the full Dslash matrix, possibly even/odd preconditioned.
+    @param h_out:
+        Result spinor field
+    @param h_in:
+        Input spinor field
+    @param param:
+        Contains all metadata regarding host and device
+        storage
+    '''
     ...
 
 
 def MatDagMatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> None:
+    r'''
+    Apply M^{\dag}M, possibly even/odd preconditioned.
+    @param h_out:
+        Result spinor field
+    @param h_in:
+        Input spinor field
+    @param param:
+        Contains all metadata regarding host and device
+        storage
+    '''
     ...
 
 
 def projectSU3Quda(gauge_h: Pointers, tol: double, param: QudaGaugeParam):
+    '''
+    Project the input field on the SU(3) group.  If the target
+    tolerance is not met, this routine will give a runtime error.
+
+    @param gauge_h:
+        The gauge field to be updated
+    @param tol:
+        The tolerance to which we iterate
+    @param param:
+        The parameters of the gauge field
+    '''
     ...
 
 
 def createCloverQuda(param: QudaInvertParam) -> None:
+    '''
+    Compute the clover field and its inverse from the resident gauge field.
+
+    @param param:
+        The parameters of the clover field to create
+    '''
     ...
 
 
 def plaqQuda(plaq: List[double, 3]) -> None:
+    '''
+    Computes the total, spatial and temporal plaquette averages of the loaded gauge configuration.
+    @param plaq:
+        Array for storing the averages (total, spatial, temporal)
+    '''
     ...
 
 
 def performGaugeSmearQuda(smear_param: QudaGaugeSmearParam, obs_param: QudaGaugeObservableParam) -> None:
+    '''
+    Performs APE, Stout, or Over Imroved STOUT smearing on gaugePrecise and stores it in gaugeSmeared
+    @param[in] smear_param:
+        Parameter struct that defines the computation parameters
+    @param[in,out] obs_param:
+        Parameter struct that defines which
+        observables we are making and the resulting observables.
+    '''
     ...
 
 
 def performWFlowQuda(smear_param: QudaGaugeSmearParam, obs_param: QudaGaugeObservableParam) -> None:
+    '''
+    Performs Wilson Flow on gaugePrecise and stores it in gaugeSmeared
+    @param[in] smear_param:
+        Parameter struct that defines the computation parameters
+    @param[in,out] obs_param:
+        Parameter struct that defines which
+        observables we are making and the resulting observables.
+
+    '''
     ...
 
 
 def gaugeObservablesQuda(param: QudaGaugeObservableParam):
+    '''
+    Calculates a variety of gauge-field observables.  If a
+    smeared gauge field is presently loaded (in gaugeSmeared) the
+    observables are computed on this, else the resident gauge field
+    will be used.
+    @param[in,out] param:
+        Parameter struct that defines which
+        observables we are making and the resulting observables.
+    '''
     ...
 
 
@@ -557,6 +815,29 @@ def computeGaugeFixingOVRQuda(
     gauge: Pointers, gauge_dir: int, Nsteps: int, verbose_interval: int, relax_boost: double, tolerance: double,
     reunit_interval: int, stopWtheta: int, param: QudaGaugeParam, timeinfo: List[double, 3]
 ) -> int:
+    '''
+    Gauge fixing with overrelaxation with support for single and multi GPU.
+    @param[in,out]:
+        gauge, gauge field to be fixed
+    @param[in] gauge_dir:
+        3 for Coulomb gauge fixing, other for Landau gauge fixing
+    @param[in] Nsteps:
+        maximum number of steps to perform gauge fixing
+    @param[in] verbose_interval:
+        print gauge fixing info when iteration count is a multiple of this
+    @param[in] relax_boost:
+        gauge fixing parameter of the overrelaxation method, most common value is 1.5 or 1.7.
+    @param[in] tolerance:
+        torelance value to stop the method, if this value is zero then the method stops when
+        iteration reachs the maximum number of steps defined by Nsteps
+    @param[in] reunit_interval:
+        reunitarize gauge field when iteration count is a multiple of this
+    @param[in] stopWtheta:
+        0 for MILC criterion and 1 to use the theta value
+    @param[in] param:
+        The parameters of the external fields and the computation settings
+    @param[out] timeinfo:
+    '''
     ...
 
 
@@ -564,4 +845,27 @@ def computeGaugeFixingFFTQuda(
     gauge: Pointers, gauge_dir: int, Nsteps: int, verbose_interval: int, alpha: double, autotune: int,
     tolerance: double, stopWtheta: int, param: QudaGaugeParam, timeinfo: List[double, 3]
 ) -> int:
+    '''
+    Gauge fixing with Steepest descent method with FFTs with support for single GPU only.
+    @param[in,out] gauge:
+        gauge field to be fixed
+    @param[in] gauge_dir:
+        3 for Coulomb gauge fixing, other for Landau gauge fixing
+    @param[in] Nsteps:
+        maximum number of steps to perform gauge fixing
+    @param[in] verbose_interval:
+        print gauge fixing info when iteration count is a multiple of this
+    @param[in] alpha:
+        gauge fixing parameter of the method, most common value is 0.08
+    @param[in] autotune:
+        1 to autotune the method, i.e., if the Fg inverts its tendency we decrease the alpha value
+    @param[in] tolerance:
+        torelance value to stop the method, if this value is zero then the method stops when
+        iteration reachs the maximum number of steps defined by Nsteps
+    @param[in] stopWtheta:
+        0 for MILC criterion and 1 to use the theta value
+    @param[in] param:
+        The parameters of the external fields and the computation settings
+    @param[out] timeinfo:
+    '''
     ...
