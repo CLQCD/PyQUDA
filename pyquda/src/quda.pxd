@@ -1,14 +1,22 @@
-cimport numpy
+#pragma once
+
+#
+# @file  quda.h
+# @brief Main header file for the QUDA library
+#
+# Note to QUDA developers: When adding new members to QudaGaugeParam
+# and QudaInvertParam, be sure to update lib/check_params.h as well
+# as the Fortran interface in lib/quda_fortran.F90.
+#
 
 from enum_quda cimport *
+from libc.stdio cimport FILE
+# from quda_define cimport *
 from quda_constants cimport *
 
 cdef extern from "complex.h":
     pass
-
-ctypedef unsigned long size_t
 ctypedef double complex double_complex
-from libc.stdio cimport FILE
 
 cdef extern from "quda.h":
 
