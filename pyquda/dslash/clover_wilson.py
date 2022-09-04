@@ -20,11 +20,11 @@ class CloverWilson(abstract.Dslash):
         clover_coeff: float = 0.0,
         clover_xi: float = 1.0,
         t_boundary: int = -1,
-        multigrid: bool = False,
+        geo_block_size: List[List[int]] = None,
     ) -> None:
         self.mg_instance = None
         self.newQudaGaugeParam(latt_size, xi, t_boundary)
-        self.newQudaMultigridParam(multigrid, kappa, [[2, 2, 2, 2], [4, 4, 4, 4]], 1e-1, 12, 5e-6, 1000, 0, 8)
+        self.newQudaMultigridParam(geo_block_size, kappa, 1e-1, 12, 5e-6, 1000, 0, 8)
         self.newQudaInvertParam(kappa, tol, maxiter, clover_coeff, clover_xi)
 
     def newQudaGaugeParam(self, latt_size: List[int], anisotropy: float, t_boundary: int):
@@ -32,10 +32,10 @@ class CloverWilson(abstract.Dslash):
         self.gauge_param = gauge_param
 
     def newQudaMultigridParam(
-        self, multigrid: bool, kappa: float, geo_block_size: List[List[int]], coarse_tol: float, coarse_maxiter: int,
+        self, geo_block_size: List[List[int]], kappa: float, coarse_tol: float, coarse_maxiter: int,
         setup_tol: float, setup_maxiter: int, nu_pre: int, nu_post: int
     ):
-        if multigrid:
+        if geo_block_size is not None:
             mg_param, mg_inv_param = general.newQudaMultigridParam(
                 kappa, geo_block_size, coarse_tol, coarse_maxiter, setup_tol, setup_maxiter, nu_pre, nu_post
             )

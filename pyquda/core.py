@@ -158,9 +158,8 @@ def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
     smear_param.smear_type = enum_quda.QudaGaugeSmearType.QUDA_GAUGE_SMEAR_STOUT
     obs_param = quda.QudaGaugeObservableParam()
     obs_param.compute_qcharge = enum_quda.QudaBoolean.QUDA_BOOLEAN_TRUE
-    dslash = getDslash(latt_size, 0, 0, 0)
+    dslash = getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
     dslash.gauge_param.reconstruct = enum_quda.QudaReconstructType.QUDA_RECONSTRUCT_NO
-    dslash.gauge_param.t_boundary = enum_quda.QudaTboundary.QUDA_PERIODIC_T
     dslash.loadGauge(gauge)
     quda.performGaugeSmearQuda(smear_param, obs_param)
     dslash.gauge_param.type = enum_quda.QudaLinkType.QUDA_SMEARED_LINKS
@@ -176,9 +175,8 @@ def smear4(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
     smear_param.smear_type = enum_quda.QudaGaugeSmearType.QUDA_GAUGE_SMEAR_OVRIMP_STOUT
     obs_param = quda.QudaGaugeObservableParam()
     obs_param.compute_qcharge = enum_quda.QudaBoolean.QUDA_BOOLEAN_TRUE
-    dslash = getDslash(latt_size, 0, 0, 0)
+    dslash = getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
     dslash.gauge_param.reconstruct = enum_quda.QudaReconstructType.QUDA_RECONSTRUCT_NO
-    dslash.gauge_param.t_boundary = enum_quda.QudaTboundary.QUDA_PERIODIC_T
     dslash.loadGauge(gauge)
     quda.performGaugeSmearQuda(smear_param, obs_param)
     dslash.gauge_param.type = enum_quda.QudaLinkType.QUDA_SMEARED_LINKS
@@ -212,7 +210,8 @@ def getDslash(
     nu: float = 1.0,
     clover_coeff_t: float = 0.0,
     clover_coeff_r: float = 1.0,
-    multigrid: bool = False,
+    anti_periodic_t: bool = True,
+    multigrid: List[List[int]] = None,
 ):
     xi = xi_0 / nu
     kappa = 1 / (2 * (mass + 1 + (Nd - 1) / xi))
@@ -222,79 +221,23 @@ def getDslash(
     else:
         clover_coeff = clover_coeff_t
         clover_xi = 1.0
+    if anti_periodic_t:
+        t_boundary = -1
+    else:
+        t_boundary = 1
+    if not multigrid:
+        geo_block_size = None
+    else:
+        if not isinstance(multigrid, list):
+            geo_block_size = [[2, 2, 2, 2], [4, 4, 4, 4]]
+        else:
+            geo_block_size = multigrid
 
     if clover_coeff != 0.0:
         from .dslash import clover_wilson
-        return clover_wilson.CloverWilson(latt_size, kappa, tol, maxiter, xi, clover_coeff, clover_xi, -1, multigrid)
+        return clover_wilson.CloverWilson(
+            latt_size, kappa, tol, maxiter, xi, clover_coeff, clover_xi, t_boundary, geo_block_size
+        )
     else:
         from .dslash import wilson
-        return wilson.Wilson(latt_size, kappa, tol, maxiter, xi, -1, multigrid)
-
-
-class QudaFieldLoader:
-    def __init__(
-        self,
-        latt_size: List[int],
-        mass: float,
-        tol: float,
-        maxiter: int,
-        xi_0: float = 1.0,
-        nu: float = 1.0,
-        clover_coeff_t: float = 0.0,
-        clover_coeff_r: float = 1.0,
-        multigrid: bool = False,
-    ) -> None:
-
-        Lx, Ly, Lz, Lt = latt_size
-        volume = Lx * Ly * Lz * Lt
-        xi = xi_0 / nu
-        kappa = 1 / (2 * (mass + 1 + (Nd - 1) / xi))
-        if xi != 1.0:
-            clover_coeff = xi_0 * clover_coeff_t**2 / clover_coeff_r
-            clover_xi = sqrt(xi_0 * clover_coeff_t / clover_coeff_r)
-        else:
-            clover_coeff = clover_coeff_t
-            clover_xi = 1.0
-        clover = clover_coeff != 0.0
-
-        self.latt_size = latt_size
-        self.volume = volume
-        self.xi_0 = xi_0
-        self.nu = nu
-        self.xi = xi
-        self.mass = mass
-        self.kappa = kappa
-        self.clover_coeff = kappa * clover_coeff
-        self.clover_xi = clover_xi
-        self.clover = clover
-        if not clover:
-            from .dslash import wilson as loader
-            self.dslash = loader.Wilson(latt_size, kappa, tol, maxiter, xi, -1, multigrid)
-        else:
-            from .dslash import clover_wilson as loader
-            self.dslash = loader.CloverWilson(
-                latt_size, kappa, tol, maxiter, xi, clover_coeff, clover_xi, -1, multigrid
-            )
-
-    def loadGauge(self, gauge: LatticeGauge):
-        self.dslash.loadGauge(gauge)
-
-    def invert(self, b: LatticeFermion):
-        return self.dslash.invert(b)
-
-    def invert12(self, b12: LatticePropagator):
-        latt_size = self.latt_size
-        Lx, Ly, Lz, Lt = latt_size
-        Vol = Lx * Ly * Lz * Lt
-
-        x12 = LatticePropagator(latt_size)
-        for spin in range(Ns):
-            for color in range(Nc):
-                b = LatticeFermion(latt_size)
-                data = b.data.reshape(Vol, Ns, Nc)
-                data[:] = b12.data.reshape(Vol, Ns, Ns, Nc, Nc)[:, :, spin, :, color]
-                x = self.invert(b)
-                data = x12.data.reshape(Vol, Ns, Ns, Nc, Nc)
-                data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
-
-        return x12
+        return wilson.Wilson(latt_size, kappa, tol, maxiter, xi, t_boundary, geo_block_size)
