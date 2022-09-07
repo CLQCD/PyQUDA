@@ -30,6 +30,7 @@ def readIldg(filename: str):
     tag = re.match(r"\{.*\}", format.getroot().tag).group(0)
     precision = int(format.find(f"{tag}precision").text)
     binary_dtype = f">c{2*precision//8}"
+    ndarray_dtype = f"<c{2*precision//8}"
     latt_size = [
         int(format.find(f"{tag}lx").text),
         int(format.find(f"{tag}ly").text),
@@ -37,21 +38,20 @@ def readIldg(filename: str):
         int(format.find(f"{tag}lt").text),
     ]
     Lx, Ly, Lz, Lt = latt_size
-    gauge_raw = np.frombuffer(binary_data, binary_dtype).astype("<c16").reshape(Lt, Lz, Ly, Lx, Nd, Nc, Nc)
 
-    if mpi.grid == [1, 1, 1, 1]:
-        Gt = 1
-        gt = 0
-    else:
-        Gx, Gy, Gz, Gt = mpi.grid
-        latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
-        Lx, Ly, Lz, Lt = latt_size
-        gx, gy, gz, gt = mpi.coord
-        gauge_raw = gauge_raw[gt * Lt:(gt + 1) * Lt, gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
-                              gx * Lx:(gx + 1) * Lx]
+    Gx, Gy, Gz, Gt = mpi.grid
+    gx, gy, gz, gt = mpi.coord
+    latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
+    Lx, Ly, Lz, Lt = latt_size
 
-    gauge = np.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
+    gauge_raw = np.frombuffer(
+        binary_data,
+        binary_dtype,
+    ).reshape(Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nd, Nc,
+              Nc)[gt * Lt:(gt + 1) * Lt, gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
+                  gx * Lx:(gx + 1) * Lx].astype(ndarray_dtype)
 
+    gauge = np.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), ndarray_dtype)
     for t in range(Lt):
         for z in range(Lz):
             for y in range(Ly):
@@ -68,21 +68,17 @@ def readIldg(filename: str):
 
 def readIldgBin(filename: str, dtype: str, latt_size: List[int]):
     Lx, Ly, Lz, Lt = latt_size
-    gauge_raw = np.fromfile(filename, dtype).astype("<c16").reshape(Lt, Lz, Ly, Lx, Nd, Nc, Nc)
+    Gx, Gy, Gz, Gt = mpi.grid
+    gx, gy, gz, gt = mpi.coord
 
-    if mpi.grid == [1, 1, 1, 1]:
-        Gt = 1
-        gt = 0
-    else:
-        Gx, Gy, Gz, Gt = mpi.grid
-        latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
-        Lx, Ly, Lz, Lt = latt_size
-        gx, gy, gz, gt = mpi.coord
-        gauge_raw = gauge_raw[gt * Lt:(gt + 1) * Lt, gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
-                              gx * Lx:(gx + 1) * Lx]
+    gauge_raw = np.fromfile(
+        filename,
+        dtype,
+    ).reshape(Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nd, Nc,
+              Nc)[gt * Lt:(gt + 1) * Lt, gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
+                  gx * Lx:(gx + 1) * Lx].astype("<c16")
 
     gauge = np.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
-
     for t in range(Lt):
         for z in range(Lz):
             for y in range(Ly):

@@ -3,6 +3,8 @@ from typing import List
 import numpy as np
 import cupy as cp
 
+from .. import mpi
+
 
 def isqrt(n):
     if n > 0:
@@ -39,9 +41,20 @@ def getMomDict(mom2_max, mom2_min=0):
 class Phase:
     def __init__(self, latt_size: List[int]) -> None:
         Lx, Ly, Lz, Lt = latt_size
-        x = np.arange(Lx).reshape(1, 1, 1, Lx).repeat(Lt, 0).repeat(Lz, 1).repeat(Ly, 2) * (2j * np.pi / Lx)
-        y = np.arange(Ly).reshape(1, 1, Ly, 1).repeat(Lt, 0).repeat(Lz, 1).repeat(Lx, 3) * (2j * np.pi / Ly)
-        z = np.arange(Lz).reshape(1, Lz, 1, 1).repeat(Lt, 0).repeat(Ly, 2).repeat(Lx, 3) * (2j * np.pi / Lz)
+        Gx, Gy, Gz, Gt = mpi.grid
+        gx, gy, gz, gt = mpi.coord
+        x = (
+            np.arange(gx * Lx, (gx + 1) * Lx).reshape(1, 1, 1, Lx).repeat(Lt, 0).repeat(Lz, 1).repeat(Ly, 2) *
+            (2j * np.pi / (Lx * Gx))
+        )
+        y = (
+            np.arange(gy * Ly, (gy + 1) * Ly).reshape(1, 1, Ly, 1).repeat(Lt, 0).repeat(Lz, 1).repeat(Lx, 3) *
+            (2j * np.pi / (Ly * Gy))
+        )
+        z = (
+            np.arange(gz * Lz, (gz + 1) * Lz).reshape(1, Lz, 1, 1).repeat(Lt, 0).repeat(Ly, 2).repeat(Lx, 3) *
+            (2j * np.pi / (Lz * Gz))
+        )
         x_cb2 = np.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
         y_cb2 = np.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
         z_cb2 = np.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")

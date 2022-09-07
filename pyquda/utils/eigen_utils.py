@@ -48,41 +48,34 @@ def readTimeSlice(filename: str, Ne: int = None):
     latt_size = [int(x) for x in format.find("lattSize").text.split()]
     Lx, Ly, Lz, Lt = latt_size
     if Ne is None:
-        num_vecs = int(format.find("num_vecs").text)
-    else:
-        num_vecs = Ne
-    eigen_raw = np.zeros((num_vecs, Lt, Lz, Ly, Lx, Nc), ndarray_dtype)
-    for e in range(num_vecs):
+        Ne = int(format.find("num_vecs").text)
+
+    Gx, Gy, Gz, Gt = mpi.grid
+    gx, gy, gz, gt = mpi.coord
+    latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
+    Lx, Ly, Lz, Lt = latt_size
+
+    eigen_raw = np.zeros((Ne, Lt, Lz, Ly, Lx, Nc), ndarray_dtype)
+    for e in range(Ne):
         for t in range(Lt):
             eigen_raw[e, t] = np.fromfile(
                 filename,
                 binary_dtype,
-                count=Lz * Ly * Lx * Nc,
-                offset=offsets[(t, e)],
-            ).astype(ndarray_dtype).reshape(Lz, Ly, Lx, Nc)
+                count=Gz * Lz * Gy * Ly * Gx * Lx * Nc,
+                offset=offsets[(t + gt * Lt, e)],
+            ).reshape(Gz * Lz, Gy * Ly, Gx * Lx, Nc)[gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
+                                                     gx * Lx:(gx + 1) * Lx, :].astype(ndarray_dtype)
 
-    if mpi.grid == [1, 1, 1, 1]:
-        Gt = 1
-        gt = 0
-    else:
-        Gx, Gy, Gz, Gt = mpi.grid
-        latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
-        Lx, Ly, Lz, Lt = latt_size
-        gx, gy, gz, gt = mpi.coord
-        eigen_raw = eigen_raw[:, gt * Lt:(gt + 1) * Lt, gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
-                              gx * Lx:(gx + 1) * Lx]
-
-    eigen = np.zeros((num_vecs, Lt, 2, Lz, Ly, Lx // 2, Nc), ndarray_dtype)
-
+    eigen = np.zeros((Ne, 2, Lt, Lz, Ly, Lx // 2, Nc), ndarray_dtype)
     for t in range(Lt):
         for z in range(Lz):
             for y in range(Ly):
                 eo = (t + z + y) % 2
                 if eo == 0:
-                    eigen[:, t, 0, z, y, :, :] = eigen_raw[:, t, z, y, 0::2, :]
-                    eigen[:, t, 1, z, y, :, :] = eigen_raw[:, t, z, y, 1::2, :]
+                    eigen[:, 0, t, z, y, :, :] = eigen_raw[:, t, z, y, 0::2, :]
+                    eigen[:, 1, t, z, y, :, :] = eigen_raw[:, t, z, y, 1::2, :]
                 else:
-                    eigen[:, t, 0, z, y, :, :] = eigen_raw[:, t, z, y, 1::2, :]
-                    eigen[:, t, 1, z, y, :, :] = eigen_raw[:, t, z, y, 0::2, :]
+                    eigen[:, 0, t, z, y, :, :] = eigen_raw[:, t, z, y, 1::2, :]
+                    eigen[:, 1, t, z, y, :, :] = eigen_raw[:, t, z, y, 0::2, :]
 
     return eigen
