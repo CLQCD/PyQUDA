@@ -39,7 +39,7 @@ def momentum(latt_size: List[int], t_srce: int, phase, spin: int, color: int):
     b = LatticeFermion(latt_size)
     data = b.data.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
     if gt * Lt <= t < (gt + 1) * Lt:
-        data[:, t - gt * Lt, :, :, :, spin, color] = phase[:, t, :, :, :]
+        data[:, t - gt * Lt, :, :, :, spin, color] = phase[:, t - gt * Lt, :, :, :]
 
     return b
 
@@ -51,7 +51,7 @@ def colorvec(latt_size: List[int], t_srce: int, phase, spin: int):
     b = LatticeFermion(latt_size)
     data = b.data.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
     if gt * Lt <= t < (gt + 1) * Lt:
-        data[:, t - gt * Lt, :, :, :, spin, :] = phase[:, :, :, :, :]
+        data[:, t - gt * Lt, :, :, :, spin, :] = phase[:, t - gt * Lt, :, :, :, :]
     return b
 
 
