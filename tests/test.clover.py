@@ -41,4 +41,4 @@ dslash.destroy()
 quda.endQuda()
 
 propagator_chroma = cp.array(np.fromfile("pt_prop_1", ">c16", offset=8).astype("<c16"))
-print(cp.linalg.norm(propagator.transpose() - propagator_chroma))
+print(cp.linalg.norm(propagator.transpose().reshape(-1) - propagator_chroma))

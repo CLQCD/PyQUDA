@@ -7,7 +7,7 @@ import numpy as np
 import cupy as cp
 
 from .. import mpi
-from ..core import Nc
+from ..core import Nc, cb2
 
 
 def readStr(f: io.BufferedReader) -> str:
@@ -66,16 +66,4 @@ def readTimeSlice(filename: str, Ne: int = None):
             ).reshape(Gz * Lz, Gy * Ly, Gx * Lx, Nc)[gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
                                                      gx * Lx:(gx + 1) * Lx, :].astype(ndarray_dtype)
 
-    eigen = np.zeros((Ne, 2, Lt, Lz, Ly, Lx // 2, Nc), ndarray_dtype)
-    for t in range(Lt):
-        for z in range(Lz):
-            for y in range(Ly):
-                eo = (t + z + y) % 2
-                if eo == 0:
-                    eigen[:, 0, t, z, y, :, :] = eigen_raw[:, t, z, y, 0::2, :]
-                    eigen[:, 1, t, z, y, :, :] = eigen_raw[:, t, z, y, 1::2, :]
-                else:
-                    eigen[:, 0, t, z, y, :, :] = eigen_raw[:, t, z, y, 1::2, :]
-                    eigen[:, 1, t, z, y, :, :] = eigen_raw[:, t, z, y, 0::2, :]
-
-    return eigen
+    return cb2(eigen_raw, [0, 1, 2, 3])

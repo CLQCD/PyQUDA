@@ -8,7 +8,7 @@ import numpy as np
 import cupy as cp
 
 from .. import mpi
-from ..core import Nc, Nd, LatticeGauge
+from ..core import Nc, Nd, cb2, LatticeGauge
 
 
 def readIldg(filename: str):
@@ -49,19 +49,9 @@ def readIldg(filename: str):
         binary_dtype,
     ).reshape(Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nd, Nc,
               Nc)[gt * Lt:(gt + 1) * Lt, gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
-                  gx * Lx:(gx + 1) * Lx].astype(ndarray_dtype)
+                  gx * Lx:(gx + 1) * Lx].astype(ndarray_dtype).transpose(4, 0, 1, 2, 3, 5, 6)
 
-    gauge = np.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), ndarray_dtype)
-    for t in range(Lt):
-        for z in range(Lz):
-            for y in range(Ly):
-                eo = (t + z + y) % 2
-                if eo == 0:
-                    gauge[:, 0, t, z, y, :, :, :] = gauge_raw[t, z, y, 0::2, :, :, :].transpose(1, 0, 2, 3)
-                    gauge[:, 1, t, z, y, :, :, :] = gauge_raw[t, z, y, 1::2, :, :, :].transpose(1, 0, 2, 3)
-                else:
-                    gauge[:, 0, t, z, y, :, :, :] = gauge_raw[t, z, y, 1::2, :, :, :].transpose(1, 0, 2, 3)
-                    gauge[:, 1, t, z, y, :, :, :] = gauge_raw[t, z, y, 0::2, :, :, :].transpose(1, 0, 2, 3)
+    gauge = cb2(gauge_raw, [1, 2, 3, 4])
 
     return LatticeGauge(latt_size, cp.array(gauge), gt == Gt - 1)
 
@@ -76,18 +66,8 @@ def readIldgBin(filename: str, dtype: str, latt_size: List[int]):
         dtype,
     ).reshape(Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nd, Nc,
               Nc)[gt * Lt:(gt + 1) * Lt, gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
-                  gx * Lx:(gx + 1) * Lx].astype("<c16")
+                  gx * Lx:(gx + 1) * Lx].astype("<c16").transpose(4, 0, 1, 2, 3, 5, 6)
 
-    gauge = np.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
-    for t in range(Lt):
-        for z in range(Lz):
-            for y in range(Ly):
-                eo = (t + z + y) % 2
-                if eo == 0:
-                    gauge[:, 0, t, z, y, :, :, :] = gauge_raw[t, z, y, 0::2, :, :, :].transpose(1, 0, 2, 3)
-                    gauge[:, 1, t, z, y, :, :, :] = gauge_raw[t, z, y, 1::2, :, :, :].transpose(1, 0, 2, 3)
-                else:
-                    gauge[:, 0, t, z, y, :, :, :] = gauge_raw[t, z, y, 1::2, :, :, :].transpose(1, 0, 2, 3)
-                    gauge[:, 1, t, z, y, :, :, :] = gauge_raw[t, z, y, 0::2, :, :, :].transpose(1, 0, 2, 3)
+    gauge = cb2(gauge_raw, [1, 2, 3, 4])
 
     return LatticeGauge(latt_size, cp.array(gauge), gt == Gt - 1)

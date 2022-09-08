@@ -8,6 +8,7 @@ test_dir = os.path.dirname(os.path.abspath(__file__))
 
 from pyquda import mpi
 from pyquda import quda, core
+from pyquda.core import Ns, Nc
 from pyquda.utils import source, gauge_utils, prop_utils
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
@@ -44,4 +45,4 @@ propagator_all = prop_utils.collect(propagator)
 
 if mpi.rank == 0:
     propagator_chroma = cp.array(np.fromfile("pt_prop_1", ">c16", offset=8).astype("<c16"))
-    print(cp.linalg.norm(propagator_all.transpose() - propagator_chroma))
+    print(cp.linalg.norm(propagator_all.transpose().reshape(-1) - propagator_chroma))

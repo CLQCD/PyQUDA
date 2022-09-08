@@ -21,6 +21,47 @@ Nd = LatticeConstant.Nd
 Ns = LatticeConstant.Ns
 
 
+def lexico(data: np.ndarray, axes: List[int], dtype=None):
+    _, Lt, Lz, Ly, Lx = [data.shape[axis] for axis in axes]
+    Lx *= 2
+    Npre = int(np.prod(data.shape[:axes[0]]))
+    Nsuf = int(np.prod(data.shape[axes[-1] + 1:]))
+    dtype = data.dtype if dtype is None else dtype
+    data_cb2 = data.reshape(Npre, 2, Lt, Lz, Ly, Lx // 2, Nsuf)
+    data_lexico = np.zeros((Npre, Lt, Lz, Ly, Lx, Nsuf), dtype)
+    for t in range(Lt):
+        for z in range(Lz):
+            for y in range(Ly):
+                eo = (t + z + y) % 2
+                if eo == 0:
+                    data_lexico[:, t, z, y, 0::2] = data_cb2[:, 0, t, z, y, :]
+                    data_lexico[:, t, z, y, 1::2] = data_cb2[:, 1, t, z, y, :]
+                else:
+                    data_lexico[:, t, z, y, 1::2] = data_cb2[:, 0, t, z, y, :]
+                    data_lexico[:, t, z, y, 0::2] = data_cb2[:, 1, t, z, y, :]
+    return data_lexico
+
+
+def cb2(data: np.ndarray, axes: List[int], dtype=None):
+    Lt, Lz, Ly, Lx = [data.shape[axis] for axis in axes]
+    Npre = int(np.prod(data.shape[:axes[0]]))
+    Nsuf = int(np.prod(data.shape[axes[-1] + 1:]))
+    dtype = data.dtype if dtype is None else dtype
+    data_lexico = data.reshape(Npre, Lt, Lz, Ly, Lx, Nsuf)
+    data_cb2 = np.zeros((Npre, 2, Lt, Lz, Ly, Lx // 2, Nsuf), dtype)
+    for t in range(Lt):
+        for z in range(Lz):
+            for y in range(Ly):
+                eo = (t + z + y) % 2
+                if eo == 0:
+                    data_cb2[:, 0, t, z, y, :] = data_lexico[:, t, z, y, 0::2]
+                    data_cb2[:, 1, t, z, y, :] = data_lexico[:, t, z, y, 1::2]
+                else:
+                    data_cb2[:, 0, t, z, y, :] = data_lexico[:, t, z, y, 1::2]
+                    data_cb2[:, 1, t, z, y, :] = data_lexico[:, t, z, y, 0::2]
+    return data_cb2
+
+
 def newLatticeFieldData(latt_size: List[int], dtype: str) -> cp.ndarray:
     Lx, Ly, Lz, Lt = latt_size
     if dtype.capitalize() == "Gauge":
@@ -38,11 +79,12 @@ class LatticeField:
 
 class LatticeGauge(LatticeField):
     def __init__(self, latt_size: List[int], value=None, t_boundary=True) -> None:
+        Lx, Ly, Lz, Lt = latt_size
         self.latt_size = latt_size
         if value is None:
-            self.data = newLatticeFieldData(latt_size, "Gauge").reshape(-1)
+            self.data = newLatticeFieldData(latt_size, "Gauge")
         else:
-            self.data = value.reshape(-1)
+            self.data = value.reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc)
         self.t_boundary = t_boundary
 
     def copy(self):
@@ -61,20 +103,7 @@ class LatticeGauge(LatticeField):
         data[:Nd - 1] /= anisotropy
 
     def lexico(self):
-        Lx, Ly, Lz, Lt = self.latt_size
-        data_cb2 = self.data.reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc).get()
-        data_lex = np.zeros((Nd, Lt, Lz, Ly, Lx, Nc, Nc), "<c16")
-        for t in range(Lt):
-            for z in range(Lz):
-                for y in range(Ly):
-                    eo = (t + z + y) % 2
-                    if eo == 0:
-                        data_lex[:, t, z, y, 0::2] = data_cb2[:, 0, t, z, y, :]
-                        data_lex[:, t, z, y, 1::2] = data_cb2[:, 1, t, z, y, :]
-                    else:
-                        data_lex[:, t, z, y, 1::2] = data_cb2[:, 0, t, z, y, :]
-                        data_lex[:, t, z, y, 0::2] = data_cb2[:, 1, t, z, y, :]
-        return data_lex.reshape(-1)
+        return lexico(self.data.get(), [1, 2, 3, 4, 5])
 
     @property
     def data_ptr(self):
@@ -88,25 +117,23 @@ class LatticeGauge(LatticeField):
 class LatticeFermion(LatticeField):
     def __init__(self, latt_size: List[int]) -> None:
         self.latt_size = latt_size
-        self.data = newLatticeFieldData(latt_size, "Fermion").reshape(-1)
+        self.data = newLatticeFieldData(latt_size, "Fermion")
 
     @property
     def even(self):
-        return self.data.reshape(2, -1)[0]
+        return self.data[0]
 
     @even.setter
     def even(self, value):
-        data = self.data.reshape(2, -1)
-        data[0] = value.reshape(-1)
+        self.data[0] = value
 
     @property
     def odd(self):
-        return self.data.reshape(2, -1)[1]
+        return self.data[1]
 
     @odd.setter
     def odd(self, value):
-        data = self.data.reshape(2, -1)
-        data[1] = value.reshape(-1)
+        self.data[1] = value
 
     @property
     def data_ptr(self):
@@ -124,30 +151,13 @@ class LatticeFermion(LatticeField):
 class LatticePropagator(LatticeField):
     def __init__(self, latt_size: List[int]) -> None:
         self.latt_size = latt_size
-        self.data = newLatticeFieldData(latt_size, "Propagator").reshape(-1)
+        self.data = newLatticeFieldData(latt_size, "Propagator")
 
     def lexico(self):
-        Lx, Ly, Lz, Lt = self.latt_size
-        data_cb2 = self.data.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc).get()
-        data_lex = np.zeros((Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc), "<c16")
-        for t in range(Lt):
-            for z in range(Lz):
-                for y in range(Ly):
-                    eo = (t + z + y) % 2
-                    if eo == 0:
-                        data_lex[t, z, y, 0::2] = data_cb2[0, t, z, y, :]
-                        data_lex[t, z, y, 1::2] = data_cb2[1, t, z, y, :]
-                    else:
-                        data_lex[t, z, y, 1::2] = data_cb2[0, t, z, y, :]
-                        data_lex[t, z, y, 0::2] = data_cb2[1, t, z, y, :]
-        return data_lex.reshape(-1)
+        return lexico(self.data.get(), [0, 1, 2, 3, 4])
 
     def transpose(self):
-        Lx, Ly, Lz, Lt = self.latt_size
-        Vol = Lx * Ly * Lz * Lt
-        data = self.data.reshape(Vol, Ns, Ns, Nc, Nc)
-        data_T = data.transpose(0, 2, 1, 4, 3).copy()
-        return data_T.reshape(-1)
+        return self.data.transpose(0, 1, 2, 3, 4, 6, 5, 8, 7).copy()
 
 
 def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
