@@ -47,12 +47,13 @@ def init(grid_size: List[int] = [1, 1, 1, 1]):
 def gather(data, axes: List[int] = [-1, -1, -1, -1], mode: str = None, root: int = 0):
     import numpy as np
     global comm, rank, size, grid
+    dtype = data.dtype
     Lt, Lz, Ly, Lx = [data.shape[axis] if axis != -1 else 1 for axis in axes]
     Gx, Gy, Gz, Gt = grid
     collect = tuple([axis for axis in axes if axis != -1])
     if collect == ():
         collect = (0, -1)
-    process = tuple([d + collect[0] + 1 for d in range(4) if axes[d] == -1])
+    process = tuple([collect[0] + d for d in range(4) if axes[d] == -1])
     prefix = data.shape[:collect[0]]
     suffix = data.shape[collect[-1] + 1:]
     Nroots = Lx * Ly * Lz * Lt
@@ -60,7 +61,7 @@ def gather(data, axes: List[int] = [-1, -1, -1, -1], mode: str = None, root: int
     Nsuffix = int(np.prod(suffix))
     sendbuf = data.reshape(Nprefix * Nroots * Nsuffix).get()
     if rank == root:
-        recvbuf = np.zeros((size, Nprefix * Nroots * Nsuffix), "<c16")
+        recvbuf = np.zeros((size, Nprefix * Nroots * Nsuffix), dtype)
     else:
         recvbuf = None
     if comm is not None:
@@ -68,7 +69,7 @@ def gather(data, axes: List[int] = [-1, -1, -1, -1], mode: str = None, root: int
     else:
         recvbuf[0] = sendbuf
     if rank == root:
-        data = np.zeros((Nprefix, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nsuffix), "<c16")
+        data = np.zeros((Nprefix, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nsuffix), dtype)
         for i in range(size):
             gt = i % Gt
             gz = i // Gt % Gz
@@ -78,11 +79,11 @@ def gather(data, axes: List[int] = [-1, -1, -1, -1], mode: str = None, root: int
                  gx * Lx:(gx + 1) * Lx] = recvbuf[i].reshape(Nprefix, Lt, Lz, Ly, Lx, Nsuffix)
         data = data.reshape(*prefix, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, *suffix)
 
+        mode = "sum" if mode is None else mode
         if mode.lower() == "sum":
             data = data.sum(process)
         elif mode.lower() == "mean":
             data = data.mean(process)
-            pass
         else:
             raise NotImplementedError(f"{mode} mode in mpi.gather not implemented yet.")
         return data
