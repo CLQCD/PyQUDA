@@ -2654,6 +2654,110 @@ cdef class QudaGaugeObservableParam:
         self.param.plaquette = value
 
     @property
+    def compute_polyakov_loop(self):
+        return self.param.compute_polyakov_loop
+
+    @compute_polyakov_loop.setter
+    def compute_polyakov_loop(self, value):
+        self.param.compute_polyakov_loop = value
+
+    @property
+    def ploop(self):
+        return self.param.ploop
+
+    @ploop.setter
+    def ploop(self, value):
+        self.param.ploop = value
+
+    @property
+    def compute_gauge_loop_trace(self):
+        return self.param.compute_gauge_loop_trace
+
+    @compute_gauge_loop_trace.setter
+    def compute_gauge_loop_trace(self, value):
+        self.param.compute_gauge_loop_trace = value
+
+    @property
+    def traces(self):
+        ptr = Pointer("double_complex")
+        ptr.set_ptr(self.param.traces)
+        return ptr
+
+    @traces.setter
+    def traces(self, value):
+        self.set_traces(value)
+
+    cdef set_traces(self, Pointer value):
+        assert value.dtype == "double_complex"
+        self.param.traces = <double complex *>value.ptr
+
+    @property
+    def input_path_buff(self):
+        ptr = Pointers("int")
+        ptr.set_ptrs(<void **>self.param.input_path_buff, self.param.num_paths)
+        return ptr
+
+    @input_path_buff.setter
+    def input_path_buff(self, value):
+        self.set_input_path_buff(value)
+
+    cdef set_input_path_buff(self, Pointer value):
+        assert value.dtype == "int"
+        self.param.input_path_buff = <int **>value.ptr
+
+    @property
+    def path_length(self):
+        ptr = Pointer("int")
+        ptr.set_ptr(self.param.path_length)
+        return ptr
+
+    @path_length.setter
+    def path_length(self, value):
+        self.set_path_length(value)
+
+    cdef set_path_length(self, Pointer value):
+        assert value.dtype == "int"
+        self.param.path_length = <int *>value.ptr
+
+    @property
+    def loop_coeff(self):
+        ptr = Pointer("double")
+        ptr.set_ptr(self.param.loop_coeff)
+        return ptr
+
+    @loop_coeff.setter
+    def loop_coeff(self, value):
+        self.set_loop_coeff(value)
+
+    cdef set_loop_coeff(self, Pointer value):
+        assert value.dtype == "double"
+        self.param.loop_coeff = <double *>value.ptr
+
+    @property
+    def num_paths(self):
+        return self.param.num_paths
+
+    @num_paths.setter
+    def num_paths(self, value):
+        self.param.num_paths = value
+
+    @property
+    def max_length(self):
+        return self.param.max_length
+
+    @max_length.setter
+    def max_length(self, value):
+        self.param.max_length = value
+
+    @property
+    def factor(self):
+        return self.param.factor
+
+    @factor.setter
+    def factor(self, value):
+        self.param.factor = value
+
+    @property
     def compute_qcharge(self):
         return self.param.compute_qcharge
 
@@ -2697,7 +2801,15 @@ cdef class QudaGaugeObservableParam:
 
     cdef set_qcharge_density(self, Pointer value):
         assert value.dtype == "void"
-        self.param.qcharge_density = &value.ptr
+        self.param.qcharge_density = value.ptr
+
+    @property
+    def remove_staggered_phase(self):
+        return self.param.remove_staggered_phase
+
+    @remove_staggered_phase.setter
+    def remove_staggered_phase(self, value):
+        self.param.remove_staggered_phase = value
 
 cdef class QudaGaugeSmearParam:
     cdef quda.QudaGaugeSmearParam param
@@ -2794,6 +2906,14 @@ cdef class QudaBLASParam:
     @struct_size.setter
     def struct_size(self, value):
         self.param.struct_size = value
+
+    @property
+    def blas_type(self):
+        return self.param.blas_type
+
+    @blas_type.setter
+    def blas_type(self, value):
+        self.param.blas_type = value
 
     @property
     def trans_a(self):
@@ -2924,6 +3044,14 @@ cdef class QudaBLASParam:
         self.param.beta = value
 
     @property
+    def inv_mat_size(self):
+        return self.param.inv_mat_size
+
+    @inv_mat_size.setter
+    def inv_mat_size(self, value):
+        self.param.inv_mat_size = value
+
+    @property
     def batch_count(self):
         return self.param.batch_count
 
@@ -2998,7 +3126,7 @@ def invertQuda(Pointer h_x, Pointer h_b, QudaInvertParam param):
     assert h_x.dtype == "void"
     assert h_b.dtype == "void"
     quda.invertQuda(h_x.ptr, h_b.ptr, &param.param)
-    
+
 # def invertMultiSrcQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, Pointer h_gauge, QudaGaugeParam gauge_param)
 # def invertMultiSrcStaggeredQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, Pointer milc_fatlinks, Pointer milc_longlinks, QudaGaugeParam gauge_param)
 # def invertMultiSrcCloverQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, Pointer h_gauge, QudaGaugeParam gauge_param, Pointer h_clover, Pointer h_clovinv)
@@ -3051,9 +3179,13 @@ def MatDagMatQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param):
 # void pack_ghost(void **cpuLink, void **cpuGhost, int nFace, QudaPrecision precision)
 # void computeKSLinkQuda(void* fatlink, void* longlink, void* ulink, void* inlink, double *path_coeff, QudaGaugeParam *param)
 
-# void momResidentQuda(void *mom, QudaGaugeParam *param)
+def momResidentQuda(Pointer mom, QudaGaugeParam param):
+    assert mom.dtype == "void"
+    quda.momResidentQuda(mom.ptr, &param.param)
+
 # int computeGaugeForceQuda(void *mom, void *sitelink, int ***input_path_buf, int *path_length, double *loop_coeff, int num_paths, int max_length, double dt, QudaGaugeParam *qudaGaugeParam)
 # int computeGaugePathQuda(void *out, void *sitelink, int ***input_path_buf, int *path_length, double *loop_coeff, int num_paths, int max_length, double dt, QudaGaugeParam *qudaGaugeParam)
+# void computeGaugeLoopTraceQuda(double_complex *traces, int **input_path_buf, int *path_length, double *loop_coeff, int num_paths, int max_length, double factor)
 # void updateGaugeFieldQuda(void* gauge, void* momentum, double dt, int conj_mom, int exact, QudaGaugeParam* param)
 # void staggeredPhaseQuda(void *gauge_h, QudaGaugeParam *param)
 
@@ -3082,6 +3214,8 @@ def plaqQuda(list plaq):
     quda.plaqQuda(c_plaq)
     for i in range(3):
         plaq[i] = c_plaq[i]
+
+# void polyakovLoopQuda(double ploop[2], int dir)
 
 # void copyExtendedResidentGaugeQuda(void *resident_gauge)
 
@@ -3118,6 +3252,7 @@ def computeGaugeFixingFFTQuda(Pointers gauge, unsigned int gauge_dir, unsigned i
     return ret
 
 # void blasGEMMQuda(void *arrayA, void *arrayB, void *arrayC, QudaBoolean native, QudaBLASParam *param)
+# void blasLUInvQuda(void *Ainv, void *A, QudaBoolean use_native, QudaBLASParam *param)
 
 # void flushChronoQuda(int index)
 

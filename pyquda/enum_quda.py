@@ -554,6 +554,12 @@ QUDA_BOOLEAN_NO = QudaBoolean.QUDA_BOOLEAN_FALSE
 QUDA_BOOLEAN_YES = QudaBoolean.QUDA_BOOLEAN_TRUE
 
 
+class QudaBLASType(IntEnum):
+    QUDA_BLAS_GEMM = 0
+    QUDA_BLAS_LU_INV = 1
+    QUDA_BLAS_INVALID = QUDA_INVALID_ENUM
+
+
 class QudaBLASOperation(IntEnum):
     QUDA_BLAS_OP_N = 0  # No transpose
     QUDA_BLAS_OP_T = 1  # Transpose only
@@ -636,12 +642,6 @@ class QudaContractGamma(IntEnum):
     QUDA_CONTRACT_GAMMA_S23 = 14
     QUDA_CONTRACT_GAMMA_S34 = 15
     QUDA_CONTRACT_GAMMA_INVALID = QUDA_INVALID_ENUM
-
-
-class QudaWFlowType(IntEnum):
-    QUDA_WFLOW_TYPE_WILSON = 0
-    QUDA_WFLOW_TYPE_SYMANZIK = 1
-    QUDA_WFLOW_TYPE_INVALID = QUDA_INVALID_ENUM
 
 
 class QudaGaugeSmearType(IntEnum):

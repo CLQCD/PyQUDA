@@ -739,6 +739,19 @@ def MatDagMatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> 
     ...
 
 
+def momResidentQuda(mom: Pointer, param: QudaGaugeParam) -> None:
+    '''
+    Either downloads and sets the resident momentum field, or uploads
+    and returns the resident momentum field
+
+    @param[in,out] mom:
+        The external momentum field
+    @param[in] param:
+        The parameters of the external field
+    '''
+    ...
+
+
 def projectSU3Quda(gauge_h: Pointers, tol: double, param: QudaGaugeParam):
     '''
     Project the input field on the SU(3) group.  If the target
@@ -767,7 +780,7 @@ def createCloverQuda(param: QudaInvertParam) -> None:
 def plaqQuda(plaq: List[double, 3]) -> None:
     '''
     Computes the total, spatial and temporal plaquette averages of the loaded gauge configuration.
-    @param plaq:
+    @param[out] plaq:
         Array for storing the averages (total, spatial, temporal)
     '''
     ...
@@ -817,8 +830,8 @@ def computeGaugeFixingOVRQuda(
 ) -> int:
     '''
     Gauge fixing with overrelaxation with support for single and multi GPU.
-    @param[in,out]:
-        gauge, gauge field to be fixed
+    @param[in,out] gauge:
+        gauge field to be fixed
     @param[in] gauge_dir:
         3 for Coulomb gauge fixing, other for Landau gauge fixing
     @param[in] Nsteps:

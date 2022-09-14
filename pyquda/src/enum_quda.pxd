@@ -440,6 +440,11 @@ cdef extern from "enum_quda.h":
     int QUDA_BOOLEAN_NO = QUDA_BOOLEAN_FALSE
     int QUDA_BOOLEAN_YES = QUDA_BOOLEAN_TRUE
 
+    ctypedef enum QudaBLASType:
+        QUDA_BLAS_GEMM = 0
+        QUDA_BLAS_LU_INV = 1
+        QUDA_BLAS_INVALID = QUDA_INVALID_ENUM
+
     ctypedef enum QudaBLASOperation:
         QUDA_BLAS_OP_N = 0 # No transpose
         QUDA_BLAS_OP_T = 1 # Transpose only
@@ -513,11 +518,6 @@ cdef extern from "enum_quda.h":
         QUDA_CONTRACT_GAMMA_S23 = 14
         QUDA_CONTRACT_GAMMA_S34 = 15
         QUDA_CONTRACT_GAMMA_INVALID = QUDA_INVALID_ENUM
-
-    ctypedef enum QudaWFlowType:
-        QUDA_WFLOW_TYPE_WILSON
-        QUDA_WFLOW_TYPE_SYMANZIK
-        QUDA_WFLOW_TYPE_INVALID = QUDA_INVALID_ENUM
 
     ctypedef enum QudaGaugeSmearType:
         QUDA_GAUGE_SMEAR_APE
