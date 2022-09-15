@@ -19,7 +19,7 @@ from .enum_quda import (  # noqa: F401
     QudaTwistCloverDslashType, QudaTwistGamma5Type, QudaUseInitGuess, QudaDeflatedGuess, QudaComputeNullVector,
     QudaSetupType, QudaTransferType, QudaBoolean, QUDA_BOOLEAN_NO, QUDA_BOOLEAN_YES, QudaBLASOperation,
     QudaBLASDataType, QudaBLASDataOrder, QudaDirection, QudaLinkDirection, QudaFieldGeometry, QudaGhostExchange,
-    QudaStaggeredPhase, QudaContractType, QudaContractGamma, QudaWFlowType, QudaGaugeSmearType, QudaExtLibType,
+    QudaStaggeredPhase, QudaContractType, QudaContractGamma, QudaGaugeSmearType, QudaExtLibType,
 )
 
 
@@ -29,23 +29,11 @@ class Pointer:
 
 
 class Pointers(Pointer):
-    def __init__(self, dtype: str):
+    def __init__(self, dtype: str, n1: int):
         ...
 
 
-def getDataPointers(ndarray: numpy.ndarray, n: int) -> Pointers:
-    ...
-
-
-def getDataPointer(ndarray: numpy.ndarray) -> Pointer:
-    ...
-
-
-def getEvenPointer(ndarray: numpy.ndarray) -> Pointer:
-    ...
-
-
-def getOddPointer(ndarray: numpy.ndarray) -> Pointer:
+def ndarrayDataPointer(ndarray: numpy.ndarray, as_void: bool = True) -> Pointer:
     ...
 
 
@@ -393,6 +381,14 @@ class QudaGaugeObservableParam:
     su_project: QudaBoolean
     compute_plaquette: QudaBoolean
     plaquette: List[double, 3]
+    compute_gauge_loop_trace: QudaBoolean
+    traces: Pointer
+    input_path_buff: Pointers
+    path_length: Pointer
+    loop_coeff: Pointer
+    num_paths: int
+    max_length: int
+    factor: double
     compute_qcharge: QudaBoolean
     qcharge: double
     energy: List[double, 3]
@@ -752,6 +748,87 @@ def momResidentQuda(mom: Pointer, param: QudaGaugeParam) -> None:
     ...
 
 
+def computeGaugeForceQuda(
+    mom: Pointers, sitelink: Pointers, input_path_buf: Pointer, path_length: Pointer, loop_coeff: Pointer,
+    num_paths: int, max_length: int, dt: double, qudaGaugeParam: QudaGaugeParam
+) -> None:
+    '''
+    Compute the gauge force and update the momentum field
+
+    @param[in,out] mom:
+        The momentum field to be updated
+    @param[in] sitelink:
+        The gauge field from which we compute the force
+    @param[in] input_path_buf:
+        [dim][num_paths][path_length]
+    @param[in] path_length:
+        One less that the number of links in a loop (e.g., 3 for a staple)
+    @param[in] loop_coeff:
+        Coefficients of the different loops in the Symanzik action
+    @param[in] num_paths:
+        How many contributions from path_length different "staples"
+    @param[in] max_length:
+        The maximum number of non-zero of links in any path in the action
+    @param[in] dt:
+        The integration step size (for MILC this is dt*beta/3)
+    @param[in] param:
+        The parameters of the external fields and the computation settings
+    '''
+    ...
+
+
+def computeGaugePathQuda(
+    out: Pointers, sitelink: Pointers, input_path_buf: Pointer, path_length: Pointer, loop_coeff: Pointer,
+    num_paths: int, max_length: int, dt: double, qudaGaugeParam: QudaGaugeParam
+) -> None:
+    '''
+    Compute the product of gauge links along a path and add to/overwrite the output field
+
+    @param[in,out] out:
+        The output field to be updated
+    @param[in] sitelink:
+        The gauge field from which we compute the products of gauge links
+    @param[in] input_path_buf:
+        [dim][num_paths][path_length]
+    @param[in] path_length:
+        One less that the number of links in a loop (e.g., 3 for a staple)
+    @param[in] loop_coeff:
+        Coefficients of the different loops in the Symanzik action
+    @param[in] num_paths:
+        How many contributions from path_length different "staples"
+    @param[in] max_length
+        The maximum number of non-zero of links in any path in the action
+    @param[in] dt:
+        The integration step size (for MILC this is dt*beta/3)
+    @param[in] param:
+        The parameters of the external fields and the computation settings
+    '''
+    ...
+
+
+def updateGaugeFieldQuda(
+    gauge: Pointers, momentum: Pointers, dt: double, conj_mom: int, exact: int, param: QudaGaugeParam
+) -> None:
+    '''
+    Evolve the gauge field by step size dt, using the momentum field
+    I.e., Evalulate U(t+dt) = e(dt pi) U(t)
+
+    @param gauge:
+        The gauge field to be updated
+    @param momentum:
+        The momentum field
+    @param dt:
+        The integration step size step
+    @param conj_mom:
+        Whether to conjugate the momentum matrix
+    @param exact:
+        Whether to use an exact exponential or Taylor expand
+    @param param:
+        The parameters of the external fields and the computation settings
+    '''
+    ...
+
+
 def projectSU3Quda(gauge_h: Pointers, tol: double, param: QudaGaugeParam):
     '''
     Project the input field on the SU(3) group.  If the target
@@ -767,12 +844,59 @@ def projectSU3Quda(gauge_h: Pointers, tol: double, param: QudaGaugeParam):
     ...
 
 
+def momActionQuda(momentum: Pointer, param: QudaGaugeParam) -> double:
+    '''
+    Evaluate the momentum contribution to the Hybrid Monte Carlo
+    action.
+
+    @param momentum:
+        The momentum field
+    @param param:
+        The parameters of the external fields and the computation settings
+    @return:
+        momentum action
+    '''
+    ...
+
+
 def createCloverQuda(param: QudaInvertParam) -> None:
     '''
     Compute the clover field and its inverse from the resident gauge field.
 
     @param param:
         The parameters of the clover field to create
+    '''
+    ...
+
+
+def gaussGaugeQuda(seed: int, sigma: double) -> None:
+    '''
+    Generate Gaussian distributed fields and store in the
+    resident gauge field.  We create a Gaussian-distributed su(n)
+    field and exponentiate it, e.g., U = exp(sigma * H), where H is
+    the distributed su(n) field and beta is the width of the
+    distribution (beta = 0 results in a free field, and sigma = 1 has
+    maximum disorder).
+
+    @param seed:
+        The seed used for the RNG
+    @param sigma:
+        Width of Gaussian distrubution
+    '''
+    ...
+
+
+def gaussMomQuda(seed: int, sigma: double) -> None:
+    '''
+    Generate Gaussian distributed fields and store in the
+    resident momentum field. We create a Gaussian-distributed su(n)
+    field and sigma is the width of the distribution (sigma = 0
+    results in a free field, and sigma = 1 has maximum disorder).
+
+    @param seed:
+        The seed used for the RNG
+    @param sigma:
+        Width of Gaussian distrubution
     '''
     ...
 

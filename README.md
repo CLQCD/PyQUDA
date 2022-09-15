@@ -15,9 +15,9 @@ Use `pip install .` to build and install the wrapper library, or use `python3 se
 This is an example to build QUDA for single GPU.
 
 ```bash
-git clone https://github.com/lattice/quda.git
+git clone https://github.com/SaltyChiang/quda.git
 pushd quda
-git checkout dd6207e
+git checkout feature/gauss-mom
 mkdir build
 pushd build
 cmake .. -DQUDA_DIRAC_DOMAIN_WALL=OFF -DQUDA_DIRAC_NDEG_TWISTED_CLOVER=OFF -DQUDA_DIRAC_NDEG_TWISTED_MASS=OFF -DQUDA_DIRAC_STAGGERED=OFF -DQUDA_DIRAC_TWISTED_CLOVER=OFF -DQUDA_DIRAC_TWISTED_MASS=OFF -DQUDA_INTERFACE_MILC=OFF -DQUDA_MULTIGRID=ON

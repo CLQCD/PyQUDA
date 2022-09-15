@@ -12,6 +12,7 @@ cimport numpy
 import cupy
 
 from libc.stdio cimport stdout
+from libc.stdlib cimport malloc, free
 
 cimport quda
 
@@ -44,9 +45,9 @@ def redirect_stdout(stream):
 
 cdef class Pointer:
     cdef void *ptr
-    cdef str dtype
+    dtype: str
 
-    def __init__(self, dtype):
+    def __cinit__(self, str dtype, *args):
         self.dtype = dtype
         self.ptr = NULL
 
@@ -54,68 +55,170 @@ cdef class Pointer:
         self.ptr = ptr
 
 cdef class Pointers(Pointer):
-    cdef void *ptrs[32]
+    cdef unsigned int n1
+    cdef void **ptrs
 
-    def __init__(self, dtype):
-        self.dtype = dtype
-        for i in range(32):
-            self.ptrs[i] = NULL
+    def __cinit__(self, str dtype, unsigned int n1):
+        self.n1 = n1
+        if n1 > 0:
+            self.ptrs = <void **>malloc(n1 * sizeof(void *))
+            for i in range(n1):
+                self.ptrs[i] = NULL
+        else:
+            self.ptrs = <void **>NULL
 
-    cdef set_ptrs(self, void **ptrs, int n):
-        for i in range(n):
+    def __dealloc__(self):
+        if self.ptrs:
+            free(self.ptrs)
+
+    cdef set_ptrs(self, void **ptrs):
+        for i in range(self.n1):
             self.ptrs[i] = ptrs[i]
         self.ptr = <void *>self.ptrs
 
-def getDataPointers(ndarray, int n):
-    cdef size_t tmp
-    cdef double complex[:, :] data
-    cdef void *ptrs[32]
-    ptr = Pointers("void")
+cdef class Pointerss(Pointer):
+    cdef unsigned int n1, n2
+    cdef void ***ptrss
+
+    def __cinit__(self, str dtype, unsigned int n1, unsigned int n2):
+        self.n1 = n1
+        self.n2 = n2
+        if n1 > 0 and n2 > 0:
+            self.ptrss = <void ***>malloc(n1 * sizeof(void **))
+            for i in range(n1):
+                self.ptrss[i] = <void **>malloc(n2 * sizeof(void *))
+                for j in range(n2):
+                    self.ptrss[i][j] = NULL
+        else:
+            self.ptrss = <void ***>NULL
+
+    def __dealloc__(self):
+        if self.ptrss:
+            for i in range(self.n1):
+                free(self.ptrss[i])
+            free(self.ptrss)
+
+    cdef set_ptrss(self, void ***ptrss):
+        for i in range(self.n1):
+            for j in range(self.n2):
+                self.ptrss[i][j] = ptrss[i][j]
+        self.ptr = <void *>self.ptrss
+
+def ndarrayDataPointer(ndarray, as_void=True):
     if isinstance(ndarray, numpy.ndarray):
-        data = ndarray
+        gpu = False
+    elif isinstance(ndarray, cupy.ndarray):
+        gpu = True
+    else:
+        raise TypeError("ndarrayDataPointer: ndarray should be numpy.ndarray or cupy.ndarray.")
+    if not as_void:
+        dtype = ndarray.dtype.str
+        if dtype == "<i4":
+            dtype = "int"
+        elif dtype == "<f8":
+            dtype = "double"
+        elif dtype == "<c16":
+            dtype = "double_complex"
+        else:
+            raise TypeError(f"ndarrayDataPointer: ndarray has unsupported dtype={dtype}.")
+    else:
+        dtype = "void"
+    shape = ndarray.shape
+    ndim = ndarray.ndim
+    cdef size_t ptr_uint64
+    cdef void **ptrs
+    cdef void ***ptrss
+    if ndim == 1:
+        ptr1 = Pointer(dtype)
+        if not gpu:
+            ptr_uint64 = ndarray.ctypes.data
+        else:
+            ptr_uint64 = ndarray.data.ptr
+        ptr1.set_ptr(<void *>ptr_uint64)
+        return ptr1
+    elif ndim == 2:
+        ptr2 = Pointers(dtype, shape[0])
+        ptrs = <void **>malloc(shape[0] * sizeof(void *))
+        if not gpu:
+            for i in range(shape[0]):
+                ptr_uint64 = ndarray[i].ctypes.data
+                ptrs[i] = <void *>ptr_uint64
+        else:
+            for i in range(shape[0]):
+                ptr_uint64 = ndarray[i].data.ptr
+                ptrs[i] = <void *>ptr_uint64
+        ptr2.set_ptrs(ptrs)
+        free(ptrs)
+        return ptr2
+    elif ndim == 3:
+        ptr3 = Pointerss(dtype, shape[0], shape[1])
+        ptrss = <void ***>malloc(shape[0] * sizeof(void **))
+        for i in range(shape[0]):
+            ptrss[i] = <void **>malloc(shape[1] * sizeof(void *))
+        if not gpu:
+            for i in range(shape[0]):
+                for j in range(shape[1]):
+                    ptr_uint64 = ndarray[i, j].ctypes.data
+                    ptrss[i][j] = <void *>ptr_uint64
+        else:
+            for i in range(shape[0]):
+                for j in range(shape[1]):
+                    ptr_uint64 = ndarray[i, j].data.ptr
+                    ptrss[i][j] = <void *>ptr_uint64
+        ptr3.set_ptrss(ptrss)
+        for i in range(shape[0]):
+            free(ptrss[i])
+        free(ptrss)
+        return ptr3
+    else:
+        raise NotImplementedError("ndarray.ndim > 3 not implemented yet.")
+
+def getDataPointers(ndarray, int n):
+    cdef size_t ptr_uint64
+    cdef void *ptrs[32]
+    ptr = Pointers("void", n)
+    if isinstance(ndarray, numpy.ndarray):
         for i in range(n):
-            ptrs[i] = <void *>&data[i, 0]
+            ptr_uint64 = ndarray[i].ctypes.data
+            ptrs[i] = <void *>ptr_uint64
     elif isinstance(ndarray, cupy.ndarray):
         for i in range(n):
-            tmp = ndarray[i].data.ptr
-            ptrs[i] = <void *>tmp
-    ptr.set_ptrs(ptrs, n)
+            ptr_uint64 = ndarray[i].data.ptr
+            ptrs[i] = <void *>ptr_uint64
+    ptr.set_ptrs(ptrs)
     return ptr
 
 def getDataPointer(ndarray):
-    cdef size_t tmp
-    cdef double complex[:] data
+    cdef size_t ptr_uint64
     ptr = Pointer("void")
     if isinstance(ndarray, numpy.ndarray):
-        data = ndarray
-        ptr.set_ptr(<void *>&data[0])
+        ptr_uint64 = ndarray.ctypes.data
+        ptr.set_ptr(<void *>ptr_uint64)
     elif isinstance(ndarray, cupy.ndarray):
-        tmp = ndarray.data.ptr
-        ptr.set_ptr(<void *>tmp)
+        ptr_uint64 = ndarray.data.ptr
+        ptr.set_ptr(<void *>ptr_uint64)
     return ptr
 
 def getEvenPointer(ndarray):
-    cdef size_t tmp
-    cdef double complex[:, :] data
+    cdef size_t ptr_uint64
     ptr = Pointer("void")
     if isinstance(ndarray, numpy.ndarray):
-        data = ndarray
-        ptr.set_ptr(<void *>&data[0, 0])
+        ptr_uint64 = ndarray[0].ctypes.data
+        ptr.set_ptr(<void *>ptr_uint64)
     elif isinstance(ndarray, cupy.ndarray):
-        tmp = ndarray[0].data.ptr
-        ptr.set_ptr(<void *>tmp)
+        ptr_uint64 = ndarray[0].data.ptr
+        ptr.set_ptr(<void *>ptr_uint64)
     return ptr
 
 def getOddPointer(ndarray):
-    cdef size_t tmp
-    cdef double complex[:, :] data
+    cdef size_t ptr_uint64
     ptr = Pointer("void")
     if isinstance(ndarray, numpy.ndarray):
-        data = ndarray
-        ptr.set_ptr(<void *>&data[1, 0])
+        ptr_uint64 = ndarray[1].ctypes.data
+        ptr.set_ptr(<void *>ptr_uint64)
     elif isinstance(ndarray, cupy.ndarray):
-        tmp = ndarray[1].data.ptr
-        ptr.set_ptr(<void *>tmp)
+        ptr_uint64 = ndarray[1].data.ptr
+        ptr.set_ptr(<void *>ptr_uint64)
     return ptr
 
 cdef class QudaGaugeParam:
@@ -2693,17 +2796,17 @@ cdef class QudaGaugeObservableParam:
 
     @property
     def input_path_buff(self):
-        ptr = Pointers("int")
-        ptr.set_ptrs(<void **>self.param.input_path_buff, self.param.num_paths)
+        ptr = Pointers("int", self.param.num_paths)
+        ptr.set_ptrs(<void **>self.param.input_path_buff)
         return ptr
 
     @input_path_buff.setter
     def input_path_buff(self, value):
         self.set_input_path_buff(value)
 
-    cdef set_input_path_buff(self, Pointer value):
+    cdef set_input_path_buff(self, Pointers value):
         assert value.dtype == "int"
-        self.param.input_path_buff = <int **>value.ptr
+        self.param.input_path_buff = <int **>value.ptrs
 
     @property
     def path_length(self):
@@ -3183,17 +3286,32 @@ def momResidentQuda(Pointer mom, QudaGaugeParam param):
     assert mom.dtype == "void"
     quda.momResidentQuda(mom.ptr, &param.param)
 
-# int computeGaugeForceQuda(void *mom, void *sitelink, int ***input_path_buf, int *path_length, double *loop_coeff, int num_paths, int max_length, double dt, QudaGaugeParam *qudaGaugeParam)
-# int computeGaugePathQuda(void *out, void *sitelink, int ***input_path_buf, int *path_length, double *loop_coeff, int num_paths, int max_length, double dt, QudaGaugeParam *qudaGaugeParam)
+def computeGaugeForceQuda(Pointers mom, Pointers sitelink, Pointer input_path_buf, Pointer path_length, Pointer loop_coeff, int num_paths, int max_length, double dt, QudaGaugeParam qudaGaugeParam):
+    assert mom.dtype == "void"
+    assert sitelink.dtype == "void"
+    return quda.computeGaugeForceQuda(mom.ptr, sitelink.ptr, <int ***>input_path_buf.ptr, <int *>path_length.ptr, <double *>loop_coeff.ptr, num_paths, max_length, dt, &qudaGaugeParam.param)
+
+def computeGaugePathQuda(Pointers out, Pointers sitelink, Pointer input_path_buf, Pointer path_length, Pointer loop_coeff, int num_paths, int max_length, double dt, QudaGaugeParam qudaGaugeParam):
+    assert out.dtype == "void"
+    assert sitelink.dtype == "void"
+    return quda.computeGaugePathQuda(out.ptr, sitelink.ptr, <int ***>input_path_buf.ptr, <int *>path_length.ptr, <double *>loop_coeff.ptr, num_paths, max_length, dt, &qudaGaugeParam.param)
+
 # void computeGaugeLoopTraceQuda(double_complex *traces, int **input_path_buf, int *path_length, double *loop_coeff, int num_paths, int max_length, double factor)
-# void updateGaugeFieldQuda(void* gauge, void* momentum, double dt, int conj_mom, int exact, QudaGaugeParam* param)
+
+def updateGaugeFieldQuda(Pointers gauge, Pointers momentum, double dt, int conj_mom, int exact, QudaGaugeParam param):
+    assert gauge.dtype == "void"
+    assert momentum.dtype == "void"
+    quda.updateGaugeFieldQuda(gauge.ptr, momentum.ptr, dt, conj_mom, exact, &param.param)
+
 # void staggeredPhaseQuda(void *gauge_h, QudaGaugeParam *param)
 
 def projectSU3Quda(Pointers gauge_h, double tol, QudaGaugeParam param):
     assert gauge_h.dtype == "void"
     quda.projectSU3Quda(gauge_h.ptr, tol, &param.param)
 
-# double momActionQuda(void* momentum, QudaGaugeParam* param)
+def momActionQuda(Pointers momentum, QudaGaugeParam param):
+    assert momentum.dtype == "void"
+    return quda.momActionQuda(momentum.ptr, &param.param)
 
 # void* createGaugeFieldQuda(void* gauge, int geometry, QudaGaugeParam* param)
 # void saveGaugeFieldQuda(void* outGauge, void* inGauge, QudaGaugeParam* param)
@@ -3206,7 +3324,11 @@ def createCloverQuda(QudaInvertParam param):
 # void computeStaggeredForceQuda(void *mom, double dt, double delta, void *gauge, void **x, QudaGaugeParam *gauge_param, QudaInvertParam *invert_param)
 # void computeHISQForceQuda(void* momentum, double dt, const double level2_coeff[6], const double fat7_coeff[6], const void* const w_link, const void* const v_link, const void* const u_link, void** quark, int num, int num_naik, double** coeff, QudaGaugeParam* param)
 
-# void gaussGaugeQuda(unsigned long long seed, double sigma)
+def gaussGaugeQuda(unsigned long long seed, double sigma):
+    quda.gaussGaugeQuda(seed, sigma)
+
+def gaussMomQuda(unsigned long long seed, double sigma):
+    quda.gaussMomQuda(seed, sigma)
 
 def plaqQuda(list plaq):
     assert len(plaq) >= 3

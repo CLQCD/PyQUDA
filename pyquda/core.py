@@ -7,7 +7,7 @@ import cupy as cp
 
 from . import pyquda as quda
 from . import enum_quda
-from .pyquda import getDataPointers, getDataPointer, getEvenPointer, getOddPointer
+from .pyquda import ndarrayDataPointer
 
 
 class LatticeConstant(IntEnum):
@@ -107,11 +107,11 @@ class LatticeGauge(LatticeField):
 
     @property
     def data_ptr(self):
-        return getDataPointers(self.data.reshape(4, -1), 4)
+        return ndarrayDataPointer(self.data.reshape(4, -1))
 
     @property
     def data_ptrs(self):
-        return getDataPointers(self.data.reshape(4, -1), 4)
+        return ndarrayDataPointer(self.data.reshape(4, -1))
 
 
 class LatticeFermion(LatticeField):
@@ -137,15 +137,15 @@ class LatticeFermion(LatticeField):
 
     @property
     def data_ptr(self):
-        return getDataPointer(self.data)
+        return ndarrayDataPointer(self.data.reshape(-1))
 
     @property
     def even_ptr(self):
-        return getEvenPointer(self.data.reshape(2, -1))
+        return ndarrayDataPointer(self.data.reshape(2, -1)[0])
 
     @property
     def odd_ptr(self):
-        return getOddPointer(self.data.reshape(2, -1))
+        return ndarrayDataPointer(self.data.reshape(2, -1)[1])
 
 
 class LatticePropagator(LatticeField):

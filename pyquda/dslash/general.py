@@ -14,7 +14,7 @@ from ..enum_quda import (  # noqa: F401
     QudaPCType, QudaTwistFlavorType, QudaTwistDslashType, QudaTwistCloverDslashType, QudaTwistGamma5Type,
     QudaUseInitGuess, QudaDeflatedGuess, QudaComputeNullVector, QudaSetupType, QudaTransferType, QudaBoolean,
     QudaBLASOperation, QudaBLASDataType, QudaBLASDataOrder, QudaDirection, QudaLinkDirection, QudaFieldGeometry,
-    QudaGhostExchange, QudaStaggeredPhase, QudaContractType, QudaContractGamma, QudaWFlowType, QudaExtLibType
+    QudaGhostExchange, QudaStaggeredPhase, QudaContractType, QudaContractGamma, QudaExtLibType
 )
 from ..enum_quda import QUDA_MAX_DIM, QUDA_MAX_MULTI_SHIFT, QUDA_MAX_MG_LEVEL
 
@@ -299,6 +299,9 @@ def invert(b: LatticeFermion, invert_param: QudaInvertParam):
 
 
 def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
+    invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
+    invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
+
     kappa = invert_param.kappa
 
     x = LatticeFermion(b.latt_size)
