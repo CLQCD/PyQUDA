@@ -33,7 +33,7 @@ class Pointers(Pointer):
         ...
 
 
-def ndarrayDataPointer(ndarray: numpy.ndarray, as_void: bool = True) -> Pointer:
+def ndarrayDataPointer(ndarray: numpy.ndarray, as_void: bool = False) -> Pointer:
     ...
 
 
@@ -806,6 +806,31 @@ def computeGaugePathQuda(
     ...
 
 
+def computeGaugeLoopTraceQuda(
+    traces: Pointer, input_path_buf: Pointers, path_length: Pointer, loop_coeff: Pointer, num_paths: int,
+    max_length: int, factor: double
+) -> None:
+    '''
+    Compute the traces of products of gauge links along paths using the resident field
+
+    @param[in,out] traces:
+        The computed traces
+    @param[in] sitelink:
+        The gauge field from which we compute the products of gauge links
+    @param[in] path_length:
+        The number of links in each loop
+    @param[in] loop_coeff:
+        Multiplicative coefficients for each loop
+    @param[in] num_paths:
+        Total number of loops
+    @param[in] max_length:
+        The maximum number of non-zero of links in any path in the action
+    @param[in] factor:
+        An overall normalization factor
+    '''
+    ...
+
+
 def updateGaugeFieldQuda(
     gauge: Pointers, momentum: Pointers, dt: double, conj_mom: int, exact: int, param: QudaGaugeParam
 ) -> None:
@@ -874,8 +899,8 @@ def gaussGaugeQuda(seed: int, sigma: double) -> None:
     Generate Gaussian distributed fields and store in the
     resident gauge field.  We create a Gaussian-distributed su(n)
     field and exponentiate it, e.g., U = exp(sigma * H), where H is
-    the distributed su(n) field and beta is the width of the
-    distribution (beta = 0 results in a free field, and sigma = 1 has
+    the distributed su(n) field and sigma is the width of the
+    distribution (sigma = 0 results in a free field, and sigma = 1 has
     maximum disorder).
 
     @param seed:
@@ -890,8 +915,9 @@ def gaussMomQuda(seed: int, sigma: double) -> None:
     '''
     Generate Gaussian distributed fields and store in the
     resident momentum field. We create a Gaussian-distributed su(n)
-    field and sigma is the width of the distribution (sigma = 0
-    results in a free field, and sigma = 1 has maximum disorder).
+    field, e.g., sigma * H, where H is the distributed su(n) field
+    and sigma is the width of the distribution (sigma = 0 results
+    in a free field, and sigma = 1 has maximum disorder).
 
     @param seed:
         The seed used for the RNG

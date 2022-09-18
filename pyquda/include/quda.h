@@ -9,10 +9,10 @@
  * as the Fortran interface in lib/quda_fortran.F90.
  */
 
-#include "enum_quda.h"
+#include <enum_quda.h>
 #include <stdio.h> /* for FILE */
 // #include <quda_define.h>
-#include "quda_constants.h"
+#include <quda_constants.h>
 
 #ifndef __CUDACC_RTC__
 #define double_complex double _Complex
@@ -1542,10 +1542,10 @@ extern "C" {
 
   /**
      @brief Generate Gaussian distributed fields and store in the
-     resident gauge field.  We create a Gaussian-distributed su(n)
+     resident gauge field. We create a Gaussian-distributed su(n)
      field and exponentiate it, e.g., U = exp(sigma * H), where H is
-     the distributed su(n) field and beta is the width of the
-     distribution (beta = 0 results in a free field, and sigma = 1 has
+     the distributed su(n) field and sigma is the width of the
+     distribution (sigma = 0 results in a free field, and sigma = 1 has
      maximum disorder).
 
      @param seed The seed used for the RNG
@@ -1556,8 +1556,12 @@ extern "C" {
   /**
    * @brief Generate Gaussian distributed fields and store in the
    * resident momentum field. We create a Gaussian-distributed su(n)
-   * field and sigma is the width of the distribution (sigma = 0
-   * results in a free field, and sigma = 1 has maximum disorder).
+   * field, e.g., sigma * H, where H is the distributed su(n) field
+   * and sigma is the width of the distribution (sigma = 0 results
+   * in a free field, and sigma = 1 has maximum disorder).
+   *
+   * @param seed The seed used for the RNG
+   * @param sigma Width of Gaussian distrubution
    */
   void gaussMomQuda(unsigned long long seed, double sigma);
 

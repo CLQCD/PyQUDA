@@ -49,7 +49,7 @@ input_path_buf = np.array(
     ],
     dtype="<i4"
 )
-input_path_buf_ptr = quda.ndarrayDataPointer(input_path_buf, False)
+input_path_buf_ptr = quda.ndarrayDataPointer(input_path_buf)
 
 input_path_buff = np.array(
     [
@@ -61,28 +61,33 @@ input_path_buff = np.array(
         [2, 3, 5, 4],
     ], dtype="<i4"
 )
-input_path_buff_ptr = quda.ndarrayDataPointer(input_path_buff, False)
+input_path_buff_ptr = quda.ndarrayDataPointer(input_path_buff)
 
 traces = np.zeros((num_paths), "<c16")
 path_length = np.zeros((num_paths), "<i4")
 path_length[:] = max_length + 1
 loop_coeff = np.zeros((num_paths), "<f8")
 loop_coeff[:] = -beta / Nc
-obsParam = quda.QudaGaugeObservableParam()
-obsParam.compute_gauge_loop_trace = enum_quda.QudaBoolean.QUDA_BOOLEAN_TRUE
-obsParam.traces = quda.ndarrayDataPointer(traces, False)
-obsParam.input_path_buff = input_path_buff_ptr
-obsParam.path_length = quda.ndarrayDataPointer(path_length, False)
-obsParam.loop_coeff = quda.ndarrayDataPointer(loop_coeff, False)
-obsParam.num_paths = num_paths
-obsParam.max_length = max_length + 1
-obsParam.factor = 1.0
+
+# obsParam = quda.QudaGaugeObservableParam()
+# obsParam.compute_gauge_loop_trace = enum_quda.QudaBoolean.QUDA_BOOLEAN_TRUE
+# obsParam.traces = quda.ndarrayDataPointer(traces)
+# obsParam.input_path_buff = input_path_buff_ptr
+# obsParam.path_length = quda.ndarrayDataPointer(path_length)
+# obsParam.loop_coeff = quda.ndarrayDataPointer(loop_coeff)
+# obsParam.num_paths = num_paths
+# obsParam.max_length = max_length + 1
+# obsParam.factor = 1.0
+# quda.gaugeObservablesQuda(obsParam)
 
 for i in range(20):
     quda.gaussMomQuda(i, 1.0)
 
     kinetic = quda.momActionQuda(nullptr, gauge_param)
-    quda.gaugeObservablesQuda(obsParam)
+    quda.computeGaugeLoopTraceQuda(
+        quda.ndarrayDataPointer(traces), input_path_buff_ptr, quda.ndarrayDataPointer(path_length),
+        quda.ndarrayDataPointer(loop_coeff), num_paths, max_length + 1, 1
+    )
     potential = traces.real.sum()
     energy = kinetic + potential
 
@@ -91,18 +96,21 @@ for i in range(20):
     dt = t / steps
     for step in range(steps):
         quda.computeGaugeForceQuda(
-            nullptr, nullptr, input_path_buf_ptr, quda.ndarrayDataPointer(path_length - 1, False),
-            quda.ndarrayDataPointer(-loop_coeff, False), num_paths, max_length, 0.5 * dt, gauge_param
+            nullptr, nullptr, input_path_buf_ptr, quda.ndarrayDataPointer(path_length - 1),
+            quda.ndarrayDataPointer(-loop_coeff), num_paths, max_length, 0.5 * dt, gauge_param
         )
         quda.updateGaugeFieldQuda(nullptr, nullptr, 1.0 * dt, False, False, gauge_param)
         quda.computeGaugeForceQuda(
-            nullptr, nullptr, input_path_buf_ptr, quda.ndarrayDataPointer(path_length - 1, False),
-            quda.ndarrayDataPointer(-loop_coeff, False), num_paths, max_length, 0.5 * dt, gauge_param
+            nullptr, nullptr, input_path_buf_ptr, quda.ndarrayDataPointer(path_length - 1),
+            quda.ndarrayDataPointer(-loop_coeff), num_paths, max_length, 0.5 * dt, gauge_param
         )
         pass
 
     kinetic1 = quda.momActionQuda(nullptr, gauge_param)
-    quda.gaugeObservablesQuda(obsParam)
+    quda.computeGaugeLoopTraceQuda(
+        quda.ndarrayDataPointer(traces), input_path_buff_ptr, quda.ndarrayDataPointer(path_length),
+        quda.ndarrayDataPointer(loop_coeff), num_paths, max_length + 1, 1
+    )
     potential1 = traces.real.sum()
     energy1 = kinetic1 + potential1
 

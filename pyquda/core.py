@@ -107,11 +107,11 @@ class LatticeGauge(LatticeField):
 
     @property
     def data_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(4, -1))
+        return ndarrayDataPointer(self.data.reshape(4, -1), True)
 
     @property
     def data_ptrs(self):
-        return ndarrayDataPointer(self.data.reshape(4, -1))
+        return ndarrayDataPointer(self.data.reshape(4, -1), True)
 
 
 class LatticeFermion(LatticeField):
@@ -137,15 +137,15 @@ class LatticeFermion(LatticeField):
 
     @property
     def data_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(-1))
+        return ndarrayDataPointer(self.data.reshape(-1), True)
 
     @property
     def even_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(2, -1)[0])
+        return ndarrayDataPointer(self.data.reshape(2, -1)[0], True)
 
     @property
     def odd_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(2, -1)[1])
+        return ndarrayDataPointer(self.data.reshape(2, -1)[1], True)
 
 
 class LatticePropagator(LatticeField):

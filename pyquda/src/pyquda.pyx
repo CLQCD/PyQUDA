@@ -104,7 +104,7 @@ cdef class Pointerss(Pointer):
                 self.ptrss[i][j] = ptrss[i][j]
         self.ptr = <void *>self.ptrss
 
-def ndarrayDataPointer(ndarray, as_void=True):
+def ndarrayDataPointer(ndarray, as_void=False):
     if isinstance(ndarray, numpy.ndarray):
         gpu = False
     elif isinstance(ndarray, cupy.ndarray):
@@ -3296,7 +3296,13 @@ def computeGaugePathQuda(Pointers out, Pointers sitelink, Pointer input_path_buf
     assert sitelink.dtype == "void"
     return quda.computeGaugePathQuda(out.ptr, sitelink.ptr, <int ***>input_path_buf.ptr, <int *>path_length.ptr, <double *>loop_coeff.ptr, num_paths, max_length, dt, &qudaGaugeParam.param)
 
-# void computeGaugeLoopTraceQuda(double_complex *traces, int **input_path_buf, int *path_length, double *loop_coeff, int num_paths, int max_length, double factor)
+def computeGaugeLoopTraceQuda(traces: Pointer, input_path_buf: Pointers, path_length: Pointer, loop_coeff: Pointer, num_paths: int, max_length: int, factor: double):
+    assert traces.dtype == "double_complex"
+    assert input_path_buf.dtype == "int"
+    assert path_length.dtype == "int"
+    assert loop_coeff.dtype == "double"
+    quda.computeGaugeLoopTraceQuda(<double complex *>traces.ptr, <int **>input_path_buf.ptr, <int *>path_length.ptr, <double *>loop_coeff.ptr, num_paths, max_length, factor)
+
 
 def updateGaugeFieldQuda(Pointers gauge, Pointers momentum, double dt, int conj_mom, int exact, QudaGaugeParam param):
     assert gauge.dtype == "void"
