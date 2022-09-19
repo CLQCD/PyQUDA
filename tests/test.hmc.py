@@ -7,32 +7,47 @@ test_dir = os.path.dirname(os.path.abspath(__file__))
 # sys.path.insert(0, os.path.join(test_dir, ".."))
 from pyquda import core, quda, mpi, enum_quda
 from pyquda.core import Nc
-from pyquda.utils import gauge_utils
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
-latt_size = [4, 4, 4, 8]
+ensembles = {
+    "A1a": ([16, 16, 16, 16], 5.789),
+    "B0a": ([24, 24, 24, 24], 6),
+    "C1d": ([32, 32, 32, 64], 6.136),
+    "D1d": ([48, 48, 48, 48], 6.475)
+}
+
+tag = "D1d"
+
+latt_size = ensembles[tag][0]
 Lx, Ly, Lz, Lt = latt_size
 Vol = Lx * Ly * Lz * Lt
 
-beta = 4.0
+beta = ensembles[tag][1]
+t = 1
+dt = 0.1
+steps = round(t / dt)
+dt = t / steps
 
 nullptr = quda.Pointers("void", 0)
 
 dslash = core.getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
 gauge_param = dslash.gauge_param
 
-gauge = gauge_utils.readIldg(os.path.join(test_dir, "weak_field.lime"))
+gauge = core.LatticeGauge(latt_size, None, True)
+gauge.data[:] = cp.diag([1, 1, 1])
 
 quda.initQuda(mpi.gpuid)
 
 quda.loadGaugeQuda(gauge.data_ptr, gauge_param)
 
 gauge_param.type = enum_quda.QudaLinkType.QUDA_MOMENTUM_LINKS
-gauge_param.make_resident_gauge = 1
-gauge_param.make_resident_mom = 1
+gauge_param.overwrite_gauge = 0
+gauge_param.overwrite_mom = 0
 gauge_param.use_resident_gauge = 1
 gauge_param.use_resident_mom = 1
+gauge_param.make_resident_gauge = 1
+gauge_param.make_resident_mom = 1
 gauge_param.return_result_gauge = 0
 gauge_param.return_result_mom = 0
 quda.momResidentQuda(gauge.data_ptr, gauge_param)
@@ -69,50 +84,82 @@ path_length[:] = max_length + 1
 loop_coeff = np.zeros((num_paths), "<f8")
 loop_coeff[:] = -beta / Nc
 
-# obsParam = quda.QudaGaugeObservableParam()
-# obsParam.compute_gauge_loop_trace = enum_quda.QudaBoolean.QUDA_BOOLEAN_TRUE
-# obsParam.traces = quda.ndarrayDataPointer(traces)
-# obsParam.input_path_buff = input_path_buff_ptr
-# obsParam.path_length = quda.ndarrayDataPointer(path_length)
-# obsParam.loop_coeff = quda.ndarrayDataPointer(loop_coeff)
-# obsParam.num_paths = num_paths
-# obsParam.max_length = max_length + 1
-# obsParam.factor = 1.0
-# quda.gaugeObservablesQuda(obsParam)
 
-for i in range(20):
-    quda.gaussMomQuda(i, 1.0)
+def computeGaugeForce(dt):
+    quda.computeGaugeForceQuda(
+        nullptr, nullptr, input_path_buf_ptr, quda.ndarrayDataPointer(path_length - 1),
+        quda.ndarrayDataPointer(-loop_coeff), num_paths, max_length, dt, gauge_param
+    )
 
-    kinetic = quda.momActionQuda(nullptr, gauge_param)
+
+def updateGaugeField(dt):
+    quda.updateGaugeFieldQuda(nullptr, nullptr, dt, False, False, gauge_param)
+
+
+def momAction():
+    return quda.momActionQuda(nullptr, gauge_param)
+
+
+def computeGaugeLoopTrace():
     quda.computeGaugeLoopTraceQuda(
         quda.ndarrayDataPointer(traces), input_path_buff_ptr, quda.ndarrayDataPointer(path_length),
         quda.ndarrayDataPointer(loop_coeff), num_paths, max_length + 1, 1
     )
-    potential = traces.real.sum()
+    return traces.real.sum()
+
+
+def plaq():
+    ret = [0, 0, 0]
+    quda.plaqQuda(ret)
+    return ret[0] * Nc
+
+
+rho_ = 0.2539785108410595
+theta_ = -0.03230286765269967
+vartheta_ = 0.08398315262876693
+lambda_ = 0.6822365335719091
+
+# rho_ = 0
+# theta_ = 0
+# vartheta_ = 0
+# lambda_ = 0
+
+warm = True
+gauge_param.type = enum_quda.QudaLinkType.QUDA_WILSON_LINKS
+for i in range(100):
+    quda.gaussMomQuda(i, 1.0)
+    quda.saveGaugeQuda(gauge.data_ptr, gauge_param)
+
+    kinetic = momAction()
+    potential = computeGaugeLoopTrace()
     energy = kinetic + potential
 
-    t = 1
-    steps = 20
-    dt = t / steps
     for step in range(steps):
-        quda.computeGaugeForceQuda(
-            nullptr, nullptr, input_path_buf_ptr, quda.ndarrayDataPointer(path_length - 1),
-            quda.ndarrayDataPointer(-loop_coeff), num_paths, max_length, 0.5 * dt, gauge_param
-        )
-        quda.updateGaugeFieldQuda(nullptr, nullptr, 1.0 * dt, False, False, gauge_param)
-        quda.computeGaugeForceQuda(
-            nullptr, nullptr, input_path_buf_ptr, quda.ndarrayDataPointer(path_length - 1),
-            quda.ndarrayDataPointer(-loop_coeff), num_paths, max_length, 0.5 * dt, gauge_param
-        )
-        pass
+        computeGaugeForce(vartheta_ * dt)
+        updateGaugeField(rho_ * dt)
+        computeGaugeForce(lambda_ * dt)
+        updateGaugeField(theta_ * dt)
+        computeGaugeForce((1 - 2 * (lambda_ + vartheta_)) * dt / 2)
+        updateGaugeField((1 - 2 * (theta_ + rho_)) * dt)
+        computeGaugeForce((1 - 2 * (lambda_ + vartheta_)) * dt / 2)
+        updateGaugeField(theta_ * dt)
+        computeGaugeForce(lambda_ * dt)
+        updateGaugeField(rho_ * dt)
+        computeGaugeForce(vartheta_ * dt)
 
-    kinetic1 = quda.momActionQuda(nullptr, gauge_param)
-    quda.computeGaugeLoopTraceQuda(
-        quda.ndarrayDataPointer(traces), input_path_buff_ptr, quda.ndarrayDataPointer(path_length),
-        quda.ndarrayDataPointer(loop_coeff), num_paths, max_length + 1, 1
-    )
-    potential1 = traces.real.sum()
+    kinetic1 = momAction()
+    potential1 = computeGaugeLoopTrace()
     energy1 = kinetic1 + potential1
+
+    accept = np.random.rand() < np.exp(energy - energy1) or warm
+    if energy1 < energy:
+        warm = False
+    if not accept:
+        gauge_param.use_resident_gauge = 0
+        quda.loadGaugeQuda(gauge.data_ptr, gauge_param)
+        gauge_param.use_resident_gauge = 1
+
+    plaquette = plaq()
 
     print(
         f'''
@@ -120,6 +167,8 @@ PE_old = {potential}, KE_old = {kinetic}
 PE = {potential1}, KE = {kinetic1}
 Delta_PE = {potential1 - potential}, Delta_KE = {kinetic1 - kinetic}
 Delta_E = {energy1 - energy}
+accept = {accept}
+plaquette = {plaquette}
 '''
     )
 

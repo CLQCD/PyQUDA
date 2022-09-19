@@ -173,54 +173,6 @@ def ndarrayDataPointer(ndarray, as_void=False):
     else:
         raise NotImplementedError("ndarray.ndim > 3 not implemented yet.")
 
-def getDataPointers(ndarray, int n):
-    cdef size_t ptr_uint64
-    cdef void *ptrs[32]
-    ptr = Pointers("void", n)
-    if isinstance(ndarray, numpy.ndarray):
-        for i in range(n):
-            ptr_uint64 = ndarray[i].ctypes.data
-            ptrs[i] = <void *>ptr_uint64
-    elif isinstance(ndarray, cupy.ndarray):
-        for i in range(n):
-            ptr_uint64 = ndarray[i].data.ptr
-            ptrs[i] = <void *>ptr_uint64
-    ptr.set_ptrs(ptrs)
-    return ptr
-
-def getDataPointer(ndarray):
-    cdef size_t ptr_uint64
-    ptr = Pointer("void")
-    if isinstance(ndarray, numpy.ndarray):
-        ptr_uint64 = ndarray.ctypes.data
-        ptr.set_ptr(<void *>ptr_uint64)
-    elif isinstance(ndarray, cupy.ndarray):
-        ptr_uint64 = ndarray.data.ptr
-        ptr.set_ptr(<void *>ptr_uint64)
-    return ptr
-
-def getEvenPointer(ndarray):
-    cdef size_t ptr_uint64
-    ptr = Pointer("void")
-    if isinstance(ndarray, numpy.ndarray):
-        ptr_uint64 = ndarray[0].ctypes.data
-        ptr.set_ptr(<void *>ptr_uint64)
-    elif isinstance(ndarray, cupy.ndarray):
-        ptr_uint64 = ndarray[0].data.ptr
-        ptr.set_ptr(<void *>ptr_uint64)
-    return ptr
-
-def getOddPointer(ndarray):
-    cdef size_t ptr_uint64
-    ptr = Pointer("void")
-    if isinstance(ndarray, numpy.ndarray):
-        ptr_uint64 = ndarray[1].ctypes.data
-        ptr.set_ptr(<void *>ptr_uint64)
-    elif isinstance(ndarray, cupy.ndarray):
-        ptr_uint64 = ndarray[1].data.ptr
-        ptr.set_ptr(<void *>ptr_uint64)
-    return ptr
-
 cdef class QudaGaugeParam:
     cdef quda.QudaGaugeParam param
 
