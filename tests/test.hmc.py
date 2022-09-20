@@ -8,7 +8,7 @@ test_dir = os.path.dirname(os.path.abspath(__file__))
 from pyquda import core, quda, mpi, enum_quda
 from pyquda.core import Nc
 
-os.environ["QUDA_RESOURCE_PATH"] = ".cache"
+# os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
 ensembles = {
     "A1a": ([16, 16, 16, 16], 5.789),
@@ -52,43 +52,75 @@ gauge_param.return_result_gauge = 0
 gauge_param.return_result_mom = 0
 quda.momResidentQuda(gauge.data_ptr, gauge_param)
 
-num_paths = 6
-max_length = 3
 
-input_path_buf = np.array(
-    [
-        [[1, 7, 6], [6, 7, 1], [2, 7, 5], [5, 7, 2], [3, 7, 4], [4, 7, 3]],
-        [[0, 6, 7], [7, 6, 0], [2, 6, 5], [5, 6, 2], [3, 6, 4], [4, 6, 3]],
-        [[0, 5, 7], [7, 5, 0], [1, 5, 6], [6, 5, 1], [3, 5, 4], [4, 5, 3]],
-        [[0, 4, 7], [7, 4, 0], [1, 4, 6], [6, 4, 1], [2, 4, 5], [5, 4, 2]]
-    ],
-    dtype="<i4"
-)
-input_path_buf_ptr = quda.ndarrayDataPointer(input_path_buf)
+def path_force(path, coeffs):
+    num_paths = len(path)
+    lengths = []
+    force = [[], [], [], []]
+    fcoeffs = [[], [], [], []]
+    flengths = [[], [], [], []]
+    for i in range(num_paths):
+        lengths.append(len(path[i]))
+        loop = np.array(path[i])
+        loop_dag = np.flip(7 - loop)
+        for j in range(lengths[i]):
+            if loop[j] < 4:
+                force[loop[j]].append(np.roll(loop, -j)[1:])
+                fcoeffs[loop[j]].append(-coeffs[i])
+                flengths[loop[j]].append(lengths[i] - 1)
+            else:
+                force[loop_dag[3 - j]].append(np.roll(loop_dag, j - 3)[1:])
+                fcoeffs[loop_dag[3 - j]].append(-coeffs[i])
+                flengths[loop_dag[3 - j]].append(lengths[i] - 1)
+    max_length = max(lengths)
+    return (
+        num_paths, max_length, np.array(path, dtype="<i4"), np.array(lengths, dtype="<i4"), np.array(coeffs),
+        np.array(force, dtype="<i4"), np.array(flengths[0], dtype="<i4"), np.array(fcoeffs[0])
+    )
 
-input_path_buff = np.array(
-    [
-        [0, 1, 7, 6],
-        [0, 2, 7, 5],
-        [0, 3, 7, 4],
-        [1, 2, 6, 5],
-        [1, 3, 6, 4],
-        [2, 3, 5, 4],
-    ], dtype="<i4"
-)
-input_path_buff_ptr = quda.ndarrayDataPointer(input_path_buff)
+
+input_path = [
+    [0, 1, 7, 6],
+    [0, 2, 7, 5],
+    [0, 3, 7, 4],
+    [1, 2, 6, 5],
+    [1, 3, 6, 4],
+    [2, 3, 5, 4],
+]
+input_coeffs = [
+    -beta / Nc,
+    -beta / Nc,
+    -beta / Nc,
+    -beta / Nc,
+    -beta / Nc,
+    -beta / Nc,
+]
+
+num_paths, max_length, path, lengths, coeffs, force, flengths, fcoeffs = path_force(input_path, input_coeffs)
+path_ptr = quda.ndarrayDataPointer(path)
+force_ptr = quda.ndarrayDataPointer(force)
+
+# input_path_buf = np.array(
+#     [
+#         [[1, 7, 6], [6, 7, 1], [2, 7, 5], [5, 7, 2], [3, 7, 4], [4, 7, 3]],
+#         [[0, 6, 7], [7, 6, 0], [2, 6, 5], [5, 6, 2], [3, 6, 4], [4, 6, 3]],
+#         [[0, 5, 7], [7, 5, 0], [1, 5, 6], [6, 5, 1], [3, 5, 4], [4, 5, 3]],
+#         [[0, 4, 7], [7, 4, 0], [1, 4, 6], [6, 4, 1], [2, 4, 5], [5, 4, 2]]
+#     ],
+#     dtype="<i4"
+# )
+# input_path_buf_ptr = quda.ndarrayDataPointer(input_path_buf)
+
+# input_path_buff = np.array(input_path, dtype="<i4")
+# input_path_buff_ptr = quda.ndarrayDataPointer(input_path_buff)
 
 traces = np.zeros((num_paths), "<c16")
-path_length = np.zeros((num_paths), "<i4")
-path_length[:] = max_length + 1
-loop_coeff = np.zeros((num_paths), "<f8")
-loop_coeff[:] = -beta / Nc
 
 
 def computeGaugeForce(dt):
     quda.computeGaugeForceQuda(
-        nullptr, nullptr, input_path_buf_ptr, quda.ndarrayDataPointer(path_length - 1),
-        quda.ndarrayDataPointer(-loop_coeff), num_paths, max_length, dt, gauge_param
+        nullptr, nullptr, force_ptr, quda.ndarrayDataPointer(flengths), quda.ndarrayDataPointer(fcoeffs), num_paths,
+        max_length - 1, dt, gauge_param
     )
 
 
@@ -102,8 +134,8 @@ def momAction():
 
 def computeGaugeLoopTrace():
     quda.computeGaugeLoopTraceQuda(
-        quda.ndarrayDataPointer(traces), input_path_buff_ptr, quda.ndarrayDataPointer(path_length),
-        quda.ndarrayDataPointer(loop_coeff), num_paths, max_length + 1, 1
+        quda.ndarrayDataPointer(traces), path_ptr, quda.ndarrayDataPointer(lengths), quda.ndarrayDataPointer(coeffs),
+        num_paths, max_length, 1
     )
     return traces.real.sum()
 
@@ -118,11 +150,6 @@ rho_ = 0.2539785108410595
 theta_ = -0.03230286765269967
 vartheta_ = 0.08398315262876693
 lambda_ = 0.6822365335719091
-
-# rho_ = 0
-# theta_ = 0
-# vartheta_ = 0
-# lambda_ = 0
 
 warm = True
 gauge_param.type = enum_quda.QudaLinkType.QUDA_WILSON_LINKS
