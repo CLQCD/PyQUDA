@@ -6,7 +6,7 @@ import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 # sys.path.insert(0, os.path.join(test_dir, ".."))
-from pyquda import quda, core, LatticePropagator, mpi
+from pyquda import core, mpi, LatticePropagator
 from pyquda.utils import gamma, phase, source, gauge_utils
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
@@ -39,7 +39,7 @@ dslash = core.getDslash(latt_size, mass, 1e-7, 1000, xi_0, nu, coeff_t, coeff_r)
 twopt = np.zeros((Lt, Lt, 2, mom_num), "<c16")
 gamma_insertion = [(gamma.gamma(15), gamma.gamma(1)), (gamma.gamma(7), gamma.gamma(7))]
 
-quda.initQuda(mpi.gpuid)
+mpi.init()
 
 s = time()
 gauge = gauge_utils.readIldg(os.path.join(test_dir, "weak_field.lime"))
@@ -79,5 +79,3 @@ for t in range(Lt):
             twopt[t, :, gamma_idx, p] = res.get()
         gamma_idx += 1
     print(f"Contraction for {len(gamma_insertion)} gamma insertions: {time()-s:.2f}sec.")
-
-quda.endQuda()

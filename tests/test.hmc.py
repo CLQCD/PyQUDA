@@ -8,7 +8,7 @@ test_dir = os.path.dirname(os.path.abspath(__file__))
 from pyquda import core, quda, mpi, enum_quda
 from pyquda.core import Nc
 
-# os.environ["QUDA_RESOURCE_PATH"] = ".cache"
+os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
 ensembles = {
     "A1a": ([16, 16, 16, 16], 5.789),
@@ -17,7 +17,7 @@ ensembles = {
     "D1d": ([48, 48, 48, 48], 6.475)
 }
 
-tag = "D1d"
+tag = "A1a"
 
 latt_size = ensembles[tag][0]
 Lx, Ly, Lz, Lt = latt_size
@@ -37,8 +37,7 @@ gauge_param = dslash.gauge_param
 gauge = core.LatticeGauge(latt_size, None, True)
 gauge.data[:] = cp.diag([1, 1, 1])
 
-quda.initQuda(mpi.gpuid)
-
+mpi.init()
 quda.loadGaugeQuda(gauge.data_ptr, gauge_param)
 
 gauge_param.type = enum_quda.QudaLinkType.QUDA_MOMENTUM_LINKS
@@ -109,10 +108,6 @@ force_ptr = quda.ndarrayDataPointer(force)
 #     ],
 #     dtype="<i4"
 # )
-# input_path_buf_ptr = quda.ndarrayDataPointer(input_path_buf)
-
-# input_path_buff = np.array(input_path, dtype="<i4")
-# input_path_buff_ptr = quda.ndarrayDataPointer(input_path_buff)
 
 traces = np.zeros((num_paths), "<c16")
 
@@ -200,4 +195,4 @@ plaquette = {plaquette}
     )
 
 dslash.destroy()
-quda.endQuda()
+# quda.endQuda()

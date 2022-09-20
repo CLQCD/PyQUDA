@@ -5,7 +5,7 @@ import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 # sys.path.insert(0, os.path.join(test_dir, ".."))
-from pyquda import core, quda, mpi
+from pyquda import core, mpi
 from pyquda.core import Nc, Ns
 from pyquda.utils import source, gauge_utils
 
@@ -22,7 +22,7 @@ mass = 1 / (2 * kappa) - 4
 dslash = core.getDslash(latt_size, mass, 1e-9, 1000, xi_0, nu, multigrid=False)
 gauge = gauge_utils.readIldg(os.path.join(test_dir, "weak_field.lime"))
 
-quda.initQuda(mpi.gpuid)
+mpi.init()
 
 dslash.loadGauge(gauge)
 
@@ -35,7 +35,6 @@ for spin in range(Ns):
         data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
 
 dslash.destroy()
-quda.endQuda()
 
 propagator_chroma = cp.array(np.fromfile("pt_prop_0", ">c16", offset=8).astype("<c16"))
 print(cp.linalg.norm(propagator.transpose().reshape(-1) - propagator_chroma))

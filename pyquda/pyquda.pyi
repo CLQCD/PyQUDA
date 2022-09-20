@@ -17,9 +17,9 @@ from .enum_quda import (  # noqa: F401
     QudaFieldLocation, QudaSiteSubset, QudaSiteOrder, QudaFieldOrder, QudaFieldCreate, QudaGammaBasis, QudaSourceType,
     QudaNoiseType, QudaDilutionType, QudaProjectionType, QudaPCType, QudaTwistFlavorType, QudaTwistDslashType,
     QudaTwistCloverDslashType, QudaTwistGamma5Type, QudaUseInitGuess, QudaDeflatedGuess, QudaComputeNullVector,
-    QudaSetupType, QudaTransferType, QudaBoolean, QUDA_BOOLEAN_NO, QUDA_BOOLEAN_YES, QudaBLASOperation,
+    QudaSetupType, QudaTransferType, QudaBoolean, QUDA_BOOLEAN_NO, QUDA_BOOLEAN_YES, QudaBLASType, QudaBLASOperation,
     QudaBLASDataType, QudaBLASDataOrder, QudaDirection, QudaLinkDirection, QudaFieldGeometry, QudaGhostExchange,
-    QudaStaggeredPhase, QudaContractType, QudaContractGamma, QudaGaugeSmearType, QudaExtLibType,
+    QudaStaggeredPhase, QudaContractType, QudaContractGamma, QudaGaugeSmearType, QudaExtLibType
 )
 
 
@@ -956,7 +956,6 @@ def performWFlowQuda(smear_param: QudaGaugeSmearParam, obs_param: QudaGaugeObser
     @param[in,out] obs_param:
         Parameter struct that defines which
         observables we are making and the resulting observables.
-
     '''
     ...
 
