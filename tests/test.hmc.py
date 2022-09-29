@@ -26,7 +26,7 @@ Vol = Lx * Ly * Lz * Lt
 
 beta = ensembles[tag][1]
 t = 1
-dt = 0.1
+dt = 0.2
 steps = round(t / dt)
 dt = t / steps
 
@@ -49,6 +49,23 @@ pyquda.loadGauge(gauge, gauge_param)
 pyquda.momResident(gauge, gauge_param)
 
 
+def loop_ndarray(path, num_paths, max_length):
+    ret = -np.ones((num_paths, max_length), "<i4")
+    for i in range(num_paths):
+        for j in range(len(path[i])):
+            ret[i, j] = path[i][j]
+    return ret
+
+
+def path_ndarray(path, num_paths, max_length):
+    ret = -np.ones((4, num_paths, max_length), "<i4")
+    for d in range(4):
+        for i in range(num_paths):
+            for j in range(len(path[d][i])):
+                ret[d, i, j] = path[d][i][j]
+    return ret
+
+
 def path_force(path, coeffs):
     num_paths = len(path)
     lengths = []
@@ -65,14 +82,20 @@ def path_force(path, coeffs):
                 fcoeffs[loop[j]].append(-coeffs[i])
                 flengths[loop[j]].append(lengths[i] - 1)
             else:
-                force[loop_dag[3 - j]].append(np.roll(loop_dag, j - 3)[1:])
-                fcoeffs[loop_dag[3 - j]].append(-coeffs[i])
-                flengths[loop_dag[3 - j]].append(lengths[i] - 1)
+                force[loop_dag[lengths[i] - 1 - j]].append(np.roll(loop_dag, j + 1 - lengths[i])[1:])
+                fcoeffs[loop_dag[lengths[i] - 1 - j]].append(-coeffs[i])
+                flengths[loop_dag[lengths[i] - 1 - j]].append(lengths[i] - 1)
     max_length = max(lengths)
-    return (
-        num_paths, max_length, np.array(path, dtype="<i4"), np.array(lengths, dtype="<i4"), np.array(coeffs),
-        np.array(force, dtype="<i4"), np.array(flengths[0], dtype="<i4"), np.array(fcoeffs[0])
-    )
+    lengths = np.array(lengths, dtype="<i4")
+    coeffs = np.array(coeffs, "<f8")
+    path = loop_ndarray(path, num_paths, max_length)
+    assert flengths[0] == flengths[1] == flengths[2] == flengths[3], "path is not symmetric"
+    flengths = np.array(flengths[0], "<i4")
+    assert fcoeffs[0] == fcoeffs[1] == fcoeffs[2] == fcoeffs[3], "path is not symmetric"
+    fcoeffs = np.array(fcoeffs[0], "<f8")
+    num_fpaths = len(flengths)
+    force = path_ndarray(force, num_fpaths, max_length - 1)
+    return num_paths, max_length, path, lengths, coeffs, force, num_fpaths, flengths, fcoeffs
 
 
 input_path = [
@@ -82,17 +105,29 @@ input_path = [
     [1, 2, 6, 5],
     [1, 3, 6, 4],
     [2, 3, 5, 4],
+    [0, 1, 1, 7, 6, 6],
+    [0, 2, 2, 7, 5, 5],
+    [0, 3, 3, 7, 4, 4],
+    [1, 0, 0, 6, 7, 7],
+    [1, 2, 2, 6, 5, 5],
+    [1, 3, 3, 6, 4, 4],
+    [2, 0, 0, 5, 7, 7],
+    [2, 1, 1, 5, 6, 6],
+    [2, 3, 3, 5, 4, 4],
+    [3, 0, 0, 4, 7, 7],
+    [3, 1, 1, 4, 6, 6],
+    [3, 2, 2, 4, 5, 5],
 ]
 input_coeffs = [
-    -beta / Nc,
-    -beta / Nc,
-    -beta / Nc,
-    -beta / Nc,
-    -beta / Nc,
-    -beta / Nc,
+    -5 / 3, -5 / 3, -5 / 3, -5 / 3, -5 / 3, -5 / 3, 1 / 12, 1 / 12, 1 / 12, 1 / 12, 1 / 12, 1 / 12, 1 / 12, 1 / 12,
+    1 / 12, 1 / 12, 1 / 12, 1 / 12
 ]
 
-num_paths, max_length, path, lengths, coeffs, force, flengths, fcoeffs = path_force(input_path, input_coeffs)
+num_paths, max_length, path, lengths, coeffs, force, num_fpaths, flengths, fcoeffs = path_force(
+    input_path, input_coeffs
+)
+coeffs *= beta / Nc
+fcoeffs *= beta / Nc
 
 # input_path_buf = np.array(
 #     [
@@ -119,29 +154,29 @@ for i in range(100):
     energy = kinetic + potential
 
     for step in range(steps):
-        pyquda.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_paths, max_length - 1, gauge_param)
+        pyquda.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
         pyquda.updateGaugeField(rho_ * dt, gauge_param)
-        pyquda.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_paths, max_length - 1, gauge_param)
+        pyquda.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
         pyquda.updateGaugeField(theta_ * dt, gauge_param)
         pyquda.computeGaugeForce(
-            (1 - 2 * (lambda_ + vartheta_)) * dt / 2, force, flengths, fcoeffs, num_paths, max_length - 1, gauge_param
+            (1 - 2 * (lambda_ + vartheta_)) * dt / 2, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param
         )
         pyquda.updateGaugeField((1 - 2 * (theta_ + rho_)) * dt, gauge_param)
         pyquda.computeGaugeForce(
-            (1 - 2 * (lambda_ + vartheta_)) * dt / 2, force, flengths, fcoeffs, num_paths, max_length - 1, gauge_param
+            (1 - 2 * (lambda_ + vartheta_)) * dt / 2, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param
         )
         pyquda.updateGaugeField(theta_ * dt, gauge_param)
-        pyquda.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_paths, max_length - 1, gauge_param)
+        pyquda.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
         pyquda.updateGaugeField(rho_ * dt, gauge_param)
-        pyquda.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_paths, max_length - 1, gauge_param)
+        pyquda.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
 
     kinetic1 = pyquda.momAction(gauge_param)
     potential1 = pyquda.computeGaugeLoopTrace(1, path, lengths, coeffs, num_paths, max_length)
     energy1 = kinetic1 + potential1
 
     accept = np.random.rand() < np.exp(energy - energy1) or warm
-    if energy1 < energy:
-        warm = False
+    # if energy1 < energy:
+    #     warm = False
     if not accept:
         pyquda.loadGauge(gauge, gauge_param)
 
