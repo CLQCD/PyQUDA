@@ -10,15 +10,16 @@ from pyquda import core, mpi
 from pyquda.core import Nc
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
+mpi.init()
 
 ensembles = {
-    "A1a": ([16, 16, 16, 16], 5.789),
-    "B0a": ([24, 24, 24, 24], 6),
-    "C1d": ([32, 32, 32, 64], 6.136),
-    "D1d": ([48, 48, 48, 48], 6.475)
+    "A1": ([16, 16, 16, 16], 5.789),
+    "B0": ([24, 24, 24, 24], 6),
+    "C2": ([32, 32, 32, 32], 6.179),
+    "D1": ([48, 48, 48, 48], 6.475)
 }
 
-tag = "B0a"
+tag = "D1"
 
 latt_size = ensembles[tag][0]
 Lx, Ly, Lz, Lt = latt_size
@@ -26,7 +27,7 @@ Vol = Lx * Ly * Lz * Lt
 
 beta = ensembles[tag][1]
 t = 1
-dt = 0.2
+dt = 0.125
 steps = round(t / dt)
 dt = t / steps
 
@@ -44,7 +45,6 @@ gauge_param.return_result_mom = 0
 gauge = core.LatticeGauge(latt_size, None, True)
 gauge.data[:] = cp.diag([1, 1, 1])
 
-mpi.init()
 pyquda.loadGauge(gauge, gauge_param)
 pyquda.momResident(gauge, gauge_param)
 
@@ -123,28 +123,38 @@ input_coeffs = [
     1 / 12, 1 / 12, 1 / 12, 1 / 12
 ]
 
+# input_path = [
+#     [0, 1, 7, 6],
+#     [0, 2, 7, 5],
+#     [0, 3, 7, 4],
+#     [1, 2, 6, 5],
+#     [1, 3, 6, 4],
+#     [2, 3, 5, 4],
+# ]
+# input_coeffs = [
+#     -1,
+#     -1,
+#     -1,
+#     -1,
+#     -1,
+#     -1,
+# ]
+
 num_paths, max_length, path, lengths, coeffs, force, num_fpaths, flengths, fcoeffs = path_force(
     input_path, input_coeffs
 )
 coeffs *= beta / Nc
 fcoeffs *= beta / Nc
 
-# input_path_buf = np.array(
-#     [
-#         [[1, 7, 6], [6, 7, 1], [2, 7, 5], [5, 7, 2], [3, 7, 4], [4, 7, 3]],
-#         [[0, 6, 7], [7, 6, 0], [2, 6, 5], [5, 6, 2], [3, 6, 4], [4, 6, 3]],
-#         [[0, 5, 7], [7, 5, 0], [1, 5, 6], [6, 5, 1], [3, 5, 4], [4, 5, 3]],
-#         [[0, 4, 7], [7, 4, 0], [1, 4, 6], [6, 4, 1], [2, 4, 5], [5, 4, 2]]
-#     ],
-#     dtype="<i4"
-# )
-
 rho_ = 0.2539785108410595
 theta_ = -0.03230286765269967
 vartheta_ = 0.08398315262876693
 lambda_ = 0.6822365335719091
 
-warm = True
+plaquette = pyquda.plaq()
+print(f"plaquette = {plaquette}")
+
+warm = 20
 for i in range(100):
     pyquda.gaussMom(i)
     pyquda.saveGauge(gauge, gauge_param)
@@ -174,10 +184,10 @@ for i in range(100):
     potential1 = pyquda.computeGaugeLoopTrace(1, path, lengths, coeffs, num_paths, max_length)
     energy1 = kinetic1 + potential1
 
-    accept = np.random.rand() < np.exp(energy - energy1) or warm
-    # if energy1 < energy:
-    #     warm = False
-    if not accept:
+    accept = np.random.rand() < np.exp(energy - energy1)
+    if warm > 0:
+        warm -= 1
+    if not accept and not warm:
         pyquda.loadGauge(gauge, gauge_param)
 
     plaquette = pyquda.plaq()
@@ -188,7 +198,7 @@ PE_old = {potential}, KE_old = {kinetic}
 PE = {potential1}, KE = {kinetic1}
 Delta_PE = {potential1 - potential}, Delta_KE = {kinetic1 - kinetic}
 Delta_E = {energy1 - energy}
-accept = {accept}
+accept = {accept or not not warm}
 plaquette = {plaquette}
 '''
     )
