@@ -32,4 +32,4 @@ propagator = core.invert12(b12, dslash)
 dslash.destroy()
 
 propagator_chroma = cp.array(np.fromfile("pt_prop_0", ">c16", offset=8).astype("<c16")).reshape(Vol, Ns, Ns, Nc, Nc)
-print(cp.linalg.norm(propagator.data.reshape(Vol, Ns, Ns, Nc, Nc) - propagator_chroma.transpose(0, 1, 2, 4, 3)))
+print(cp.linalg.norm(propagator.data.reshape(Vol, Ns, Ns, Nc, Nc) - propagator_chroma.transpose(0, 2, 1, 4, 3)))
