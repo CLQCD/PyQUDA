@@ -26,15 +26,10 @@ mpi.init()
 
 dslash.loadGauge(gauge)
 
-propagator = core.LatticePropagator(latt_size)
-data = propagator.data.reshape(Vol, Ns, Ns, Nc, Nc)
-for spin in range(Ns):
-    for color in range(Nc):
-        b = source.source(latt_size, "point", [0, 0, 0, 0], spin, color)
-        x = dslash.invert(b)
-        data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
+b12 = source.source12(latt_size, "point", [0, 0, 0, 0])
+propagator = core.invert12(b12, dslash)
 
 dslash.destroy()
 
-propagator_chroma = cp.array(np.fromfile("pt_prop_0", ">c16", offset=8).astype("<c16"))
-print(cp.linalg.norm(propagator.transpose().reshape(-1) - propagator_chroma))
+propagator_chroma = cp.array(np.fromfile("pt_prop_0", ">c16", offset=8).astype("<c16")).reshape(Vol, Ns, Ns, Nc, Nc)
+print(cp.linalg.norm(propagator.data.reshape(Vol, Ns, Ns, Nc, Nc) - propagator_chroma.transpose(0, 1, 2, 4, 3)))
