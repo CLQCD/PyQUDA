@@ -29,15 +29,15 @@ gamma3 = gamma.gamma(4)
 gamma4 = gamma.gamma(8)
 gamma5 = gamma.gamma(15)
 gammai = [gamma1, gamma2, gamma3, gamma4]
+gamma_insertion = [(gamma5, gamma5), (gamma4 @ gamma5, gamma4 @ gamma5)]
 
-mom_phase = phase.Phase(latt_size)
 mom_list = phase.getMomList(9)
 mom_num = len(mom_list)
+mom_phase = phase.Phase(latt_size)
 phase_list = mom_phase.cache(mom_list)
 
-dslash = core.getDslash(latt_size, mass, 1e-7, 1000, xi_0, nu, coeff_t, coeff_r)
-twopt = np.zeros((Lt, Lt, 2, mom_num), "<c16")
-gamma_insertion = [(gamma.gamma(15), gamma.gamma(1)), (gamma.gamma(7), gamma.gamma(7))]
+dslash = core.getDslash(latt_size, mass, 1e-9, 1000, xi_0, nu, coeff_t, coeff_r, multigrid=True)
+twopt = np.zeros((Lt, Lt, len(gamma_insertion), mom_num), "<c16")
 
 mpi.init()
 
@@ -48,20 +48,15 @@ print(f"Read and load gauge configuration: {time()-s:.2f}sec.")
 
 for t in range(Lt):
     s = time()
-    propagator = LatticePropagator(latt_size)
-    data = propagator.data.reshape(Vol, Ns, Ns, Nc, Nc)
-    for spin in range(Ns):
-        for color in range(Nc):
-            b = source.source(latt_size, "wall", t, spin, color)
-            x = dslash.invert(b)
-            data[:, spin, :, color, :] = x.data.reshape(Vol, Ns, Nc)
+    b12 = source.source12(latt_size, "wall", t)
+    propagator = core.invert12(b12, dslash)
     print(f"Invertion for wall source at t={t}: {time()-s:.2f}sec.")
 
     s = time()
     gamma_idx = 0
     for gamma_src, gamma_snk in gamma_insertion:
         tmp = cp.einsum(
-            "ik,xklab,lj,xijab->x",
+            "ij,xkjba,kl,xliba->x",
             gamma_src @ gamma5,
             propagator.data.reshape(Vol, Ns, Ns, Nc, Nc).conj(),
             gamma5 @ gamma_snk,
