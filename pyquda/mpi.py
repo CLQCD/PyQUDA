@@ -14,13 +14,13 @@ def init(grid_size: List[int] = None):
 
     If grid_size is None, MPI will not applied.
     '''
+    from cupy import cuda
     global comm, rank, size, grid, coord, gpuid
     if comm is None:
         if grid_size is not None:
             from os import getenv
             from platform import node as gethostname
             from mpi4py import MPI
-            import cupy as cp
             from .pyquda import initCommsGridQuda
 
             comm = MPI.COMM_WORLD
@@ -39,13 +39,12 @@ def init(grid_size: List[int] = None):
                 if hostname == hostname_recv_buf[i]:
                     gpuid += 1
 
-            device_count = cp.cuda.runtime.getDeviceCount()
+            device_count = cuda.runtime.getDeviceCount()
             if gpuid >= device_count:
                 enable_mps_env = getenv("QUDA_ENABLE_MPS")
                 if enable_mps_env is not None and enable_mps_env == "1":
                     gpuid %= device_count
 
-            cp.cuda.Device(gpuid).use()
             initCommsGridQuda(4, grid)
         else:
             comm = 0
@@ -53,6 +52,7 @@ def init(grid_size: List[int] = None):
         import atexit
         from .pyquda import initQuda, endQuda
 
+        cuda.Device(gpuid).use()
         initQuda(gpuid)
         atexit.register(endQuda)
 

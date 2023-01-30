@@ -53,7 +53,7 @@ def readIldg(filename: str):
 
     gauge = cb2(gauge_raw, [1, 2, 3, 4])
 
-    return LatticeGauge(latt_size, cp.array(gauge), gt == Gt - 1)
+    return LatticeGauge(latt_size, gauge, gt == Gt - 1)
 
 
 def readIldgBin(filename: str, dtype: str, latt_size: List[int]):
@@ -70,4 +70,4 @@ def readIldgBin(filename: str, dtype: str, latt_size: List[int]):
 
     gauge = cb2(gauge_raw, [1, 2, 3, 4])
 
-    return LatticeGauge(latt_size, cp.array(gauge), gt == Gt - 1)
+    return LatticeGauge(latt_size, gauge, gt == Gt - 1)

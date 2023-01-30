@@ -65,6 +65,28 @@ def gamma(n: int):
     )
 
 
+def bilateral_apply(data, out, axis, gamma_left, gamma_right, conj):
+    gamma_left = cp.sparse.csr_matrix(gamma_left)
+    gamma_right = cp.sparse.csc_matrix(gamma_right)
+    shape = data.shape
+    assert (
+        axis[1] - axis[0] == 1 and shape[axis[0]] == 4 and shape[axis[1]] == 4
+    ), "Indices for Ns must be continuous and Ns must be 4"
+    p = 1
+    for i in range(axis[0]):
+        p *= shape[i]
+    data = data.reshape(p, 4, 4, -1)
+    out = out.reshape(p, 4, 4, -1)
+    for i in range(4):
+        for j in range(4):
+            ii = gamma_left.indices[i]
+            jj = gamma_right.indices[j]
+            if conj:
+                out[:, j, i] = (gamma_left.data[i] * gamma_right.data[j]) * data[:, jj, ii].conj()
+            else:
+                out[:, i, j] = (gamma_left.data[i] * gamma_right.data[j]) * data[:, ii, jj]
+
+
 _naming_scheme = {
     "a0": [[0]],
     "pi": [[15]],

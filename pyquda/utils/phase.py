@@ -85,7 +85,7 @@ class Phase:
         return cp.exp(npx * self.x + npy * self.y + npz * self.z)
 
     def cache(self, mom_list: List[List[int]]):
-        ret = []
-        for mom in mom_list:
-            ret.append(self.__getitem__(mom))
+        ret = cp.zeros((len(mom_list), *self.x.shape), "<c16")
+        for idx, mom in enumerate(mom_list):
+            ret[idx] = self.__getitem__(mom)
         return ret
