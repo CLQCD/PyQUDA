@@ -4,6 +4,7 @@ from ..pyquda import (  # noqa: F401
     Pointer, QudaGaugeParam, QudaInvertParam, QudaMultigridParam, loadCloverQuda, loadGaugeQuda, invertQuda,
     dslashQuda, cloverQuda
 )
+from ..field import LatticeGauge, LatticeFermion
 from ..enum_quda import (  # noqa: F401
     QudaMemoryType, QudaLinkType, QudaGaugeFieldOrder, QudaTboundary, QudaPrecision, QudaReconstructType,
     QudaGaugeFixed, QudaDslashType, QudaInverterType, QudaEigType, QudaEigSpectrumType, QudaSolutionType,
@@ -17,8 +18,6 @@ from ..enum_quda import (  # noqa: F401
     QudaGhostExchange, QudaStaggeredPhase, QudaContractType, QudaContractGamma, QudaExtLibType
 )
 from ..enum_quda import QUDA_MAX_DIM, QUDA_MAX_MULTI_SHIFT, QUDA_MAX_MG_LEVEL
-
-from ..core import LatticeGauge, LatticeFermion
 
 cpu_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
 cuda_prec = QudaPrecision.QUDA_DOUBLE_PRECISION

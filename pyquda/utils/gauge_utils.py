@@ -5,10 +5,9 @@ from typing import Dict, List, Tuple
 from xml.etree import ElementTree as ET
 
 import numpy as np
-import cupy as cp
 
 from .. import mpi
-from ..core import Nc, Nd, cb2, LatticeGauge
+from ..field import Nc, Nd, cb2, LatticeGauge
 
 
 def readIldg(filename: str):

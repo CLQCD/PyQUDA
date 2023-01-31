@@ -1,163 +1,11 @@
-from typing import List
-from enum import IntEnum
+from typing import List, Union
 from math import sqrt
-
-import numpy as np
-import cupy as cp
 
 from . import pyquda as quda
 from . import enum_quda
-from .pyquda import ndarrayDataPointer
-
-
-class LatticeConstant(IntEnum):
-    Nc = 3
-    Nd = 4
-    Ns = 4
-
-
-Nc = LatticeConstant.Nc
-Nd = LatticeConstant.Nd
-Ns = LatticeConstant.Ns
-
-
-def lexico(data: np.ndarray, axes: List[int], dtype=None):
-    _, Lt, Lz, Ly, Lx = [data.shape[axis] for axis in axes]
-    Lx *= 2
-    Npre = int(np.prod(data.shape[:axes[0]]))
-    Nsuf = int(np.prod(data.shape[axes[-1] + 1:]))
-    dtype = data.dtype if dtype is None else dtype
-    data_cb2 = data.reshape(Npre, 2, Lt, Lz, Ly, Lx // 2, Nsuf)
-    data_lexico = np.zeros((Npre, Lt, Lz, Ly, Lx, Nsuf), dtype)
-    for t in range(Lt):
-        for z in range(Lz):
-            for y in range(Ly):
-                eo = (t + z + y) % 2
-                if eo == 0:
-                    data_lexico[:, t, z, y, 0::2] = data_cb2[:, 0, t, z, y, :]
-                    data_lexico[:, t, z, y, 1::2] = data_cb2[:, 1, t, z, y, :]
-                else:
-                    data_lexico[:, t, z, y, 1::2] = data_cb2[:, 0, t, z, y, :]
-                    data_lexico[:, t, z, y, 0::2] = data_cb2[:, 1, t, z, y, :]
-    return data_lexico
-
-
-def cb2(data: np.ndarray, axes: List[int], dtype=None):
-    Lt, Lz, Ly, Lx = [data.shape[axis] for axis in axes]
-    Npre = int(np.prod(data.shape[:axes[0]]))
-    Nsuf = int(np.prod(data.shape[axes[-1] + 1:]))
-    dtype = data.dtype if dtype is None else dtype
-    data_lexico = data.reshape(Npre, Lt, Lz, Ly, Lx, Nsuf)
-    data_cb2 = np.zeros((Npre, 2, Lt, Lz, Ly, Lx // 2, Nsuf), dtype)
-    for t in range(Lt):
-        for z in range(Lz):
-            for y in range(Ly):
-                eo = (t + z + y) % 2
-                if eo == 0:
-                    data_cb2[:, 0, t, z, y, :] = data_lexico[:, t, z, y, 0::2]
-                    data_cb2[:, 1, t, z, y, :] = data_lexico[:, t, z, y, 1::2]
-                else:
-                    data_cb2[:, 0, t, z, y, :] = data_lexico[:, t, z, y, 1::2]
-                    data_cb2[:, 1, t, z, y, :] = data_lexico[:, t, z, y, 0::2]
-    return data_cb2
-
-
-def newLatticeFieldData(latt_size: List[int], dtype: str) -> cp.ndarray:
-    Lx, Ly, Lz, Lt = latt_size
-    if dtype.capitalize() == "Gauge":
-        return cp.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
-    elif dtype.capitalize() == "Fermion":
-        return cp.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
-    elif dtype.capitalize() == "Propagator":
-        return cp.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), "<c16")
-
-
-class LatticeField:
-    def __init__(self) -> None:
-        pass
-
-
-class LatticeGauge(LatticeField):
-    def __init__(self, latt_size: List[int], value=None, t_boundary=True) -> None:
-        Lx, Ly, Lz, Lt = latt_size
-        self.latt_size = latt_size
-        if value is None:
-            self.data = newLatticeFieldData(latt_size, "Gauge")
-        else:
-            self.data = value.reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc)
-        self.t_boundary = t_boundary
-
-    def copy(self):
-        res = LatticeGauge(self.latt_size)
-        res.data[:] = self.data[:]
-        return res
-
-    def setAntiPeroidicT(self):
-        if self.t_boundary:
-            Lt = self.latt_size[Nd - 1]
-            data = self.data.reshape(Nd, 2, Lt, -1)
-            data[Nd - 1, :, Lt - 1] *= -1
-
-    def setAnisotropy(self, anisotropy: float):
-        data = self.data.reshape(Nd, -1)
-        data[:Nd - 1] /= anisotropy
-
-    def lexico(self):
-        return lexico(self.data.get(), [1, 2, 3, 4, 5])
-
-    @property
-    def data_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(4, -1), True)
-
-    @property
-    def data_ptrs(self):
-        return ndarrayDataPointer(self.data.reshape(4, -1), True)
-
-
-class LatticeFermion(LatticeField):
-    def __init__(self, latt_size: List[int]) -> None:
-        self.latt_size = latt_size
-        self.data = newLatticeFieldData(latt_size, "Fermion")
-
-    @property
-    def even(self):
-        return self.data[0]
-
-    @even.setter
-    def even(self, value):
-        self.data[0] = value
-
-    @property
-    def odd(self):
-        return self.data[1]
-
-    @odd.setter
-    def odd(self, value):
-        self.data[1] = value
-
-    @property
-    def data_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(-1), True)
-
-    @property
-    def even_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(2, -1)[0], True)
-
-    @property
-    def odd_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(2, -1)[1], True)
-
-
-class LatticePropagator(LatticeField):
-    def __init__(self, latt_size: List[int]) -> None:
-        self.latt_size = latt_size
-        self.data = newLatticeFieldData(latt_size, "Propagator")
-
-    def lexico(self):
-        return lexico(self.data.get(), [0, 1, 2, 3, 4])
-
-    def transpose(self):
-        return self.data.transpose(0, 1, 2, 3, 4, 6, 5, 8, 7).copy()
+from .field import LatticeGauge, LatticeFermion, LatticePropagator, Nc, Nd, Ns, lexico, cb2
+from .dslash.abstract import Dslash
+from .utils.source import source
 
 
 def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
@@ -193,7 +41,23 @@ def smear4(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
     quda.saveGaugeQuda(gauge.data_ptr, dslash.gauge_param)
 
 
-def invert12(b12: LatticePropagator, dslash):
+def invert(dslash: Dslash, source_type: str, t_srce: Union[int, List[int]], phase=None):
+    latt_size = dslash.gauge_param.X
+    Lx, Ly, Lz, Lt = latt_size
+    Vol = Lx * Ly * Lz * Lt
+
+    prop = LatticePropagator(latt_size)
+    data = prop.data.reshape(Vol, Ns, Ns, Nc, Nc)
+    for spin in range(Ns):
+        for color in range(Nc):
+            b = source(latt_size, source_type, t_srce, spin, color, phase)
+            x = dslash.invert(b)
+            data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
+
+    return prop
+
+
+def invert12(b12: LatticePropagator, dslash: Dslash):
     latt_size = b12.latt_size
     Lx, Ly, Lz, Lt = latt_size
     Vol = Lx * Ly * Lz * Lt

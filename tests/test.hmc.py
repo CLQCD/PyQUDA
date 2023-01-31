@@ -6,8 +6,8 @@ import cupy as cp
 test_dir = os.path.dirname(os.path.abspath(__file__))
 # sys.path.insert(0, os.path.join(test_dir, ".."))
 import pyquda
-from pyquda import core, mpi
-from pyquda.core import Nc
+from pyquda import core, mpi, field
+from pyquda.field import Nc
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 mpi.init()
@@ -42,7 +42,7 @@ gauge_param.make_resident_mom = 1
 gauge_param.return_result_gauge = 0
 gauge_param.return_result_mom = 0
 
-gauge = core.LatticeGauge(latt_size, None, True)
+gauge = field.LatticeGauge(latt_size, None, True)
 gauge.data[:] = cp.diag([1, 1, 1])
 
 pyquda.loadGauge(gauge, gauge_param)

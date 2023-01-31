@@ -1,7 +1,7 @@
 from typing import List
 
 from ..pyquda import newMultigridQuda, destroyMultigridQuda
-from ..core import LatticeGauge, LatticeFermion
+from ..field import LatticeGauge, LatticeFermion
 from ..enum_quda import QudaDslashType, QudaInverterType, QudaSolveType, QudaPrecision
 
 from . import abstract

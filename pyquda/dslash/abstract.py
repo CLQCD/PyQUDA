@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List
 
 from ..pyquda import Pointer, QudaGaugeParam, QudaInvertParam, QudaMultigridParam
-from ..core import LatticeGauge, LatticeFermion
+from ..field import LatticeGauge, LatticeFermion
 
 
 class Dslash(ABC):

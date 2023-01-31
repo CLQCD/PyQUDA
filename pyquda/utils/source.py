@@ -1,7 +1,7 @@
 from typing import List, Union
 
 from .. import mpi
-from ..core import Nc, Ns, LatticeFermion, LatticePropagator
+from ..field import Nc, Ns, LatticeFermion, LatticePropagator
 
 
 def point(latt_size: List[int], t_srce: List[int], spin: int, color: int):

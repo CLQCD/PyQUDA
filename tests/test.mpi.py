@@ -7,7 +7,7 @@ test_dir = os.path.dirname(os.path.abspath(__file__))
 # sys.path.insert(0, os.path.join(test_dir, ".."))
 
 from pyquda import core, mpi
-from pyquda.utils import source, gauge_utils
+from pyquda.utils import gauge_utils
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
@@ -32,8 +32,7 @@ gauge = gauge_utils.readIldg(os.path.join(test_dir, "weak_field.lime"))
 
 dslash.loadGauge(gauge)
 
-b = source.source12(latt_size, "point", [0, 0, 0, 0])
-propagator = core.invert12(b, dslash)
+propagator = core.invert(dslash, "point", [0, 0, 0, 0])
 
 propagator_all = mpi.gather(propagator.data, [1, 2, 3, 4])
 

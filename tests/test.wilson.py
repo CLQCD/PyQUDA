@@ -6,8 +6,8 @@ import cupy as cp
 test_dir = os.path.dirname(os.path.abspath(__file__))
 # sys.path.insert(0, os.path.join(test_dir, ".."))
 from pyquda import core, mpi
-from pyquda.core import Nc, Ns
-from pyquda.utils import source, gauge_utils
+from pyquda.field import Nc, Ns
+from pyquda.utils import gauge_utils
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
@@ -26,8 +26,7 @@ mpi.init()
 
 dslash.loadGauge(gauge)
 
-b12 = source.source12(latt_size, "point", [0, 0, 0, 0])
-propagator = core.invert12(b12, dslash)
+propagator = core.invert(dslash, "point", [0, 0, 0, 0])
 
 dslash.destroy()
 

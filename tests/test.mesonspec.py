@@ -6,8 +6,8 @@ import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 # sys.path.insert(0, os.path.join(test_dir, ".."))
-from pyquda import core, mpi, LatticePropagator
-from pyquda.utils import gamma, phase, source, gauge_utils
+from pyquda import core, mpi
+from pyquda.utils import gamma, phase, gauge_utils
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
@@ -48,8 +48,7 @@ print(f"Read and load gauge configuration: {time()-s:.2f}sec.")
 
 for t in range(Lt):
     s = time()
-    b12 = source.source12(latt_size, "wall", t)
-    propagator = core.invert12(b12, dslash)
+    propagator = core.invert(dslash, "wall", t)
     print(f"Invertion for wall source at t={t}: {time()-s:.2f}sec.")
 
     s = time()

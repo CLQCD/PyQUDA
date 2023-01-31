@@ -4,10 +4,9 @@ from typing import Dict, Tuple
 from xml.etree import ElementTree as ET
 
 import numpy as np
-import cupy as cp
 
 from .. import mpi
-from ..core import Nc, cb2
+from ..field import Nc, cb2
 
 
 def readStr(f: io.BufferedReader) -> str:

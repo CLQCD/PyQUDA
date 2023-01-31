@@ -1,6 +1,6 @@
 from . import pyquda as quda
 from .pyquda import QudaGaugeParam
-from .core import LatticeGauge, LatticeFermion, LatticePropagator
+from .field import LatticeGauge, LatticeFermion, LatticePropagator
 
 nullptr = quda.Pointers("void", 0)
 
@@ -56,7 +56,7 @@ def momAction(param: QudaGaugeParam):
 
 
 def plaq():
-    from .core import Nc
+    from .field import Nc
     ret = [0., 0., 0.]
     quda.plaqQuda(ret)
     return ret[0] * Nc
