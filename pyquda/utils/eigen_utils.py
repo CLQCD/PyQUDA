@@ -65,4 +65,4 @@ def readTimeSlice(filename: str, Ne: int = None):
             ).reshape(Gz * Lz, Gy * Ly, Gx * Lx, Nc)[gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
                                                      gx * Lx:(gx + 1) * Lx, :].astype(ndarray_dtype)
 
-    return cb2(eigen_raw, [0, 1, 2, 3])
+    return cb2(eigen_raw, [1, 2, 3, 4])
