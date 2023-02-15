@@ -19,17 +19,13 @@ ensembles = {
     "D1": ([48, 48, 48, 48], 6.475)
 }
 
-tag = "D1"
+tag = "A1"
 
 latt_size = ensembles[tag][0]
 Lx, Ly, Lz, Lt = latt_size
 Vol = Lx * Ly * Lz * Lt
 
 beta = ensembles[tag][1]
-t = 1
-dt = 0.125
-steps = round(t / dt)
-dt = t / steps
 
 dslash = core.getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
 gauge_param = dslash.gauge_param
@@ -154,10 +150,13 @@ lambda_ = 0.6822365335719091
 plaquette = pyquda.plaq()
 print(f"plaquette = {plaquette}")
 
+t = 1
+dt = 0.125
+steps = round(t / dt)
+dt = t / steps
 warm = 20
 for i in range(100):
     pyquda.gaussMom(i)
-    pyquda.saveGauge(gauge, gauge_param)
 
     kinetic = pyquda.momAction(gauge_param)
     potential = pyquda.computeGaugeLoopTrace(1, path, lengths, coeffs, num_paths, max_length)
@@ -180,6 +179,7 @@ for i in range(100):
         pyquda.updateGaugeField(rho_ * dt, gauge_param)
         pyquda.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
 
+    pyquda.projectSU3(1e-10, gauge_param)
     kinetic1 = pyquda.momAction(gauge_param)
     potential1 = pyquda.computeGaugeLoopTrace(1, path, lengths, coeffs, num_paths, max_length)
     energy1 = kinetic1 + potential1
@@ -187,13 +187,16 @@ for i in range(100):
     accept = np.random.rand() < np.exp(energy - energy1)
     if warm > 0:
         warm -= 1
-    if not accept and not warm:
+    if accept or warm:
+        pyquda.saveGauge(gauge, gauge_param)
+    else:
         pyquda.loadGauge(gauge, gauge_param)
 
     plaquette = pyquda.plaq()
 
     print(
         f'''
+Step {i} stats:
 PE_old = {potential}, KE_old = {kinetic}
 PE = {potential1}, KE = {kinetic1}
 Delta_PE = {potential1 - potential}, Delta_KE = {kinetic1 - kinetic}

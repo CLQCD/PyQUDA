@@ -1,6 +1,7 @@
 from . import pyquda as quda
 from .pyquda import QudaGaugeParam
 from .field import LatticeGauge, LatticeFermion, LatticePropagator
+import numpy as np
 
 nullptr = quda.Pointers("void", 0)
 
@@ -30,6 +31,16 @@ def gaussMom(seed: int):
     quda.gaussMomQuda(seed, 1.0)
 
 
+def computeCloverForce(dt, x: LatticeFermion, kappa2, ck, multiplicity, gauge_param, inv_param):
+    quda.freeCloverQuda()
+    quda.loadCloverQuda(nullptr, nullptr, inv_param)
+    quda.invertQuda(x.even_ptr, x.odd_ptr, inv_param)
+    quda.computeCloverForceQuda(
+        nullptr, dt, quda.ndarrayDataPointer(x.even.reshape(1, -1), True), nullptr,
+        quda.ndarrayDataPointer(np.array([1.0])), kappa2, ck, 1, multiplicity, nullptr, gauge_param, inv_param
+    )
+
+
 def computeGaugeForce(dt, force, lengths, coeffs, num_paths, max_length, param: QudaGaugeParam):
     quda.computeGaugeForceQuda(
         nullptr, nullptr, quda.ndarrayDataPointer(force), quda.ndarrayDataPointer(lengths),
@@ -53,6 +64,10 @@ def updateGaugeField(dt, param: QudaGaugeParam):
 
 def momAction(param: QudaGaugeParam):
     return quda.momActionQuda(nullptr, param)
+
+
+def projectSU3(tol, param: QudaGaugeParam):
+    quda.projectSU3Quda(nullptr, tol, param)
 
 
 def plaq():

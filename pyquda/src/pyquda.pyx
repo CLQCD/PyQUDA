@@ -3278,7 +3278,12 @@ def momActionQuda(Pointers momentum, QudaGaugeParam param):
 def createCloverQuda(QudaInvertParam param):
     quda.createCloverQuda(&param.param)
 
-# void computeCloverForceQuda(void *mom, double dt, void **x, void **p, double *coeff, double kappa2, double ck, int nvector, double multiplicity, void *gauge, QudaGaugeParam *gauge_param, QudaInvertParam *inv_param)
+def computeCloverForceQuda(Pointers mom, double dt, Pointers x, Pointers p, Pointer coeff, double kappa2, double ck, int nvector, double multiplicity, Pointers gauge, QudaGaugeParam gauge_param, QudaInvertParam inv_param):
+    assert mom.dtype == "void"
+    assert x.dtype == "void"
+    assert coeff.dtype == "double"
+    quda.computeCloverForceQuda(mom.ptr, dt, x.ptrs, NULL, <double *>coeff.ptr, kappa2, ck, nvector, multiplicity, NULL, &gauge_param.param, &inv_param.param)
+
 # void computeStaggeredForceQuda(void *mom, double dt, double delta, void *gauge, void **x, QudaGaugeParam *gauge_param, QudaInvertParam *invert_param)
 # void computeHISQForceQuda(void* momentum, double dt, const double level2_coeff[6], const double fat7_coeff[6], const void* const w_link, const void* const v_link, const void* const u_link, void** quark, int num, int num_naik, double** coeff, QudaGaugeParam* param)
 

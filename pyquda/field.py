@@ -112,9 +112,13 @@ class LatticeGauge(LatticeField):
 
 
 class LatticeFermion(LatticeField):
-    def __init__(self, latt_size: List[int]) -> None:
+    def __init__(self, latt_size: List[int], value=None) -> None:
+        Lx, Ly, Lz, Lt = latt_size
         self.latt_size = latt_size
-        self.data = newLatticeFieldData(latt_size, "Fermion")
+        if value is None:
+            self.data = newLatticeFieldData(latt_size, "Fermion")
+        else:
+            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
 
     @property
     def even(self):

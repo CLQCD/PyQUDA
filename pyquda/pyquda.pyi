@@ -894,6 +894,43 @@ def createCloverQuda(param: QudaInvertParam) -> None:
     ...
 
 
+def computeCloverForceQuda(
+    mom: Pointers, dt: double, x: Pointers, p: Pointers, coeff: Pointer, kappa2: double, ck: double, nvector: int,
+    multiplicity: double, gauge: Pointers, gauge_param: QudaGaugeParam, inv_param: QudaInvertParam
+):
+    '''
+    Compute the clover force contributions in each dimension mu given
+    the array of solution fields, and compute the resulting momentum
+    field.
+
+    @param mom:
+        Force matrix
+    @param dt:
+        Integrating step size
+    @param x:
+        Array of solution vectors
+    @param[deprecated] p:
+        Array of intermediate vectors
+    @param coeff:
+        Array of residues for each contribution (multiplied by stepsize)
+    @param kappa2:
+        -kappa*kappa parameter
+    @param ck:
+        -clover_coefficient * kappa / 8
+    @param nvec:
+        Number of vectors
+    @param multiplicity:
+        Number fermions this bilinear reresents
+    @param[deprecated] gauge:
+        Gauge Field
+    @param gauge_param:
+        Gauge field meta data
+    @param inv_param:
+        Dirac and solver meta data
+    '''
+    ...
+
+
 def gaussGaugeQuda(seed: int, sigma: double) -> None:
     '''
     Generate Gaussian distributed fields and store in the
