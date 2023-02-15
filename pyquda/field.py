@@ -59,7 +59,7 @@ def cb2(data: np.ndarray, axes: List[int], dtype=None):
                 else:
                     data_cb2[:, 0, t, z, y, :] = data_lexico[:, t, z, y, 1::2]
                     data_cb2[:, 1, t, z, y, :] = data_lexico[:, t, z, y, 0::2]
-    return data_cb2.reshape(*shape[:axes[0]], 2, Lt, Lz, Ly, Lx, *shape[axes[-1] + 1:])
+    return data_cb2.reshape(*shape[:axes[0]], 2, Lt, Lz, Ly, Lx // 2, *shape[axes[-1] + 1:])
 
 
 def newLatticeFieldData(latt_size: List[int], dtype: str) -> cp.ndarray:
