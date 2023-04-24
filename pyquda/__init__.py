@@ -1,23 +1,23 @@
 from . import pyquda as quda
-from .pyquda import QudaGaugeParam
+from .mpi import init
 from .field import LatticeGauge, LatticeFermion, LatticePropagator
 import numpy as np
 
 nullptr = quda.Pointers("void", 0)
 
 
-def loadGauge(gauge: LatticeGauge, param: QudaGaugeParam):
+def loadGauge(gauge: LatticeGauge, param: quda.QudaGaugeParam):
     use_resident_gauge = param.use_resident_gauge
     param.use_resident_gauge = 0
     quda.loadGaugeQuda(gauge.data_ptr, param)
     param.use_resident_gauge = use_resident_gauge
 
 
-def saveGauge(gauge: LatticeGauge, param: QudaGaugeParam):
+def saveGauge(gauge: LatticeGauge, param: quda.QudaGaugeParam):
     quda.saveGaugeQuda(gauge.data_ptr, param)
 
 
-def momResident(mom: LatticeGauge, param: QudaGaugeParam):
+def momResident(mom: LatticeGauge, param: quda.QudaGaugeParam):
     make_resident_mom = param.make_resident_mom
     return_result_mom = param.return_result_mom
     param.make_resident_mom = 1
@@ -41,7 +41,7 @@ def computeCloverForce(dt, x: LatticeFermion, kappa2, ck, multiplicity, gauge_pa
     )
 
 
-def computeGaugeForce(dt, force, lengths, coeffs, num_paths, max_length, param: QudaGaugeParam):
+def computeGaugeForce(dt, force, lengths, coeffs, num_paths, max_length, param: quda.QudaGaugeParam):
     quda.computeGaugeForceQuda(
         nullptr, nullptr, quda.ndarrayDataPointer(force), quda.ndarrayDataPointer(lengths),
         quda.ndarrayDataPointer(coeffs), num_paths, max_length, dt, param
@@ -58,15 +58,15 @@ def computeGaugeLoopTrace(dt, path, lengths, coeffs, num_paths, max_length):
     return traces.real.sum()
 
 
-def updateGaugeField(dt, param: QudaGaugeParam):
+def updateGaugeField(dt, param: quda.QudaGaugeParam):
     quda.updateGaugeFieldQuda(nullptr, nullptr, dt, False, False, param)
 
 
-def momAction(param: QudaGaugeParam):
+def momAction(param: quda.QudaGaugeParam):
     return quda.momActionQuda(nullptr, param)
 
 
-def projectSU3(tol, param: QudaGaugeParam):
+def projectSU3(tol, param: quda.QudaGaugeParam):
     quda.projectSU3Quda(nullptr, tol, param)
 
 
