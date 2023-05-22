@@ -1,13 +1,17 @@
 import os
+import sys
 import numpy as np
 import cupy as cp
 
+test_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(test_dir, ".."))
+
 import pyquda
-from pyquda import core, mpi, field, enum_quda, nullptr
+from pyquda import core, field, enum_quda, nullptr
 from pyquda.field import Nc, Ns
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-mpi.init()
+pyquda.init()
 
 ensembles = {
     "A1": ([16, 16, 16, 16], 5.789),
@@ -24,10 +28,13 @@ Vol = Lx * Ly * Lz * Lt
 
 beta = ensembles[tag][1]
 
-gauge = field.LatticeGauge(latt_size, cp.load("16x16.npy"), True)
-gauge_tmp = field.LatticeGauge(latt_size, None, True)
+gauge = field.LatticeGauge(latt_size, None, True)
+gauge.data[:] = cp.identity(Nc)
 
-dslash = core.getDslash(latt_size, 1 / (2 * 0.115) - 4, 1e-9, 1000, 1, 1, 1.17, anti_periodic_t=False)
+mass = 4
+kappa = 1 / (2 * (mass + 4))
+csw = 1.0
+dslash = core.getDslash(latt_size, mass, 1e-9, 1000, clover_coeff_t=csw, anti_periodic_t=False)
 dslash.loadGauge(gauge)
 
 gauge_param = dslash.gauge_param
@@ -40,10 +47,12 @@ gauge_param.make_resident_mom = 1
 gauge_param.return_result_gauge = 0
 gauge_param.return_result_mom = 0
 invert_param = dslash.invert_param
-invert_param.inv_type = enum_quda.QudaInverterType.QUDA_CG_INVERTER
+invert_param.inv_type = enum_quda.QudaInverterType.QUDA_BICGSTAB_INVERTER
 invert_param.solve_type = enum_quda.QudaSolveType.QUDA_NORMOP_PC_SOLVE
 invert_param.matpc_type = enum_quda.QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
 invert_param.solution_type = enum_quda.QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION
+invert_param.mass_normalization = enum_quda.QudaMassNormalization.QUDA_ASYMMETRIC_MASS_NORMALIZATION
+invert_param.verbosity = enum_quda.QudaVerbosity.QUDA_SILENT
 invert_param.compute_action = 1
 invert_param.compute_clover_trlog = 1
 
@@ -137,48 +146,50 @@ vartheta_ = 0.08398315262876693
 lambda_ = 0.6822365335719091
 
 plaquette = pyquda.plaq()
-print(f"plaquette = {plaquette}")
+print(f"\nplaquette = {plaquette}\n")
 
 t = 1
 dt = 0.02
 steps = round(t / dt)
 dt = t / steps
-warm = 20
-for i in range(10):
+warm = 100
+for i in range(100):
     pyquda.gaussMom(i)
 
     phi = 2 * cp.pi * cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
     r = cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
     noise = core.LatticeFermion(latt_size, cp.sqrt(-cp.log(r)) * (cp.cos(phi) + 1j * cp.sin(phi)))
 
-    invert_param.dagger = enum_quda.QudaDagType.QUDA_DAG_YES
-    pyquda.quda.MatQuda(noise.odd_ptr, noise.odd_ptr, invert_param)
-    invert_param.dagger = enum_quda.QudaDagType.QUDA_DAG_NO
-    print(invert_param.action)
-    print(invert_param.trlogA)
-
-    kinetic = pyquda.momAction(gauge_param)
-    potential = pyquda.computeGaugeLoopTrace(1, path, lengths, coeffs, num_paths, max_length)
-    energy = kinetic + potential
-
-    pyquda.computeGaugeForce(0.5 * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
-    # pyquda.computeCloverForce(0.5 * dt, noise, -0.115**2, -1.17 / 0.115 * 8, 2, gauge_param, invert_param)
-    for step in range(steps - 1):
-        pyquda.updateGaugeField(1.0 * dt, gauge_param)
-        pyquda.computeGaugeForce(1.0 * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
-        # pyquda.computeCloverForce(1.0 * dt, noise, -0.115**2, -1.17 / 0.115 * 8, 2, gauge_param, invert_param)
-    pyquda.updateGaugeField(0.5 * dt, gauge_param)
-
-    pyquda.projectSU3(1e-10, gauge_param)
+    # invert_param.dagger = enum_quda.QudaDagType.QUDA_DAG_YES
+    # pyquda.quda.MatQuda(noise.odd_ptr, noise.odd_ptr, invert_param)
+    # invert_param.dagger = enum_quda.QudaDagType.QUDA_DAG_NO
 
     pyquda.quda.freeCloverQuda()
     pyquda.quda.loadCloverQuda(nullptr, nullptr, invert_param)
     pyquda.quda.invertQuda(noise.even_ptr, noise.odd_ptr, invert_param)
-    print(invert_param.action)
-    print(invert_param.trlogA)
+
+    kinetic = pyquda.momAction(gauge_param)
+    potential = pyquda.computeGaugeLoopTrace(1, path, lengths, coeffs, num_paths,
+                                             max_length) + invert_param.action[0] - invert_param.trlogA[1]
+    energy = kinetic + potential
+
+    pyquda.computeGaugeForce(0.5 * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
+    pyquda.computeCloverForce(0.5 * dt, noise, -kappa**2, -kappa * csw / 8, 2, gauge_param, invert_param)
+    for step in range(steps - 1):
+        pyquda.updateGaugeField(1.0 * dt, gauge_param)
+        pyquda.computeGaugeForce(1.0 * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
+        pyquda.computeCloverForce(1.0 * dt, noise, -kappa**2, -kappa * csw / 8, 2, gauge_param, invert_param)
+    pyquda.updateGaugeField(0.5 * dt, gauge_param)
+
+    pyquda.projectSU3(1e-15, gauge_param)
+
+    pyquda.quda.freeCloverQuda()
+    pyquda.quda.loadCloverQuda(nullptr, nullptr, invert_param)
+    pyquda.quda.invertQuda(noise.even_ptr, noise.odd_ptr, invert_param)
 
     kinetic1 = pyquda.momAction(gauge_param)
-    potential1 = pyquda.computeGaugeLoopTrace(1, path, lengths, coeffs, num_paths, max_length)
+    potential1 = pyquda.computeGaugeLoopTrace(1, path, lengths, coeffs, num_paths,
+                                              max_length) + invert_param.action[0] - invert_param.trlogA[1]
     energy1 = kinetic1 + potential1
 
     accept = np.random.rand() < np.exp(energy - energy1)
@@ -192,15 +203,13 @@ for i in range(10):
     plaquette = pyquda.plaq()
 
     print(
-        f'''
-Step {i}:
-PE_old = {potential}, KE_old = {kinetic}
-PE = {potential1}, KE = {kinetic1}
-Delta_PE = {potential1 - potential}, Delta_KE = {kinetic1 - kinetic}
-Delta_E = {energy1 - energy}
-accept = {accept or not not warm}
-plaquette = {plaquette}
-'''
+        f'Step {i}:\n'
+        f'PE_old = {potential}, KE_old = {kinetic}\n'
+        f'PE = {potential1}, KE = {kinetic1}\n'
+        f'Delta_PE = {potential1 - potential}, Delta_KE = {kinetic1 - kinetic}\n'
+        f'Delta_E = {energy1 - energy}\n'
+        f'accept = {accept or not not warm}\n'
+        f'plaquette = {plaquette}\n'
     )
 
 dslash.destroy()
