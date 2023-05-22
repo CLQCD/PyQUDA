@@ -179,7 +179,9 @@ for i in range(100):
         pyquda.updateGaugeField(1.0 * dt, gauge_param)
         pyquda.computeGaugeForce(1.0 * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
         pyquda.computeCloverForce(1.0 * dt, noise, -kappa**2, -kappa * csw / 8, 2, gauge_param, invert_param)
-    pyquda.updateGaugeField(0.5 * dt, gauge_param)
+    pyquda.updateGaugeField(1.0 * dt, gauge_param)
+    pyquda.computeGaugeForce(0.5 * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
+    pyquda.computeCloverForce(0.5 * dt, noise, -kappa**2, -kappa * csw / 8, 2, gauge_param, invert_param)
 
     pyquda.projectSU3(1e-15, gauge_param)
 
