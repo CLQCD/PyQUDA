@@ -1,3 +1,4 @@
+from os import path, environ
 from distutils.core import Extension, setup
 from Cython.Build import cythonize
 import numpy
@@ -5,6 +6,13 @@ import numpy
 VERSION = "0.2.0"
 LICENSE = "MIT"
 DESCRIPTION = "Python wrapper for quda written in Cython."
+
+ld_library_path = [path.abspath(_path) for _path in environ["LD_LIBRARY_PATH"].strip().split(":")]
+for libquda_path in ld_library_path:
+    if path.exists(path.join(libquda_path, "libquda.so")):
+        break
+else:
+    raise RuntimeError("Cannot find libquda.so in LD_LIBRARY_PATH environment")
 
 ext_modules = cythonize(
     [
@@ -14,7 +22,7 @@ ext_modules = cythonize(
             language="c",
             include_dirs=["pyquda/include", numpy.get_include()],
             define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
-            library_dirs=["."],
+            library_dirs=[libquda_path],
             libraries=["quda"],
         )
     ],

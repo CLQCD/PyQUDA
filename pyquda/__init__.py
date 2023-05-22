@@ -49,7 +49,6 @@ def computeGaugeForce(dt, force, lengths, coeffs, num_paths, max_length, param: 
 
 
 def computeGaugeLoopTrace(dt, path, lengths, coeffs, num_paths, max_length):
-    import numpy as np
     traces = np.zeros((num_paths), "<c16")
     quda.computeGaugeLoopTraceQuda(
         quda.ndarrayDataPointer(traces), quda.ndarrayDataPointer(path), quda.ndarrayDataPointer(lengths),
