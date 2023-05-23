@@ -15,7 +15,7 @@ Use `pip install .` to build and install the wrapper library, or use `python3 se
 This is an example to build QUDA for single GPU.
 
 ```bash
-git clone https://github.com/SaltyChiang/quda.git
+git clone https://github.com/CLQCD/quda.git
 pushd quda
 git checkout a1a9c62d
 mkdir build
