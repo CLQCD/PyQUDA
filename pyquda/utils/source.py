@@ -44,7 +44,7 @@ def momentum(latt_size: List[int], t_srce: int, phase, spin: int, color: int):
     return b
 
 
-def gaussian(latt_size: List[int], t_srce: int, color: int):
+def gaussian(latt_size: List[int], t_srce: int, color: int, sigma: float, nsteps: int):
     from .. import core
     from ..enum_quda import QudaDslashType, QudaParity
 
@@ -61,8 +61,6 @@ def gaussian(latt_size: List[int], t_srce: int, color: int):
     x, y, z, t = t_srce
     b = LatticeColorVector(latt_size)
     data = b.data.reshape(2, Lt, Lz, Ly, Lx // 2, Nc)
-    sigma = 1.0
-    nstep = 10
 
     if (
         gx * Lx <= x < (gx + 1) * Lx and gy * Ly <= y < (gy + 1) * Ly and gz * Lz <= z < (gz + 1) * Lz and
@@ -74,8 +72,8 @@ def gaussian(latt_size: List[int], t_srce: int, color: int):
     dslash = core.getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
     dslash.invert_param.dslash_type = QudaDslashType.QUDA_LAPLACE_DSLASH
     c = core.LatticeColorVector(latt_size)
-    for _ in range(nstep):
-        _Laplacian(b, c, sigma / nstep, dslash.invert_param)
+    for _ in range(nsteps):
+        _Laplacian(b, c, sigma / nsteps, dslash.invert_param)
 
     return b
 
@@ -91,7 +89,16 @@ def colorvector(latt_size: List[int], t_srce: int, phase):
     return b
 
 
-def source(latt_size: List[int], source_type: str, t_srce: Union[int, List[int]], spin: int, color: int, phase=None):
+def source(
+    latt_size: List[int],
+    source_type: str,
+    t_srce: Union[int, List[int]],
+    spin: int,
+    color: int,
+    phase=None,
+    smear_rho: float = 0.0,
+    smear_steps: int = 0,
+):
     if source_type.lower() == "point":
         return point(latt_size, t_srce, spin, color)
     elif source_type.lower() == "wall":
@@ -99,7 +106,7 @@ def source(latt_size: List[int], source_type: str, t_srce: Union[int, List[int]]
     elif source_type.lower() == "momentum":
         return momentum(latt_size, t_srce, phase, spin, color)
     elif source_type.lower() == "gaussian":
-        return gaussian(latt_size, t_srce, color)
+        return gaussian(latt_size, t_srce, color, smear_rho, smear_steps)
     elif source_type.lower() == "colorvector":
         return colorvector(latt_size, t_srce, phase)
     else:
@@ -110,7 +117,9 @@ def source12(
     latt_size: List[int],
     source_type: Literal["point", "wall", "momentum", "gaussian", "colorvector"],
     t_srce: Union[int, List[int]],
-    phase=None
+    phase=None,
+    smear_rho: float = 0.0,
+    smear_steps: int = 0,
 ):
     Lx, Ly, Lz, Lt = latt_size
     Vol = Lx * Ly * Lz * Lt
@@ -124,7 +133,7 @@ def source12(
                 data[:, spin, spin, :, color] = b.data.reshape(Vol, Nc)
     if source_type.lower() in ["gaussian"]:
         for color in range(Nc):
-            b = source(latt_size, source_type, t_srce, 0, color, phase)
+            b = source(latt_size, source_type, t_srce, 0, color, phase, smear_rho, smear_steps)
             for spin in range(Ns):
                 data[:, spin, spin, :, color] = b.data.reshape(Vol, Nc)
     else:
