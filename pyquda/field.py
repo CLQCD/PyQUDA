@@ -66,7 +66,7 @@ def newLatticeFieldData(latt_size: List[int], dtype: str) -> cp.ndarray:
     Lx, Ly, Lz, Lt = latt_size
     if dtype.capitalize() == "Gauge":
         return cp.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
-    elif dtype.capitalize() == "ColorVector":
+    elif dtype.capitalize() == "Colorvector":
         return cp.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
     elif dtype.capitalize() == "Fermion":
         return cp.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
