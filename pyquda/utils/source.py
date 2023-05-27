@@ -1,7 +1,7 @@
-from typing import List, Union
+from typing import List, Literal, Union
 
 from .. import mpi
-from ..field import Nc, Ns, LatticeFermion, LatticePropagator
+from ..field import Nc, Ns, LatticeColorVector, LatticeFermion, LatticePropagator
 
 
 def point(latt_size: List[int], t_srce: List[int], spin: int, color: int):
@@ -44,14 +44,50 @@ def momentum(latt_size: List[int], t_srce: int, phase, spin: int, color: int):
     return b
 
 
-def colorvec(latt_size: List[int], t_srce: int, phase, spin: int):
+def gaussian(latt_size: List[int], t_srce: int, color: int):
+    from .. import core
+    from ..enum_quda import QudaDslashType, QudaParity
+
+    def _Laplacian(src, aux, sigma):
+        aux.data[:] = 0
+        core.quda.dslashQuda(aux.even_ptr, src.odd_ptr, dslash.invert_param, QudaParity.QUDA_EVEN_PARITY)
+        core.quda.dslashQuda(aux.odd_ptr, src.even_ptr, dslash.invert_param, QudaParity.QUDA_ODD_PARITY)
+        aux.even -= src.odd
+        aux.odd -= src.even
+        src.data = (1 - sigma / 4 * 6) * src.data + sigma / 4 * aux.data
+
+    Lx, Ly, Lz, Lt = latt_size
+    gx, gy, gz, gt = mpi.coord
+    x, y, z, t = t_srce
+    b = LatticeColorVector(latt_size)
+    data = b.data.reshape(2, Lt, Lz, Ly, Lx // 2, Nc)
+    sigma = 1.0
+    nstep = 10
+
+    if (
+        gx * Lx <= x < (gx + 1) * Lx and gy * Ly <= y < (gy + 1) * Ly and gz * Lz <= z < (gz + 1) * Lz and
+        gt * Lt <= t < (gt + 1) * Lt
+    ):
+        eo = ((x - gx * Lx) + (y - gy * Ly) + (z - gz * Lz) + (t - gt * Lt)) % 2
+        data[eo, t - gt * Lt, z - gz * Lz, y - gy * Ly, (x - gx * Lx) // 2, color] = 1
+
+    dslash = core.getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
+    dslash.invert_param.dslash_type = QudaDslashType.QUDA_LAPLACE_DSLASH
+    c = core.LatticeColorVector(latt_size)
+    for _ in range(nstep):
+        _Laplacian(b, c, sigma / nstep)
+
+    return b
+
+
+def colorvector(latt_size: List[int], t_srce: int, phase):
     Lx, Ly, Lz, Lt = latt_size
     gx, gy, gz, gt = mpi.coord
     t = t_srce
-    b = LatticeFermion(latt_size)
-    data = b.data.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
+    b = LatticeColorVector(latt_size)
+    data = b.data.reshape(2, Lt, Lz, Ly, Lx // 2, Nc)
     if gt * Lt <= t < (gt + 1) * Lt:
-        data[:, t - gt * Lt, :, :, :, spin, :] = phase[:, t - gt * Lt, :, :, :, :]
+        data[:, t - gt * Lt, :, :, :, :] = phase[:, t - gt * Lt, :, :, :, :]
     return b
 
 
@@ -62,21 +98,39 @@ def source(latt_size: List[int], source_type: str, t_srce: Union[int, List[int]]
         return wall(latt_size, t_srce, spin, color)
     elif source_type.lower() == "momentum":
         return momentum(latt_size, t_srce, phase, spin, color)
-    elif source_type.lower() == "colorvec":
-        return colorvec(latt_size, t_srce, phase, spin)
+    elif source_type.lower() == "gaussian":
+        return gaussian(latt_size, t_srce, color)
+    elif source_type.lower() == "colorvector":
+        return colorvector(latt_size, t_srce, phase)
     else:
         raise NotImplementedError(f"{source_type} source is not implemented yet.")
 
 
-def source12(latt_size: List[int], source_type: str, t_srce: Union[int, List[int]], phase=None):
+def source12(
+    latt_size: List[int],
+    source_type: Literal["point", "wall", "momentum", "gaussian", "colorvector"],
+    t_srce: Union[int, List[int]],
+    phase=None
+):
     Lx, Ly, Lz, Lt = latt_size
     Vol = Lx * Ly * Lz * Lt
 
     b12 = LatticePropagator(latt_size)
     data = b12.data.reshape(Vol, Ns, Ns, Nc, Nc)
-    for spin in range(Ns):
+    if source_type.lower() in ["colorvector"]:
+        b = source(latt_size, source_type, t_srce, 0, 0, phase)
         for color in range(Nc):
-            b = source(latt_size, source_type, t_srce, spin, color, phase)
-            data[:, :, spin, :, color] = b.data.reshape(Vol, Ns, Nc)
+            for spin in range(Ns):
+                data[:, spin, spin, :, color] = b.data.reshape(Vol, Nc)
+    if source_type.lower() in ["gaussian"]:
+        for color in range(Nc):
+            b = source(latt_size, source_type, t_srce, 0, color, phase)
+            for spin in range(Ns):
+                data[:, spin, spin, :, color] = b.data.reshape(Vol, Nc)
+    else:
+        for color in range(Nc):
+            for spin in range(Ns):
+                b = source(latt_size, source_type, t_srce, spin, color, phase)
+                data[:, :, spin, :, color] = b.data.reshape(Vol, Ns, Nc)
 
     return b12

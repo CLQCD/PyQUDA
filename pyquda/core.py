@@ -3,7 +3,7 @@ from math import sqrt
 
 from . import pyquda as quda
 from . import enum_quda
-from .field import LatticeGauge, LatticeFermion, LatticePropagator, Nc, Nd, Ns, lexico, cb2
+from .field import LatticeGauge, LatticeColorVector, LatticeFermion, LatticePropagator, Nc, Nd, Ns, lexico, cb2
 from .dslash.abstract import Dslash
 from .utils.source import source
 

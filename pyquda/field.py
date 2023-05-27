@@ -66,6 +66,8 @@ def newLatticeFieldData(latt_size: List[int], dtype: str) -> cp.ndarray:
     Lx, Ly, Lz, Lt = latt_size
     if dtype.capitalize() == "Gauge":
         return cp.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
+    elif dtype.capitalize() == "ColorVector":
+        return cp.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
     elif dtype.capitalize() == "Fermion":
         return cp.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
     elif dtype.capitalize() == "Propagator":
@@ -112,6 +114,44 @@ class LatticeGauge(LatticeField):
     @property
     def data_ptrs(self):
         return ndarrayDataPointer(self.data.reshape(4, -1), True)
+
+
+class LatticeColorVector(LatticeField):
+    def __init__(self, latt_size: List[int], value=None) -> None:
+        Lx, Ly, Lz, Lt = latt_size
+        self.latt_size = latt_size
+        if value is None:
+            self.data = newLatticeFieldData(latt_size, "ColorVector")
+        else:
+            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc)
+
+    @property
+    def even(self):
+        return self.data[0]
+
+    @even.setter
+    def even(self, value):
+        self.data[0] = value
+
+    @property
+    def odd(self):
+        return self.data[1]
+
+    @odd.setter
+    def odd(self, value):
+        self.data[1] = value
+
+    @property
+    def data_ptr(self):
+        return ndarrayDataPointer(self.data.reshape(-1), True)
+
+    @property
+    def even_ptr(self):
+        return ndarrayDataPointer(self.data.reshape(2, -1)[0], True)
+
+    @property
+    def odd_ptr(self):
+        return ndarrayDataPointer(self.data.reshape(2, -1)[1], True)
 
 
 class LatticeFermion(LatticeField):
