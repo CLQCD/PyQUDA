@@ -121,7 +121,7 @@ class LatticeColorVector(LatticeField):
         Lx, Ly, Lz, Lt = latt_size
         self.latt_size = latt_size
         if value is None:
-            self.data = newLatticeFieldData(latt_size, "ColorVector")
+            self.data = newLatticeFieldData(latt_size, "Colorvector")
         else:
             self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc)
 

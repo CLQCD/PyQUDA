@@ -48,10 +48,10 @@ def gaussian(latt_size: List[int], t_srce: int, color: int):
     from .. import core
     from ..enum_quda import QudaDslashType, QudaParity
 
-    def _Laplacian(src, aux, sigma):
+    def _Laplacian(src, aux, sigma, invert_param):
         aux.data[:] = 0
-        core.quda.dslashQuda(aux.even_ptr, src.odd_ptr, dslash.invert_param, QudaParity.QUDA_EVEN_PARITY)
-        core.quda.dslashQuda(aux.odd_ptr, src.even_ptr, dslash.invert_param, QudaParity.QUDA_ODD_PARITY)
+        core.quda.dslashQuda(aux.even_ptr, src.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
+        core.quda.dslashQuda(aux.odd_ptr, src.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
         aux.even -= src.odd
         aux.odd -= src.even
         src.data = (1 - sigma / 4 * 6) * src.data + sigma / 4 * aux.data
@@ -75,7 +75,7 @@ def gaussian(latt_size: List[int], t_srce: int, color: int):
     dslash.invert_param.dslash_type = QudaDslashType.QUDA_LAPLACE_DSLASH
     c = core.LatticeColorVector(latt_size)
     for _ in range(nstep):
-        _Laplacian(b, c, sigma / nstep)
+        _Laplacian(b, c, sigma / nstep, dslash.invert_param)
 
     return b
 

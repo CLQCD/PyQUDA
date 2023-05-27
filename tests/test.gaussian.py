@@ -7,22 +7,11 @@ test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(test_dir, ".."))
 
 import pyquda
-from pyquda import core, enum_quda
-from pyquda.field import Ns, Nc
+from pyquda import core
 from pyquda.utils import source, gauge_utils
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 pyquda.init()
-
-
-def Laplacian_quda(pt_src, sh_src, sigma):
-    sh_src.data[:] = 0
-    core.quda.dslashQuda(sh_src.even_ptr, pt_src.odd_ptr, dslash.invert_param, enum_quda.QudaParity.QUDA_EVEN_PARITY)
-    core.quda.dslashQuda(sh_src.odd_ptr, pt_src.even_ptr, dslash.invert_param, enum_quda.QudaParity.QUDA_ODD_PARITY)
-    sh_src.even -= pt_src.odd
-    sh_src.odd -= pt_src.even
-    pt_src.data = (1 - sigma / 4 * 6) * pt_src.data + sigma / 4 * sh_src.data
-
 
 latt_size = [16, 16, 16, 128]
 Lx, Ly, Lz, Lt = latt_size
@@ -35,18 +24,10 @@ filename = "/dg_hpc/LQCD/gongming/productions/confs/light.20200720.b20.16_128/s1
 dslash = core.getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
 gauge = gauge_utils.readIldg(filename)
 dslash.loadGauge(gauge)
-dslash.invert_param.dslash_type = enum_quda.QudaDslashType.QUDA_LAPLACE_DSLASH
-sh_src12 = core.LatticePropagator(latt_size)
-for spin in range(Ns):
-    for color in range(Nc):
-        pt_src = source.source(latt_size, "point", [x, y, z, t], spin, color)
-        sh_src = core.LatticeFermion(latt_size)
-        for step in range(nstep):
-            Laplacian_quda(pt_src, sh_src, sigma / nstep)
-        sh_src12.data[:, :, :, :, :, :, spin, :, color] = pt_src.data
-dslash.destroy()
-data = sh_src12.lexico()
 
+sh_src12 = source.source12(latt_size, "gaussian", [x, y, z, t])
+
+data = sh_src12.lexico()
 
 # def Laplacian(F, U, U_dag, sigma):
 #     return (
@@ -60,7 +41,7 @@ data = sh_src12.lexico()
 #         )
 #     )
 
-
+# from pyquda.field import Ns, Nc
 # from pyquda.core import lexico
 # gauge = cp.asarray(lexico(gauge.data, [1, 2, 3, 4, 5]))
 # pt_src = cp.zeros((Lt, Lz, Ly, Lx, Nc, Nc))
