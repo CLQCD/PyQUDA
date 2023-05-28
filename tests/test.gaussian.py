@@ -21,11 +21,15 @@ x, y, z, t = 0, 0, 0, 0
 
 filename = "/dg_hpc/LQCD/gongming/productions/confs/light.20200720.b20.16_128/s1.0_cfg_1000.lime"
 
-dslash = core.getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
+xi = 5.2
+xi_0 = 5.65
+nu = xi_0 / xi
+u_s = 0.780268
+dslash = core.getDslash(latt_size, 0, 0, 0, xi_0, nu / u_s, anti_periodic_t=False)
 gauge = gauge_utils.readIldg(filename)
 dslash.loadGauge(gauge)
 
-sh_src12 = source.source12(latt_size, "gaussian", [x, y, z, t], rho=rho, nsteps=nsteps)
+sh_src12 = source.source12(latt_size, "gaussian", [x, y, z, t], rho=rho, nsteps=nsteps, xi=xi * u_s)
 
 data = sh_src12.lexico()
 

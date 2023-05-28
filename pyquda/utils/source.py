@@ -44,16 +44,17 @@ def momentum(latt_size: List[int], t_srce: int, phase, spin: int, color: int):
     return b
 
 
-def gaussian(latt_size: List[int], t_srce: int, color: int, rho: float, nsteps: int):
+def gaussian(latt_size: List[int], t_srce: int, color: int, rho: float, nsteps: int, xi: float):
     from .. import core
     from ..enum_quda import QudaDslashType, QudaParity
 
-    def _Laplacian(src, aux, sigma, invert_param):
+    def _Laplacian(src, aux, sigma, xi, invert_param):
         aux.data[:] = 0
         core.quda.dslashQuda(aux.even_ptr, src.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
         core.quda.dslashQuda(aux.odd_ptr, src.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
         aux.even -= src.odd
         aux.odd -= src.even
+        aux.data *= xi
         src.data = (1 - sigma * 6) * src.data + sigma * aux.data
 
     Lx, Ly, Lz, Lt = latt_size
@@ -74,7 +75,7 @@ def gaussian(latt_size: List[int], t_srce: int, color: int, rho: float, nsteps: 
     c = core.LatticeColorVector(latt_size)
     for _ in range(nsteps):
         # (rho**2 / 4) aims to achieve the same result with Chroma
-        _Laplacian(b, c, rho**2 / 4 / nsteps, dslash.invert_param)
+        _Laplacian(b, c, rho**2 / 4 / nsteps, xi, dslash.invert_param)
 
     return b
 
@@ -99,6 +100,7 @@ def source(
     phase=None,
     rho: float = 0.0,
     nsteps: int = 0,
+    xi: float = 1.0,
 ):
     if source_type.lower() == "point":
         return point(latt_size, t_srce, spin, color)
@@ -107,7 +109,7 @@ def source(
     elif source_type.lower() == "momentum":
         return momentum(latt_size, t_srce, phase, spin, color)
     elif source_type.lower() == "gaussian":
-        return gaussian(latt_size, t_srce, color, rho, nsteps)
+        return gaussian(latt_size, t_srce, color, rho, nsteps, xi)
     elif source_type.lower() == "colorvector":
         return colorvector(latt_size, t_srce, phase)
     else:
@@ -121,6 +123,7 @@ def source12(
     phase=None,
     rho: float = 0.0,
     nsteps: int = 0,
+    xi: float = 1.0,
 ):
     Lx, Ly, Lz, Lt = latt_size
     Vol = Lx * Ly * Lz * Lt
@@ -134,7 +137,7 @@ def source12(
                 data[:, spin, spin, :, color] = b.data.reshape(Vol, Nc)
     if source_type.lower() in ["gaussian"]:
         for color in range(Nc):
-            b = source(latt_size, source_type, t_srce, 0, color, phase, rho, nsteps)
+            b = source(latt_size, source_type, t_srce, 0, color, phase, rho, nsteps, xi)
             for spin in range(Ns):
                 data[:, spin, spin, :, color] = b.data.reshape(Vol, Nc)
     else:
