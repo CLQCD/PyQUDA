@@ -15,8 +15,8 @@ pyquda.init()
 
 latt_size = [16, 16, 16, 128]
 Lx, Ly, Lz, Lt = latt_size
-sigma = 1.0
-nstep = 10
+rho = 2.0
+nsteps = 5
 x, y, z, t = 0, 0, 0, 0
 
 filename = "/dg_hpc/LQCD/gongming/productions/confs/light.20200720.b20.16_128/s1.0_cfg_1000.lime"
@@ -25,13 +25,13 @@ dslash = core.getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
 gauge = gauge_utils.readIldg(filename)
 dslash.loadGauge(gauge)
 
-sh_src12 = source.source12(latt_size, "gaussian", [x, y, z, t])
+sh_src12 = source.source12(latt_size, "gaussian", [x, y, z, t], rho=rho, nsteps=nsteps)
 
 data = sh_src12.lexico()
 
 # def Laplacian(F, U, U_dag, sigma):
 #     return (
-#         (1 - sigma / 4 * 6) * F + sigma / 4 * (
+#         (1 - sigma * 6) * F + sigma * (
 #             cp.einsum("zyxab,zyxsb->zyxsa", U[0], cp.roll(F, -1, 2)) +
 #             cp.einsum("zyxab,zyxsb->zyxsa", U[1], cp.roll(F, -1, 1)) +
 #             cp.einsum("zyxab,zyxsb->zyxsa", U[2], cp.roll(F, -1, 0)) +
@@ -49,11 +49,11 @@ data = sh_src12.lexico()
 # pt_src.data = cp.asarray(pt_src.lexico())
 # U = gauge[:, t].copy()
 # U_dag = U.conj().transpose(0, 1, 2, 3, 5, 4)
-# for step in range(nstep):
+# for step in range(nsteps):
 #     for color in range(Nc):
 #         for spin in range(Ns):
 #             F = pt_src.data[t, :, :, :, :, spin, :, color].copy()
-#             pt_src.data[t, :, :, :, :, spin, :, color] = Laplacian(F, U, U_dag, sigma / nstep)
+#             pt_src.data[t, :, :, :, :, spin, :, color] = Laplacian(F, U, U_dag, rho**2 / 4 / nsteps)
 # data_cupy = pt_src.data.get()
 
 # print(np.linalg.norm(data - data_cupy))
