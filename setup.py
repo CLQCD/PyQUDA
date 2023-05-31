@@ -3,7 +3,7 @@ from distutils.core import Extension, setup
 from Cython.Build import cythonize
 import numpy
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 LICENSE = "MIT"
 DESCRIPTION = "Python wrapper for quda written in Cython."
 

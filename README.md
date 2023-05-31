@@ -17,11 +17,12 @@ This is an example to build QUDA for single GPU.
 ```bash
 git clone https://github.com/CLQCD/quda.git
 pushd quda
-git checkout a1a9c62d
+git checkout b47950dd
 mkdir build
 pushd build
-cmake .. -DQUDA_DIRAC_DOMAIN_WALL=OFF -DQUDA_DIRAC_NDEG_TWISTED_CLOVER=OFF -DQUDA_DIRAC_NDEG_TWISTED_MASS=OFF -DQUDA_DIRAC_STAGGERED=OFF -DQUDA_DIRAC_TWISTED_CLOVER=OFF -DQUDA_DIRAC_TWISTED_MASS=OFF -DQUDA_INTERFACE_MILC=OFF -DQUDA_MULTIGRID=ON
+cmake .. -DQUDA_DIRAC_DOMAIN_WALL=OFF -DQUDA_CLOVER_DYNAMIC=OFF -DQUDA_CLOVER_RECONSTRUCT=OFF -DQUDA_DIRAC_NDEG_TWISTED_CLOVER=OFF -DQUDA_DIRAC_NDEG_TWISTED_MASS=OFF -DQUDA_DIRAC_TWISTED_CLOVER=OFF -DQUDA_DIRAC_TWISTED_MASS=OFF -DQUDA_INTERFACE_MILC=OFF -DQUDA_LAPLACE=ON -DQUDA_MULTIGRID=ON
 cmake --build . -j8
+cmake --install .
 popd
 popd
 ```
@@ -33,6 +34,7 @@ Build, install and run the example.
 `chroma` is needed here for generating the reference file.
 
 ```bash
+export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH
 git clone https://github.com/IHEP-LQCD/PyQuda.git
 pushd PyQuda
 python3 -m pip install -r requirements.txt
