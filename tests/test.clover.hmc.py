@@ -7,7 +7,7 @@ test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(test_dir, ".."))
 
 import pyquda
-from pyquda import core, field, enum_quda, nullptr
+from pyquda import core, enum_quda, field, nullptr
 from pyquda.field import Nc, Ns
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
@@ -47,16 +47,12 @@ gauge_param.make_resident_mom = 1
 gauge_param.return_result_gauge = 0
 gauge_param.return_result_mom = 0
 invert_param = dslash.invert_param
-invert_param.inv_type = enum_quda.QudaInverterType.QUDA_BICGSTAB_INVERTER
-invert_param.solve_type = enum_quda.QudaSolveType.QUDA_NORMOP_PC_SOLVE
 invert_param.matpc_type = enum_quda.QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
 invert_param.solution_type = enum_quda.QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION
-invert_param.mass_normalization = enum_quda.QudaMassNormalization.QUDA_ASYMMETRIC_MASS_NORMALIZATION
 invert_param.verbosity = enum_quda.QudaVerbosity.QUDA_SILENT
 invert_param.compute_action = 1
 invert_param.compute_clover_trlog = 1
 
-# pyquda.loadGauge(gauge, gauge_param)
 pyquda.momResident(gauge, gauge_param)
 
 
@@ -130,8 +126,24 @@ input_path = [
     [3, 2, 2, 4, 5, 5],
 ]
 input_coeffs = [
-    -5 / 3, -5 / 3, -5 / 3, -5 / 3, -5 / 3, -5 / 3, 1 / 12, 1 / 12, 1 / 12, 1 / 12, 1 / 12, 1 / 12, 1 / 12, 1 / 12,
-    1 / 12, 1 / 12, 1 / 12, 1 / 12
+    -5 / 3,
+    -5 / 3,
+    -5 / 3,
+    -5 / 3,
+    -5 / 3,
+    -5 / 3,
+    1 / 12,
+    1 / 12,
+    1 / 12,
+    1 / 12,
+    1 / 12,
+    1 / 12,
+    1 / 12,
+    1 / 12,
+    1 / 12,
+    1 / 12,
+    1 / 12,
+    1 / 12,
 ]
 
 num_paths, max_length, path, lengths, coeffs, force, num_fpaths, flengths, fcoeffs = path_force(
@@ -148,40 +160,57 @@ lambda_ = 0.6822365335719091
 plaquette = pyquda.plaq()
 print(f"\nplaquette = {plaquette}\n")
 
-t = 1
-dt = 0.02
+t = 1.0
+dt = 0.1
 steps = round(t / dt)
 dt = t / steps
-warm = 100
+warm = 20
 for i in range(100):
     pyquda.gaussMom(i)
 
+    cp.random.seed(i)
     phi = 2 * cp.pi * cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
     r = cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
     noise = core.LatticeFermion(latt_size, cp.sqrt(-cp.log(r)) * (cp.cos(phi) + 1j * cp.sin(phi)))
 
-    # invert_param.dagger = enum_quda.QudaDagType.QUDA_DAG_YES
-    # pyquda.quda.MatQuda(noise.odd_ptr, noise.odd_ptr, invert_param)
-    # invert_param.dagger = enum_quda.QudaDagType.QUDA_DAG_NO
-
     pyquda.quda.freeCloverQuda()
     pyquda.quda.loadCloverQuda(nullptr, nullptr, invert_param)
+    invert_param.dagger = enum_quda.QudaDagType.QUDA_DAG_YES
+    pyquda.quda.MatQuda(noise.odd_ptr, noise.even_ptr, invert_param)
+    invert_param.dagger = enum_quda.QudaDagType.QUDA_DAG_NO
     pyquda.quda.invertQuda(noise.even_ptr, noise.odd_ptr, invert_param)
 
     kinetic = pyquda.momAction(gauge_param)
-    potential = pyquda.computeGaugeLoopTrace(1, path, lengths, coeffs, num_paths,
-                                             max_length) + invert_param.action[0] - invert_param.trlogA[1]
+    potential = pyquda.computeGaugeLoopTrace(1, path, lengths, coeffs, num_paths, max_length)
+    potential += invert_param.action[0] - Vol / 2 * Ns * Nc - invert_param.trlogA[1]
     energy = kinetic + potential
 
-    pyquda.computeGaugeForce(0.5 * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
-    pyquda.computeCloverForce(0.5 * dt, noise, -kappa**2, -kappa * csw / 8, 2, gauge_param, invert_param)
-    for step in range(steps - 1):
-        pyquda.updateGaugeField(1.0 * dt, gauge_param)
-        pyquda.computeGaugeForce(1.0 * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
-        pyquda.computeCloverForce(1.0 * dt, noise, -kappa**2, -kappa * csw / 8, 2, gauge_param, invert_param)
-    pyquda.updateGaugeField(1.0 * dt, gauge_param)
-    pyquda.computeGaugeForce(0.5 * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
-    pyquda.computeCloverForce(0.5 * dt, noise, -kappa**2, -kappa * csw / 8, 2, gauge_param, invert_param)
+    for step in range(steps):
+        pyquda.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
+        pyquda.computeCloverForce(vartheta_ * dt, noise, -kappa**2, -kappa * csw / 8, 1, 2, gauge_param, invert_param)
+        pyquda.updateGaugeField(rho_ * dt, gauge_param)
+        pyquda.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
+        pyquda.computeCloverForce(lambda_ * dt, noise, -kappa**2, -kappa * csw / 8, 1, 2, gauge_param, invert_param)
+        pyquda.updateGaugeField(theta_ * dt, gauge_param)
+        pyquda.computeGaugeForce(
+            (0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param
+        )
+        pyquda.computeCloverForce(
+            (0.5 - (lambda_ + vartheta_)) * dt, noise, -kappa**2, -kappa * csw / 8, 1, 2, gauge_param, invert_param
+        )
+        pyquda.updateGaugeField((1.0 - 2 * (theta_ + rho_)) * dt, gauge_param)
+        pyquda.computeGaugeForce(
+            (0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param
+        )
+        pyquda.computeCloverForce(
+            (0.5 - (lambda_ + vartheta_)) * dt, noise, -kappa**2, -kappa * csw / 8, 1, 2, gauge_param, invert_param
+        )
+        pyquda.updateGaugeField(theta_ * dt, gauge_param)
+        pyquda.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
+        pyquda.computeCloverForce(lambda_ * dt, noise, -kappa**2, -kappa * csw / 8, 1, 2, gauge_param, invert_param)
+        pyquda.updateGaugeField(rho_ * dt, gauge_param)
+        pyquda.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
+        pyquda.computeCloverForce(vartheta_ * dt, noise, -kappa**2, -kappa * csw / 8, 1, 2, gauge_param, invert_param)
 
     pyquda.projectSU3(1e-15, gauge_param)
 
@@ -190,8 +219,8 @@ for i in range(100):
     pyquda.quda.invertQuda(noise.even_ptr, noise.odd_ptr, invert_param)
 
     kinetic1 = pyquda.momAction(gauge_param)
-    potential1 = pyquda.computeGaugeLoopTrace(1, path, lengths, coeffs, num_paths,
-                                              max_length) + invert_param.action[0] - invert_param.trlogA[1]
+    potential1 = pyquda.computeGaugeLoopTrace(1, path, lengths, coeffs, num_paths, max_length)
+    potential1 += invert_param.action[0] - Vol / 2 * Ns * Nc - invert_param.trlogA[1]
     energy1 = kinetic1 + potential1
 
     accept = np.random.rand() < np.exp(energy - energy1)
@@ -210,7 +239,8 @@ for i in range(100):
         f'PE = {potential1}, KE = {kinetic1}\n'
         f'Delta_PE = {potential1 - potential}, Delta_KE = {kinetic1 - kinetic}\n'
         f'Delta_E = {energy1 - energy}\n'
-        f'accept = {accept or not not warm}\n'
+        f'accept rate = {min(1, np.exp(energy - energy1))*100:.2f}%\n'
+        f'accept? {accept or not not warm}\n'
         f'plaquette = {plaquette}\n'
     )
 

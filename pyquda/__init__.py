@@ -31,13 +31,13 @@ def gaussMom(seed: int):
     quda.gaussMomQuda(seed, 1.0)
 
 
-def computeCloverForce(dt, x: LatticeFermion, kappa2, ck, multiplicity, gauge_param, inv_param):
+def computeCloverForce(dt, x: LatticeFermion, kappa2, ck, coeff, multiplicity, gauge_param, inv_param):
     quda.freeCloverQuda()
     quda.loadCloverQuda(nullptr, nullptr, inv_param)
     quda.invertQuda(x.even_ptr, x.odd_ptr, inv_param)
     quda.computeCloverForceQuda(
         nullptr, dt, quda.ndarrayDataPointer(x.even.reshape(1, -1), True), nullptr,
-        quda.ndarrayDataPointer(np.array([1.0])), kappa2, ck, 1, multiplicity, nullptr, gauge_param, inv_param
+        quda.ndarrayDataPointer(np.array([coeff], "<f8")), kappa2, ck, 1, multiplicity, nullptr, gauge_param, inv_param
     )
 
 

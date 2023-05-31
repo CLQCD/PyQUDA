@@ -4,13 +4,13 @@ import numpy as np
 import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
-# sys.path.insert(0, os.path.join(test_dir, ".."))
+sys.path.insert(0, os.path.join(test_dir, ".."))
 import pyquda
-from pyquda import core, mpi, field
+from pyquda import core, field
 from pyquda.field import Nc
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-mpi.init()
+pyquda.init()
 
 ensembles = {
     "A1": ([16, 16, 16, 16], 5.789),
@@ -27,7 +27,11 @@ Vol = Lx * Ly * Lz * Lt
 
 beta = ensembles[tag][1]
 
+gauge = field.LatticeGauge(latt_size, None, True)
+gauge.data[:] = cp.identity(Nc)
+
 dslash = core.getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
+dslash.loadGauge(gauge)
 gauge_param = dslash.gauge_param
 gauge_param.overwrite_gauge = 0
 gauge_param.overwrite_mom = 0
@@ -38,10 +42,6 @@ gauge_param.make_resident_mom = 1
 gauge_param.return_result_gauge = 0
 gauge_param.return_result_mom = 0
 
-gauge = field.LatticeGauge(latt_size, None, True)
-gauge.data[:] = cp.diag([1, 1, 1])
-
-pyquda.loadGauge(gauge, gauge_param)
 pyquda.momResident(gauge, gauge_param)
 
 
@@ -115,8 +115,24 @@ input_path = [
     [3, 2, 2, 4, 5, 5],
 ]
 input_coeffs = [
-    -5 / 3, -5 / 3, -5 / 3, -5 / 3, -5 / 3, -5 / 3, 1 / 12, 1 / 12, 1 / 12, 1 / 12, 1 / 12, 1 / 12, 1 / 12, 1 / 12,
-    1 / 12, 1 / 12, 1 / 12, 1 / 12
+    -5 / 3,
+    -5 / 3,
+    -5 / 3,
+    -5 / 3,
+    -5 / 3,
+    -5 / 3,
+    1 / 12,
+    1 / 12,
+    1 / 12,
+    1 / 12,
+    1 / 12,
+    1 / 12,
+    1 / 12,
+    1 / 12,
+    1 / 12,
+    1 / 12,
+    1 / 12,
+    1 / 12,
 ]
 
 # input_path = [
@@ -148,10 +164,10 @@ vartheta_ = 0.08398315262876693
 lambda_ = 0.6822365335719091
 
 plaquette = pyquda.plaq()
-print(f"plaquette = {plaquette}")
+print(f"\nplaquette = {plaquette}\n")
 
-t = 1
-dt = 0.125
+t = 1.0
+dt = 0.1
 steps = round(t / dt)
 dt = t / steps
 warm = 20
@@ -168,18 +184,18 @@ for i in range(100):
         pyquda.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
         pyquda.updateGaugeField(theta_ * dt, gauge_param)
         pyquda.computeGaugeForce(
-            (1 - 2 * (lambda_ + vartheta_)) * dt / 2, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param
+            (0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param
         )
-        pyquda.updateGaugeField((1 - 2 * (theta_ + rho_)) * dt, gauge_param)
+        pyquda.updateGaugeField((1.0 - 2 * (theta_ + rho_)) * dt, gauge_param)
         pyquda.computeGaugeForce(
-            (1 - 2 * (lambda_ + vartheta_)) * dt / 2, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param
+            (0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param
         )
         pyquda.updateGaugeField(theta_ * dt, gauge_param)
         pyquda.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
         pyquda.updateGaugeField(rho_ * dt, gauge_param)
         pyquda.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
 
-    pyquda.projectSU3(1e-10, gauge_param)
+    pyquda.projectSU3(1e-15, gauge_param)
     kinetic1 = pyquda.momAction(gauge_param)
     potential1 = pyquda.computeGaugeLoopTrace(1, path, lengths, coeffs, num_paths, max_length)
     energy1 = kinetic1 + potential1
@@ -195,15 +211,14 @@ for i in range(100):
     plaquette = pyquda.plaq()
 
     print(
-        f'''
-Step {i} stats:
-PE_old = {potential}, KE_old = {kinetic}
-PE = {potential1}, KE = {kinetic1}
-Delta_PE = {potential1 - potential}, Delta_KE = {kinetic1 - kinetic}
-Delta_E = {energy1 - energy}
-accept = {accept or not not warm}
-plaquette = {plaquette}
-'''
+        f'Step {i}:\n'
+        f'PE_old = {potential}, KE_old = {kinetic}\n'
+        f'PE = {potential1}, KE = {kinetic1}\n'
+        f'Delta_PE = {potential1 - potential}, Delta_KE = {kinetic1 - kinetic}\n'
+        f'Delta_E = {energy1 - energy}\n'
+        f'accept rate = {min(1, np.exp(energy - energy1))*100:.2f}%\n'
+        f'accept? {accept or not not warm}\n'
+        f'plaquette = {plaquette}\n'
     )
 
 dslash.destroy()
