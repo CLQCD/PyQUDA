@@ -7,7 +7,8 @@ test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(test_dir, ".."))
 
 import pyquda
-from pyquda import core, enum_quda, field, nullptr
+from pyquda import core, enum_quda, field
+from pyquda.hmc import HMC
 from pyquda.field import Nc, Ns
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
@@ -36,24 +37,11 @@ kappa = 1 / (2 * (mass + 4))
 csw = 1.0
 dslash = core.getDslash(latt_size, mass, 1e-9, 1000, clover_coeff_t=csw, anti_periodic_t=False)
 dslash.loadGauge(gauge)
+hmc = HMC(latt_size, dslash)
 
-gauge_param = dslash.gauge_param
-gauge_param.overwrite_gauge = 0
-gauge_param.overwrite_mom = 0
-gauge_param.use_resident_gauge = 1
-gauge_param.use_resident_mom = 1
-gauge_param.make_resident_gauge = 1
-gauge_param.make_resident_mom = 1
-gauge_param.return_result_gauge = 0
-gauge_param.return_result_mom = 0
-invert_param = dslash.invert_param
-invert_param.matpc_type = enum_quda.QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
-invert_param.solution_type = enum_quda.QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION
-invert_param.verbosity = enum_quda.QudaVerbosity.QUDA_SILENT
-invert_param.compute_action = 1
-invert_param.compute_clover_trlog = 1
+invert_param = hmc.invert_param
 
-pyquda.momResident(gauge, gauge_param)
+hmc.loadMom(gauge)
 
 
 def loop_ndarray(path, num_paths, max_length):
@@ -166,70 +154,60 @@ steps = round(t / dt)
 dt = t / steps
 warm = 20
 for i in range(100):
-    pyquda.gaussMom(i)
+    hmc.gaussMom(i)
 
     cp.random.seed(i)
     phi = 2 * cp.pi * cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
     r = cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
     noise = core.LatticeFermion(latt_size, cp.sqrt(-cp.log(r)) * (cp.cos(phi) + 1j * cp.sin(phi)))
 
-    pyquda.quda.freeCloverQuda()
-    pyquda.quda.loadCloverQuda(nullptr, nullptr, invert_param)
+    hmc.updateClover()
     invert_param.dagger = enum_quda.QudaDagType.QUDA_DAG_YES
     pyquda.quda.MatQuda(noise.odd_ptr, noise.even_ptr, invert_param)
     invert_param.dagger = enum_quda.QudaDagType.QUDA_DAG_NO
     pyquda.quda.invertQuda(noise.even_ptr, noise.odd_ptr, invert_param)
 
-    kinetic = pyquda.momAction(gauge_param)
-    potential = pyquda.computeGaugeLoopTrace(1, path, lengths, coeffs, num_paths, max_length)
-    potential += invert_param.action[0] - Vol / 2 * Ns * Nc - invert_param.trlogA[1]
+    kinetic = hmc.actionMom()
+    potential = hmc.actionGauge(path, lengths, coeffs, num_paths, max_length)
+    potential += hmc.actionFermion()
     energy = kinetic + potential
 
     for step in range(steps):
-        pyquda.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
-        pyquda.computeCloverForce(vartheta_ * dt, noise, -kappa**2, -kappa * csw / 8, 1, 2, gauge_param, invert_param)
-        pyquda.updateGaugeField(rho_ * dt, gauge_param)
-        pyquda.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
-        pyquda.computeCloverForce(lambda_ * dt, noise, -kappa**2, -kappa * csw / 8, 1, 2, gauge_param, invert_param)
-        pyquda.updateGaugeField(theta_ * dt, gauge_param)
-        pyquda.computeGaugeForce(
-            (0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param
-        )
-        pyquda.computeCloverForce(
-            (0.5 - (lambda_ + vartheta_)) * dt, noise, -kappa**2, -kappa * csw / 8, 1, 2, gauge_param, invert_param
-        )
-        pyquda.updateGaugeField((1.0 - 2 * (theta_ + rho_)) * dt, gauge_param)
-        pyquda.computeGaugeForce(
-            (0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param
-        )
-        pyquda.computeCloverForce(
-            (0.5 - (lambda_ + vartheta_)) * dt, noise, -kappa**2, -kappa * csw / 8, 1, 2, gauge_param, invert_param
-        )
-        pyquda.updateGaugeField(theta_ * dt, gauge_param)
-        pyquda.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
-        pyquda.computeCloverForce(lambda_ * dt, noise, -kappa**2, -kappa * csw / 8, 1, 2, gauge_param, invert_param)
-        pyquda.updateGaugeField(rho_ * dt, gauge_param)
-        pyquda.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
-        pyquda.computeCloverForce(vartheta_ * dt, noise, -kappa**2, -kappa * csw / 8, 1, 2, gauge_param, invert_param)
+        hmc.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
+        hmc.computeCloverForce(vartheta_ * dt, noise, -kappa**2, -kappa * csw / 8)
+        hmc.updateGaugeField(rho_ * dt)
+        hmc.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
+        hmc.computeCloverForce(lambda_ * dt, noise, -kappa**2, -kappa * csw / 8)
+        hmc.updateGaugeField(theta_ * dt)
+        hmc.computeGaugeForce((0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
+        hmc.computeCloverForce((0.5 - (lambda_ + vartheta_)) * dt, noise, -kappa**2, -kappa * csw / 8)
+        hmc.updateGaugeField((1.0 - 2 * (theta_ + rho_)) * dt)
+        hmc.computeGaugeForce((0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
+        hmc.computeCloverForce((0.5 - (lambda_ + vartheta_)) * dt, noise, -kappa**2, -kappa * csw / 8)
+        hmc.updateGaugeField(theta_ * dt)
+        hmc.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
+        hmc.computeCloverForce(lambda_ * dt, noise, -kappa**2, -kappa * csw / 8)
+        hmc.updateGaugeField(rho_ * dt)
+        hmc.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
+        hmc.computeCloverForce(vartheta_ * dt, noise, -kappa**2, -kappa * csw / 8)
 
-    pyquda.projectSU3(1e-15, gauge_param)
+    hmc.reunitGaugeField(1e-15)
 
-    pyquda.quda.freeCloverQuda()
-    pyquda.quda.loadCloverQuda(nullptr, nullptr, invert_param)
+    hmc.updateClover()
     pyquda.quda.invertQuda(noise.even_ptr, noise.odd_ptr, invert_param)
 
-    kinetic1 = pyquda.momAction(gauge_param)
-    potential1 = pyquda.computeGaugeLoopTrace(1, path, lengths, coeffs, num_paths, max_length)
-    potential1 += invert_param.action[0] - Vol / 2 * Ns * Nc - invert_param.trlogA[1]
+    kinetic1 = hmc.actionMom()
+    potential1 = hmc.actionGauge(path, lengths, coeffs, num_paths, max_length)
+    potential1 += hmc.actionFermion()
     energy1 = kinetic1 + potential1
 
     accept = np.random.rand() < np.exp(energy - energy1)
     if warm > 0:
         warm -= 1
     if accept or warm:
-        pyquda.saveGauge(gauge, gauge_param)
+        hmc.saveGauge(gauge)
     else:
-        pyquda.loadGauge(gauge, gauge_param)
+        hmc.loadGauge(gauge)
 
     plaquette = pyquda.plaq()
 

@@ -7,6 +7,7 @@ test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(test_dir, ".."))
 import pyquda
 from pyquda import core, field
+from pyquda.hmc import HMC
 from pyquda.field import Nc
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
@@ -32,17 +33,11 @@ gauge.data[:] = cp.identity(Nc)
 
 dslash = core.getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
 dslash.loadGauge(gauge)
-gauge_param = dslash.gauge_param
-gauge_param.overwrite_gauge = 0
-gauge_param.overwrite_mom = 0
-gauge_param.use_resident_gauge = 1
-gauge_param.use_resident_mom = 1
-gauge_param.make_resident_gauge = 1
-gauge_param.make_resident_mom = 1
-gauge_param.return_result_gauge = 0
-gauge_param.return_result_mom = 0
+hmc = HMC(latt_size, dslash)
 
-pyquda.momResident(gauge, gauge_param)
+gauge_param = dslash.gauge_param
+
+hmc.loadMom(gauge)
 
 
 def loop_ndarray(path, num_paths, max_length):
@@ -172,41 +167,38 @@ steps = round(t / dt)
 dt = t / steps
 warm = 20
 for i in range(100):
-    pyquda.gaussMom(i)
+    hmc.gaussMom(i)
 
-    kinetic = pyquda.momAction(gauge_param)
-    potential = pyquda.computeGaugeLoopTrace(1, path, lengths, coeffs, num_paths, max_length)
+    kinetic = hmc.actionMom()
+    potential = hmc.actionGauge(path, lengths, coeffs, num_paths, max_length)
     energy = kinetic + potential
 
     for step in range(steps):
-        pyquda.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
-        pyquda.updateGaugeField(rho_ * dt, gauge_param)
-        pyquda.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
-        pyquda.updateGaugeField(theta_ * dt, gauge_param)
-        pyquda.computeGaugeForce(
-            (0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param
-        )
-        pyquda.updateGaugeField((1.0 - 2 * (theta_ + rho_)) * dt, gauge_param)
-        pyquda.computeGaugeForce(
-            (0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param
-        )
-        pyquda.updateGaugeField(theta_ * dt, gauge_param)
-        pyquda.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
-        pyquda.updateGaugeField(rho_ * dt, gauge_param)
-        pyquda.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1, gauge_param)
+        hmc.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
+        hmc.updateGaugeField(rho_ * dt)
+        hmc.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
+        hmc.updateGaugeField(theta_ * dt)
+        hmc.computeGaugeForce((0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
+        hmc.updateGaugeField((1.0 - 2 * (theta_ + rho_)) * dt)
+        hmc.computeGaugeForce((0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
+        hmc.updateGaugeField(theta_ * dt)
+        hmc.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
+        hmc.updateGaugeField(rho_ * dt)
+        hmc.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
 
-    pyquda.projectSU3(1e-15, gauge_param)
-    kinetic1 = pyquda.momAction(gauge_param)
-    potential1 = pyquda.computeGaugeLoopTrace(1, path, lengths, coeffs, num_paths, max_length)
+    hmc.reunitGauge(1e-15)
+
+    kinetic1 = hmc.actionMom()
+    potential1 = hmc.actionGauge(path, lengths, coeffs, num_paths, max_length)
     energy1 = kinetic1 + potential1
 
     accept = np.random.rand() < np.exp(energy - energy1)
     if warm > 0:
         warm -= 1
     if accept or warm:
-        pyquda.saveGauge(gauge, gauge_param)
+        hmc.saveGauge(gauge)
     else:
-        pyquda.loadGauge(gauge, gauge_param)
+        hmc.loadGauge(gauge)
 
     plaquette = pyquda.plaq()
 

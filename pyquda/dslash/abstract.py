@@ -36,5 +36,9 @@ class Dslash(ABC):
         pass
 
     @abstractmethod
+    def destroy(self):
+        pass
+
+    @abstractmethod
     def invert(self, b: LatticeFermion):
         pass

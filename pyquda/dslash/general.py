@@ -1,6 +1,6 @@
 from typing import List
 
-from ..pyquda import (  # noqa: F401
+from ..pyquda import (
     Pointer, QudaGaugeParam, QudaInvertParam, QudaMultigridParam, loadCloverQuda, loadGaugeQuda, invertQuda,
     dslashQuda, cloverQuda
 )
@@ -18,6 +18,8 @@ from ..enum_quda import (  # noqa: F401
     QudaGhostExchange, QudaStaggeredPhase, QudaContractType, QudaContractGamma, QudaExtLibType
 )
 from ..enum_quda import QUDA_MAX_DIM, QUDA_MAX_MULTI_SHIFT, QUDA_MAX_MG_LEVEL
+
+nullptr = Pointer("void")
 
 cpu_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
 cuda_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
@@ -261,28 +263,34 @@ def loadClover(gauge: LatticeGauge, gauge_param: QudaGaugeParam, invert_param: Q
     clover_anisotropy = invert_param.clover_csw
     anisotropy = gauge_param.anisotropy
     reconstruct = gauge_param.reconstruct
+    use_resident_gauge = gauge_param.use_resident_gauge
 
     gauge_data_bak = gauge.data.copy()
     if clover_anisotropy != 1.0:
         gauge.setAnisotropy(clover_anisotropy)
     gauge_param.anisotropy = 1.0
     gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
+    gauge_param.use_resident_gauge = 0
     loadGaugeQuda(gauge.data_ptrs, gauge_param)
-    loadCloverQuda(Pointer("void"), Pointer("void"), invert_param)
+    loadCloverQuda(nullptr, nullptr, invert_param)
     gauge_param.anisotropy = anisotropy
     gauge_param.reconstruct = reconstruct
+    gauge_param.use_resident_gauge = use_resident_gauge
     gauge.data = gauge_data_bak.copy()
 
 
 def loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     anisotropy = gauge_param.anisotropy
+    use_resident_gauge = gauge_param.use_resident_gauge
 
     gauge_data_bak = gauge.data.copy()
     if gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
         gauge.setAntiPeroidicT()
     if anisotropy != 1.0:
         gauge.setAnisotropy(anisotropy)
+    gauge_param.use_resident_gauge = 0
     loadGaugeQuda(gauge.data_ptrs, gauge_param)
+    gauge_param.use_resident_gauge = use_resident_gauge
     gauge.data = gauge_data_bak
 
 
