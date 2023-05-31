@@ -35,9 +35,8 @@ gauge.data[:] = cp.identity(Nc)
 mass = 4
 kappa = 1 / (2 * (mass + 4))
 csw = 1.0
-dslash = core.getDslash(latt_size, mass, 1e-9, 1000, clover_coeff_t=csw, anti_periodic_t=False)
-dslash.loadGauge(gauge)
-hmc = HMC(latt_size, dslash)
+hmc = HMC(latt_size, mass, 1e-9, 1000, csw)
+hmc.loadGauge(gauge)
 
 invert_param = hmc.invert_param
 

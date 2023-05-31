@@ -2,26 +2,26 @@ from typing import List
 
 import numpy as np
 
-from .dslash.abstract import Dslash
 from .pyquda import (
-    Pointer, ndarrayDataPointer, QudaGaugeParam, QudaInvertParam, QudaMultigridParam, loadCloverQuda, freeCloverQuda,
+    Pointers, ndarrayDataPointer, QudaGaugeParam, QudaInvertParam, QudaMultigridParam, loadCloverQuda, freeCloverQuda,
     loadGaugeQuda, saveGaugeQuda, updateGaugeFieldQuda, invertQuda, dslashQuda, cloverQuda, projectSU3Quda,
     momResidentQuda, gaussMomQuda, momActionQuda, computeCloverForceQuda, computeGaugeForceQuda,
     computeGaugeLoopTraceQuda
 )
 from .field import Ns, Nc
 from .enum_quda import (QudaMatPCType, QudaSolutionType, QudaVerbosity)
-from .core import LatticeGauge, LatticeFermion
+from .core import LatticeGauge, LatticeFermion, getDslash
 
-nullptr = Pointer("void", 0)
+nullptr = Pointers("void", 0)
 
 
 class HMC:
-    def __init__(self, latt_size: List[int], dslash: Dslash) -> None:
+    def __init__(self, latt_size: List[int], mass: float, tol: float, maxiter: int, clover_coeff: float = 0.0) -> None:
+        self.dslash = getDslash(latt_size, mass, tol, maxiter, clover_coeff_t=clover_coeff, anti_periodic_t=False)
         Lx, Ly, Lz, Lt = latt_size
         self.volume = Lx * Ly * Lz * Lt
-        self.gauge_param: QudaGaugeParam = dslash.gauge_param
-        self.invert_param: QudaInvertParam = dslash.invert_param
+        self.gauge_param: QudaGaugeParam = self.dslash.gauge_param
+        self.invert_param: QudaInvertParam = self.dslash.invert_param
 
         self.gauge_param.overwrite_gauge = 0
         self.gauge_param.overwrite_mom = 0
@@ -80,7 +80,7 @@ class HMC:
         gaussMomQuda(seed, 1.0)
 
     def actionMom(self) -> float:
-        return momActionQuda(self.gauge_param)
+        return momActionQuda(nullptr, self.gauge_param)
 
     def actionGauge(self, path, lengths, coeffs, num_paths, max_length) -> float:
         traces = np.zeros((num_paths), "<c16")
@@ -91,7 +91,7 @@ class HMC:
         return traces.real.sum()
 
     def actionFermion(self) -> float:
-        return self.invert_param.action[0] - self.volume / 2 * Ns * Nc - self.invert_param.trlogA[1]
+        return self.invert_param.action[0] - self.volume / 2 * Ns * Nc - 2 * self.invert_param.trlogA[1]
 
     def updateClover(self):
         freeCloverQuda()

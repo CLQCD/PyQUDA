@@ -31,11 +31,10 @@ beta = ensembles[tag][1]
 gauge = field.LatticeGauge(latt_size, None, True)
 gauge.data[:] = cp.identity(Nc)
 
-dslash = core.getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
-dslash.loadGauge(gauge)
-hmc = HMC(latt_size, dslash)
+hmc = HMC(latt_size, 0, 0, 0)
+hmc.loadGauge(gauge)
 
-gauge_param = dslash.gauge_param
+gauge_param = hmc.gauge_param
 
 hmc.loadMom(gauge)
 
@@ -186,7 +185,7 @@ for i in range(100):
         hmc.updateGaugeField(rho_ * dt)
         hmc.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
 
-    hmc.reunitGauge(1e-15)
+    hmc.reunitGaugeField(1e-15)
 
     kinetic1 = hmc.actionMom()
     potential1 = hmc.actionGauge(path, lengths, coeffs, num_paths, max_length)
