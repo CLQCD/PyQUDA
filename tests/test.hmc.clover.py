@@ -190,7 +190,7 @@ for i in range(100):
         hmc.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
         hmc.computeCloverForce(vartheta_ * dt, noise, -kappa**2, -kappa * csw / 8)
 
-    hmc.reunitGaugeField(1e-15)
+    hmc.reunitGaugeField(gauge, 1e-15)
 
     hmc.updateClover()
     pyquda.quda.invertQuda(noise.even_ptr, noise.odd_ptr, invert_param)
@@ -220,5 +220,3 @@ for i in range(100):
         f'accept? {accept or not not warm}\n'
         f'plaquette = {plaquette}\n'
     )
-
-dslash.destroy()
