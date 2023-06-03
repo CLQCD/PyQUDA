@@ -90,7 +90,7 @@ class LatticeGauge(LatticeField):
         self.t_boundary = t_boundary
 
     def copy(self):
-        res = LatticeGauge(self.latt_size)
+        res = LatticeGauge(self.latt_size, None, self.t_boundary)
         res.data[:] = self.data[:]
         return res
 

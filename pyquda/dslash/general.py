@@ -272,10 +272,10 @@ def loadClover(gauge: LatticeGauge, gauge_param: QudaGaugeParam, invert_param: Q
     gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
     gauge_param.use_resident_gauge = 0
     loadGaugeQuda(gauge.data_ptrs, gauge_param)
+    gauge_param.use_resident_gauge = use_resident_gauge
     loadCloverQuda(nullptr, nullptr, invert_param)
     gauge_param.anisotropy = anisotropy
     gauge_param.reconstruct = reconstruct
-    gauge_param.use_resident_gauge = use_resident_gauge
     gauge.data = gauge_data_bak.copy()
 
 

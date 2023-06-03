@@ -9,15 +9,25 @@ from .pyquda import (
     computeGaugeLoopTraceQuda
 )
 from .field import Ns, Nc
-from .enum_quda import (QudaMatPCType, QudaSolutionType, QudaVerbosity)
+from .enum_quda import (QudaMatPCType, QudaSolutionType, QudaVerbosity, QudaTboundary, QudaReconstructType)
 from .core import LatticeGauge, LatticeFermion, getDslash
 
 nullptr = Pointers("void", 0)
 
 
 class HMC:
-    def __init__(self, latt_size: List[int], mass: float, tol: float, maxiter: int, clover_coeff: float = 0.0) -> None:
-        self.dslash = getDslash(latt_size, mass, tol, maxiter, clover_coeff_t=clover_coeff, anti_periodic_t=False)
+    def __init__(
+        self,
+        latt_size: List[int],
+        mass: float,
+        tol: float,
+        maxiter: int,
+        clover_coeff: float = 0.0,
+        anti_periodic_t=True
+    ) -> None:
+        self.dslash = getDslash(
+            latt_size, mass, tol, maxiter, clover_coeff_t=clover_coeff, anti_periodic_t=anti_periodic_t
+        )
         Lx, Ly, Lz, Lt = latt_size
         self.volume = Lx * Ly * Lz * Lt
         self.gauge_param: QudaGaugeParam = self.dslash.gauge_param
@@ -40,9 +50,14 @@ class HMC:
 
     def loadGauge(self, gauge: LatticeGauge):
         use_resident_gauge = self.gauge_param.use_resident_gauge
+
+        gauge_data_bak = gauge.data.copy()
+        if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
+            gauge.setAntiPeroidicT()
         self.gauge_param.use_resident_gauge = 0
         loadGaugeQuda(gauge.data_ptr, self.gauge_param)
         self.gauge_param.use_resident_gauge = use_resident_gauge
+        gauge.data = gauge_data_bak
 
     def saveGauge(self, gauge: LatticeGauge):
         saveGaugeQuda(gauge.data_ptr, self.gauge_param)
@@ -64,8 +79,38 @@ class HMC:
             num_paths, max_length, dt, self.gauge_param
         )
 
-    def reunitGaugeField(self, tol: float):
+    def reunitGaugeField(self, ref: LatticeGauge, tol: float):
+        gauge = LatticeGauge(self.gauge_param.X, None, ref.t_boundary)
+        t_boundary = self.gauge_param.t_boundary
+        anisotropy = self.gauge_param.anisotropy
+        reconstruct = self.gauge_param.reconstruct
+        use_resident_gauge = self.gauge_param.use_resident_gauge
+
+        saveGaugeQuda(gauge.data_ptr, self.gauge_param)
+        if t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
+            gauge.setAntiPeroidicT()
+        if anisotropy != 1.0:
+            gauge.setAnisotropy(1 / anisotropy)
+
+        self.gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
+        self.gauge_param.anisotropy = 1.0
+        self.gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
+        self.gauge_param.use_resident_gauge = 0
+        loadGaugeQuda(gauge.data_ptr, self.gauge_param)
+        self.gauge_param.use_resident_gauge = use_resident_gauge
         projectSU3Quda(nullptr, tol, self.gauge_param)
+        saveGaugeQuda(gauge.data_ptr, self.gauge_param)
+        self.gauge_param.t_boundary = t_boundary
+        self.gauge_param.anisotropy = anisotropy
+        self.gauge_param.reconstruct = reconstruct
+
+        if t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
+            gauge.setAntiPeroidicT()
+        if anisotropy != 1.0:
+            gauge.setAnisotropy(anisotropy)
+        self.gauge_param.use_resident_gauge = 0
+        loadGaugeQuda(gauge.data_ptr, self.gauge_param)
+        self.gauge_param.use_resident_gauge = use_resident_gauge
 
     def loadMom(self, mom: LatticeGauge):
         make_resident_mom = self.gauge_param.make_resident_mom

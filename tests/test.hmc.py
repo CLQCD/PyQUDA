@@ -6,7 +6,7 @@ import cupy as cp
 test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(test_dir, ".."))
 import pyquda
-from pyquda import core, field
+from pyquda import field
 from pyquda.hmc import HMC
 from pyquda.field import Nc
 
@@ -185,7 +185,7 @@ for i in range(100):
         hmc.updateGaugeField(rho_ * dt)
         hmc.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
 
-    hmc.reunitGaugeField(1e-15)
+    hmc.reunitGaugeField(gauge, 1e-15)
 
     kinetic1 = hmc.actionMom()
     potential1 = hmc.actionGauge(path, lengths, coeffs, num_paths, max_length)
@@ -211,5 +211,3 @@ for i in range(100):
         f'accept? {accept or not not warm}\n'
         f'plaquette = {plaquette}\n'
     )
-
-dslash.destroy()
