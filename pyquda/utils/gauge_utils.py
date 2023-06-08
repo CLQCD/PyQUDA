@@ -5,6 +5,7 @@ from typing import Dict, List, Tuple
 from xml.etree import ElementTree as ET
 
 import numpy as np
+import cupy as cp
 
 from .. import mpi
 from ..field import Nc, Nd, cb2, LatticeGauge
@@ -50,7 +51,7 @@ def readIldg(filename: str):
               Nc)[gt * Lt:(gt + 1) * Lt, gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
                   gx * Lx:(gx + 1) * Lx].astype(ndarray_dtype).transpose(4, 0, 1, 2, 3, 5, 6)
 
-    gauge = cb2(gauge_raw, [1, 2, 3, 4])
+    gauge = cp.asarray(cb2(gauge_raw, [1, 2, 3, 4]))
 
     return LatticeGauge(latt_size, gauge, gt == Gt - 1)
 
@@ -67,6 +68,26 @@ def readIldgBin(filename: str, dtype: str, latt_size: List[int]):
               Nc)[gt * Lt:(gt + 1) * Lt, gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
                   gx * Lx:(gx + 1) * Lx].astype("<c16").transpose(4, 0, 1, 2, 3, 5, 6)
 
-    gauge = cb2(gauge_raw, [1, 2, 3, 4])
+    gauge = cp.asarray(cb2(gauge_raw, [1, 2, 3, 4]))
 
     return LatticeGauge(latt_size, gauge, gt == Gt - 1)
+
+
+def gaussGauge(latt_size: List[int], seed: int):
+    from ..pyquda import loadGaugeQuda, saveGaugeQuda, gaussGaugeQuda
+    from ..core import getDslash
+
+    Lx, Ly, Lz, Lt = latt_size
+    Gx, Gy, Gz, Gt = mpi.grid
+    gx, gy, gz, gt = mpi.coord
+
+    gauge = LatticeGauge(latt_size, None, gt == Gt - 1)
+
+    dslash = getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
+    dslash.gauge_param.use_resident_gauge = 0
+    loadGaugeQuda(gauge.data_ptrs, dslash.gauge_param)
+    dslash.gauge_param.use_resident_gauge = 1
+    gaussGaugeQuda(seed, 1.0)
+    saveGaugeQuda(gauge.data_ptrs, dslash.gauge_param)
+
+    return gauge

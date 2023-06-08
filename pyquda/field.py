@@ -65,7 +65,9 @@ def cb2(data: np.ndarray, axes: List[int], dtype=None):
 def newLatticeFieldData(latt_size: List[int], dtype: str) -> cp.ndarray:
     Lx, Ly, Lz, Lt = latt_size
     if dtype.capitalize() == "Gauge":
-        return cp.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
+        ret = cp.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
+        ret[:] = cp.identity(Nc)
+        return ret
     elif dtype.capitalize() == "Colorvector":
         return cp.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
     elif dtype.capitalize() == "Fermion":

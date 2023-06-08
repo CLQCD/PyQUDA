@@ -202,7 +202,7 @@ def newQudaInvertParam(
     invert_param.gcrNkrylov = 10
     invert_param.tol = tol
     invert_param.tol_restart = 5e3 * tol
-    invert_param.tol_hq = 0.0
+    invert_param.tol_hq = tol
     invert_param.residual_type = QudaResidualType.QUDA_L2_RELATIVE_RESIDUAL
     invert_param.maxiter = maxiter
     invert_param.reliable_delta = 0.1
@@ -313,22 +313,21 @@ def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
 
     x = LatticeFermion(b.latt_size)
     tmp = LatticeFermion(b.latt_size)
-    tmp2 = LatticeFermion(b.latt_size)
 
     # tmp.data = 2 * kappa * b.data
-    # dslashQuda(tmp2.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
-    # tmp.odd = tmp.odd + kappa * tmp2.odd
+    # dslashQuda(x.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
+    # tmp.odd = tmp.odd + kappa * x.odd
     # invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
-    # dslashQuda(tmp2.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
-    # x.even = tmp.even + kappa * tmp2.even
+    # dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
+    # x.even = tmp.even + kappa * x.even
 
     cloverQuda(tmp.even_ptr, b.even_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY, 1)
     cloverQuda(tmp.odd_ptr, b.odd_ptr, invert_param, QudaParity.QUDA_ODD_PARITY, 1)
-    tmp.data *= 2 * kappa
-    dslashQuda(tmp2.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
-    tmp.odd = tmp.odd + kappa * tmp2.odd
+    dslashQuda(x.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
+    tmp.odd = tmp.odd + kappa * x.odd
     invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
-    dslashQuda(tmp2.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
-    x.even = tmp.even + kappa * tmp2.even
+    dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
+    x.even = tmp.even + kappa * x.even
+    x.data *= 2 * kappa
 
     return x
