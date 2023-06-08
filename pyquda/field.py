@@ -106,9 +106,6 @@ class LatticeGauge(LatticeField):
         data = self.data.reshape(Nd, -1)
         data[:Nd - 1] /= anisotropy
 
-    def lexico(self):
-        return lexico(self.data.get(), [1, 2, 3, 4, 5])
-
     @property
     def data_ptr(self):
         return ndarrayDataPointer(self.data.reshape(4, -1), True)
@@ -116,6 +113,9 @@ class LatticeGauge(LatticeField):
     @property
     def data_ptrs(self):
         return ndarrayDataPointer(self.data.reshape(4, -1), True)
+
+    def lexico(self):
+        return lexico(self.data.get(), [1, 2, 3, 4, 5])
 
 
 class LatticeColorVector(LatticeField):
@@ -155,6 +155,9 @@ class LatticeColorVector(LatticeField):
     def odd_ptr(self):
         return ndarrayDataPointer(self.data.reshape(2, -1)[1], True)
 
+    def lexico(self):
+        return lexico(self.data.get(), [0, 1, 2, 3, 4])
+
 
 class LatticeFermion(LatticeField):
     def __init__(self, latt_size: List[int], value=None) -> None:
@@ -192,6 +195,9 @@ class LatticeFermion(LatticeField):
     @property
     def odd_ptr(self):
         return ndarrayDataPointer(self.data.reshape(2, -1)[1], True)
+
+    def lexico(self):
+        return lexico(self.data.get(), [0, 1, 2, 3, 4])
 
 
 class LatticePropagator(LatticeField):
