@@ -73,6 +73,15 @@ def readIldgBin(filename: str, dtype: str, latt_size: List[int]):
     return LatticeGauge(latt_size, gauge, gt == Gt - 1)
 
 
+def unitGauge(latt_size: List[int]):
+    Gx, Gy, Gz, Gt = mpi.grid
+    gx, gy, gz, gt = mpi.coord
+
+    gauge = LatticeGauge(latt_size, None, gt == Gt - 1)
+
+    return gauge
+
+
 def gaussGauge(latt_size: List[int], seed: int):
     from ..pyquda import loadGaugeQuda, saveGaugeQuda, gaussGaugeQuda
     from ..core import getDslash
