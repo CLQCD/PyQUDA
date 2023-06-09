@@ -14,10 +14,12 @@ init()
 
 latt_size = [16, 16, 16, 32]
 
+# Use m=-3.5 to make kappa=1
 dslash = core.getDslash(latt_size, -3.5, 0, 0, anti_periodic_t=False)
 kappa = dslash.invert_param.kappa
 
-U = gauge_utils.gaussGauge(latt_size)
+seed = 0
+U = gauge_utils.gaussGauge(latt_size, seed)
 a = source.source(latt_size, "point", [0, 0, 0, 0], 0, 0)
 b = LatticeFermion(latt_size)
 
