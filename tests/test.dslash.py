@@ -1,32 +1,53 @@
 import os
 import sys
 
-test_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(test_dir, ".."))
+# test_dir = os.path.dirname(os.path.abspath(__file__))
+# sys.path.insert(0, os.path.join(test_dir, ".."))
 
-from pyquda import init, core, quda
-from pyquda.enum_quda import QudaParity
-from pyquda.field import LatticeFermion
-from pyquda.utils import gauge_utils, source
+import numpy as np
+
+from pyquda import init
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 init()
 
-latt_size = [16, 16, 16, 32]
+Lx, Ly, Lz, Lt = 16, 16, 16, 32
+Nd, Ns, Nc = 4, 4, 3
+latt_size = [Lx, Ly, Lz, Lt]
 
-# Use m=-3.5 to make kappa=1
-dslash = core.getDslash(latt_size, -3.5, 0, 0, anti_periodic_t=False)
-kappa = dslash.invert_param.kappa
 
-seed = 0
-U = gauge_utils.gaussGauge(latt_size, seed)
-a = source.source(latt_size, "point", [0, 0, 0, 0], 0, 0)
-b = LatticeFermion(latt_size)
+def applyDslash(Mp, p, U_seed):
+    import cupy as cp
+    from pyquda import core, quda
+    from pyquda.enum_quda import QudaParity
+    from pyquda.field import LatticeFermion
+    from pyquda.utils import gauge_utils
 
-dslash.loadGauge(U)
+    # Set parameters in Dslash and use m=-3.5 to make kappa=1
+    dslash = core.getDslash(latt_size, -3.5, 0, 0, anti_periodic_t=False)
 
-# Dslash a = b
-quda.dslashQuda(b.even_ptr, a.odd_ptr, dslash.invert_param, QudaParity.QUDA_EVEN_PARITY)
-quda.dslashQuda(b.odd_ptr, a.even_ptr, dslash.invert_param, QudaParity.QUDA_ODD_PARITY)
+    # Generate gauge and then load it
+    U = gauge_utils.gaussGauge(latt_size, U_seed)
+    dslash.loadGauge(U)
 
-print(b.lexico()[0, 0, 0, 1])
+    # Load a from p and allocate b
+    a = LatticeFermion(latt_size, cp.asarray(core.cb2(p, [0, 1, 2, 3])))
+    b = LatticeFermion(latt_size)
+
+    # Dslash a = b
+    quda.dslashQuda(b.even_ptr, a.odd_ptr, dslash.invert_param, QudaParity.QUDA_EVEN_PARITY)
+    quda.dslashQuda(b.odd_ptr, a.even_ptr, dslash.invert_param, QudaParity.QUDA_ODD_PARITY)
+
+    # Save b to Mp
+    Mp[:] = b.lexico()
+
+    # Return gauge as a ndarray with shape (Nd, Lt, Lz, Ly, Lx, Ns, Ns)
+    return U.lexico()
+
+
+p = np.zeros((Lt, Lz, Ly, Lx, Ns, Nc), np.complex128)
+p[0, 0, 0, 0, 0, 0] = 1
+Mp = np.zeros((Lt, Lz, Ly, Lx, Ns, Nc), np.complex128)
+
+U = applyDslash(Mp, p, 0)
+print(Mp[0, 0, 0, 1])
