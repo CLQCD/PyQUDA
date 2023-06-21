@@ -17,7 +17,7 @@ This is an example to build QUDA for single GPU.
 ```bash
 git clone https://github.com/CLQCD/quda.git
 pushd quda
-git checkout b47950dd
+git checkout c4a77c68
 mkdir build
 pushd build
 cmake .. -DQUDA_DIRAC_DOMAIN_WALL=OFF -DQUDA_CLOVER_DYNAMIC=OFF -DQUDA_CLOVER_RECONSTRUCT=OFF -DQUDA_DIRAC_NDEG_TWISTED_CLOVER=OFF -DQUDA_DIRAC_NDEG_TWISTED_MASS=OFF -DQUDA_DIRAC_TWISTED_CLOVER=OFF -DQUDA_DIRAC_TWISTED_MASS=OFF -DQUDA_INTERFACE_MILC=OFF -DQUDA_LAPLACE=ON -DQUDA_MULTIGRID=ON
@@ -37,6 +37,7 @@ Build, install and run the example.
 export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH
 git clone https://github.com/IHEP-LQCD/PyQuda.git
 pushd PyQuda
+git checkout distance-preconditioning
 python3 -m pip install -r requirements.txt
 cp ../quda/build/lib/libquda.so ./
 python3 -m pip install .

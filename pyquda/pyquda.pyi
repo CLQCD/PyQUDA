@@ -236,6 +236,8 @@ class QudaInvertParam:
     extlib_type: QudaExtLibType
     native_blas_lapack: QudaBoolean
     use_mobius_fused_kernel: QudaBoolean
+    alpha: double
+    source_time: int
 
 
 class QudaEigParam:

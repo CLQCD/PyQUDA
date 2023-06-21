@@ -1687,6 +1687,22 @@ cdef class QudaInvertParam:
     def use_mobius_fused_kernel(self, value):
         self.param.use_mobius_fused_kernel = value
 
+    @property
+    def alpha(self):
+        return self.param.alpha
+
+    @alpha.setter
+    def alpha(self, value):
+        self.param.alpha = value
+
+    @property
+    def source_time(self):
+        return self.param.source_time
+
+    @source_time.setter
+    def source_time(self, value):
+        self.param.source_time = value
+
 cdef class QudaMultigridParam:
     cdef quda.QudaMultigridParam param
 

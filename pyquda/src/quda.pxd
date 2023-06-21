@@ -442,6 +442,10 @@ cdef extern from "quda.h":
         # Whether to use fused kernels for mobius
         QudaBoolean use_mobius_fused_kernel
 
+        # Parameters for distance preconditioning
+        double alpha
+        int source_time
+
 
     # Parameter set for solving eigenvalue problems.
     ctypedef struct QudaEigParam:
