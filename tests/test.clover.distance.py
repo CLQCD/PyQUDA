@@ -41,9 +41,9 @@ data = propagator.data.reshape(Vol, Ns, Ns, Nc, Nc)
 for spin in range(Ns):
     for color in range(Nc):
         b = source.source(latt_size, "point", [0, 0, 0, source_time], spin, color)
-        b.data /= cp.cosh(alpha * cp.arange(source_time - Lt / 2, source_time + Lt / 2)).reshape(-1, 1, 1, 1, 1, 1)
+        b.data /= cp.cosh(alpha * cp.roll(cp.arange(-Lt / 2, Lt / 2), source_time)).reshape(-1, 1, 1, 1, 1, 1)
         x = dslash.invert(b)
-        x.data *= cp.cosh(alpha * cp.arange(source_time - Lt / 2, source_time + Lt / 2)).reshape(-1, 1, 1, 1, 1, 1)
+        x.data *= cp.cosh(alpha * cp.roll(cp.arange(-Lt / 2, Lt / 2), source_time)).reshape(-1, 1, 1, 1, 1, 1)
         data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
 
 dslash.destroy()
