@@ -14,6 +14,12 @@ for libquda_path in ld_library_path:
 else:
     raise RuntimeError("Cannot find libquda.so in LD_LIBRARY_PATH environment")
 
+for libextension_path in ld_library_path:
+    if path.exists(path.join(libextension_path, "libextension.so")):
+        break
+else:
+    raise RuntimeError("Cannot find libextension.so in LD_LIBRARY_PATH environment")
+
 ext_modules = cythonize(
     [
         Extension(
@@ -24,6 +30,15 @@ ext_modules = cythonize(
             define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
             library_dirs=[libquda_path],
             libraries=["quda"],
+        ),
+        Extension(
+            "pyquda.pyquda_extension",
+            ["pyquda/src/pyquda_extension.pyx"],
+            language="c",
+            include_dirs=["pyquda/extension", numpy.get_include()],
+            define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
+            library_dirs=[libextension_path],
+            libraries=["extension"],
         )
     ],
     language_level="3",
@@ -38,7 +53,7 @@ package_dir = {
     "pyquda": "pyquda",
 }
 package_data = {
-    "pyquda": ["*.pyi", "src/*.pxd", "include/*.h"],
+    "pyquda": ["*.pyi", "src/*.pxd", "include/*.h", "extension/*.h"],
 }
 
 setup(
