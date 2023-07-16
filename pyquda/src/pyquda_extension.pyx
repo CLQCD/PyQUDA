@@ -1,7 +1,9 @@
 import numpy
 cimport numpy
 
-cimport extension
+
+cdef extern from "sample.h":
+    void my_dslash_interface(void *U_ptr, void *a_ptr, void *b_ptr, int Lx, int Ly, int Lz, int Lt, int Nd, int Ns, int Nc)
 
 
 def my_dslash(numpy.ndarray[numpy.complex128_t, ndim=7] U, numpy.ndarray[numpy.complex128_t, ndim=6] a, numpy.ndarray[numpy.complex128_t,ndim=6]b, int Lx,int Ly, int Lz,int Lt,int Nd, int Ns, int Nc):
@@ -12,4 +14,4 @@ def my_dslash(numpy.ndarray[numpy.complex128_t, ndim=7] U, numpy.ndarray[numpy.c
     cdef void *a_ptr = <void *>ptr_uint64
     ptr_uint64 = b.ctypes.data
     cdef void *b_ptr = <void *>ptr_uint64
-    extension.my_dslash_interface(U_ptr, a_ptr, b_ptr, Lx, Ly, Lz, Lt, Nd, Ns, Nc)
+    my_dslash_interface(U_ptr, a_ptr, b_ptr, Lx, Ly, Lz, Lt, Nd, Ns, Nc)
