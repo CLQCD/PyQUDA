@@ -1,5 +1,5 @@
 from . import pyquda as quda
-from . import pyquda_extension as extension
+from . import pyqcu as qcu
 from .mpi import init
 
 

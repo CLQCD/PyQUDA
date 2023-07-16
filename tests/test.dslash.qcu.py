@@ -6,7 +6,7 @@ import sys
 
 import numpy as np
 
-from pyquda import init, extension
+from pyquda import init, qcu
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 init()
@@ -52,8 +52,8 @@ Mp = np.zeros((Lt, Lz, Ly, Lx, Ns, Nc), np.complex128)
 U = applyDslash(Mp, p, 0)
 print(Mp[0, 0, 0, 1])
 
-my_Mp = np.zeros((Lt, Lz, Ly, Lx, Ns, Nc), np.complex128)
-extension.my_dslash(U, p, my_Mp, Lx, Ly, Lz, Lt, Nd, Ns, Nc)
+Mp1 = np.zeros((Lt, Lz, Ly, Lx, Ns, Nc), np.complex128)
+qcu.my_dslash(U, p, Mp1, Lx, Ly, Lz, Lt, Nd, Ns, Nc)
 print(Mp[0, 0, 0, 1])
 
-print(np.linalg.norm(Mp - my_Mp))
+print(np.linalg.norm(Mp - Mp1))

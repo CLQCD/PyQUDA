@@ -3,22 +3,23 @@ from distutils.core import Extension, setup
 from Cython.Build import cythonize
 import numpy
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 LICENSE = "MIT"
 DESCRIPTION = "Python wrapper for quda written in Cython."
 
 ld_library_path = [path.abspath(_path) for _path in environ["LD_LIBRARY_PATH"].strip().split(":")]
+
 for libquda_path in ld_library_path:
     if path.exists(path.join(libquda_path, "libquda.so")):
         break
 else:
     raise RuntimeError("Cannot find libquda.so in LD_LIBRARY_PATH environment")
 
-for libextension_path in ld_library_path:
-    if path.exists(path.join(libextension_path, "libextension.so")):
+for libqcu_path in ld_library_path:
+    if path.exists(path.join(libqcu_path, "libqcu.so")):
         break
 else:
-    raise RuntimeError("Cannot find libextension.so in LD_LIBRARY_PATH environment")
+    raise RuntimeError("Cannot find libqcu.so in LD_LIBRARY_PATH environment")
 
 ext_modules = cythonize(
     [
@@ -26,19 +27,19 @@ ext_modules = cythonize(
             "pyquda.pyquda",
             ["pyquda/src/pyquda.pyx"],
             language="c",
-            include_dirs=["pyquda/include", numpy.get_include()],
+            include_dirs=["pyquda/include/quda", numpy.get_include()],
             define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
             library_dirs=[libquda_path],
             libraries=["quda"],
         ),
         Extension(
-            "pyquda.pyquda_extension",
-            ["pyquda/src/pyquda_extension.pyx"],
+            "pyquda.pyqcu",
+            ["pyquda/src/pyqcu.pyx"],
             language="c",
-            include_dirs=["pyquda/extension", numpy.get_include()],
+            include_dirs=["pyquda/include/qcu", numpy.get_include()],
             define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
-            library_dirs=[libextension_path],
-            libraries=["extension"],
+            library_dirs=[libqcu_path],
+            libraries=["qcu"],
         )
     ],
     language_level="3",
@@ -53,7 +54,7 @@ package_dir = {
     "pyquda": "pyquda",
 }
 package_data = {
-    "pyquda": ["*.pyi", "src/*.pxd", "include/*.h", "extension/*.h"],
+    "pyquda": ["*.pyi", "src/*.pxd", "include/**"],
 }
 
 setup(
