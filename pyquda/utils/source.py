@@ -135,7 +135,7 @@ def source12(
         for color in range(Nc):
             for spin in range(Ns):
                 data[:, spin, spin, :, color] = b.data.reshape(Vol, Nc)
-    if source_type.lower() in ["gaussian"]:
+    elif source_type.lower() in ["gaussian"]:
         for color in range(Nc):
             b = source(latt_size, source_type, t_srce, 0, color, phase, rho, nsteps, xi)
             for spin in range(Ns):
