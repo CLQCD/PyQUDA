@@ -15,11 +15,14 @@ for libquda_path in ld_library_path:
 else:
     raise RuntimeError("Cannot find libquda.so in LD_LIBRARY_PATH environment")
 
+BUILD_QCU = False
 for libqcu_path in ld_library_path:
     if path.exists(path.join(libqcu_path, "libqcu.so")):
+        BUILD_QCU = True
         break
 else:
-    raise RuntimeError("Cannot find libqcu.so in LD_LIBRARY_PATH environment")
+    import warnings
+    warnings.warn("Cannot find libqcu.so in LD_LIBRARY_PATH environment.", RuntimeWarning)
 
 ext_modules = cythonize(
     [
@@ -31,7 +34,13 @@ ext_modules = cythonize(
             define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
             library_dirs=[libquda_path],
             libraries=["quda"],
-        ),
+        )
+    ],
+    language_level="3",
+)
+
+if BUILD_QCU:
+    ext_modules += [
         Extension(
             "pyquda.pyqcu",
             ["pyquda/src/pyqcu.pyx"],
@@ -41,9 +50,7 @@ ext_modules = cythonize(
             library_dirs=[libqcu_path],
             libraries=["qcu"],
         )
-    ],
-    language_level="3",
-)
+    ]
 
 packages = [
     "pyquda",

@@ -1,5 +1,8 @@
 from . import pyquda as quda
-from . import pyqcu as qcu
+try:
+    from . import pyqcu as qcu
+except ImportError:
+    pass
 from .mpi import init
 
 

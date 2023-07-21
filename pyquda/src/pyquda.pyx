@@ -3248,7 +3248,7 @@ def computeGaugePathQuda(Pointers out, Pointers sitelink, Pointer input_path_buf
     assert sitelink.dtype == "void"
     return quda.computeGaugePathQuda(out.ptr, sitelink.ptr, <int ***>input_path_buf.ptr, <int *>path_length.ptr, <double *>loop_coeff.ptr, num_paths, max_length, dt, &qudaGaugeParam.param)
 
-def computeGaugeLoopTraceQuda(traces: Pointer, input_path_buf: Pointers, path_length: Pointer, loop_coeff: Pointer, num_paths: int, max_length: int, factor: double):
+def computeGaugeLoopTraceQuda(Pointer traces, Pointers input_path_buf, Pointer path_length, Pointer loop_coeff, int num_paths, int max_length, double factor):
     assert traces.dtype == "double_complex"
     assert input_path_buf.dtype == "int"
     assert path_length.dtype == "int"
