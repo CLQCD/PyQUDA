@@ -3,6 +3,7 @@ from enum import IntEnum
 
 import numpy
 import cupy
+import torch
 
 from .pyquda import ndarrayDataPointer
 
@@ -71,9 +72,11 @@ def newLatticeFieldData(latt_size: List[int], dtype: str) -> cupy.ndarray:
     elif dtype.capitalize() == "Colorvector":
         return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
     elif dtype.capitalize() == "Fermion":
-        return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
+        return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype="<c16")
+        # return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=torch.complex128, device="cuda")
     elif dtype.capitalize() == "Propagator":
         return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), "<c16")
+        # return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), dtype=torch.complex128, device="cuda")
 
 
 class LatticeField:

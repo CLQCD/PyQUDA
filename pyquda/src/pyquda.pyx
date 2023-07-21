@@ -10,6 +10,7 @@ import cython
 import numpy
 cimport numpy
 import cupy
+import torch
 
 from libc.stdio cimport stdout
 from libc.stdlib cimport malloc, free
@@ -105,19 +106,22 @@ cdef class Pointerss(Pointer):
         self.ptr = <void *>self.ptrss
 
 def ndarrayDataPointer(ndarray, as_void=False):
+    gpu = None
     if isinstance(ndarray, numpy.ndarray):
-        gpu = False
+        pass
     elif isinstance(ndarray, cupy.ndarray):
-        gpu = True
+        gpu = "cupy"
+    elif isinstance(ndarray, torch.Tensor):
+        gpu = "torch"
     else:
-        raise TypeError("ndarrayDataPointer: ndarray should be numpy.ndarray or cupy.ndarray.")
+        raise TypeError("ndarrayDataPointer: ndarray should be numpy.ndarray, cupy.ndarray or torch.Tensor.")
     if not as_void:
-        dtype = ndarray.dtype.str
-        if dtype == "<i4":
+        dtype = ndarray.dtype
+        if dtype in [numpy.int32, cupy.int32, torch.int32]:
             dtype = "int"
-        elif dtype == "<f8":
+        elif dtype in [numpy.float64, cupy.float64, torch.float64]:
             dtype = "double"
-        elif dtype == "<c16":
+        elif dtype in [numpy.complex128, cupy.complex128, torch.complex128]:
             dtype = "double_complex"
         else:
             raise TypeError(f"ndarrayDataPointer: ndarray has unsupported dtype={dtype}.")
@@ -130,22 +134,28 @@ def ndarrayDataPointer(ndarray, as_void=False):
     cdef void ***ptrss
     if ndim == 1:
         ptr1 = Pointer(dtype)
-        if not gpu:
-            ptr_uint64 = ndarray.ctypes.data
-        else:
+        if gpu == "cupy":
             ptr_uint64 = ndarray.data.ptr
+        elif gpu == "torch":
+            ptr_uint64 = ndarray.data_ptr()
+        else:
+            ptr_uint64 = ndarray.ctypes.data
         ptr1.set_ptr(<void *>ptr_uint64)
         return ptr1
     elif ndim == 2:
         ptr2 = Pointers(dtype, shape[0])
         ptrs = <void **>malloc(shape[0] * sizeof(void *))
-        if not gpu:
+        if gpu == "cupy":
             for i in range(shape[0]):
-                ptr_uint64 = ndarray[i].ctypes.data
+                ptr_uint64 = ndarray[i].data.ptr
+                ptrs[i] = <void *>ptr_uint64
+        elif gpu == "torch":
+            for i in range(shape[0]):
+                ptr_uint64 = ndarray[i].data_ptr()
                 ptrs[i] = <void *>ptr_uint64
         else:
             for i in range(shape[0]):
-                ptr_uint64 = ndarray[i].data.ptr
+                ptr_uint64 = ndarray[i].ctypes.data
                 ptrs[i] = <void *>ptr_uint64
         ptr2.set_ptrs(ptrs)
         free(ptrs)
@@ -155,15 +165,20 @@ def ndarrayDataPointer(ndarray, as_void=False):
         ptrss = <void ***>malloc(shape[0] * sizeof(void **))
         for i in range(shape[0]):
             ptrss[i] = <void **>malloc(shape[1] * sizeof(void *))
-        if not gpu:
+        if gpu == "cupy":
             for i in range(shape[0]):
                 for j in range(shape[1]):
-                    ptr_uint64 = ndarray[i, j].ctypes.data
+                    ptr_uint64 = ndarray[i, j].data.ptr
+                    ptrss[i][j] = <void *>ptr_uint64
+        elif gpu == "torch":
+            for i in range(shape[0]):
+                for j in range(shape[1]):
+                    ptr_uint64 = ndarray[i, j].data_ptr()
                     ptrss[i][j] = <void *>ptr_uint64
         else:
             for i in range(shape[0]):
                 for j in range(shape[1]):
-                    ptr_uint64 = ndarray[i, j].data.ptr
+                    ptr_uint64 = ndarray[i, j].ctypes.data
                     ptrss[i][j] = <void *>ptr_uint64
         ptr3.set_ptrss(ptrss)
         for i in range(shape[0]):
