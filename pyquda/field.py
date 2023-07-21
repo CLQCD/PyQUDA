@@ -1,8 +1,8 @@
 from typing import List
 from enum import IntEnum
 
-import numpy as np
-import cupy as cp
+import numpy
+import cupy
 
 from .pyquda import ndarrayDataPointer
 
@@ -18,16 +18,16 @@ Nd = LatticeConstant.Nd
 Ns = LatticeConstant.Ns
 
 
-def lexico(data: np.ndarray, axes: List[int], dtype=None):
+def lexico(data: numpy.ndarray, axes: List[int], dtype=None):
     shape = data.shape
     Np, Lt, Lz, Ly, Lx = [shape[axis] for axis in axes]
     assert Np == 2, "There must be 2 parities."
     Lx *= 2
-    Npre = int(np.prod(shape[:axes[0]]))
-    Nsuf = int(np.prod(shape[axes[-1] + 1:]))
+    Npre = int(numpy.prod(shape[:axes[0]]))
+    Nsuf = int(numpy.prod(shape[axes[-1] + 1:]))
     dtype = data.dtype if dtype is None else dtype
     data_cb2 = data.reshape(Npre, 2, Lt, Lz, Ly, Lx // 2, Nsuf)
-    data_lexico = np.zeros((Npre, Lt, Lz, Ly, Lx, Nsuf), dtype)
+    data_lexico = numpy.zeros((Npre, Lt, Lz, Ly, Lx, Nsuf), dtype)
     for t in range(Lt):
         for z in range(Lz):
             for y in range(Ly):
@@ -41,14 +41,14 @@ def lexico(data: np.ndarray, axes: List[int], dtype=None):
     return data_lexico.reshape(*shape[:axes[0]], Lt, Lz, Ly, Lx, *shape[axes[-1] + 1:])
 
 
-def cb2(data: np.ndarray, axes: List[int], dtype=None):
+def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
     shape = data.shape
     Lt, Lz, Ly, Lx = [shape[axis] for axis in axes]
-    Npre = int(np.prod(shape[:axes[0]]))
-    Nsuf = int(np.prod(shape[axes[-1] + 1:]))
+    Npre = int(numpy.prod(shape[:axes[0]]))
+    Nsuf = int(numpy.prod(shape[axes[-1] + 1:]))
     dtype = data.dtype if dtype is None else dtype
     data_lexico = data.reshape(Npre, Lt, Lz, Ly, Lx, Nsuf)
-    data_cb2 = np.zeros((Npre, 2, Lt, Lz, Ly, Lx // 2, Nsuf), dtype)
+    data_cb2 = numpy.zeros((Npre, 2, Lt, Lz, Ly, Lx // 2, Nsuf), dtype)
     for t in range(Lt):
         for z in range(Lz):
             for y in range(Ly):
@@ -62,18 +62,18 @@ def cb2(data: np.ndarray, axes: List[int], dtype=None):
     return data_cb2.reshape(*shape[:axes[0]], 2, Lt, Lz, Ly, Lx // 2, *shape[axes[-1] + 1:])
 
 
-def newLatticeFieldData(latt_size: List[int], dtype: str) -> cp.ndarray:
+def newLatticeFieldData(latt_size: List[int], dtype: str) -> cupy.ndarray:
     Lx, Ly, Lz, Lt = latt_size
     if dtype.capitalize() == "Gauge":
-        ret = cp.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
-        ret[:] = cp.identity(Nc)
+        ret = cupy.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
+        ret[:] = cupy.identity(Nc)
         return ret
     elif dtype.capitalize() == "Colorvector":
-        return cp.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
+        return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
     elif dtype.capitalize() == "Fermion":
-        return cp.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
+        return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
     elif dtype.capitalize() == "Propagator":
-        return cp.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), "<c16")
+        return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), "<c16")
 
 
 class LatticeField:

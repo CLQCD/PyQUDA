@@ -3,7 +3,7 @@ import struct
 from typing import Dict, Tuple
 from xml.etree import ElementTree as ET
 
-import numpy as np
+import numpy
 
 from .. import mpi
 from ..field import Nc, cb2
@@ -54,10 +54,10 @@ def readTimeSlice(filename: str, Ne: int = None):
     latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
     Lx, Ly, Lz, Lt = latt_size
 
-    eigen_raw = np.zeros((Ne, Lt, Lz, Ly, Lx, Nc), ndarray_dtype)
+    eigen_raw = numpy.zeros((Ne, Lt, Lz, Ly, Lx, Nc), ndarray_dtype)
     for e in range(Ne):
         for t in range(Lt):
-            eigen_raw[e, t] = np.fromfile(
+            eigen_raw[e, t] = numpy.fromfile(
                 filename,
                 binary_dtype,
                 count=Gz * Lz * Gy * Ly * Gx * Lx * Nc,

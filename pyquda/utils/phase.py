@@ -1,7 +1,7 @@
 from typing import List
 
-import numpy as np
-import cupy as cp
+import numpy
+import cupy
 
 from .. import mpi
 
@@ -44,20 +44,20 @@ class Phase:
         Gx, Gy, Gz, Gt = mpi.grid
         gx, gy, gz, gt = mpi.coord
         x = (
-            np.arange(gx * Lx, (gx + 1) * Lx).reshape(1, 1, 1, Lx).repeat(Lt, 0).repeat(Lz, 1).repeat(Ly, 2) *
-            (2j * np.pi / (Lx * Gx))
+            numpy.arange(gx * Lx, (gx + 1) * Lx).reshape(1, 1, 1, Lx).repeat(Lt, 0).repeat(Lz, 1).repeat(Ly, 2) *
+            (2j * numpy.pi / (Lx * Gx))
         )
         y = (
-            np.arange(gy * Ly, (gy + 1) * Ly).reshape(1, 1, Ly, 1).repeat(Lt, 0).repeat(Lz, 1).repeat(Lx, 3) *
-            (2j * np.pi / (Ly * Gy))
+            numpy.arange(gy * Ly, (gy + 1) * Ly).reshape(1, 1, Ly, 1).repeat(Lt, 0).repeat(Lz, 1).repeat(Lx, 3) *
+            (2j * numpy.pi / (Ly * Gy))
         )
         z = (
-            np.arange(gz * Lz, (gz + 1) * Lz).reshape(1, Lz, 1, 1).repeat(Lt, 0).repeat(Ly, 2).repeat(Lx, 3) *
-            (2j * np.pi / (Lz * Gz))
+            numpy.arange(gz * Lz, (gz + 1) * Lz).reshape(1, Lz, 1, 1).repeat(Lt, 0).repeat(Ly, 2).repeat(Lx, 3) *
+            (2j * numpy.pi / (Lz * Gz))
         )
-        x_cb2 = np.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
-        y_cb2 = np.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
-        z_cb2 = np.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
+        x_cb2 = numpy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
+        y_cb2 = numpy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
+        z_cb2 = numpy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
         for it in range(Lt):
             for iz in range(Lz):
                 for iy in range(Ly):
@@ -76,16 +76,16 @@ class Phase:
                         y_cb2[0, it, iz, iy] = y[it, iz, iy, 1::2]
                         z_cb2[1, it, iz, iy] = z[it, iz, iy, 0::2]
                         z_cb2[0, it, iz, iy] = z[it, iz, iy, 1::2]
-        self.x = cp.array(x_cb2)
-        self.y = cp.array(y_cb2)
-        self.z = cp.array(z_cb2)
+        self.x = cupy.array(x_cb2)
+        self.y = cupy.array(y_cb2)
+        self.z = cupy.array(z_cb2)
 
     def __getitem__(self, momentum: List[int]):
         npx, npy, npz = momentum
-        return cp.exp(npx * self.x + npy * self.y + npz * self.z)
+        return cupy.exp(npx * self.x + npy * self.y + npz * self.z)
 
     def cache(self, mom_list: List[List[int]]):
-        ret = cp.zeros((len(mom_list), *self.x.shape), "<c16")
+        ret = cupy.zeros((len(mom_list), *self.x.shape), "<c16")
         for idx, mom in enumerate(mom_list):
             ret[idx] = self.__getitem__(mom)
         return ret

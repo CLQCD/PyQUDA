@@ -58,7 +58,7 @@ def init(grid_size: List[int] = None):
 
 
 def gather(data, axes: List[int] = [-1, -1, -1, -1], mode: str = None, root: int = 0):
-    import numpy as np
+    import numpy
     global comm, rank, size, grid
     dtype = data.dtype
     Lt, Lz, Ly, Lx = [data.shape[axis] if axis != -1 else 1 for axis in axes]
@@ -70,11 +70,11 @@ def gather(data, axes: List[int] = [-1, -1, -1, -1], mode: str = None, root: int
     prefix = data.shape[:collect[0]]
     suffix = data.shape[collect[-1] + 1:]
     Nroots = Lx * Ly * Lz * Lt
-    Nprefix = int(np.prod(prefix))
-    Nsuffix = int(np.prod(suffix))
+    Nprefix = int(numpy.prod(prefix))
+    Nsuffix = int(numpy.prod(suffix))
     sendbuf = data.reshape(Nprefix * Nroots * Nsuffix).get()
     if rank == root:
-        recvbuf = np.zeros((size, Nprefix * Nroots * Nsuffix), dtype)
+        recvbuf = numpy.zeros((size, Nprefix * Nroots * Nsuffix), dtype)
     else:
         recvbuf = None
     if comm is not None:
@@ -82,7 +82,7 @@ def gather(data, axes: List[int] = [-1, -1, -1, -1], mode: str = None, root: int
     else:
         recvbuf[0] = sendbuf
     if rank == root:
-        data = np.zeros((Nprefix, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nsuffix), dtype)
+        data = numpy.zeros((Nprefix, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nsuffix), dtype)
         for i in range(size):
             gt = i % Gt
             gz = i // Gt % Gz

@@ -1,23 +1,23 @@
 from functools import lru_cache
 
-import cupy as cp
+import cupy
 
 
 class _Constant:
     @staticmethod
     @lru_cache(1)
     def zero():
-        return cp.zeros((4, 4))
+        return cupy.zeros((4, 4))
 
     @staticmethod
     @lru_cache(1)
     def one():
-        return cp.identity(4)
+        return cupy.identity(4)
 
     @staticmethod
     @lru_cache(1)
     def gamma_0():
-        return cp.array([
+        return cupy.array([
             [0, 0, 0, 1j],
             [0, 0, 1j, 0],
             [0, -1j, 0, 0],
@@ -27,7 +27,7 @@ class _Constant:
     @staticmethod
     @lru_cache(1)
     def gamma_1():
-        return cp.array([
+        return cupy.array([
             [0, 0, 0, -1],
             [0, 0, 1, 0],
             [0, 1, 0, 0],
@@ -37,7 +37,7 @@ class _Constant:
     @staticmethod
     @lru_cache(1)
     def gamma_2():
-        return cp.array([
+        return cupy.array([
             [0, 0, 1j, 0],
             [0, 0, 0, -1j],
             [-1j, 0, 0, 0],
@@ -47,7 +47,7 @@ class _Constant:
     @staticmethod
     @lru_cache(1)
     def gamma_3():
-        return cp.array([
+        return cupy.array([
             [0, 0, 1, 0],
             [0, 0, 0, 1],
             [1, 0, 0, 0],
@@ -57,7 +57,7 @@ class _Constant:
 
 def gamma(n: int):
     assert isinstance(n, int) and n >= 0 and n <= 15
-    return cp.asarray(
+    return cupy.asarray(
         (_Constant.gamma_0() if n & 0b0001 else _Constant.one())
         @ (_Constant.gamma_1() if n & 0b0010 else _Constant.one())
         @ (_Constant.gamma_2() if n & 0b0100 else _Constant.one())
@@ -66,8 +66,8 @@ def gamma(n: int):
 
 
 def bilateral_apply(data, out, axis, gamma_left, gamma_right, conj):
-    gamma_left = cp.sparse.csr_matrix(gamma_left)
-    gamma_right = cp.sparse.csc_matrix(gamma_right)
+    gamma_left = cupy.sparse.csr_matrix(gamma_left)
+    gamma_right = cupy.sparse.csc_matrix(gamma_right)
     shape = data.shape
     assert (
         axis[1] - axis[0] == 1 and shape[axis[0]] == 4 and shape[axis[1]] == 4

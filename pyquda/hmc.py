@@ -1,6 +1,6 @@
 from typing import List
 
-import numpy as np
+import numpy
 
 from .pyquda import (
     Pointers, ndarrayDataPointer, QudaGaugeParam, QudaInvertParam, QudaMultigridParam, loadCloverQuda, freeCloverQuda,
@@ -70,7 +70,8 @@ class HMC:
         invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
         computeCloverForceQuda(
             nullptr, dt, ndarrayDataPointer(x.even.reshape(1, -1), True), nullptr,
-            ndarrayDataPointer(np.array([1.0], "<f8")), kappa2, ck, 1, 2, nullptr, self.gauge_param, self.invert_param
+            ndarrayDataPointer(numpy.array([1.0], "<f8")), kappa2, ck, 1, 2, nullptr, self.gauge_param,
+            self.invert_param
         )
 
     def computeGaugeForce(self, dt, force, lengths, coeffs, num_paths, max_length):
@@ -128,7 +129,7 @@ class HMC:
         return momActionQuda(nullptr, self.gauge_param)
 
     def actionGauge(self, path, lengths, coeffs, num_paths, max_length) -> float:
-        traces = np.zeros((num_paths), "<c16")
+        traces = numpy.zeros((num_paths), "<c16")
         computeGaugeLoopTraceQuda(
             ndarrayDataPointer(traces), ndarrayDataPointer(path), ndarrayDataPointer(lengths),
             ndarrayDataPointer(coeffs), num_paths, max_length, 1
