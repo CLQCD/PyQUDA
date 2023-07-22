@@ -1,7 +1,6 @@
 import os
 import sys
 import numpy as np
-import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 # sys.path.insert(0, os.path.join(test_dir, ".."))
@@ -27,5 +26,5 @@ timeinfo = [0., 0., 0.]
 quda.computeGaugeFixingOVRQuda(gauge.data_ptrs, 4, 1000, 1, 1.0, 1e-15, 1, 1, dslash.gauge_param, timeinfo)
 print(timeinfo)
 
-land_gauge = gauge_utils.readIldg("../coul_cfg.lime")
-print(cp.linalg.norm(land_gauge.data - gauge.data))
+land_gauge = gauge_utils.readIldg("coul_cfg.lime")
+print(np.linalg.norm(land_gauge.data - gauge.data))

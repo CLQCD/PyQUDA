@@ -5,9 +5,11 @@ import torch
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 # sys.path.insert(0, os.path.join(test_dir, ".."))
-from pyquda import core, mpi
+from pyquda import core, mpi, field
 from pyquda.field import Nc, Ns
 from pyquda.utils import gauge_utils
+
+field.CUDA_BACKEND = "torch"
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 

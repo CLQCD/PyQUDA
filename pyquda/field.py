@@ -1,9 +1,9 @@
-from typing import List
+from typing import List, Literal
 from enum import IntEnum
 
 import numpy
-import cupy
-import torch
+
+CUDA_BACKEND: Literal["cupy", "torch"] = "cupy"
 
 from .pyquda import ndarrayDataPointer
 
@@ -63,20 +63,34 @@ def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
     return data_cb2.reshape(*shape[:axes[0]], 2, Lt, Lz, Ly, Lx // 2, *shape[axes[-1] + 1:])
 
 
-def newLatticeFieldData(latt_size: List[int], dtype: str) -> cupy.ndarray:
+def newLatticeFieldData(latt_size: List[int], dtype: str):
     Lx, Ly, Lz, Lt = latt_size
-    if dtype.capitalize() == "Gauge":
-        ret = cupy.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
-        ret[:] = cupy.identity(Nc)
-        return ret
-    elif dtype.capitalize() == "Colorvector":
-        return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
-    elif dtype.capitalize() == "Fermion":
-        return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype="<c16")
-        # return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=torch.complex128, device="cuda")
-    elif dtype.capitalize() == "Propagator":
-        return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), "<c16")
-        # return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), dtype=torch.complex128, device="cuda")
+    if CUDA_BACKEND == "cupy":
+        import cupy
+        if dtype.capitalize() == "Gauge":
+            ret = cupy.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
+            ret[:] = cupy.identity(Nc)
+            return ret
+        elif dtype.capitalize() == "Colorvector":
+            return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
+        elif dtype.capitalize() == "Fermion":
+            return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
+        elif dtype.capitalize() == "Propagator":
+            return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), "<c16")
+    elif CUDA_BACKEND == "torch":
+        import torch
+        if dtype.capitalize() == "Gauge":
+            ret = torch.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128, device="cuda")
+            ret[:] = torch.eye(Nc)
+            return ret
+        elif dtype.capitalize() == "Colorvector":
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128, device="cuda")
+        elif dtype.capitalize() == "Fermion":
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=torch.complex128, device="cuda")
+        elif dtype.capitalize() == "Propagator":
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), dtype=torch.complex128, device="cuda")
+    else:
+        raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
 
 
 class LatticeField:
@@ -98,6 +112,24 @@ class LatticeGauge(LatticeField):
         res = LatticeGauge(self.latt_size, None, self.t_boundary)
         res.data[:] = self.data[:]
         return res
+
+    def toDevice(self):
+        if CUDA_BACKEND == "cupy":
+            import cupy
+            self.data = cupy.asarray(self.data)
+        elif CUDA_BACKEND == "torch":
+            import torch
+            self.data = torch.asarray(self.data)
+        else:
+            raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
+
+    def toHost(self):
+        if CUDA_BACKEND == "cupy":
+            self.data = self.data.get()
+        elif CUDA_BACKEND == "torch":
+            self.data = self.data.numpy()
+        else:
+            raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
 
     def setAntiPeroidicT(self):
         if self.t_boundary:
