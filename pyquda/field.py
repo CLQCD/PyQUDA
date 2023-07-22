@@ -97,6 +97,46 @@ class LatticeField:
     def __init__(self) -> None:
         pass
 
+    def backup(self):
+        if isinstance(self.data, numpy.ndarray):
+            return self.data.copy()
+        elif CUDA_BACKEND == "cupy":
+            return self.data.copy()
+        elif CUDA_BACKEND == "torch":
+            return self.data.clone()
+        else:
+            raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
+
+    def toDevice(self):
+        if CUDA_BACKEND == "cupy":
+            import cupy
+            self.data = cupy.asarray(self.data)
+        elif CUDA_BACKEND == "torch":
+            import torch
+            self.data = torch.asarray(self.data)
+        else:
+            raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
+
+    def toHost(self):
+        if isinstance(self.data, numpy.ndarray):
+            pass
+        elif CUDA_BACKEND == "cupy":
+            self.data = self.data.get()
+        elif CUDA_BACKEND == "torch":
+            self.data = self.data.cpu().numpy()
+        else:
+            raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
+
+    def getHost(self):
+        if isinstance(self.data, numpy.ndarray):
+            return self.data.copy()
+        elif CUDA_BACKEND == "cupy":
+            return self.data.get()
+        elif CUDA_BACKEND == "torch":
+            return self.data.cpu().numpy()
+        else:
+            raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
+
 
 class LatticeGauge(LatticeField):
     def __init__(self, latt_size: List[int], value=None, t_boundary=True) -> None:
@@ -112,24 +152,6 @@ class LatticeGauge(LatticeField):
         res = LatticeGauge(self.latt_size, None, self.t_boundary)
         res.data[:] = self.data[:]
         return res
-
-    def toDevice(self):
-        if CUDA_BACKEND == "cupy":
-            import cupy
-            self.data = cupy.asarray(self.data)
-        elif CUDA_BACKEND == "torch":
-            import torch
-            self.data = torch.asarray(self.data)
-        else:
-            raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
-
-    def toHost(self):
-        if CUDA_BACKEND == "cupy":
-            self.data = self.data.get()
-        elif CUDA_BACKEND == "torch":
-            self.data = self.data.numpy()
-        else:
-            raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
 
     def setAntiPeroidicT(self):
         if self.t_boundary:
@@ -150,7 +172,7 @@ class LatticeGauge(LatticeField):
         return ndarrayDataPointer(self.data.reshape(4, -1), True)
 
     def lexico(self):
-        return lexico(self.data.get(), [1, 2, 3, 4, 5])
+        return lexico(self.getHost(), [1, 2, 3, 4, 5])
 
 
 class LatticeColorVector(LatticeField):
@@ -191,7 +213,7 @@ class LatticeColorVector(LatticeField):
         return ndarrayDataPointer(self.data.reshape(2, -1)[1], True)
 
     def lexico(self):
-        return lexico(self.data.get(), [0, 1, 2, 3, 4])
+        return lexico(self.getHost(), [0, 1, 2, 3, 4])
 
 
 class LatticeFermion(LatticeField):
@@ -232,7 +254,7 @@ class LatticeFermion(LatticeField):
         return ndarrayDataPointer(self.data.reshape(2, -1)[1], True)
 
     def lexico(self):
-        return lexico(self.data.get(), [0, 1, 2, 3, 4])
+        return lexico(self.getHost(), [0, 1, 2, 3, 4])
 
 
 class LatticePropagator(LatticeField):
@@ -241,7 +263,7 @@ class LatticePropagator(LatticeField):
         self.data = newLatticeFieldData(latt_size, "Propagator")
 
     def lexico(self):
-        return lexico(self.data.get(), [0, 1, 2, 3, 4])
+        return lexico(self.getHost(), [0, 1, 2, 3, 4])
 
     def transpose(self):
         return self.data.transpose(0, 1, 2, 3, 4, 6, 5, 8, 7).copy()

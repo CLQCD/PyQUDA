@@ -1,7 +1,6 @@
 import os
 import sys
 import numpy as np
-import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(test_dir, ".."))
@@ -9,6 +8,8 @@ import pyquda
 from pyquda import field
 from pyquda.hmc import HMC
 from pyquda.field import Nc
+
+# field.CUDA_BACKEND = "torch"
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 pyquda.init()
@@ -29,7 +30,6 @@ Vol = Lx * Ly * Lz * Lt
 beta = ensembles[tag][1]
 
 gauge = field.LatticeGauge(latt_size, None, True)
-gauge.data[:] = cp.identity(Nc)
 
 hmc = HMC(latt_size, 0, 0, 0)
 hmc.loadGauge(gauge)

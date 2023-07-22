@@ -265,7 +265,7 @@ def loadClover(gauge: LatticeGauge, gauge_param: QudaGaugeParam, invert_param: Q
     reconstruct = gauge_param.reconstruct
     use_resident_gauge = gauge_param.use_resident_gauge
 
-    gauge_data_bak = gauge.data.copy()
+    gauge_data_bak = gauge.backup()
     if clover_anisotropy != 1.0:
         gauge.setAnisotropy(clover_anisotropy)
     gauge_param.anisotropy = 1.0
@@ -276,14 +276,14 @@ def loadClover(gauge: LatticeGauge, gauge_param: QudaGaugeParam, invert_param: Q
     loadCloverQuda(nullptr, nullptr, invert_param)
     gauge_param.anisotropy = anisotropy
     gauge_param.reconstruct = reconstruct
-    gauge.data = gauge_data_bak.copy()
+    gauge.data = gauge_data_bak
 
 
 def loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     anisotropy = gauge_param.anisotropy
     use_resident_gauge = gauge_param.use_resident_gauge
 
-    gauge_data_bak = gauge.data.copy()
+    gauge_data_bak = gauge.backup()
     if gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
         gauge.setAntiPeroidicT()
     if anisotropy != 1.0:

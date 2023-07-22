@@ -2,6 +2,7 @@ import os
 import sys
 import numpy as np
 import cupy as cp
+# import torch as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(test_dir, ".."))
@@ -10,6 +11,8 @@ import pyquda
 from pyquda import core, enum_quda, field
 from pyquda.hmc import HMC
 from pyquda.field import Nc, Ns
+
+# field.CUDA_BACKEND = "torch"
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 pyquda.init()
@@ -30,7 +33,6 @@ Vol = Lx * Ly * Lz * Lt
 beta = ensembles[tag][1]
 
 gauge = field.LatticeGauge(latt_size, None, True)
-gauge.data[:] = cp.identity(Nc)
 
 mass = 4
 kappa = 1 / (2 * (mass + 4))
@@ -159,6 +161,11 @@ for i in range(100):
     phi = 2 * cp.pi * cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
     r = cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
     noise = core.LatticeFermion(latt_size, cp.sqrt(-cp.log(r)) * (cp.cos(phi) + 1j * cp.sin(phi)))
+
+    # cp.random.manual_seed(i)
+    # phi = 2 * cp.pi * cp.rand((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), device="cuda", dtype=cp.float64)
+    # r = cp.rand((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), device="cuda",  dtype=cp.float64)
+    # noise = core.LatticeFermion(latt_size, cp.sqrt(-cp.log(r)) * (cp.cos(phi) + 1j * cp.sin(phi)))
 
     hmc.updateClover()
     invert_param.dagger = enum_quda.QudaDagType.QUDA_DAG_YES
