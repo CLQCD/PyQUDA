@@ -1,17 +1,28 @@
 import numpy
 cimport numpy
 
+cimport qcu
 
-cdef extern from "qcu.h":
-    void my_dslash_interface(void *U_ptr, void *a_ptr, void *b_ptr, int Lx, int Ly, int Lz, int Lt, int Nd, int Ns, int Nc)
+cdef class QcuParam:
+    cdef qcu.QcuParam param
 
+    def __init__(self):
+        pass
 
-def my_dslash(numpy.ndarray[numpy.complex128_t, ndim=7] U, numpy.ndarray[numpy.complex128_t, ndim=6] a, numpy.ndarray[numpy.complex128_t,ndim=6]b, int Lx,int Ly, int Lz,int Lt,int Nd, int Ns, int Nc):
+    @property
+    def lattice_size(self):
+        return self.param.lattice_size
+
+    @lattice_size.setter
+    def lattice_size(self, value):
+        self.param.lattice_size = value
+
+def my_dslash(numpy.ndarray fermion_out, numpy.ndarray fermion_in, numpy.ndarray gauge, QcuParam param):
     cdef size_t ptr_uint64
-    ptr_uint64 = U.ctypes.data
-    cdef void *U_ptr = <void *>ptr_uint64
-    ptr_uint64 = a.ctypes.data
-    cdef void *a_ptr = <void *>ptr_uint64
-    ptr_uint64 = b.ctypes.data
-    cdef void *b_ptr = <void *>ptr_uint64
-    my_dslash_interface(U_ptr, a_ptr, b_ptr, Lx, Ly, Lz, Lt, Nd, Ns, Nc)
+    ptr_uint64 = fermion_out.ctypes.data
+    cdef void *fermion_out_ptr = <void *>ptr_uint64
+    ptr_uint64 = fermion_in.ctypes.data
+    cdef void *fermion_in_ptr = <void *>ptr_uint64
+    ptr_uint64 = gauge.ctypes.data
+    cdef void *gauge_ptr = <void *>ptr_uint64
+    qcu.dslashQcu(fermion_out_ptr, fermion_in_ptr, gauge_ptr, &param.param)
