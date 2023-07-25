@@ -53,7 +53,9 @@ U = applyDslash(Mp, p, 0)
 print(Mp[0, 0, 0, 1])
 
 Mp1 = np.zeros((Lt, Lz, Ly, Lx, Ns, Nc), np.complex128)
-qcu.my_dslash(U, p, Mp1, Lx, Ly, Lz, Lt, Nd, Ns, Nc)
+param = qcu.QcuParam()
+param.lattice_size = latt_size
+qcu.dslashQcu(Mp1, p, U, param)
 print(Mp[0, 0, 0, 1])
 
 print(np.linalg.norm(Mp - Mp1))

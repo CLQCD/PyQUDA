@@ -40,17 +40,20 @@ ext_modules = cythonize(
 )
 
 if BUILD_QCU:
-    ext_modules += [
-        Extension(
-            "pyquda.pyqcu",
-            ["pyquda/src/pyqcu.pyx"],
-            language="c",
-            include_dirs=["pyquda/include/qcu", numpy.get_include()],
-            define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
-            library_dirs=[libqcu_path],
-            libraries=["qcu"],
-        )
-    ]
+    ext_modules += cythonize(
+        [
+            Extension(
+                "pyquda.pyqcu",
+                ["pyquda/src/pyqcu.pyx"],
+                language="c",
+                include_dirs=["pyquda/include/qcu", numpy.get_include()],
+                define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
+                library_dirs=[libqcu_path],
+                libraries=["qcu"],
+            )
+        ],
+        language_level="3"
+    )
 
 packages = [
     "pyquda",

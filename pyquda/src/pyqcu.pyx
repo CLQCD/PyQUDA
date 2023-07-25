@@ -17,7 +17,7 @@ cdef class QcuParam:
     def lattice_size(self, value):
         self.param.lattice_size = value
 
-def my_dslash(numpy.ndarray fermion_out, numpy.ndarray fermion_in, numpy.ndarray gauge, QcuParam param):
+def dslashQcu(numpy.ndarray fermion_out, numpy.ndarray fermion_in, numpy.ndarray gauge, QcuParam param):
     cdef size_t ptr_uint64
     ptr_uint64 = fermion_out.ctypes.data
     cdef void *fermion_out_ptr = <void *>ptr_uint64
