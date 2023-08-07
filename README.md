@@ -34,7 +34,7 @@ Build, install and run the example.
 `chroma` is needed here for generating the reference file.
 
 ```bash
-export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH #better for absolute path 
 git clone https://github.com/IHEP-LQCD/PyQuda.git
 pushd PyQuda
 python3 -m pip install -r requirements.txt
