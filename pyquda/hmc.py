@@ -55,12 +55,12 @@ class HMC:
         if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
             gauge.setAntiPeroidicT()
         self.gauge_param.use_resident_gauge = 0
-        loadGaugeQuda(gauge.data_ptr, self.gauge_param)
+        loadGaugeQuda(gauge.data_ptrs, self.gauge_param)
         self.gauge_param.use_resident_gauge = use_resident_gauge
         gauge.data = gauge_data_bak
 
     def saveGauge(self, gauge: LatticeGauge):
-        saveGaugeQuda(gauge.data_ptr, self.gauge_param)
+        saveGaugeQuda(gauge.data_ptrs, self.gauge_param)
 
     def updateGaugeField(self, dt: float):
         updateGaugeFieldQuda(nullptr, nullptr, dt, False, False, self.gauge_param)
@@ -87,7 +87,7 @@ class HMC:
         reconstruct = self.gauge_param.reconstruct
         use_resident_gauge = self.gauge_param.use_resident_gauge
 
-        saveGaugeQuda(gauge.data_ptr, self.gauge_param)
+        saveGaugeQuda(gauge.data_ptrs, self.gauge_param)
         if t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
             gauge.setAntiPeroidicT()
         if anisotropy != 1.0:
@@ -97,10 +97,10 @@ class HMC:
         self.gauge_param.anisotropy = 1.0
         self.gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
         self.gauge_param.use_resident_gauge = 0
-        loadGaugeQuda(gauge.data_ptr, self.gauge_param)
+        loadGaugeQuda(gauge.data_ptrs, self.gauge_param)
         self.gauge_param.use_resident_gauge = use_resident_gauge
         projectSU3Quda(nullptr, tol, self.gauge_param)
-        saveGaugeQuda(gauge.data_ptr, self.gauge_param)
+        saveGaugeQuda(gauge.data_ptrs, self.gauge_param)
         self.gauge_param.t_boundary = t_boundary
         self.gauge_param.anisotropy = anisotropy
         self.gauge_param.reconstruct = reconstruct
@@ -110,7 +110,7 @@ class HMC:
         if anisotropy != 1.0:
             gauge.setAnisotropy(anisotropy)
         self.gauge_param.use_resident_gauge = 0
-        loadGaugeQuda(gauge.data_ptr, self.gauge_param)
+        loadGaugeQuda(gauge.data_ptrs, self.gauge_param)
         self.gauge_param.use_resident_gauge = use_resident_gauge
 
     def loadMom(self, mom: LatticeGauge):
@@ -118,7 +118,7 @@ class HMC:
         return_result_mom = self.gauge_param.return_result_mom
         self.gauge_param.make_resident_mom = 1
         self.gauge_param.return_result_mom = 0
-        momResidentQuda(mom.data_ptr, self.gauge_param)
+        momResidentQuda(mom.data_ptrs, self.gauge_param)
         self.gauge_param.make_resident_mom = make_resident_mom
         self.gauge_param.return_result_mom = return_result_mom
 

@@ -21,7 +21,7 @@ def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
     dslash.loadGauge(gauge)
     quda.performGaugeSmearQuda(smear_param, obs_param)
     dslash.gauge_param.type = enum_quda.QudaLinkType.QUDA_SMEARED_LINKS
-    quda.saveGaugeQuda(gauge.data_ptr, dslash.gauge_param)
+    quda.saveGaugeQuda(gauge.data_ptrs, dslash.gauge_param)
 
 
 def smear4(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
@@ -38,7 +38,7 @@ def smear4(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
     dslash.loadGauge(gauge)
     quda.performGaugeSmearQuda(smear_param, obs_param)
     dslash.gauge_param.type = enum_quda.QudaLinkType.QUDA_SMEARED_LINKS
-    quda.saveGaugeQuda(gauge.data_ptr, dslash.gauge_param)
+    quda.saveGaugeQuda(gauge.data_ptrs, dslash.gauge_param)
 
 
 def invert(dslash: Dslash, source_type: str, t_srce: Union[int, List[int]], phase=None):

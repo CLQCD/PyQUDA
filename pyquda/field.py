@@ -165,7 +165,7 @@ class LatticeGauge(LatticeField):
 
     @property
     def data_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(4, -1), True)
+        return ndarrayDataPointer(self.data.reshape(-1), True)
 
     @property
     def data_ptrs(self):

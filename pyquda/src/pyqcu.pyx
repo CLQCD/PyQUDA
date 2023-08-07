@@ -2,6 +2,7 @@ import numpy
 cimport numpy
 
 cimport qcu
+from pointer cimport Pointer, Pointers
 
 cdef class QcuParam:
     cdef qcu.QcuParam param
@@ -17,12 +18,5 @@ cdef class QcuParam:
     def lattice_size(self, value):
         self.param.lattice_size = value
 
-def dslashQcu(numpy.ndarray fermion_out, numpy.ndarray fermion_in, numpy.ndarray gauge, QcuParam param):
-    cdef size_t ptr_uint64
-    ptr_uint64 = fermion_out.ctypes.data
-    cdef void *fermion_out_ptr = <void *>ptr_uint64
-    ptr_uint64 = fermion_in.ctypes.data
-    cdef void *fermion_in_ptr = <void *>ptr_uint64
-    ptr_uint64 = gauge.ctypes.data
-    cdef void *gauge_ptr = <void *>ptr_uint64
-    qcu.dslashQcu(fermion_out_ptr, fermion_in_ptr, gauge_ptr, &param.param)
+def dslashQcu(Pointer fermion_out, Pointer fermion_in, Pointer gauge, QcuParam param, int parity):
+    qcu.dslashQcu(fermion_out.ptr, fermion_in.ptr, gauge.ptr, &param.param, parity)
