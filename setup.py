@@ -3,7 +3,7 @@ from distutils.core import Extension, setup
 from Cython.Build import cythonize
 import numpy
 
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 LICENSE = "MIT"
 DESCRIPTION = "Python wrapper for quda written in Cython."
 
@@ -29,11 +29,11 @@ ext_modules = cythonize(
         Extension(
             "pyquda.pyquda",
             ["pyquda/src/pyquda.pyx"],
-            language="c",
             include_dirs=["pyquda/include/quda", numpy.get_include()],
             define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
             library_dirs=[libquda_path],
             libraries=["quda"],
+            language="c",
         )
     ],
     language_level="3",
@@ -45,11 +45,11 @@ if BUILD_QCU:
             Extension(
                 "pyquda.pyqcu",
                 ["pyquda/src/pyqcu.pyx"],
-                language="c",
                 include_dirs=["pyquda/include/qcu", numpy.get_include()],
                 define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
                 library_dirs=[libqcu_path],
                 libraries=["qcu"],
+                language="c",
             )
         ],
         language_level="3"

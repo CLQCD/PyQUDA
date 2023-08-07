@@ -1,8 +1,5 @@
-import numpy
-cimport numpy
-
 cimport qcu
-from pointer cimport Pointer, Pointers
+include "pointer.pxi"
 
 cdef class QcuParam:
     cdef qcu.QcuParam param
