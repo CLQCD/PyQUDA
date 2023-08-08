@@ -1,5 +1,5 @@
 cimport qcu
-include "pointer.pxi"
+from pyquda.pointer cimport Pointer, Pointers, Pointerss
 
 cdef class QcuParam:
     cdef qcu.QcuParam param

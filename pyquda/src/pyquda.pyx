@@ -10,7 +10,7 @@ import cython
 from libc.stdio cimport stdout
 
 cimport quda
-include "pointer.pxi"
+from pyquda.pointer cimport Pointer, Pointers, Pointerss
 
 libc = ctypes.CDLL(None)
 c_stdout = ctypes.c_void_p.in_dll(libc, 'stdout')

@@ -34,6 +34,13 @@ ext_modules = cythonize(
             library_dirs=[libquda_path],
             libraries=["quda"],
             language="c",
+        ),
+        Extension(
+            "pyquda.pointer",
+            [],
+            include_dirs=[numpy.get_include()],
+            define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
+            language="c",
         )
     ],
     language_level="3",

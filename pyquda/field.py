@@ -5,7 +5,7 @@ import numpy
 
 CUDA_BACKEND: Literal["cupy", "torch"] = "cupy"
 
-from .pyquda import ndarrayDataPointer
+from .pointer import ndarrayDataPointer
 
 
 class LatticeConstant(IntEnum):

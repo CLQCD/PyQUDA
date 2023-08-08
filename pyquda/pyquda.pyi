@@ -1,7 +1,5 @@
 from typing import List
 
-import numpy
-
 size_t = int
 double = float
 double_complex = complex
@@ -22,19 +20,7 @@ from .enum_quda import (  # noqa: F401
     QudaStaggeredPhase, QudaContractType, QudaContractGamma, QudaGaugeSmearType, QudaExtLibType
 )
 
-
-class Pointer:
-    def __init__(self, dtype: str):
-        ...
-
-
-class Pointers(Pointer):
-    def __init__(self, dtype: str, n1: int):
-        ...
-
-
-def ndarrayDataPointer(ndarray: numpy.ndarray, as_void: bool = False) -> Pointer:
-    ...
+from .pointer import Pointer, Pointers
 
 
 class QudaGaugeParam:

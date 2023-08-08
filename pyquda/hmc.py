@@ -2,11 +2,11 @@ from typing import List
 
 import numpy
 
+from .pointer import Pointers, ndarrayDataPointer
 from .pyquda import (
-    Pointers, ndarrayDataPointer, QudaGaugeParam, QudaInvertParam, QudaMultigridParam, loadCloverQuda, freeCloverQuda,
-    loadGaugeQuda, saveGaugeQuda, updateGaugeFieldQuda, invertQuda, dslashQuda, cloverQuda, projectSU3Quda,
-    momResidentQuda, gaussMomQuda, momActionQuda, computeCloverForceQuda, computeGaugeForceQuda,
-    computeGaugeLoopTraceQuda
+    QudaGaugeParam, QudaInvertParam, QudaMultigridParam, loadCloverQuda, freeCloverQuda, loadGaugeQuda, saveGaugeQuda,
+    updateGaugeFieldQuda, invertQuda, dslashQuda, cloverQuda, projectSU3Quda, momResidentQuda, gaussMomQuda,
+    momActionQuda, computeCloverForceQuda, computeGaugeForceQuda, computeGaugeLoopTraceQuda
 )
 from .field import Ns, Nc
 from .enum_quda import (QudaMatPCType, QudaSolutionType, QudaVerbosity, QudaTboundary, QudaReconstructType)

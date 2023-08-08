@@ -1,12 +1,16 @@
 import os
 import sys
+from time import perf_counter
 
-# test_dir = os.path.dirname(os.path.abspath(__file__))
-# sys.path.insert(0, os.path.join(test_dir, ".."))
+import cupy as cp
 
-import numpy as np
+test_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(test_dir, ".."))
 
-from pyquda import init, qcu
+from pyquda import init, core, quda, qcu
+from pyquda.enum_quda import QudaParity
+from pyquda.field import LatticeFermion
+from pyquda.utils import gauge_utils
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 init()
@@ -16,46 +20,42 @@ Nd, Ns, Nc = 4, 4, 3
 latt_size = [Lx, Ly, Lz, Lt]
 
 
-def applyDslash(Mp, p, U_seed):
-    import cupy as cp
-    from pyquda import core, quda
-    from pyquda.enum_quda import QudaParity
-    from pyquda.field import LatticeFermion
-    from pyquda.utils import gauge_utils
+def compare(round):
+    # generate a vector p randomly
+    p = LatticeFermion(latt_size, cp.random.randn(Lt, Lz, Ly, Lx, Ns, Nc * 2).view(cp.complex128))
+    Mp = LatticeFermion(latt_size)
+    Mp1 = LatticeFermion(latt_size)
+
+    print('===============round ', round, '======================')
 
     # Set parameters in Dslash and use m=-3.5 to make kappa=1
     dslash = core.getDslash(latt_size, -3.5, 0, 0, anti_periodic_t=False)
-
     # Generate gauge and then load it
-    U = gauge_utils.gaussGauge(latt_size, U_seed)
+    U = gauge_utils.gaussGauge(latt_size, round)
     dslash.loadGauge(U)
 
-    # Load a from p and allocate b
-    a = LatticeFermion(latt_size, cp.asarray(core.cb2(p, [0, 1, 2, 3])))
-    b = LatticeFermion(latt_size)
+    cp.cuda.runtime.deviceSynchronize()
+    t1 = perf_counter()
+    quda.dslashQuda(Mp.even_ptr, p.odd_ptr, dslash.invert_param, QudaParity.QUDA_EVEN_PARITY)
+    quda.dslashQuda(Mp.odd_ptr, p.even_ptr, dslash.invert_param, QudaParity.QUDA_ODD_PARITY)
+    cp.cuda.runtime.deviceSynchronize()
+    t2 = perf_counter()
+    print(f'Quda dslash: {t2 - t1} sec')
 
-    # Dslash a = b
-    quda.dslashQuda(b.even_ptr, a.odd_ptr, dslash.invert_param, QudaParity.QUDA_EVEN_PARITY)
-    quda.dslashQuda(b.odd_ptr, a.even_ptr, dslash.invert_param, QudaParity.QUDA_ODD_PARITY)
+    # then execute my code
+    param = qcu.QcuParam()
+    param.lattice_size = latt_size
 
-    # Save b to Mp
-    Mp[:] = b.lexico()
+    cp.cuda.runtime.deviceSynchronize()
+    t1 = perf_counter()
+    qcu.dslashQcu(Mp.even_ptr, p.odd_ptr, U.data_ptr, param, 0)
+    qcu.dslashQcu(Mp.odd_ptr, p.even_ptr, U.data_ptr, param, 1)
+    cp.cuda.runtime.deviceSynchronize()
+    t2 = perf_counter()
+    print(f'my_dslash total time: {t2 - t1} sec')
 
-    # Return gauge as a ndarray with shape (Nd, Lt, Lz, Ly, Lx, Ns, Ns)
-    return U.lexico()
+    print('difference: ', cp.linalg.norm(Mp1.data - Mp.data) / cp.linalg.norm(Mp.data))
 
 
-p = np.zeros((Lt, Lz, Ly, Lx, Ns, Nc), np.complex128)
-p[0, 0, 0, 0, 0, 0] = 1
-Mp = np.zeros((Lt, Lz, Ly, Lx, Ns, Nc), np.complex128)
-
-U = applyDslash(Mp, p, 0)
-print(Mp[0, 0, 0, 1])
-
-Mp1 = np.zeros((Lt, Lz, Ly, Lx, Ns, Nc), np.complex128)
-param = qcu.QcuParam()
-param.lattice_size = latt_size
-qcu.dslashQcu(Mp1, p, U, param)
-print(Mp[0, 0, 0, 1])
-
-print(np.linalg.norm(Mp - Mp1))
+for i in range(0, 5):
+    compare(i)

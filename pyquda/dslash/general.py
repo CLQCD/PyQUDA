@@ -1,8 +1,9 @@
 from typing import List
 
+from ..pointer import Pointer
 from ..pyquda import (
-    Pointer, QudaGaugeParam, QudaInvertParam, QudaMultigridParam, loadCloverQuda, loadGaugeQuda, invertQuda,
-    dslashQuda, cloverQuda
+    QudaGaugeParam, QudaInvertParam, QudaMultigridParam, loadCloverQuda, loadGaugeQuda, invertQuda, dslashQuda,
+    cloverQuda
 )
 from ..field import LatticeGauge, LatticeFermion
 from ..enum_quda import (  # noqa: F401

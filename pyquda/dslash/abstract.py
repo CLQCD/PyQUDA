@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from ..pyquda import Pointer, QudaGaugeParam, QudaInvertParam, QudaMultigridParam
+from ..pointer import Pointer
+from ..pyquda import QudaGaugeParam, QudaInvertParam, QudaMultigridParam
 from ..field import LatticeGauge, LatticeFermion
 
 
