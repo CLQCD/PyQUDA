@@ -52,7 +52,7 @@ def compare(round):
     qcu.dslashQcu(Mp1.odd_ptr, p.even_ptr, U.data_ptr, param, 1)
     cp.cuda.runtime.deviceSynchronize()
     t2 = perf_counter()
-    print(f'my_dslash total time: {t2 - t1} sec')
+    print(f'QCU dslash: {t2 - t1} sec')
 
     print('difference: ', cp.linalg.norm(Mp1.data - Mp.data) / cp.linalg.norm(Mp.data))
 
