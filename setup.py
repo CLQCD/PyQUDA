@@ -24,43 +24,42 @@ else:
     import warnings
     warnings.warn("Cannot find libqcu.so in LD_LIBRARY_PATH environment.", RuntimeWarning)
 
-ext_modules = cythonize(
-    [
-        Extension(
-            "pyquda.pyquda",
-            ["pyquda/src/pyquda.pyx"],
-            include_dirs=["pyquda/include/quda", numpy.get_include()],
-            define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
-            library_dirs=[libquda_path],
-            libraries=["quda"],
-            language="c",
-        ),
-        Extension(
-            "pyquda.pointer",
-            ["pyquda/src/pointer.pyx"],
-            include_dirs=[numpy.get_include()],
-            define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
-            language="c",
-        )
-    ],
-    language_level="3",
-)
+extensions = [
+    Extension(
+        "pyquda.pointer",
+        ["pyquda/src/pointer.pyx"],
+        include_dirs=[numpy.get_include()],
+        define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
+        language="c",
+    ),
+    Extension(
+        "pyquda.pyquda",
+        ["pyquda/src/pyquda.pyx"],
+        include_dirs=["pyquda/include/quda", numpy.get_include()],
+        define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
+        library_dirs=[libquda_path],
+        libraries=["quda"],
+        language="c",
+    )
+]
 
 if BUILD_QCU:
-    ext_modules += cythonize(
-        [
-            Extension(
-                "pyquda.pyqcu",
-                ["pyquda/src/pyqcu.pyx"],
-                include_dirs=["pyquda/include/qcu", numpy.get_include()],
-                define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
-                library_dirs=[libqcu_path],
-                libraries=["qcu"],
-                language="c",
-            )
-        ],
-        language_level="3"
+    extensions.append(
+        Extension(
+            "pyquda.pyqcu",
+            ["pyquda/src/pyqcu.pyx"],
+            include_dirs=["pyquda/include/qcu", numpy.get_include()],
+            define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
+            library_dirs=[libqcu_path],
+            libraries=["qcu"],
+            language="c",
+        )
     )
+
+ext_modules = cythonize(
+    extensions,
+    language_level="3",
+)
 
 packages = [
     "pyquda",

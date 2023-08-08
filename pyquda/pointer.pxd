@@ -1,6 +1,6 @@
 cdef class Pointer:
     cdef void *ptr
-    cdef bytes dtype
+    cdef str dtype
 
     cdef set_ptr(self, void *ptr)
 

@@ -6,9 +6,6 @@ import numpy
 cimport numpy
 
 cdef class Pointer:
-    cdef void *ptr
-    dtype: str
-
     def __cinit__(self, str dtype, *args):
         self.dtype = dtype
         self.ptr = NULL
@@ -17,9 +14,6 @@ cdef class Pointer:
         self.ptr = ptr
 
 cdef class Pointers(Pointer):
-    cdef unsigned int n1
-    cdef void **ptrs
-
     def __cinit__(self, str dtype, unsigned int n1):
         self.n1 = n1
         if n1 > 0:
@@ -39,9 +33,6 @@ cdef class Pointers(Pointer):
         self.ptr = <void *>self.ptrs
 
 cdef class Pointerss(Pointer):
-    cdef unsigned int n1, n2
-    cdef void ***ptrss
-
     def __cinit__(self, str dtype, unsigned int n1, unsigned int n2):
         self.n1 = n1
         self.n2 = n2
