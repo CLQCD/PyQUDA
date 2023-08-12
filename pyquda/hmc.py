@@ -4,12 +4,25 @@ import numpy
 
 from .pointer import Pointers, ndarrayDataPointer
 from .pyquda import (
-    QudaGaugeParam, QudaInvertParam, QudaMultigridParam, loadCloverQuda, freeCloverQuda, loadGaugeQuda, saveGaugeQuda,
-    updateGaugeFieldQuda, invertQuda, dslashQuda, cloverQuda, projectSU3Quda, momResidentQuda, gaussMomQuda,
-    momActionQuda, computeCloverForceQuda, computeGaugeForceQuda, computeGaugeLoopTraceQuda
+    QudaGaugeParam,
+    QudaInvertParam,
+    QudaMultigridParam,
+    loadCloverQuda,
+    freeCloverQuda,
+    loadGaugeQuda,
+    saveGaugeQuda,
+    updateGaugeFieldQuda,
+    invertQuda,
+    projectSU3Quda,
+    momResidentQuda,
+    gaussMomQuda,
+    momActionQuda,
+    computeCloverForceQuda,
+    computeGaugeForceQuda,
+    computeGaugeLoopTraceQuda,
 )
 from .field import Ns, Nc
-from .enum_quda import (QudaMatPCType, QudaSolutionType, QudaVerbosity, QudaTboundary, QudaReconstructType)
+from .enum_quda import QudaMatPCType, QudaSolutionType, QudaVerbosity, QudaTboundary, QudaReconstructType
 from .core import LatticeGauge, LatticeFermion, getDslash
 
 nullptr = Pointers("void", 0)
@@ -23,7 +36,7 @@ class HMC:
         tol: float,
         maxiter: int,
         clover_coeff: float = 0.0,
-        anti_periodic_t=True
+        anti_periodic_t=True,
     ) -> None:
         self.dslash = getDslash(
             latt_size, mass, tol, maxiter, clover_coeff_t=clover_coeff, anti_periodic_t=anti_periodic_t
@@ -69,15 +82,31 @@ class HMC:
         self.updateClover()
         invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
         computeCloverForceQuda(
-            nullptr, dt, ndarrayDataPointer(x.even.reshape(1, -1), True), nullptr,
-            ndarrayDataPointer(numpy.array([1.0], "<f8")), kappa2, ck, 1, 2, nullptr, self.gauge_param,
-            self.invert_param
+            nullptr,
+            dt,
+            ndarrayDataPointer(x.even.reshape(1, -1), True),
+            nullptr,
+            ndarrayDataPointer(numpy.array([1.0], "<f8")),
+            kappa2,
+            ck,
+            1,
+            2,
+            nullptr,
+            self.gauge_param,
+            self.invert_param,
         )
 
     def computeGaugeForce(self, dt, force, lengths, coeffs, num_paths, max_length):
         computeGaugeForceQuda(
-            nullptr, nullptr, ndarrayDataPointer(force), ndarrayDataPointer(lengths), ndarrayDataPointer(coeffs),
-            num_paths, max_length, dt, self.gauge_param
+            nullptr,
+            nullptr,
+            ndarrayDataPointer(force),
+            ndarrayDataPointer(lengths),
+            ndarrayDataPointer(coeffs),
+            num_paths,
+            max_length,
+            dt,
+            self.gauge_param,
         )
 
     def reunitGaugeField(self, ref: LatticeGauge, tol: float):
@@ -131,8 +160,13 @@ class HMC:
     def actionGauge(self, path, lengths, coeffs, num_paths, max_length) -> float:
         traces = numpy.zeros((num_paths), "<c16")
         computeGaugeLoopTraceQuda(
-            ndarrayDataPointer(traces), ndarrayDataPointer(path), ndarrayDataPointer(lengths),
-            ndarrayDataPointer(coeffs), num_paths, max_length, 1
+            ndarrayDataPointer(traces),
+            ndarrayDataPointer(path),
+            ndarrayDataPointer(lengths),
+            ndarrayDataPointer(coeffs),
+            num_paths,
+            max_length,
+            1,
         )
         return traces.real.sum()
 

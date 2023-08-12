@@ -35,5 +35,9 @@ propagator = core.invert(dslash, "point", [0, 0, 0, 0])
 
 dslash.destroy()
 
-propagator_chroma = torch.from_numpy(np.fromfile("pt_prop_1", ">c16", offset=8).astype("<c16")).to("cuda").reshape(Vol, Ns, Ns, Nc, Nc)
-print(torch.linalg.norm(propagator.data.reshape(Vol, Ns, Ns, Nc, Nc) - propagator_chroma.transpose(1, 2).transpose(3, 4)))
+propagator_chroma = (
+    torch.from_numpy(np.fromfile("pt_prop_1", ">c16", offset=8).astype("<c16")).to("cuda").reshape(Vol, Ns, Ns, Nc, Nc)
+)
+print(
+    torch.linalg.norm(propagator.data.reshape(Vol, Ns, Ns, Nc, Nc) - propagator_chroma.transpose(1, 2).transpose(3, 4))
+)

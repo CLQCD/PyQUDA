@@ -22,6 +22,7 @@ for libqcu_path in ld_library_path:
         break
 else:
     import warnings
+
     warnings.warn("Cannot find libqcu.so in LD_LIBRARY_PATH environment.", RuntimeWarning)
 
 extensions = [
@@ -40,7 +41,7 @@ extensions = [
         library_dirs=[libquda_path],
         libraries=["quda"],
         language="c",
-    )
+    ),
 ]
 
 if BUILD_QCU:

@@ -31,8 +31,15 @@ class CloverWilson(abstract.Dslash):
         self.gauge_param = gauge_param
 
     def newQudaMultigridParam(
-        self, geo_block_size: List[List[int]], kappa: float, coarse_tol: float, coarse_maxiter: int,
-        setup_tol: float, setup_maxiter: int, nu_pre: int, nu_post: int
+        self,
+        geo_block_size: List[List[int]],
+        kappa: float,
+        coarse_tol: float,
+        coarse_maxiter: int,
+        setup_tol: float,
+        setup_maxiter: int,
+        nu_pre: int,
+        nu_post: int,
     ):
         if geo_block_size is not None:
             mg_param, mg_inv_param = general.newQudaMultigridParam(

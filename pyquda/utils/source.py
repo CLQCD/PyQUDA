@@ -11,8 +11,10 @@ def point(latt_size: List[int], t_srce: List[int], spin: int, color: int):
     b = LatticeFermion(latt_size)
     data = b.data.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
     if (
-        gx * Lx <= x < (gx + 1) * Lx and gy * Ly <= y < (gy + 1) * Ly and gz * Lz <= z < (gz + 1) * Lz and
-        gt * Lt <= t < (gt + 1) * Lt
+        gx * Lx <= x < (gx + 1) * Lx
+        and gy * Ly <= y < (gy + 1) * Ly
+        and gz * Lz <= z < (gz + 1) * Lz
+        and gt * Lt <= t < (gt + 1) * Lt
     ):
         eo = ((x - gx * Lx) + (y - gy * Ly) + (z - gz * Lz) + (t - gt * Lt)) % 2
         data[eo, t - gt * Lt, z - gz * Lz, y - gy * Ly, (x - gx * Lx) // 2, spin, color] = 1
@@ -64,8 +66,10 @@ def gaussian(latt_size: List[int], t_srce: int, color: int, rho: float, nsteps: 
     data = b.data.reshape(2, Lt, Lz, Ly, Lx // 2, Nc)
 
     if (
-        gx * Lx <= x < (gx + 1) * Lx and gy * Ly <= y < (gy + 1) * Ly and gz * Lz <= z < (gz + 1) * Lz and
-        gt * Lt <= t < (gt + 1) * Lt
+        gx * Lx <= x < (gx + 1) * Lx
+        and gy * Ly <= y < (gy + 1) * Ly
+        and gz * Lz <= z < (gz + 1) * Lz
+        and gt * Lt <= t < (gt + 1) * Lt
     ):
         eo = ((x - gx * Lx) + (y - gy * Ly) + (z - gz * Lz) + (t - gt * Lt)) % 2
         data[eo, t - gt * Lt, z - gz * Lz, y - gy * Ly, (x - gx * Lx) // 2, color] = 1

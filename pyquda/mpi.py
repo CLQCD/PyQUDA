@@ -9,12 +9,13 @@ gpuid: int = 0
 
 
 def init(grid_size: List[int] = None):
-    '''
+    """
     Initialize MPI along with the QUDA library.
 
     If grid_size is None, MPI will not applied.
-    '''
+    """
     from cupy import cuda
+
     global comm, rank, size, grid, coord, gpuid
     if comm is None:
         if grid_size is not None:
@@ -59,6 +60,7 @@ def init(grid_size: List[int] = None):
 
 def gather(data, axes: List[int] = [-1, -1, -1, -1], mode: str = None, root: int = 0):
     import numpy
+
     global comm, rank, size, grid
     dtype = data.dtype
     Lt, Lz, Ly, Lx = [data.shape[axis] if axis != -1 else 1 for axis in axes]
@@ -67,8 +69,8 @@ def gather(data, axes: List[int] = [-1, -1, -1, -1], mode: str = None, root: int
     if collect == ():
         collect = (0, -1)
     process = tuple([collect[0] + d for d in range(4) if axes[d] == -1])
-    prefix = data.shape[:collect[0]]
-    suffix = data.shape[collect[-1] + 1:]
+    prefix = data.shape[: collect[0]]
+    suffix = data.shape[collect[-1] + 1 :]
     Nroots = Lx * Ly * Lz * Lt
     Nprefix = int(numpy.prod(prefix))
     Nsuffix = int(numpy.prod(suffix))
@@ -88,8 +90,9 @@ def gather(data, axes: List[int] = [-1, -1, -1, -1], mode: str = None, root: int
             gz = i // Gt % Gz
             gy = i // Gt // Gz % Gy
             gx = i // Gt // Gz // Gy
-            data[:, gt * Lt:(gt + 1) * Lt, gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
-                 gx * Lx:(gx + 1) * Lx] = recvbuf[i].reshape(Nprefix, Lt, Lz, Ly, Lx, Nsuffix)
+            data[
+                :, gt * Lt : (gt + 1) * Lt, gz * Lz : (gz + 1) * Lz, gy * Ly : (gy + 1) * Ly, gx * Lx : (gx + 1) * Lx
+            ] = recvbuf[i].reshape(Nprefix, Lt, Lz, Ly, Lx, Nsuffix)
         data = data.reshape(*prefix, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, *suffix)
 
         mode = "sum" if mode is None else mode

@@ -23,8 +23,16 @@ class Dslash(ABC):
 
     @abstractmethod
     def newQudaMultigridParam(
-        self, multigrid: bool, kappa: float, geo_block_size: List[List[int]], coarse_tol: float, coarse_maxiter: int,
-        setup_tol: float, setup_maxiter: int, nu_pre: int, nu_post: int
+        self,
+        multigrid: bool,
+        kappa: float,
+        geo_block_size: List[List[int]],
+        coarse_tol: float,
+        coarse_maxiter: int,
+        setup_tol: float,
+        setup_maxiter: int,
+        nu_pre: int,
+        nu_post: int,
     ):
         pass
 

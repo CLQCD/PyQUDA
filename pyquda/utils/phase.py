@@ -43,17 +43,14 @@ class Phase:
         Lx, Ly, Lz, Lt = latt_size
         Gx, Gy, Gz, Gt = mpi.grid
         gx, gy, gz, gt = mpi.coord
-        x = (
-            numpy.arange(gx * Lx, (gx + 1) * Lx).reshape(1, 1, 1, Lx).repeat(Lt, 0).repeat(Lz, 1).repeat(Ly, 2) *
-            (2j * numpy.pi / (Lx * Gx))
+        x = numpy.arange(gx * Lx, (gx + 1) * Lx).reshape(1, 1, 1, Lx).repeat(Lt, 0).repeat(Lz, 1).repeat(Ly, 2) * (
+            2j * numpy.pi / (Lx * Gx)
         )
-        y = (
-            numpy.arange(gy * Ly, (gy + 1) * Ly).reshape(1, 1, Ly, 1).repeat(Lt, 0).repeat(Lz, 1).repeat(Lx, 3) *
-            (2j * numpy.pi / (Ly * Gy))
+        y = numpy.arange(gy * Ly, (gy + 1) * Ly).reshape(1, 1, Ly, 1).repeat(Lt, 0).repeat(Lz, 1).repeat(Lx, 3) * (
+            2j * numpy.pi / (Ly * Gy)
         )
-        z = (
-            numpy.arange(gz * Lz, (gz + 1) * Lz).reshape(1, Lz, 1, 1).repeat(Lt, 0).repeat(Ly, 2).repeat(Lx, 3) *
-            (2j * numpy.pi / (Lz * Gz))
+        z = numpy.arange(gz * Lz, (gz + 1) * Lz).reshape(1, Lz, 1, 1).repeat(Lt, 0).repeat(Ly, 2).repeat(Lx, 3) * (
+            2j * numpy.pi / (Lz * Gz)
         )
         x_cb2 = numpy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
         y_cb2 = numpy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")

@@ -109,9 +109,11 @@ def getDslash(
 
     if clover_coeff != 0.0:
         from .dslash import clover_wilson
+
         return clover_wilson.CloverWilson(
             latt_size, kappa, tol, maxiter, xi, clover_coeff, clover_xi, t_boundary, geo_block_size
         )
     else:
         from .dslash import wilson
+
         return wilson.Wilson(latt_size, kappa, tol, maxiter, xi, t_boundary, geo_block_size)

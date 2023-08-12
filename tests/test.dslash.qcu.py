@@ -15,7 +15,7 @@ from pyquda.utils import gauge_utils
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 init()
 
-Lx, Ly, Lz, Lt = 16, 16, 16, 32
+Lx, Ly, Lz, Lt = 32, 32, 32, 64
 Nd, Ns, Nc = 4, 4, 3
 latt_size = [Lx, Ly, Lz, Lt]
 
@@ -26,7 +26,7 @@ def compare(round):
     Mp = LatticeFermion(latt_size)
     Mp1 = LatticeFermion(latt_size)
 
-    print('===============round ', round, '======================')
+    print("===============round ", round, "======================")
 
     # Set parameters in Dslash and use m=-3.5 to make kappa=1
     dslash = core.getDslash(latt_size, -3.5, 0, 0, anti_periodic_t=False)
@@ -40,11 +40,12 @@ def compare(round):
     quda.dslashQuda(Mp.odd_ptr, p.even_ptr, dslash.invert_param, QudaParity.QUDA_ODD_PARITY)
     cp.cuda.runtime.deviceSynchronize()
     t2 = perf_counter()
-    print(f'Quda dslash: {t2 - t1} sec')
+    print(f"Quda dslash: {t2 - t1} sec")
 
     # then execute my code
     param = qcu.QcuParam()
     param.lattice_size = latt_size
+    # U.data = cp.ascontiguousarray(U.data[:, :, :, :, :, :, :2, :])
 
     cp.cuda.runtime.deviceSynchronize()
     t1 = perf_counter()
@@ -52,9 +53,9 @@ def compare(round):
     qcu.dslashQcu(Mp1.odd_ptr, p.even_ptr, U.data_ptr, param, 1)
     cp.cuda.runtime.deviceSynchronize()
     t2 = perf_counter()
-    print(f'QCU dslash: {t2 - t1} sec')
+    print(f"QCU dslash: {t2 - t1} sec")
 
-    print('difference: ', cp.linalg.norm(Mp1.data - Mp.data) / cp.linalg.norm(Mp.data))
+    print("difference: ", cp.linalg.norm(Mp1.data - Mp.data) / cp.linalg.norm(Mp.data))
 
 
 for i in range(0, 5):

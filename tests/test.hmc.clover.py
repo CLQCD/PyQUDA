@@ -2,7 +2,6 @@ import os
 import sys
 import numpy as np
 import cupy as cp
-# import torch as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(test_dir, ".."))
@@ -12,8 +11,6 @@ from pyquda import core, enum_quda, field
 from pyquda.hmc import HMC
 from pyquda.field import Nc, Ns
 
-# field.CUDA_BACKEND = "torch"
-
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 pyquda.init()
 
@@ -21,7 +18,7 @@ ensembles = {
     "A1": ([16, 16, 16, 16], 5.789),
     "B0": ([24, 24, 24, 24], 6),
     "C2": ([32, 32, 32, 32], 6.179),
-    "D1": ([48, 48, 48, 48], 6.475)
+    "D1": ([48, 48, 48, 48], 6.475),
 }
 
 tag = "A1"
@@ -180,22 +177,22 @@ for i in range(100):
 
     for step in range(steps):
         hmc.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeCloverForce(vartheta_ * dt, noise, -kappa**2, -kappa * csw / 8)
+        hmc.computeCloverForce(vartheta_ * dt, noise, -(kappa**2), -kappa * csw / 8)
         hmc.updateGaugeField(rho_ * dt)
         hmc.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeCloverForce(lambda_ * dt, noise, -kappa**2, -kappa * csw / 8)
+        hmc.computeCloverForce(lambda_ * dt, noise, -(kappa**2), -kappa * csw / 8)
         hmc.updateGaugeField(theta_ * dt)
         hmc.computeGaugeForce((0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeCloverForce((0.5 - (lambda_ + vartheta_)) * dt, noise, -kappa**2, -kappa * csw / 8)
+        hmc.computeCloverForce((0.5 - (lambda_ + vartheta_)) * dt, noise, -(kappa**2), -kappa * csw / 8)
         hmc.updateGaugeField((1.0 - 2 * (theta_ + rho_)) * dt)
         hmc.computeGaugeForce((0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeCloverForce((0.5 - (lambda_ + vartheta_)) * dt, noise, -kappa**2, -kappa * csw / 8)
+        hmc.computeCloverForce((0.5 - (lambda_ + vartheta_)) * dt, noise, -(kappa**2), -kappa * csw / 8)
         hmc.updateGaugeField(theta_ * dt)
         hmc.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeCloverForce(lambda_ * dt, noise, -kappa**2, -kappa * csw / 8)
+        hmc.computeCloverForce(lambda_ * dt, noise, -(kappa**2), -kappa * csw / 8)
         hmc.updateGaugeField(rho_ * dt)
         hmc.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeCloverForce(vartheta_ * dt, noise, -kappa**2, -kappa * csw / 8)
+        hmc.computeCloverForce(vartheta_ * dt, noise, -(kappa**2), -kappa * csw / 8)
 
     hmc.reunitGaugeField(gauge, 1e-15)
 
@@ -218,12 +215,12 @@ for i in range(100):
     plaquette = pyquda.plaq()
 
     print(
-        f'Step {i}:\n'
-        f'PE_old = {potential}, KE_old = {kinetic}\n'
-        f'PE = {potential1}, KE = {kinetic1}\n'
-        f'Delta_PE = {potential1 - potential}, Delta_KE = {kinetic1 - kinetic}\n'
-        f'Delta_E = {energy1 - energy}\n'
-        f'accept rate = {min(1, np.exp(energy - energy1))*100:.2f}%\n'
-        f'accept? {accept or not not warm}\n'
-        f'plaquette = {plaquette}\n'
+        f"Step {i}:\n"
+        f"PE_old = {potential}, KE_old = {kinetic}\n"
+        f"PE = {potential1}, KE = {kinetic1}\n"
+        f"Delta_PE = {potential1 - potential}, Delta_KE = {kinetic1 - kinetic}\n"
+        f"Delta_E = {energy1 - energy}\n"
+        f"accept rate = {min(1, np.exp(energy - energy1))*100:.2f}%\n"
+        f"accept? {accept or not not warm}\n"
+        f"plaquette = {plaquette}\n"
     )

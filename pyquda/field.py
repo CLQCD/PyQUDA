@@ -24,8 +24,8 @@ def lexico(data: numpy.ndarray, axes: List[int], dtype=None):
     Np, Lt, Lz, Ly, Lx = [shape[axis] for axis in axes]
     assert Np == 2, "There must be 2 parities."
     Lx *= 2
-    Npre = int(numpy.prod(shape[:axes[0]]))
-    Nsuf = int(numpy.prod(shape[axes[-1] + 1:]))
+    Npre = int(numpy.prod(shape[: axes[0]]))
+    Nsuf = int(numpy.prod(shape[axes[-1] + 1 :]))
     dtype = data.dtype if dtype is None else dtype
     data_cb2 = data.reshape(Npre, 2, Lt, Lz, Ly, Lx // 2, Nsuf)
     data_lexico = numpy.zeros((Npre, Lt, Lz, Ly, Lx, Nsuf), dtype)
@@ -39,14 +39,14 @@ def lexico(data: numpy.ndarray, axes: List[int], dtype=None):
                 else:
                     data_lexico[:, t, z, y, 1::2] = data_cb2[:, 0, t, z, y, :]
                     data_lexico[:, t, z, y, 0::2] = data_cb2[:, 1, t, z, y, :]
-    return data_lexico.reshape(*shape[:axes[0]], Lt, Lz, Ly, Lx, *shape[axes[-1] + 1:])
+    return data_lexico.reshape(*shape[: axes[0]], Lt, Lz, Ly, Lx, *shape[axes[-1] + 1 :])
 
 
 def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
     shape = data.shape
     Lt, Lz, Ly, Lx = [shape[axis] for axis in axes]
-    Npre = int(numpy.prod(shape[:axes[0]]))
-    Nsuf = int(numpy.prod(shape[axes[-1] + 1:]))
+    Npre = int(numpy.prod(shape[: axes[0]]))
+    Nsuf = int(numpy.prod(shape[axes[-1] + 1 :]))
     dtype = data.dtype if dtype is None else dtype
     data_lexico = data.reshape(Npre, Lt, Lz, Ly, Lx, Nsuf)
     data_cb2 = numpy.zeros((Npre, 2, Lt, Lz, Ly, Lx // 2, Nsuf), dtype)
@@ -60,13 +60,14 @@ def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
                 else:
                     data_cb2[:, 0, t, z, y, :] = data_lexico[:, t, z, y, 1::2]
                     data_cb2[:, 1, t, z, y, :] = data_lexico[:, t, z, y, 0::2]
-    return data_cb2.reshape(*shape[:axes[0]], 2, Lt, Lz, Ly, Lx // 2, *shape[axes[-1] + 1:])
+    return data_cb2.reshape(*shape[: axes[0]], 2, Lt, Lz, Ly, Lx // 2, *shape[axes[-1] + 1 :])
 
 
 def newLatticeFieldData(latt_size: List[int], dtype: str):
     Lx, Ly, Lz, Lt = latt_size
     if CUDA_BACKEND == "cupy":
         import cupy
+
         if dtype.capitalize() == "Gauge":
             ret = cupy.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
             ret[:] = cupy.identity(Nc)
@@ -79,6 +80,7 @@ def newLatticeFieldData(latt_size: List[int], dtype: str):
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), "<c16")
     elif CUDA_BACKEND == "torch":
         import torch
+
         if dtype.capitalize() == "Gauge":
             ret = torch.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128, device="cuda")
             ret[:] = torch.eye(Nc)
@@ -110,9 +112,11 @@ class LatticeField:
     def toDevice(self):
         if CUDA_BACKEND == "cupy":
             import cupy
+
             self.data = cupy.asarray(self.data)
         elif CUDA_BACKEND == "torch":
             import torch
+
             self.data = torch.asarray(self.data)
         else:
             raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
@@ -161,7 +165,7 @@ class LatticeGauge(LatticeField):
 
     def setAnisotropy(self, anisotropy: float):
         data = self.data.reshape(Nd, -1)
-        data[:Nd - 1] /= anisotropy
+        data[: Nd - 1] /= anisotropy
 
     @property
     def data_ptr(self):

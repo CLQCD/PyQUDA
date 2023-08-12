@@ -22,7 +22,7 @@ gauge = gauge_utils.readIldg(os.path.join(test_dir, "weak_field.lime"))
 
 mpi.init()
 
-timeinfo = [0., 0., 0.]
+timeinfo = [0.0, 0.0, 0.0]
 quda.computeGaugeFixingOVRQuda(gauge.data_ptrs, 4, 1000, 1, 1.0, 1e-15, 1, 1, dslash.gauge_param, timeinfo)
 print(timeinfo)
 

@@ -18,7 +18,7 @@ ensembles = {
     "A1": ([16, 16, 16, 16], 5.789),
     "B0": ([24, 24, 24, 24], 6),
     "C2": ([32, 32, 32, 32], 6.179),
-    "D1": ([48, 48, 48, 48], 6.475)
+    "D1": ([48, 48, 48, 48], 6.475),
 }
 
 tag = "A1"
@@ -202,12 +202,12 @@ for i in range(100):
     plaquette = pyquda.plaq()
 
     print(
-        f'Step {i}:\n'
-        f'PE_old = {potential}, KE_old = {kinetic}\n'
-        f'PE = {potential1}, KE = {kinetic1}\n'
-        f'Delta_PE = {potential1 - potential}, Delta_KE = {kinetic1 - kinetic}\n'
-        f'Delta_E = {energy1 - energy}\n'
-        f'accept rate = {min(1, np.exp(energy - energy1))*100:.2f}%\n'
-        f'accept? {accept or not not warm}\n'
-        f'plaquette = {plaquette}\n'
+        f"Step {i}:\n"
+        f"PE_old = {potential}, KE_old = {kinetic}\n"
+        f"PE = {potential1}, KE = {kinetic1}\n"
+        f"Delta_PE = {potential1 - potential}, Delta_KE = {kinetic1 - kinetic}\n"
+        f"Delta_E = {energy1 - energy}\n"
+        f"accept rate = {min(1, np.exp(energy - energy1))*100:.2f}%\n"
+        f"accept? {accept or not not warm}\n"
+        f"plaquette = {plaquette}\n"
     )

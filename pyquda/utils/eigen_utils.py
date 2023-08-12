@@ -57,12 +57,14 @@ def readTimeSlice(filename: str, Ne: int = None):
     eigen_raw = numpy.zeros((Ne, Lt, Lz, Ly, Lx, Nc), ndarray_dtype)
     for e in range(Ne):
         for t in range(Lt):
-            eigen_raw[e, t] = numpy.fromfile(
-                filename,
-                binary_dtype,
-                count=Gz * Lz * Gy * Ly * Gx * Lx * Nc,
-                offset=offsets[(t + gt * Lt, e)],
-            ).reshape(Gz * Lz, Gy * Ly, Gx * Lx, Nc)[gz * Lz:(gz + 1) * Lz, gy * Ly:(gy + 1) * Ly,
-                                                     gx * Lx:(gx + 1) * Lx, :].astype(ndarray_dtype)
+            eigen_raw[e, t] = (
+                numpy.fromfile(
+                    filename, binary_dtype, count=Gz * Lz * Gy * Ly * Gx * Lx * Nc, offset=offsets[(t + gt * Lt, e)]
+                )
+                .reshape(Gz * Lz, Gy * Ly, Gx * Lx, Nc)[
+                    gz * Lz : (gz + 1) * Lz, gy * Ly : (gy + 1) * Ly, gx * Lx : (gx + 1) * Lx, :
+                ]
+                .astype(ndarray_dtype)
+            )
 
     return cb2(eigen_raw, [1, 2, 3, 4])

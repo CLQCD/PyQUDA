@@ -17,42 +17,50 @@ class _Constant:
     @staticmethod
     @lru_cache(1)
     def gamma_0():
-        return cupy.array([
-            [0, 0, 0, 1j],
-            [0, 0, 1j, 0],
-            [0, -1j, 0, 0],
-            [-1j, 0, 0, 0],
-        ])
+        return cupy.array(
+            [
+                [0, 0, 0, 1j],
+                [0, 0, 1j, 0],
+                [0, -1j, 0, 0],
+                [-1j, 0, 0, 0],
+            ]
+        )
 
     @staticmethod
     @lru_cache(1)
     def gamma_1():
-        return cupy.array([
-            [0, 0, 0, -1],
-            [0, 0, 1, 0],
-            [0, 1, 0, 0],
-            [-1, 0, 0, 0],
-        ])
+        return cupy.array(
+            [
+                [0, 0, 0, -1],
+                [0, 0, 1, 0],
+                [0, 1, 0, 0],
+                [-1, 0, 0, 0],
+            ]
+        )
 
     @staticmethod
     @lru_cache(1)
     def gamma_2():
-        return cupy.array([
-            [0, 0, 1j, 0],
-            [0, 0, 0, -1j],
-            [-1j, 0, 0, 0],
-            [0, 1j, 0, 0],
-        ])
+        return cupy.array(
+            [
+                [0, 0, 1j, 0],
+                [0, 0, 0, -1j],
+                [-1j, 0, 0, 0],
+                [0, 1j, 0, 0],
+            ]
+        )
 
     @staticmethod
     @lru_cache(1)
     def gamma_3():
-        return cupy.array([
-            [0, 0, 1, 0],
-            [0, 0, 0, 1],
-            [1, 0, 0, 0],
-            [0, 1, 0, 0],
-        ])
+        return cupy.array(
+            [
+                [0, 0, 1, 0],
+                [0, 0, 0, 1],
+                [1, 0, 0, 0],
+                [0, 1, 0, 0],
+            ]
+        )
 
 
 def gamma(n: int):
