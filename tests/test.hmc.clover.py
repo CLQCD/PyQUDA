@@ -30,6 +30,7 @@ Vol = Lx * Ly * Lz * Lt
 beta = ensembles[tag][1]
 
 gauge = field.LatticeGauge(latt_size, None, True)
+gauge_smeared = field.LatticeGauge(latt_size, None, True)
 
 mass = 4
 kappa = 1 / (2 * (mass + 4))
@@ -147,10 +148,10 @@ plaquette = pyquda.plaq()
 print(f"\nplaquette = {plaquette}\n")
 
 t = 1.0
-dt = 0.1
+dt = 0.2
 steps = round(t / dt)
 dt = t / steps
-warm = 20
+warm = 50
 for i in range(100):
     hmc.gaussMom(i)
 
@@ -164,15 +165,11 @@ for i in range(100):
     # r = cp.rand((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), device="cuda",  dtype=cp.float64)
     # noise = core.LatticeFermion(latt_size, cp.sqrt(-cp.log(r)) * (cp.cos(phi) + 1j * cp.sin(phi)))
 
-    hmc.updateClover()
-    invert_param.dagger = enum_quda.QudaDagType.QUDA_DAG_YES
-    pyquda.quda.MatQuda(noise.odd_ptr, noise.even_ptr, invert_param)
-    invert_param.dagger = enum_quda.QudaDagType.QUDA_DAG_NO
-    pyquda.quda.invertQuda(noise.even_ptr, noise.odd_ptr, invert_param)
+    hmc.initNoise(noise, i)
 
     kinetic = hmc.actionMom()
     potential = hmc.actionGauge(path, lengths, coeffs, num_paths, max_length)
-    potential += hmc.actionFermion()
+    potential += hmc.actionFermion(noise)
     energy = kinetic + potential
 
     for step in range(steps):
@@ -196,12 +193,9 @@ for i in range(100):
 
     hmc.reunitGaugeField(gauge, 1e-15)
 
-    hmc.updateClover()
-    pyquda.quda.invertQuda(noise.even_ptr, noise.odd_ptr, invert_param)
-
     kinetic1 = hmc.actionMom()
     potential1 = hmc.actionGauge(path, lengths, coeffs, num_paths, max_length)
-    potential1 += hmc.actionFermion()
+    potential1 += hmc.actionFermion(noise)
     energy1 = kinetic1 + potential1
 
     accept = np.random.rand() < np.exp(energy - energy1)

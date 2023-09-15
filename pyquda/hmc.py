@@ -1,17 +1,21 @@
-from typing import List
+from typing import List, Literal
 
 import numpy
 
 from .pointer import Pointers, ndarrayDataPointer
 from .pyquda import (
+    QudaGaugeObservableParam,
     QudaGaugeParam,
     QudaInvertParam,
     QudaMultigridParam,
+    QudaGaugeSmearParam,
     loadCloverQuda,
     freeCloverQuda,
     loadGaugeQuda,
+    performGaugeSmearQuda,
     saveGaugeQuda,
     updateGaugeFieldQuda,
+    MatQuda,
     invertQuda,
     projectSU3Quda,
     momResidentQuda,
@@ -22,7 +26,16 @@ from .pyquda import (
     computeGaugeLoopTraceQuda,
 )
 from .field import Ns, Nc
-from .enum_quda import QudaMatPCType, QudaSolutionType, QudaVerbosity, QudaTboundary, QudaReconstructType
+from .enum_quda import (
+    QudaBoolean,
+    QudaGaugeSmearType,
+    QudaMatPCType,
+    QudaSolutionType,
+    QudaVerbosity,
+    QudaTboundary,
+    QudaReconstructType,
+    QudaDagType,
+)
 from .core import LatticeGauge, LatticeFermion, getDslash
 
 nullptr = Pointers("void", 0)
@@ -37,14 +50,23 @@ class HMC:
         maxiter: int,
         clover_coeff: float = 0.0,
         anti_periodic_t=True,
+        stout_nstep: int = 0,
+        stout_rho: float = 0.0,
+        stout_ndim: Literal[3, 4] = 4,
     ) -> None:
         self.dslash = getDslash(
             latt_size, mass, tol, maxiter, clover_coeff_t=clover_coeff, anti_periodic_t=anti_periodic_t
         )
+        self.pure_gauge_dslash = getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
+        self.pure_gauge_dslash.gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
+
         Lx, Ly, Lz, Lt = latt_size
         self.volume = Lx * Ly * Lz * Lt
+        self.updated_clover = False
         self.gauge_param: QudaGaugeParam = self.dslash.gauge_param
         self.invert_param: QudaInvertParam = self.dslash.invert_param
+        self.smear_param = QudaGaugeSmearParam()
+        self.obs_param = QudaGaugeObservableParam()
 
         self.gauge_param.overwrite_gauge = 0
         self.gauge_param.overwrite_mom = 0
@@ -61,6 +83,17 @@ class HMC:
         self.invert_param.compute_action = 1
         self.invert_param.compute_clover_trlog = 1
 
+        self.smear_param.n_steps = stout_nstep
+        self.smear_param.rho = stout_rho
+        self.smear_param.epsilon = 1.0
+        self.smear_param.meas_interval = stout_nstep + 1
+        if stout_ndim == 3:
+            self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_STOUT
+        elif stout_ndim == 4:
+            self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_OVRIMP_STOUT
+
+        self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_TRUE
+
     def loadGauge(self, gauge: LatticeGauge):
         use_resident_gauge = self.gauge_param.use_resident_gauge
 
@@ -71,14 +104,17 @@ class HMC:
         loadGaugeQuda(gauge.data_ptrs, self.gauge_param)
         self.gauge_param.use_resident_gauge = use_resident_gauge
         gauge.data = gauge_data_bak
+        self.updated_clover = False
 
     def saveGauge(self, gauge: LatticeGauge):
         saveGaugeQuda(gauge.data_ptrs, self.gauge_param)
 
     def updateGaugeField(self, dt: float):
         updateGaugeFieldQuda(nullptr, nullptr, dt, False, False, self.gauge_param)
+        self.updated_clover = False
 
     def computeCloverForce(self, dt, x: LatticeFermion, kappa2, ck):
+        # performGaugeSmearQuda(self.smear_param, self.obs_param)
         self.updateClover()
         invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
         computeCloverForceQuda(
@@ -141,6 +177,7 @@ class HMC:
         self.gauge_param.use_resident_gauge = 0
         loadGaugeQuda(gauge.data_ptrs, self.gauge_param)
         self.gauge_param.use_resident_gauge = use_resident_gauge
+        self.updated_clover = False
 
     def loadMom(self, mom: LatticeGauge):
         make_resident_mom = self.gauge_param.make_resident_mom
@@ -170,9 +207,21 @@ class HMC:
         )
         return traces.real.sum()
 
-    def actionFermion(self) -> float:
+    def actionFermion(self, x: LatticeFermion) -> float:
+        self.updateClover()
+        invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
         return self.invert_param.action[0] - self.volume / 2 * Ns * Nc - 2 * self.invert_param.trlogA[1]
 
     def updateClover(self):
-        freeCloverQuda()
-        loadCloverQuda(nullptr, nullptr, self.invert_param)
+        if not self.updated_clover:
+            freeCloverQuda()
+            loadCloverQuda(nullptr, nullptr, self.invert_param)
+            self.updated_clover = True
+
+    def initNoise(self, x: LatticeFermion, seed: int):
+        dagger = self.invert_param.dagger
+
+        self.updateClover()
+        self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
+        MatQuda(x.odd_ptr, x.even_ptr, self.invert_param)
+        self.invert_param.dagger = dagger
