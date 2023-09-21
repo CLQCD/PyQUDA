@@ -29,7 +29,7 @@ Vol = Lx * Ly * Lz * Lt
 
 beta = ensembles[tag][1]
 
-gauge = field.LatticeGauge(latt_size, None, True)
+gauge = field.LatticeGauge(latt_size, None)
 
 hmc = HMC(latt_size, 0, 0, 0)
 hmc.loadGauge(gauge)
@@ -185,7 +185,7 @@ for i in range(100):
         hmc.updateGaugeField(rho_ * dt)
         hmc.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
 
-    hmc.reunitGaugeField(gauge, 1e-15)
+    hmc.reunitGaugeField(1e-15)
 
     kinetic1 = hmc.actionMom()
     potential1 = hmc.actionGauge(path, lengths, coeffs, num_paths, max_length)

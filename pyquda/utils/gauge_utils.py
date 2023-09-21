@@ -54,7 +54,7 @@ def readIldg(filename: str):
 
     gauge = cb2(gauge_raw, [1, 2, 3, 4])
 
-    return LatticeGauge(latt_size, gauge, gt == Gt - 1)
+    return LatticeGauge(latt_size, gauge)
 
 
 def readIldgBin(filename: str, dtype: str, latt_size: List[int]):
@@ -73,14 +73,11 @@ def readIldgBin(filename: str, dtype: str, latt_size: List[int]):
 
     gauge = cb2(gauge_raw, [1, 2, 3, 4])
 
-    return LatticeGauge(latt_size, gauge, gt == Gt - 1)
+    return LatticeGauge(latt_size, gauge)
 
 
 def unitGauge(latt_size: List[int]):
-    Gx, Gy, Gz, Gt = mpi.grid
-    gx, gy, gz, gt = mpi.coord
-
-    gauge = LatticeGauge(latt_size, None, gt == Gt - 1)
+    gauge = LatticeGauge(latt_size, None)
 
     return gauge
 
@@ -89,11 +86,7 @@ def gaussGauge(latt_size: List[int], seed: int):
     from ..pyquda import loadGaugeQuda, saveGaugeQuda, gaussGaugeQuda
     from ..core import getDslash
 
-    Lx, Ly, Lz, Lt = latt_size
-    Gx, Gy, Gz, Gt = mpi.grid
-    gx, gy, gz, gt = mpi.coord
-
-    gauge = LatticeGauge(latt_size, None, gt == Gt - 1)
+    gauge = LatticeGauge(latt_size, None)
 
     dslash = getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
     dslash.gauge_param.use_resident_gauge = 0

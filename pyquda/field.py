@@ -143,17 +143,21 @@ class LatticeField:
 
 
 class LatticeGauge(LatticeField):
-    def __init__(self, latt_size: List[int], value=None, t_boundary=True) -> None:
+    def __init__(self, latt_size: List[int], value=None) -> None:
+        from .mpi import grid, coord
+
         Lx, Ly, Lz, Lt = latt_size
         self.latt_size = latt_size
+        Gx, Gy, Gz, Gt = grid
+        gx, gy, gz, gt = coord
         if value is None:
             self.data = newLatticeFieldData(latt_size, "Gauge")
         else:
             self.data = value.reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc)
-        self.t_boundary = t_boundary
+        self.t_boundary = gt == Gt - 1
 
     def copy(self):
-        res = LatticeGauge(self.latt_size, None, self.t_boundary)
+        res = LatticeGauge(self.latt_size, None)
         res.data[:] = self.data[:]
         return res
 

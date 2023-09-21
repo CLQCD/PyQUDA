@@ -7,7 +7,7 @@ test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(test_dir, ".."))
 
 import pyquda
-from pyquda import core, enum_quda, field
+from pyquda import core, field
 from pyquda.hmc import HMC
 from pyquda.field import Nc, Ns
 
@@ -29,13 +29,12 @@ Vol = Lx * Ly * Lz * Lt
 
 beta = ensembles[tag][1]
 
-gauge = field.LatticeGauge(latt_size, None, True)
-gauge_smeared = field.LatticeGauge(latt_size, None, True)
+gauge = field.LatticeGauge(latt_size, None)
 
 mass = 4
 kappa = 1 / (2 * (mass + 4))
 csw = 1.0
-hmc = HMC(latt_size, mass, 1e-9, 1000, csw)
+hmc = HMC(latt_size, mass, 1e-9, 1000, csw, True)
 hmc.loadGauge(gauge)
 
 invert_param = hmc.invert_param
@@ -151,7 +150,7 @@ t = 1.0
 dt = 0.2
 steps = round(t / dt)
 dt = t / steps
-warm = 50
+warm = 20
 for i in range(100):
     hmc.gaussMom(i)
 
@@ -191,7 +190,7 @@ for i in range(100):
         hmc.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
         hmc.computeCloverForce(vartheta_ * dt, noise, -(kappa**2), -kappa * csw / 8)
 
-    hmc.reunitGaugeField(gauge, 1e-15)
+    hmc.reunitGaugeField(1e-15)
 
     kinetic1 = hmc.actionMom()
     potential1 = hmc.actionGauge(path, lengths, coeffs, num_paths, max_length)
