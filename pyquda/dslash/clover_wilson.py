@@ -21,10 +21,15 @@ class CloverWilson(abstract.Dslash):
         t_boundary: int = -1,
         geo_block_size: List[List[int]] = None,
     ) -> None:
+        cuda_prec_sloppy = general.cuda_prec_sloppy
+        if geo_block_size is not None and cuda_prec_sloppy < QudaPrecision.QUDA_SINGLE_PRECISION:
+            general.cuda_prec_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION  # Using half with multigrid doesn't work
         self.mg_instance = None
         self.newQudaGaugeParam(latt_size, xi, t_boundary)
         self.newQudaMultigridParam(geo_block_size, kappa, 1e-1, 12, 5e-6, 1000, 0, 8)
         self.newQudaInvertParam(kappa, tol, maxiter, clover_coeff, clover_xi)
+        if geo_block_size is not None and cuda_prec_sloppy < QudaPrecision.QUDA_SINGLE_PRECISION:
+            general.cuda_prec_sloppy = cuda_prec_sloppy
 
     def newQudaGaugeParam(self, latt_size: List[int], anisotropy: float, t_boundary: int):
         gauge_param = general.newQudaGaugeParam(latt_size, anisotropy, t_boundary)
@@ -67,13 +72,6 @@ class CloverWilson(abstract.Dslash):
         general.loadClover(U, self.gauge_param, self.invert_param)
         general.loadGauge(U, self.gauge_param)
         if self.mg_param is not None:
-            self.gauge_param.cuda_prec_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION
-            self.mg_inv_param.cuda_prec_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION
-            self.invert_param.cuda_prec_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION
-            self.invert_param.cuda_prec_refinement_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION
-            self.mg_inv_param.clover_cuda_prec_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION
-            self.invert_param.clover_cuda_prec_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION
-            self.invert_param.clover_cuda_prec_refinement_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION
             if self.mg_instance is not None:
                 self.destroy()
             self.mg_instance = newMultigridQuda(self.mg_param)

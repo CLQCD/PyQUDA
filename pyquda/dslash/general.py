@@ -128,6 +128,8 @@ def newQudaMultigridParam(
     nu_pre: int,
     nu_post: int,
 ):
+    from ..mpi import device
+
     mg_param = QudaMultigridParam()
     mg_inv_param = QudaInvertParam()
 
@@ -136,7 +138,7 @@ def newQudaMultigridParam(
     mg_inv_param.Ls = 1
     mg_inv_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
     mg_inv_param.solve_type = QudaSolveType.QUDA_DIRECT_SOLVE
-    mg_inv_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
+    mg_inv_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
     mg_inv_param.dagger = QudaDagType.QUDA_DAG_NO
     mg_inv_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
     mg_inv_param.gcrNkrylov = 12
@@ -224,7 +226,9 @@ def newQudaMultigridParam(
     mg_param.run_low_mode_check = QudaBoolean.QUDA_BOOLEAN_FALSE
     mg_param.run_oblique_proj_check = QudaBoolean.QUDA_BOOLEAN_FALSE
 
-    mg_param.use_mma = QudaBoolean.QUDA_BOOLEAN_TRUE
+    mg_param.use_mma = QudaBoolean.QUDA_BOOLEAN_FALSE
+    if int(device.compute_capability) >= 70:
+        mg_param.use_mma = QudaBoolean.QUDA_BOOLEAN_TRUE
 
     return mg_param, mg_inv_param
 
@@ -250,7 +254,7 @@ def newQudaInvertParam(
     # invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
     invert_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
     # invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE
-    invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
+    invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
     invert_param.dagger = QudaDagType.QUDA_DAG_NO
     invert_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
     invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
@@ -364,7 +368,6 @@ def invert(b: LatticeFermion, invert_param: QudaInvertParam):
 
 def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
     invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
-    invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
 
     kappa = invert_param.kappa
 

@@ -6,6 +6,7 @@ size: int = 1
 grid: List[int] = [1, 1, 1, 1]
 coord: List[int] = [0, 0, 0, 0]
 gpuid: int = 0
+device = None
 
 
 def init(grid_size: List[int] = None):
@@ -16,7 +17,7 @@ def init(grid_size: List[int] = None):
     """
     from cupy import cuda
 
-    global comm, rank, size, grid, coord, gpuid
+    global comm, rank, size, grid, coord, gpuid, device
     if comm is None:
         if grid_size is not None:
             from os import getenv
@@ -53,7 +54,8 @@ def init(grid_size: List[int] = None):
         import atexit
         from .pyquda import initQuda, endQuda
 
-        cuda.Device(gpuid).use()
+        device = cuda.Device(gpuid)
+        device.use()
         initQuda(gpuid)
         atexit.register(endQuda)
 
