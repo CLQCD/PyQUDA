@@ -93,13 +93,13 @@ class HMC:
 
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_TRUE
 
-    def loadGauge(self, gauge_in: LatticeGauge):
-        gauge = gauge_in.copy()
+    def loadGauge(self, gauge: LatticeGauge):
+        gauge_in = gauge.copy()
         if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
-            gauge.setAntiPeroidicT()
+            gauge_in.setAntiPeroidicT()
         use_resident_gauge = self.gauge_param.use_resident_gauge
         self.gauge_param.use_resident_gauge = 0
-        loadGaugeQuda(gauge.data_ptrs, self.gauge_param)
+        loadGaugeQuda(gauge_in.data_ptrs, self.gauge_param)
         self.gauge_param.use_resident_gauge = use_resident_gauge
         self.updated_clover = False
 

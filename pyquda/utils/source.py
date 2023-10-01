@@ -1,15 +1,13 @@
 from typing import List, Literal, Union
 
 from .. import mpi
-from ..field import Nc, Ns, LatticeColorVector, LatticeFermion, LatticePropagator
+from ..field import Nc, Ns, LatticeFermion, LatticePropagator, LatticeStaggeredFermion, LatticeStaggeredPropagator
 
 
 def point(latt_size: List[int], t_srce: List[int], spin: int, color: int):
     Lx, Ly, Lz, Lt = latt_size
     x, y, z, t = t_srce
     gx, gy, gz, gt = mpi.coord
-    b = LatticeFermion(latt_size)
-    data = b.data.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
     if (
         gx * Lx <= x < (gx + 1) * Lx
         and gy * Ly <= y < (gy + 1) * Ly
@@ -17,7 +15,12 @@ def point(latt_size: List[int], t_srce: List[int], spin: int, color: int):
         and gt * Lt <= t < (gt + 1) * Lt
     ):
         eo = ((x - gx * Lx) + (y - gy * Ly) + (z - gz * Lz) + (t - gt * Lt)) % 2
-        data[eo, t - gt * Lt, z - gz * Lz, y - gy * Ly, (x - gx * Lx) // 2, spin, color] = 1
+        if spin is not None:
+            b = LatticeFermion(latt_size)
+            b.data[eo, t - gt * Lt, z - gz * Lz, y - gy * Ly, (x - gx * Lx) // 2, spin, color] = 1
+        else:
+            b = LatticeStaggeredFermion(latt_size)
+            b.data[eo, t - gt * Lt, z - gz * Lz, y - gy * Ly, (x - gx * Lx) // 2, color] = 1
 
     return b
 
@@ -26,10 +29,13 @@ def wall(latt_size: List[int], t_srce: int, spin: int, color: int):
     Lx, Ly, Lz, Lt = latt_size
     gx, gy, gz, gt = mpi.coord
     t = t_srce
-    b = LatticeFermion(latt_size)
-    data = b.data.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
     if gt * Lt <= t < (gt + 1) * Lt:
-        data[:, t - gt * Lt, :, :, :, spin, color] = 1
+        if spin is not None:
+            b = LatticeFermion(latt_size)
+            b.data[:, t - gt * Lt, :, :, :, spin, color] = 1
+        else:
+            b = LatticeStaggeredFermion(latt_size)
+            b.data[:, t - gt * Lt, :, :, :, color] = 1
 
     return b
 
@@ -38,10 +44,13 @@ def momentum(latt_size: List[int], t_srce: int, phase, spin: int, color: int):
     Lx, Ly, Lz, Lt = latt_size
     gx, gy, gz, gt = mpi.coord
     t = t_srce
-    b = LatticeFermion(latt_size)
-    data = b.data.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
     if gt * Lt <= t < (gt + 1) * Lt:
-        data[:, t - gt * Lt, :, :, :, spin, color] = phase[:, t - gt * Lt, :, :, :]
+        if spin is not None:
+            b = LatticeFermion(latt_size)
+            b.data[:, t - gt * Lt, :, :, :, spin, color] = phase[:, t - gt * Lt, :, :, :]
+        else:
+            b = LatticeStaggeredFermion(latt_size)
+            b.data[:, t - gt * Lt, :, :, :, color] = phase[:, t - gt * Lt, :, :, :]
 
     return b
 
@@ -62,8 +71,7 @@ def gaussian(latt_size: List[int], t_srce: int, color: int, rho: float, nsteps: 
     Lx, Ly, Lz, Lt = latt_size
     gx, gy, gz, gt = mpi.coord
     x, y, z, t = t_srce
-    b = LatticeColorVector(latt_size)
-    data = b.data.reshape(2, Lt, Lz, Ly, Lx // 2, Nc)
+    b = LatticeStaggeredFermion(latt_size)
 
     if (
         gx * Lx <= x < (gx + 1) * Lx
@@ -72,11 +80,11 @@ def gaussian(latt_size: List[int], t_srce: int, color: int, rho: float, nsteps: 
         and gt * Lt <= t < (gt + 1) * Lt
     ):
         eo = ((x - gx * Lx) + (y - gy * Ly) + (z - gz * Lz) + (t - gt * Lt)) % 2
-        data[eo, t - gt * Lt, z - gz * Lz, y - gy * Ly, (x - gx * Lx) // 2, color] = 1
+        b.data[eo, t - gt * Lt, z - gz * Lz, y - gy * Ly, (x - gx * Lx) // 2, color] = 1
 
     dslash = core.getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
     dslash.invert_param.dslash_type = QudaDslashType.QUDA_LAPLACE_DSLASH
-    c = core.LatticeColorVector(latt_size)
+    c = LatticeStaggeredFermion(latt_size)
     for _ in range(nsteps):
         # (rho**2 / 4) aims to achieve the same result with Chroma
         _Laplacian(b, c, rho**2 / 4 / nsteps, xi, dslash.invert_param)
@@ -88,10 +96,9 @@ def colorvector(latt_size: List[int], t_srce: int, phase):
     Lx, Ly, Lz, Lt = latt_size
     gx, gy, gz, gt = mpi.coord
     t = t_srce
-    b = LatticeColorVector(latt_size)
-    data = b.data.reshape(2, Lt, Lz, Ly, Lx // 2, Nc)
+    b = LatticeStaggeredFermion(latt_size)
     if gt * Lt <= t < (gt + 1) * Lt:
-        data[:, t - gt * Lt, :, :, :, :] = phase[:, t - gt * Lt, :, :, :, :]
+        b.data[:, t - gt * Lt, :, :, :, :] = phase[:, t - gt * Lt, :, :, :, :]
     return b
 
 
@@ -151,3 +158,25 @@ def source12(
                 data[:, :, spin, :, color] = b.data.reshape(Vol, Ns, Nc)
 
     return b12
+
+
+def source3(
+    latt_size: List[int],
+    source_type: Literal["point", "wall", "momentum", "gaussian", "colorvector"],
+    t_srce: Union[int, List[int]],
+    phase=None,
+    rho: float = 0.0,
+    nsteps: int = 0,
+    xi: float = 1.0,
+):
+    Lx, Ly, Lz, Lt = latt_size
+    Vol = Lx * Ly * Lz * Lt
+
+    b3 = LatticeStaggeredPropagator(latt_size)
+    data = b3.data.reshape(Vol, Nc, Nc)
+
+    for color in range(Nc):
+        b = source(latt_size, source_type, t_srce, None, color, phase)
+        data[:, :, color] = b.data.reshape(Vol, Nc)
+
+    return b3

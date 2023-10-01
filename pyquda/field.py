@@ -68,29 +68,41 @@ def newLatticeFieldData(latt_size: List[int], dtype: str):
     if CUDA_BACKEND == "cupy":
         import cupy
 
-        if dtype.capitalize() == "Gauge":
+        if dtype == "Gauge":
             ret = cupy.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
             ret[:] = cupy.identity(Nc)
             return ret
-        elif dtype.capitalize() == "Colorvector":
+        elif dtype == "Colorvector":
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
-        elif dtype.capitalize() == "Fermion":
+        elif dtype == "Fermion":
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
-        elif dtype.capitalize() == "Propagator":
+        elif dtype == "Propagator":
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), "<c16")
+        elif dtype == "StaggeredFermion":
+            return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
+        elif dtype == "StaggeredPropagator":
+            return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
+        else:
+            raise ValueError(f"Unsupported lattice field type {dtype}")
     elif CUDA_BACKEND == "torch":
         import torch
 
-        if dtype.capitalize() == "Gauge":
+        if dtype == "Gauge":
             ret = torch.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128, device="cuda")
             ret[:] = torch.eye(Nc)
             return ret
-        elif dtype.capitalize() == "Colorvector":
+        elif dtype == "Colorvector":
             return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128, device="cuda")
-        elif dtype.capitalize() == "Fermion":
+        elif dtype == "Fermion":
             return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=torch.complex128, device="cuda")
-        elif dtype.capitalize() == "Propagator":
+        elif dtype == "Propagator":
             return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), dtype=torch.complex128, device="cuda")
+        elif dtype == "StaggeredFermion":
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128, device="cuda")
+        elif dtype == "StaggeredPropagator":
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128, device="cuda")
+        else:
+            raise ValueError(f"Unsupported lattice field type {dtype}")
     else:
         raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
 
@@ -157,9 +169,7 @@ class LatticeGauge(LatticeField):
         self.t_boundary = gt == Gt - 1
 
     def copy(self):
-        res = LatticeGauge(self.latt_size, None)
-        res.data[:] = self.data[:]
-        return res
+        return LatticeGauge(self.latt_size, self.backup())
 
     def setAntiPeroidicT(self):
         if self.t_boundary:
@@ -181,47 +191,6 @@ class LatticeGauge(LatticeField):
 
     def lexico(self):
         return lexico(self.getHost(), [1, 2, 3, 4, 5])
-
-
-class LatticeColorVector(LatticeField):
-    def __init__(self, latt_size: List[int], value=None) -> None:
-        Lx, Ly, Lz, Lt = latt_size
-        self.latt_size = latt_size
-        if value is None:
-            self.data = newLatticeFieldData(latt_size, "Colorvector")
-        else:
-            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc)
-
-    @property
-    def even(self):
-        return self.data[0]
-
-    @even.setter
-    def even(self, value):
-        self.data[0] = value
-
-    @property
-    def odd(self):
-        return self.data[1]
-
-    @odd.setter
-    def odd(self, value):
-        self.data[1] = value
-
-    @property
-    def data_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(-1), True)
-
-    @property
-    def even_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(2, -1)[0], True)
-
-    @property
-    def odd_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(2, -1)[1], True)
-
-    def lexico(self):
-        return lexico(self.getHost(), [0, 1, 2, 3, 4])
 
 
 class LatticeFermion(LatticeField):
@@ -275,3 +244,56 @@ class LatticePropagator(LatticeField):
 
     def transpose(self):
         return self.data.transpose(0, 1, 2, 3, 4, 6, 5, 8, 7).copy()
+
+
+class LatticeStaggeredFermion(LatticeField):
+    def __init__(self, latt_size: List[int], value=None) -> None:
+        Lx, Ly, Lz, Lt = latt_size
+        self.latt_size = latt_size
+        if value is None:
+            self.data = newLatticeFieldData(latt_size, "StaggeredFermion")
+        else:
+            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc)
+
+    @property
+    def even(self):
+        return self.data[0]
+
+    @even.setter
+    def even(self, value):
+        self.data[0] = value
+
+    @property
+    def odd(self):
+        return self.data[1]
+
+    @odd.setter
+    def odd(self, value):
+        self.data[1] = value
+
+    @property
+    def data_ptr(self):
+        return ndarrayDataPointer(self.data.reshape(-1), True)
+
+    @property
+    def even_ptr(self):
+        return ndarrayDataPointer(self.data.reshape(2, -1)[0], True)
+
+    @property
+    def odd_ptr(self):
+        return ndarrayDataPointer(self.data.reshape(2, -1)[1], True)
+
+    def lexico(self):
+        return lexico(self.getHost(), [0, 1, 2, 3, 4])
+
+
+class LatticeStaggeredPropagator(LatticeField):
+    def __init__(self, latt_size: List[int]) -> None:
+        self.latt_size = latt_size
+        self.data = newLatticeFieldData(latt_size, "StaggeredPropagator")
+
+    def lexico(self):
+        return lexico(self.getHost(), [0, 1, 2, 3, 4])
+
+    def transpose(self):
+        return self.data.transpose(0, 1, 2, 3, 4, 6, 5).copy()

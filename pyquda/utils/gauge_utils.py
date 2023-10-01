@@ -11,6 +11,16 @@ from ..field import Nc, Nd, cb2, LatticeGauge
 
 
 def readIldg(filename: str):
+    """Preserve for compability."""
+    return readQIO(filename)
+
+
+def readIldgBin(filename: str, dtype: str, latt_size: List[int]):
+    """Preserve for compability."""
+    return readILDGBin(filename, dtype, latt_size)
+
+
+def readQIO(filename: str):
     with open(filename, "rb") as f:
         meta: Dict[str, Tuple[int]] = {}
         buffer = f.read(8)
@@ -29,7 +39,7 @@ def readIldg(filename: str):
     tag = re.match(r"\{.*\}", format.getroot().tag).group(0)
     precision = int(format.find(f"{tag}precision").text)
     binary_dtype = f">c{2*precision//8}"
-    ndarray_dtype = f"<c{2*precision//8}"
+    ndarray_dtype = "<c16"
     latt_size = [
         int(format.find(f"{tag}lx").text),
         int(format.find(f"{tag}ly").text),
@@ -37,7 +47,6 @@ def readIldg(filename: str):
         int(format.find(f"{tag}lt").text),
     ]
     Lx, Ly, Lz, Lt = latt_size
-
     Gx, Gy, Gz, Gt = mpi.grid
     gx, gy, gz, gt = mpi.coord
     latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
@@ -57,7 +66,7 @@ def readIldg(filename: str):
     return LatticeGauge(latt_size, gauge)
 
 
-def readIldgBin(filename: str, dtype: str, latt_size: List[int]):
+def readILDGBin(filename: str, dtype: str, latt_size: List[int]):
     Lx, Ly, Lz, Lt = latt_size
     Gx, Gy, Gz, Gt = mpi.grid
     gx, gy, gz, gt = mpi.coord
@@ -68,6 +77,38 @@ def readIldgBin(filename: str, dtype: str, latt_size: List[int]):
             gt * Lt : (gt + 1) * Lt, gz * Lz : (gz + 1) * Lz, gy * Ly : (gy + 1) * Ly, gx * Lx : (gx + 1) * Lx
         ]
         .astype("<c16")
+        .transpose(4, 0, 1, 2, 3, 5, 6)
+    )
+
+    gauge = cb2(gauge_raw, [1, 2, 3, 4])
+
+    return LatticeGauge(latt_size, gauge)
+
+
+def readMILC(filename: str):
+    with open(filename, "rb") as f:
+        magic = f.read(4)
+        assert struct.unpack("<i", magic)[0] == 20103
+        latt_size = struct.unpack("<iiii", f.read(16))
+        Lx, Ly, Lz, Lt = latt_size
+        time_stamp = f.read(64).decode()
+        assert struct.unpack("<i", f.read(4))[0] == 0
+        sum29, sum31 = struct.unpack("<II", f.read(8))
+        binary_data = f.read(Lt * Lz * Ly * Lx * Nd * Nc * Nc * 2 * 4)
+    binary_dtype = "<c8"
+    ndarray_dtype = "<c16"
+    Lx, Ly, Lz, Lt = latt_size
+    Gx, Gy, Gz, Gt = mpi.grid
+    gx, gy, gz, gt = mpi.coord
+    latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
+    Lx, Ly, Lz, Lt = latt_size
+
+    gauge_raw = (
+        numpy.frombuffer(binary_data, binary_dtype)
+        .reshape(Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nd, Nc, Nc)[
+            gt * Lt : (gt + 1) * Lt, gz * Lz : (gz + 1) * Lz, gy * Ly : (gy + 1) * Ly, gx * Lx : (gx + 1) * Lx
+        ]
+        .astype(ndarray_dtype)
         .transpose(4, 0, 1, 2, 3, 5, 6)
     )
 

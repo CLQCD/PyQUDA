@@ -3098,7 +3098,14 @@ def MatDagMatQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param):
 
 # void set_dim(int *)
 # void pack_ghost(void **cpuLink, void **cpuGhost, int nFace, QudaPrecision precision)
-# void computeKSLinkQuda(void* fatlink, void* longlink, void* ulink, void* inlink, double *path_coeff, QudaGaugeParam *param)
+
+def computeKSLinkQuda(Pointers fatlink, Pointers longlink, Pointers ulink, Pointers inlink, Pointer path_coeff, QudaGaugeParam param):
+    assert fatlink.dtype == "void"
+    assert longlink.dtype == "void"
+    assert ulink.dtype == "void"
+    assert inlink.dtype == "void"
+    assert path_coeff.dtype == "double"
+    quda.computeKSLinkQuda(fatlink.ptr, longlink.ptr, ulink.ptr, inlink.ptr, <double *>path_coeff.ptr, &param.param)
 
 def momResidentQuda(Pointers mom, QudaGaugeParam param):
     assert mom.dtype == "void"
@@ -3127,7 +3134,9 @@ def updateGaugeFieldQuda(Pointers gauge, Pointers momentum, double dt, int conj_
     assert momentum.dtype == "void"
     quda.updateGaugeFieldQuda(gauge.ptr, momentum.ptr, dt, conj_mom, exact, &param.param)
 
-# void staggeredPhaseQuda(void *gauge_h, QudaGaugeParam *param)
+def staggeredPhaseQuda(Pointers gauge_h, QudaGaugeParam param):
+    assert gauge_h.dtype == "void"
+    quda.staggeredPhaseQuda(gauge_h.ptr, &param.param)
 
 def projectSU3Quda(Pointers gauge_h, double tol, QudaGaugeParam param):
     assert gauge_h.dtype == "void"

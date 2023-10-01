@@ -739,6 +739,12 @@ def MatDagMatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> 
     """
     ...
 
+def computeKSLinkQuda(
+    fatlink: Pointers, longlink: Pointers, ulink: Pointers, inlink: Pointers, path_coeff: Pointer, param: QudaGaugeParam
+) -> None:
+    """ """
+    ...
+
 def momResidentQuda(mom: Pointer, param: QudaGaugeParam) -> None:
     """
     Either downloads and sets the resident momentum field, or uploads
@@ -869,6 +875,20 @@ def updateGaugeFieldQuda(
         Whether to use an exact exponential or Taylor expand
     @param param:
         The parameters of the external fields and the computation settings
+    """
+    ...
+
+def staggeredPhaseQuda(gauge_h: Pointers, param: QudaGaugeParam) -> None:
+    """
+    Apply the staggered phase factors to the gauge field.  If the
+    imaginary chemical potential is non-zero then the phase factor
+    exp(imu/T) will be applied to the links in the temporal
+    direction.
+
+    @param gauge_h:
+        The gauge field
+    @param param:
+        The parameters of the gauge field
     """
     ...
 

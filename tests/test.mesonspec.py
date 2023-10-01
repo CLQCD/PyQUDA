@@ -10,6 +10,7 @@ from pyquda import core, mpi
 from pyquda.utils import gamma, phase, gauge_utils
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
+mpi.init()
 
 Nc, Ns, Nd = 3, 4, 4
 
@@ -39,7 +40,6 @@ phase_list = mom_phase.cache(mom_list)
 dslash = core.getDslash(latt_size, mass, 1e-9, 1000, xi_0, nu, coeff_t, coeff_r, multigrid=True)
 twopt = np.zeros((Lt, Lt, len(gamma_insertion), mom_num), "<c16")
 
-mpi.init()
 
 s = time()
 gauge = gauge_utils.readIldg(os.path.join(test_dir, "weak_field.lime"))

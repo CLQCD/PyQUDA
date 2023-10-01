@@ -18,13 +18,14 @@ class Dslash(ABC):
         pass
 
     @abstractmethod
-    def newQudaGaugeParam(self, latt_size: List[int], anisotropy: float, t_boundary: int):
+    def newQudaGaugeParam(self, latt_size: List[int], anisotropy: float, t_boundary: int, *args, **kwargs):
         pass
 
     @abstractmethod
     def newQudaMultigridParam(
         self,
         multigrid: bool,
+        mass: float,
         kappa: float,
         geo_block_size: List[List[int]],
         coarse_tol: float,
@@ -37,7 +38,7 @@ class Dslash(ABC):
         pass
 
     @abstractmethod
-    def newQudaInvertParam(self, kappa: float, tol: float, maxiter: float, *args, **kwargs):
+    def newQudaInvertParam(self, mass: float, kappa: float, tol: float, maxiter: float, *args, **kwargs):
         pass
 
     @abstractmethod

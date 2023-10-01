@@ -12,6 +12,7 @@ class CloverWilson(abstract.Dslash):
     def __init__(
         self,
         latt_size: List[int],
+        mass: float,
         kappa: float,
         tol: float,
         maxiter: int,
@@ -26,18 +27,19 @@ class CloverWilson(abstract.Dslash):
             general.cuda_prec_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION  # Using half with multigrid doesn't work
         self.mg_instance = None
         self.newQudaGaugeParam(latt_size, xi, t_boundary)
-        self.newQudaMultigridParam(geo_block_size, kappa, 1e-1, 12, 5e-6, 1000, 0, 8)
-        self.newQudaInvertParam(kappa, tol, maxiter, clover_coeff, clover_xi)
+        self.newQudaMultigridParam(geo_block_size, mass, kappa, 1e-1, 12, 5e-6, 1000, 0, 8)
+        self.newQudaInvertParam(mass, kappa, tol, maxiter, clover_coeff, clover_xi)
         if geo_block_size is not None and cuda_prec_sloppy < QudaPrecision.QUDA_SINGLE_PRECISION:
             general.cuda_prec_sloppy = cuda_prec_sloppy
 
     def newQudaGaugeParam(self, latt_size: List[int], anisotropy: float, t_boundary: int):
-        gauge_param = general.newQudaGaugeParam(latt_size, anisotropy, t_boundary)
+        gauge_param = general.newQudaGaugeParam(latt_size, anisotropy, t_boundary, 1.0, 0.0)
         self.gauge_param = gauge_param
 
     def newQudaMultigridParam(
         self,
         geo_block_size: List[List[int]],
+        mass: float,
         kappa: float,
         coarse_tol: float,
         coarse_maxiter: int,
@@ -48,7 +50,7 @@ class CloverWilson(abstract.Dslash):
     ):
         if geo_block_size is not None:
             mg_param, mg_inv_param = general.newQudaMultigridParam(
-                kappa, geo_block_size, coarse_tol, coarse_maxiter, setup_tol, setup_maxiter, nu_pre, nu_post
+                mass, kappa, geo_block_size, coarse_tol, coarse_maxiter, setup_tol, setup_maxiter, nu_pre, nu_post
             )
             mg_inv_param.dslash_type = QudaDslashType.QUDA_CLOVER_WILSON_DSLASH
         else:
@@ -56,16 +58,18 @@ class CloverWilson(abstract.Dslash):
         self.mg_param = mg_param
         self.mg_inv_param = mg_inv_param
 
-    def newQudaInvertParam(self, kappa: float, tol: float, maxiter: int, clover_coeff: float, clover_xi: float):
-        invert_param = general.newQudaInvertParam(kappa, tol, maxiter, kappa * clover_coeff, clover_xi, self.mg_param)
+    def newQudaInvertParam(
+        self, mass: float, kappa: float, tol: float, maxiter: int, clover_coeff: float, clover_xi: float
+    ):
+        invert_param = general.newQudaInvertParam(
+            mass, kappa, tol, maxiter, kappa * clover_coeff, clover_xi, self.mg_param
+        )
         if self.mg_param is not None:
             invert_param.dslash_type = QudaDslashType.QUDA_CLOVER_WILSON_DSLASH
             invert_param.inv_type = QudaInverterType.QUDA_GCR_INVERTER
             invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE
         else:
             invert_param.dslash_type = QudaDslashType.QUDA_CLOVER_WILSON_DSLASH
-            invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
-            invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE
         self.invert_param = invert_param
 
     def loadGauge(self, U: LatticeGauge):

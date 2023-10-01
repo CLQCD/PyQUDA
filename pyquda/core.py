@@ -3,7 +3,18 @@ from math import sqrt
 
 from . import pyquda as quda
 from . import enum_quda
-from .field import LatticeGauge, LatticeColorVector, LatticeFermion, LatticePropagator, Nc, Nd, Ns, lexico, cb2
+from .field import (
+    LatticeGauge,
+    LatticeFermion,
+    LatticePropagator,
+    LatticeStaggeredFermion,
+    LatticeStaggeredPropagator,
+    Nc,
+    Nd,
+    Ns,
+    lexico,
+    cb2,
+)
 from .dslash.abstract import Dslash
 from .utils.source import source
 
@@ -53,6 +64,21 @@ def invert(dslash: Dslash, source_type: str, t_srce: Union[int, List[int]], phas
             b = source(latt_size, source_type, t_srce, spin, color, phase)
             x = dslash.invert(b)
             data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
+
+    return prop
+
+
+def invertStaggered(dslash: Dslash, source_type: str, t_srce: Union[int, List[int]], phase=None):
+    latt_size = dslash.gauge_param.X
+    Lx, Ly, Lz, Lt = latt_size
+    Vol = Lx * Ly * Lz * Lt
+
+    prop = LatticeStaggeredPropagator(latt_size)
+    data = prop.data.reshape(Vol, Nc, Nc)
+    for color in range(Nc):
+        b = source(latt_size, source_type, t_srce, None, color, phase)
+        x = dslash.invert(b)
+        data[:, :, color] = x.data.reshape(Vol, Nc)
 
     return prop
 
@@ -111,9 +137,30 @@ def getDslash(
         from .dslash import clover_wilson
 
         return clover_wilson.CloverWilson(
-            latt_size, kappa, tol, maxiter, xi, clover_coeff, clover_xi, t_boundary, geo_block_size
+            latt_size, mass, kappa, tol, maxiter, xi, clover_coeff, clover_xi, t_boundary, geo_block_size
         )
     else:
         from .dslash import wilson
 
-        return wilson.Wilson(latt_size, kappa, tol, maxiter, xi, t_boundary, geo_block_size)
+        return wilson.Wilson(latt_size, mass, kappa, tol, maxiter, xi, t_boundary, geo_block_size)
+
+
+def getStaggeredDslash(
+    latt_size: List[int],
+    mass: float,
+    tol: float,
+    maxiter: int,
+    tadpole_coeff: float = 1.0,
+    naik_epsilon: float = 0.0,
+    anti_periodic_t: bool = True,
+):
+    mass = -mass
+    kappa = 1 / (2 * (mass + 1 + (Nd - 1) / 1))
+    if anti_periodic_t:
+        t_boundary = -1
+    else:
+        t_boundary = 1
+
+    from .dslash import hisq
+
+    return hisq.HISQ(latt_size, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, t_boundary, None)

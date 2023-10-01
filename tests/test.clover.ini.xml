@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
 <chroma>
   <annotation>
-; $Id: prec_clover.ini.xml,v 3.2 2006-06-11 06:30:36 edwards Exp $
-;
-; Test input file for chroma main program
-;
-</annotation>
+    ; $Id: prec_clover.ini.xml,v 3.2 2006-06-11 06:30:36 edwards Exp $
+    ;
+    ; Test input file for chroma main program
+    ;
+  </annotation>
   <Param>
     <InlineMeasurements>
 

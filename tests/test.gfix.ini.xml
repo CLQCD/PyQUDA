@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
 <chroma>
   <annotation>
-; $Id: coulgauge.ini.xml,v 3.3 2007-11-09 20:57:34 edwards Exp $
-;
-; Coulomb gauge fixing
-;
-</annotation>
+    ; $Id: coulgauge.ini.xml,v 3.3 2007-11-09 20:57:34 edwards Exp $
+    ;
+    ; Coulomb gauge fixing
+    ;
+  </annotation>
   <Param>
     <InlineMeasurements>
       <elem>
