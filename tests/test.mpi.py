@@ -28,7 +28,7 @@ coeff_r, coeff_t = 0.91, 1.07
 mass = 1 / (2 * kappa) - 4
 dslash = core.getDslash(latt_size, mass, 1e-9, 1000, xi_0, nu, coeff_t, coeff_r)
 
-gauge = gauge_utils.readIldg(os.path.join(test_dir, "weak_field.lime"))
+gauge = gauge_utils.readQIO(os.path.join(test_dir, "weak_field.lime"))
 
 dslash.loadGauge(gauge)
 

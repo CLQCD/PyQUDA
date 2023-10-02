@@ -117,7 +117,7 @@ def newQudaGaugeParam(X: List[int], anisotropy: float, t_boundary: int, tadpole_
     gauge_param.reconstruct_precondition = link_recon_sloppy
     gauge_param.reconstruct_eigensolver = link_recon_sloppy
 
-    gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_MILC
+    gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_CPS
     # gauge_param.staggered_phase_applied = 0
 
     Lx, Ly, Lz, Lt = X
@@ -441,7 +441,7 @@ def invert(b: LatticeFermion, invert_param: QudaInvertParam):
     x = LatticeFermion(b.latt_size)
 
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    print(f"Time = {invert_param.secs} secs, Performance = {invert_param.gflops / invert_param.secs} GFLOPS")
+    print(f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS")
     x.data *= 2 * kappa
 
     return x
@@ -453,8 +453,8 @@ def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
     x = LatticeStaggeredFermion(b.latt_size)
 
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    print(f"Time = {invert_param.secs} secs, Performance = {invert_param.gflops / invert_param.secs} GFLOPS")
-    x.data /= 2 * mass
+    print(f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS")
+    x.data /= -2 * mass
 
     return x
 
@@ -479,7 +479,7 @@ def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
     dslashQuda(x.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
     tmp.odd = tmp.odd + kappa * x.odd
     invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
-    print(f"Time = {invert_param.secs} secs, Performance = {invert_param.gflops / invert_param.secs} GFLOPS")
+    print(f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS")
     dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
     x.even = tmp.even + kappa * x.even
     x.data *= 2 * kappa
