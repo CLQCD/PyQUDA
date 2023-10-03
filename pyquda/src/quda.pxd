@@ -530,6 +530,10 @@ cdef extern from "quda.h":
         int batched_rotate
         # For block method solvers, the block size
         int block_size
+        # For block method solvers, quit after n attempts at block orthonormalisation
+        int max_ortho_attempts
+        # For hybrid modifeld Gram-Schmidt orthonormalisations
+        int ortho_block_size
 
         # In the test function, cross check the device result against ARPACK
         QudaBoolean arpack_check
@@ -575,6 +579,9 @@ cdef extern from "quda.h":
         # MILC I/O)
         QudaBoolean io_parity_inflate
 
+        # Whether to save eigenvectors in QIO singlefile or partfile format
+        QudaBoolean partfile
+
         # The Gflops rate of the eigensolver setup
         double gflops
 
@@ -617,6 +624,12 @@ cdef extern from "quda.h":
 
         # Verbosity on each level of the multigrid
         QudaVerbosity verbosity[QUDA_MAX_MG_LEVEL]
+
+        # Setup MMA usage on each level of the multigrid
+        QudaBoolean setup_use_mma[QUDA_MAX_MG_LEVEL]
+
+        # Dslash MMA usage on each level of the multigrid
+        QudaBoolean dslash_use_mma[QUDA_MAX_MG_LEVEL]
 
         # Inverter to use in the setup phase
         QudaInverterType setup_inv_type[QUDA_MAX_MG_LEVEL]
@@ -762,6 +775,9 @@ cdef extern from "quda.h":
         # Filename prefix for where to save the null-space vectors
         char vec_outfile[QUDA_MAX_MG_LEVEL][256]
 
+        # Whether to store the null-space vectors in singlefile or partfile format
+        QudaBoolean mg_vec_partfile[QUDA_MAX_MG_LEVEL]
+
         # Whether to use and initial guess during coarse grid deflation
         QudaBoolean coarse_guess
 
@@ -785,9 +801,6 @@ cdef extern from "quda.h":
 
         # Whether or not to use the dagger approximation for the KD preconditioned operator
         QudaBoolean staggered_kd_dagger_approximation
-
-        # Whether to use tensor cores (if available)
-        QudaBoolean use_mma
 
         # Whether to do a full (false) or thin (true) update in the context of updateMultigridQuda
         QudaBoolean thin_update_only
@@ -1092,6 +1105,17 @@ cdef extern from "quda.h":
     void freeGaugeQuda()
 
     #
+    # Free a unique type (Wilson, HISQ fat, HISQ long, smeared) of internal gauge field.
+    # @param link_type[in] Type of link type to free up
+    #
+    void freeUniqueGaugeQuda(QudaLinkType link_type)
+
+    #
+    # Free QUDA's internal smeared gauge field.
+    #
+    void freeGaugeSmearedQuda()
+
+    #
     # Save the gauge field to the host.
     # @param h_gauge Base pointer to host gauge field (regardless of dimensionality)
     # @param param   Contains all metadata regarding host and device storage
@@ -1330,6 +1354,16 @@ cdef extern from "quda.h":
 
     void computeKSLinkQuda(void* fatlink, void* longlink, void* ulink, void* inlink,
                            double *path_coeff, QudaGaugeParam *param)
+
+    #
+    # Compute two-link field
+    #
+    # @param[out] twolink computed two-link field
+    # @param[in] inlink  the external field
+    # @param[in] param  Contains all metadata regarding host and device
+    #               storage
+    #
+    void computeTwoLinkQuda(void *twolink, void *inlink, QudaGaugeParam *param)
 
     #
     # Either downloads and sets the resident momentum field, or uploads
@@ -1692,7 +1726,6 @@ cdef extern from "quda.h":
     # Create deflation solver resources.
     #
     #
-
     void* newDeflationQuda(QudaEigParam *param)
 
     #
@@ -1701,6 +1734,32 @@ cdef extern from "quda.h":
     void destroyDeflationQuda(void *df_instance)
 
     void setMPICommHandleQuda(void *mycomm)
+
+    # Parameter set for quark smearing operations
+    ctypedef struct QudaQuarkSmearParam:
+        #-------------------------------------------------
+        # Used to store information pertinent to the operator
+        QudaInvertParam *inv_param
+
+        # Number of steps to apply
+        int  n_steps
+        # The width of the Gaussian
+        double  width
+        # if nonzero then compute two-link, otherwise reuse gaugeSmeared
+        int compute_2link
+        # if nonzero then delete two-link, otherwise keep two-link for future use
+        int delete_2link
+        # Set if the input spinor is on a time slice
+        int t0
+        # Flops count for the smearing operations
+        int gflops
+
+    #
+    # Performs two-link Gaussian smearing on a given spinor (for staggered fermions).
+    # @param[in,out] h_in Input spinor field to smear
+    # @param[in] smear_param   Contains all metadata the operator which will be applied to the spinor
+    #
+    void performTwoLinkGaussianSmearNStep(void *h_in, QudaQuarkSmearParam *smear_param)
 
 
 

@@ -237,9 +237,11 @@ def newQudaMultigridParam(
     mg_param.run_low_mode_check = QudaBoolean.QUDA_BOOLEAN_FALSE
     mg_param.run_oblique_proj_check = QudaBoolean.QUDA_BOOLEAN_FALSE
 
-    mg_param.use_mma = QudaBoolean.QUDA_BOOLEAN_FALSE
+    mg_param.setup_use_mma = QudaBoolean.QUDA_BOOLEAN_FALSE
+    mg_param.dslash_use_mma = QudaBoolean.QUDA_BOOLEAN_FALSE
     if int(device.compute_capability) >= 70:
-        mg_param.use_mma = QudaBoolean.QUDA_BOOLEAN_TRUE
+        mg_param.setup_use_mma = QudaBoolean.QUDA_BOOLEAN_TRUE
+        mg_param.dslash_use_mma = QudaBoolean.QUDA_BOOLEAN_TRUE
 
     return mg_param, mg_inv_param
 

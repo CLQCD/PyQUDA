@@ -432,10 +432,11 @@ class QudaFieldOrder(IntEnum):
 
 
 class QudaFieldCreate(IntEnum):
-    QUDA_NULL_FIELD_CREATE = 0  # create new field
-    QUDA_ZERO_FIELD_CREATE = 1  # create new field and zero it
-    QUDA_COPY_FIELD_CREATE = 2  # create copy to field
-    QUDA_REFERENCE_FIELD_CREATE = 3  # create reference to field
+    QUDA_NULL_FIELD_CREATE = 0  # new field
+    QUDA_ZERO_FIELD_CREATE = 1  # new field and zero it
+    QUDA_COPY_FIELD_CREATE = 2  # copy to field
+    QUDA_REFERENCE_FIELD_CREATE = 3  # reference to field
+    QUDA_GHOST_FIELD_CREATE = 4  # dummy field used only for ghost storage
     QUDA_INVALID_FIELD_CREATE = QUDA_INVALID_ENUM
 
 
@@ -651,6 +652,12 @@ class QudaGaugeSmearType(IntEnum):
     QUDA_GAUGE_SMEAR_WILSON_FLOW = 3
     QUDA_GAUGE_SMEAR_SYMANZIK_FLOW = 4
     QUDA_GAUGE_SMEAR_INVALID = QUDA_INVALID_ENUM
+
+
+class QudaFermionSmearType(IntEnum):
+    QUDA_FERMION_SMEAR_TYPE_GAUSSIAN = 0
+    QUDA_FERMION_SMEAR_TYPE_WUPPERTAL = 1
+    QUDA_FERMION_SMEAR_TYPE_INVALID = QUDA_INVALID_ENUM
 
 
 # Allows to choose an appropriate external library

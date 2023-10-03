@@ -40,9 +40,9 @@ propagator = core.invertStaggered(dslash, "point", [0, 0, 0, 0])
 dslash.destroy()
 
 mine = core.lexico(propagator.data.get(), [0, 1, 2, 3, 4])
-mine = np.einsum("tzyxba,tzyxba->t", mine.conj(), mine)
+# mine = np.einsum("tzyxba,tzyxba->t", mine.conj(), mine)
 
 chroma = np.fromfile("pt_prop_2.bin", ">c16").reshape(Lt, Lz, Ly, Lx, Nc, Nc)
-chroma = np.einsum("tzyxba,tzyxba->t", chroma.conj(), chroma)
+# chroma = np.einsum("tzyxba,tzyxba->t", chroma.conj(), chroma)
 
-print(mine / chroma)
+print(np.linalg.norm(mine - chroma))

@@ -314,6 +314,8 @@ class QudaEigParam:
     max_restarts: int
     batched_rotate: int
     block_size: int
+    max_ortho_attempts: int
+    ortho_block_size: int
     arpack_check: QudaBoolean
     arpack_logfile: bytes[512]
     QUDA_logfile: bytes[512]
@@ -328,6 +330,7 @@ class QudaEigParam:
     vec_outfile: bytes[256]
     save_prec: QudaPrecision
     io_parity_inflate: QudaBoolean
+    partfile: QudaBoolean
     gflops: double
     secs: double
     extlib_type: QudaExtLibType
@@ -347,6 +350,8 @@ class QudaMultigridParam:
     n_block_ortho: List[int, QUDA_MAX_MG_LEVEL]
     block_ortho_two_pass: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
     verbosity: List[QudaVerbosity, QUDA_MAX_MG_LEVEL]
+    setup_use_mma: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
+    dslash_use_mma: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
     setup_inv_type: List[QudaInverterType, QUDA_MAX_MG_LEVEL]
     num_setup_iter: List[int, QUDA_MAX_MG_LEVEL]
     setup_tol: List[double, QUDA_MAX_MG_LEVEL]
@@ -394,6 +399,7 @@ class QudaMultigridParam:
     vec_infile: List[bytes[256], QUDA_MAX_MG_LEVEL]
     vec_store: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
     vec_outfile: List[bytes[256], QUDA_MAX_MG_LEVEL]
+    mg_vec_partfile: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
     coarse_guess: QudaBoolean
     preserve_deflation: QudaBoolean
     gflops: double
@@ -402,7 +408,6 @@ class QudaMultigridParam:
     transfer_type: List[QudaTransferType, QUDA_MAX_MG_LEVEL]
     allow_truncation: QudaBoolean
     staggered_kd_dagger_approximation: QudaBoolean
-    use_mma: QudaBoolean
     thin_update_only: QudaBoolean
 
 class QudaGaugeObservableParam:
@@ -429,9 +434,7 @@ class QudaGaugeObservableParam:
 
 class QudaGaugeSmearParam:
     def __init__(self) -> None: ...
-
-    # def __repr__(self) -> str:
-    #     ...
+    # def __repr__(self) -> str: ...
 
     struct_size: size_t
     n_steps: int
@@ -565,6 +568,20 @@ def loadGaugeQuda(h_gauge: Pointers, param: QudaGaugeParam) -> None:
 def freeGaugeQuda() -> None:
     """
     Free QUDA's internal copy of the gauge field.
+    """
+    ...
+
+def freeUniqueGaugeQuda(link_type: QudaLinkType) -> None:
+    """
+    Free a unique type (Wilson, HISQ fat, HISQ long, smeared) of internal gauge field.
+    @param link_type[in]:
+        Type of link type to free up
+    """
+    ...
+
+def freeGaugeSmearedQuda() -> None:
+    """
+    Free QUDA's internal smeared gauge field.
     """
     ...
 
@@ -1121,3 +1138,15 @@ def computeGaugeFixingFFTQuda(
     @param[out] timeinfo:
     """
     ...
+
+class QudaQuarkSmearParam:
+    def __init__(self) -> None: ...
+    # def __repr__(self) -> str: ...
+
+    inv_param: QudaInvertParam
+    n_steps: int
+    width: double
+    compute_2link: int
+    delete_2link: int
+    t0: int
+    gflops: int

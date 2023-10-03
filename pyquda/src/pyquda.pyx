@@ -1676,6 +1676,22 @@ cdef class QudaMultigridParam:
         self.param.verbosity = value
 
     @property
+    def setup_use_mma(self):
+        return self.param.setup_use_mma
+
+    @setup_use_mma.setter
+    def setup_use_mma(self, value):
+        self.param.setup_use_mma = value
+
+    @property
+    def dslash_use_mma(self):
+        return self.param.dslash_use_mma
+
+    @dslash_use_mma.setter
+    def dslash_use_mma(self, value):
+        self.param.dslash_use_mma = value
+
+    @property
     def setup_inv_type(self):
         return self.param.setup_inv_type
 
@@ -2052,6 +2068,14 @@ cdef class QudaMultigridParam:
         self.param.vec_outfile = value
 
     @property
+    def mg_vec_partfile(self):
+        return self.param.mg_vec_partfile
+
+    @mg_vec_partfile.setter
+    def mg_vec_partfile(self, value):
+        self.param.mg_vec_partfile = value
+
+    @property
     def coarse_guess(self):
         return self.param.coarse_guess
 
@@ -2114,14 +2138,6 @@ cdef class QudaMultigridParam:
     @staggered_kd_dagger_approximation.setter
     def staggered_kd_dagger_approximation(self, value):
         self.param.staggered_kd_dagger_approximation = value
-
-    @property
-    def use_mma(self):
-        return self.param.use_mma
-
-    @use_mma.setter
-    def use_mma(self, value):
-        self.param.use_mma = value
 
     @property
     def thin_update_only(self):
@@ -2391,6 +2407,22 @@ cdef class QudaEigParam:
         self.param.block_size = value
 
     @property
+    def max_ortho_attempts(self):
+        return self.param.max_ortho_attempts
+
+    @max_ortho_attempts.setter
+    def max_ortho_attempts(self, value):
+        self.param.max_ortho_attempts = value
+
+    @property
+    def ortho_block_size(self):
+        return self.param.ortho_block_size
+
+    @ortho_block_size.setter
+    def ortho_block_size(self, value):
+        self.param.ortho_block_size = value
+
+    @property
     def arpack_check(self):
         return self.param.arpack_check
 
@@ -2501,6 +2533,14 @@ cdef class QudaEigParam:
     @io_parity_inflate.setter
     def io_parity_inflate(self, value):
         self.param.io_parity_inflate = value
+
+    @property
+    def partfile(self):
+        return self.param.partfile
+
+    @partfile.setter
+    def partfile(self, value):
+        self.param.partfile = value
 
     @property
     def gflops(self):
@@ -3028,6 +3068,12 @@ def loadGaugeQuda(Pointers h_gauge, QudaGaugeParam param):
 def freeGaugeQuda():
     quda.freeGaugeQuda()
 
+def freeUniqueGaugeQuda(quda.QudaLinkType link_type):
+    quda.freeUniqueGaugeQuda(link_type)
+
+def freeGaugeSmearedQuda():
+    quda.freeGaugeSmearedQuda()
+
 def saveGaugeQuda(Pointers h_gauge, QudaGaugeParam param):
     assert h_gauge.dtype == "void"
     quda.saveGaugeQuda(h_gauge.ptr, &param.param)
@@ -3106,6 +3152,8 @@ def computeKSLinkQuda(Pointers fatlink, Pointers longlink, Pointers ulink, Point
     assert inlink.dtype == "void"
     assert path_coeff.dtype == "double"
     quda.computeKSLinkQuda(fatlink.ptr, longlink.ptr, ulink.ptr, inlink.ptr, <double *>path_coeff.ptr, &param.param)
+
+# void computeTwoLinkQuda(void *twolink, void *inlink, QudaGaugeParam *param)
 
 def momResidentQuda(Pointers mom, QudaGaugeParam param):
     assert mom.dtype == "void"
@@ -3218,3 +3266,84 @@ def computeGaugeFixingFFTQuda(Pointers gauge, unsigned int gauge_dir, unsigned i
 
 # void* newDeflationQuda(QudaEigParam *param)
 # void destroyDeflationQuda(void *df_instance)
+
+cdef class QudaQuarkSmearParam:
+    cdef quda.QudaQuarkSmearParam param
+
+    def __init__(self):
+        # self.param = quda.QudaQuarkSmearParam()
+        pass
+
+    # def __repr__(self):
+    #     buf = io.BytesIO()
+    #     with redirect_stdout(buf):
+    #         quda.printQudaQuarkSmearParam(&self.param)
+    #     ret = buf.getvalue().decode("utf-8")
+    #     return ret
+
+    cdef from_ptr(self, quda.QudaQuarkSmearParam *ptr):
+        self.param = cython.operator.dereference(ptr)
+
+    @property
+    def inv_param(self):
+        param = QudaInvertParam()
+        param.from_ptr(self.param.inv_param)
+        return param
+
+    @inv_param.setter
+    def inv_param(self, value):
+        self.set_inv_param(value)
+
+    cdef set_inv_param(self, QudaInvertParam value):
+        self.param.inv_param = &value.param
+
+
+    @property
+    def n_steps(self):
+        return self.param.n_steps
+
+    @n_steps.setter
+    def n_steps(self, value):
+        self.param.n_steps = value
+
+    @property
+    def width(self):
+        return self.param.width
+
+    @width.setter
+    def width(self, value):
+        self.param.width = value
+
+    @property
+    def compute_2link(self):
+        return self.param.compute_2link
+
+    @compute_2link.setter
+    def compute_2link(self, value):
+        self.param.compute_2link = value
+
+    @property
+    def delete_2link(self):
+        return self.param.delete_2link
+
+    @delete_2link.setter
+    def delete_2link(self, value):
+        self.param.delete_2link = value
+
+    @property
+    def t0(self):
+        return self.param.t0
+
+    @t0.setter
+    def t0(self, value):
+        self.param.t0 = value
+
+    @property
+    def gflops(self):
+        return self.param.gflops
+
+    @gflops.setter
+    def gflops(self, value):
+        self.param.gflops = value
+
+# void performTwoLinkGaussianSmearNStep(void *h_in, QudaQuarkSmearParam *smear_param)
