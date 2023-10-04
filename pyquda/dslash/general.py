@@ -117,7 +117,7 @@ def newQudaGaugeParam(X: List[int], anisotropy: float, t_boundary: int, tadpole_
     gauge_param.reconstruct_precondition = link_recon_sloppy
     gauge_param.reconstruct_eigensolver = link_recon_sloppy
 
-    gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_CPS
+    gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_CHROMA
     # gauge_param.staggered_phase_applied = 0
 
     Lx, Ly, Lz, Lt = X
