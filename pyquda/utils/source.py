@@ -108,7 +108,7 @@ def source(
     t_srce: Union[int, List[int]],
     spin: int,
     color: int,
-    phase=None,
+    source_phase=None,
     rho: float = 0.0,
     nsteps: int = 0,
     xi: float = 1.0,
@@ -118,11 +118,11 @@ def source(
     elif source_type.lower() == "wall":
         return wall(latt_size, t_srce, spin, color)
     elif source_type.lower() == "momentum":
-        return momentum(latt_size, t_srce, phase, spin, color)
+        return momentum(latt_size, t_srce, source_phase, spin, color)
     elif source_type.lower() == "gaussian":
         return gaussian(latt_size, t_srce, color, rho, nsteps, xi)
     elif source_type.lower() == "colorvector":
-        return colorvector(latt_size, t_srce, phase)
+        return colorvector(latt_size, t_srce, source_phase)
     else:
         raise NotImplementedError(f"{source_type} source is not implemented yet.")
 
@@ -131,7 +131,7 @@ def source12(
     latt_size: List[int],
     source_type: Literal["point", "wall", "momentum", "gaussian", "colorvector"],
     t_srce: Union[int, List[int]],
-    phase=None,
+    source_phase=None,
     rho: float = 0.0,
     nsteps: int = 0,
     xi: float = 1.0,
@@ -142,19 +142,19 @@ def source12(
     b12 = LatticePropagator(latt_size)
     data = b12.data.reshape(Vol, Ns, Ns, Nc, Nc)
     if source_type.lower() in ["colorvector"]:
-        b = source(latt_size, source_type, t_srce, 0, 0, phase)
+        b = source(latt_size, source_type, t_srce, None, None, source_phase)
         for color in range(Nc):
             for spin in range(Ns):
                 data[:, spin, spin, :, color] = b.data.reshape(Vol, Nc)
     elif source_type.lower() in ["gaussian"]:
         for color in range(Nc):
-            b = source(latt_size, source_type, t_srce, 0, color, phase, rho, nsteps, xi)
+            b = source(latt_size, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
             for spin in range(Ns):
                 data[:, spin, spin, :, color] = b.data.reshape(Vol, Nc)
     else:
         for color in range(Nc):
             for spin in range(Ns):
-                b = source(latt_size, source_type, t_srce, spin, color, phase)
+                b = source(latt_size, source_type, t_srce, spin, color, source_phase)
                 data[:, :, spin, :, color] = b.data.reshape(Vol, Ns, Nc)
 
     return b12
@@ -164,7 +164,7 @@ def source3(
     latt_size: List[int],
     source_type: Literal["point", "wall", "momentum", "gaussian", "colorvector"],
     t_srce: Union[int, List[int]],
-    phase=None,
+    source_phase=None,
     rho: float = 0.0,
     nsteps: int = 0,
     xi: float = 1.0,
@@ -176,7 +176,7 @@ def source3(
     data = b3.data.reshape(Vol, Nc, Nc)
 
     for color in range(Nc):
-        b = source(latt_size, source_type, t_srce, None, color, phase)
+        b = source(latt_size, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
         data[:, :, color] = b.data.reshape(Vol, Nc)
 
     return b3

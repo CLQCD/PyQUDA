@@ -52,8 +52,16 @@ def smear4(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
     quda.saveGaugeQuda(gauge.data_ptrs, dslash.gauge_param)
 
 
-def invert(dslash: Dslash, source_type: str, t_srce: Union[int, List[int]], source_phase=None):
+def invert(
+    dslash: Dslash,
+    source_type: str,
+    t_srce: Union[int, List[int]],
+    source_phase=None,
+    rho: float = 0.0,
+    nsteps: int = 1,
+):
     latt_size = dslash.gauge_param.X
+    xi = dslash.gauge_param.anisotropy
     Lx, Ly, Lz, Lt = latt_size
     Vol = Lx * Ly * Lz * Lt
 
@@ -61,22 +69,30 @@ def invert(dslash: Dslash, source_type: str, t_srce: Union[int, List[int]], sour
     data = prop.data.reshape(Vol, Ns, Ns, Nc, Nc)
     for spin in range(Ns):
         for color in range(Nc):
-            b = source(latt_size, source_type, t_srce, spin, color, source_phase)
+            b = source(latt_size, source_type, t_srce, spin, color, source_phase, rho, nsteps, xi)
             x = dslash.invert(b)
             data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
 
     return prop
 
 
-def invertStaggered(dslash: Dslash, source_type: str, t_srce: Union[int, List[int]], source_phase=None):
+def invertStaggered(
+    dslash: Dslash,
+    source_type: str,
+    t_srce: Union[int, List[int]],
+    source_phase=None,
+    rho: float = 0.0,
+    nsteps: int = 1,
+):
     latt_size = dslash.gauge_param.X
+    xi = dslash.gauge_param.anisotropy
     Lx, Ly, Lz, Lt = latt_size
     Vol = Lx * Ly * Lz * Lt
 
     prop = LatticeStaggeredPropagator(latt_size)
     data = prop.data.reshape(Vol, Nc, Nc)
     for color in range(Nc):
-        b = source(latt_size, source_type, t_srce, None, color, source_phase)
+        b = source(latt_size, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
         x = dslash.invert(b)
         data[:, :, color] = x.data.reshape(Vol, Nc)
 
@@ -154,7 +170,6 @@ def getStaggeredDslash(
     naik_epsilon: float = 0.0,
     anti_periodic_t: bool = True,
 ):
-    mass = -mass
     kappa = 1 / (2 * (mass + Nd))
     if anti_periodic_t:
         t_boundary = -1

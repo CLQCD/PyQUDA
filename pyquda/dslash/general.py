@@ -414,6 +414,8 @@ def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     longlink = LatticeGauge(gauge.latt_size)
     ulink = LatticeGauge(gauge.latt_size)
 
+    loadGaugeQuda(inlink.data_ptrs, gauge_param)
+
     gauge_param.return_result_gauge = 1
     staggeredPhaseQuda(inlink.data_ptrs, gauge_param)
 
@@ -456,7 +458,7 @@ def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
 
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
     print(f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS")
-    x.data /= -2 * mass
+    x.data /= 2 * mass
 
     return x
 
