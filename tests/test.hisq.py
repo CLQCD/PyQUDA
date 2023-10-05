@@ -33,8 +33,8 @@ dslash.loadGauge(gauge)
 # Ct = np.arange(Lt).reshape(Lt, 1, 1, 1).repeat(Lx, 3).repeat(Ly, 2).repeat(Lz, 1)
 # Convert from CPS(QUDA, Old) to Chroma
 # phase = cp.asarray(core.cb2(np.where((Cx) % 2 == 1, -1, 1), [0, 1, 2, 3]))
-# # Convert from MILC to CPS
-# phase = cp.asarray(core.cb2(np.where(((Cx + Cy + Cz) % 2 == 1) & (Ct % 2 == 1), -1, 1), [0, 1, 2, 3]))
+# Convert from MILC to Chroma
+# phase = cp.asarray(core.cb2(np.where(((Cx + Cy + Cz) % 2 == 1) | (Ct % 2 == 1), -1, 1), [0, 1, 2, 3]))
 # # Convert from CPS(QUDA, New) to Chroma
 # phase = cp.asarray(core.cb2(np.where((Cx + Cy + Cz + Ct) % 2 == 1, -1, 1), [0, 1, 2, 3]))
 
@@ -43,9 +43,8 @@ propagator = core.invertStaggered(dslash, "point", [0, 0, 0, 0])
 dslash.destroy()
 
 mine = core.lexico(propagator.data.get(), [0, 1, 2, 3, 4])
-# mine = np.einsum("tzyxba,tzyxba->t", mine.conj(), mine)
-
 chroma = np.fromfile("pt_prop_2.bin", ">c16").reshape(Lt, Lz, Ly, Lx, Nc, Nc)
-# chroma = np.einsum("tzyxba,tzyxba->t", chroma.conj(), chroma)
-
 print(np.linalg.norm(mine - chroma))
+# mine = np.einsum("tzyxba,tzyxba->t", mine.conj(), mine)
+# chroma = np.einsum("tzyxba,tzyxba->t", chroma.conj(), chroma)
+# print(mine / chroma)

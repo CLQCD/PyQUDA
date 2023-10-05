@@ -492,9 +492,8 @@ cdef extern from "enum_quda.h":
     ctypedef enum QudaStaggeredPhase:
         QUDA_STAGGERED_PHASE_NO = 0
         QUDA_STAGGERED_PHASE_MILC = 1
-        QUDA_STAGGERED_PHASE_CPS = 2
+        QUDA_STAGGERED_PHASE_CHROMA = 2
         QUDA_STAGGERED_PHASE_TIFR = 3
-        QUDA_STAGGERED_PHASE_CHROMA = 4
         QUDA_STAGGERED_PHASE_INVALID = QUDA_INVALID_ENUM
 
     ctypedef enum QudaContractType:

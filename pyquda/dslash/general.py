@@ -414,11 +414,17 @@ def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     longlink = LatticeGauge(gauge.latt_size)
     ulink = LatticeGauge(gauge.latt_size)
 
-    loadGaugeQuda(inlink.data_ptrs, gauge_param)
+    t_boundary = gauge_param.t_boundary
+    gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
+    loadGaugeQuda(inlink.data_ptrs, gauge_param)  # Save the original gauge for the smeared source.
+    gauge_param.t_boundary = t_boundary
 
     gauge_param.return_result_gauge = 1
     staggeredPhaseQuda(inlink.data_ptrs, gauge_param)
 
+    # Chroma uses periodic boundary condition to do the SU(3) projection.
+    # But I think it's wrong.
+    # gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
     computeKSLinkQuda(
         nullptrs, nullptrs, ulink.data_ptrs, inlink.data_ptrs, ndarrayDataPointer(act_path_coeff[0]), gauge_param
     )
@@ -435,7 +441,8 @@ def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     loadGaugeQuda(fatlink.data_ptrs, gauge_param)
     gauge_param.type = QudaLinkType.QUDA_ASQTAD_LONG_LINKS
     gauge_param.ga_pad = gauge_param.ga_pad * 3
-    # gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_NO
+    # gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
+    gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_NO
     loadGaugeQuda(longlink.data_ptrs, gauge_param)
 
 
