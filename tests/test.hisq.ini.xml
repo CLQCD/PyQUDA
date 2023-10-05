@@ -47,7 +47,7 @@
           </FermionAction>
           <InvertParam>
             <invType>CG_INVERTER</invType>
-            <RsdCG>1e-9</RsdCG>
+            <RsdCG>1e-12</RsdCG>
             <MaxCG>1000</MaxCG>
           </InvertParam>
         </Param>

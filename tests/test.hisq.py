@@ -21,7 +21,7 @@ Vol = Lx * Ly * Lz * Lt
 
 mass = 0.0102
 
-dslash = core.getStaggeredDslash(latt_size, mass, 1e-9, 1000, 1.0, 0.0, False)
+dslash = core.getStaggeredDslash(latt_size, mass, 1e-12, 1000, 1.0, 0.0, False)
 gauge = gauge_utils.readQIO(os.path.join(test_dir, "weak_field.lime"))
 
 dslash.loadGauge(gauge)

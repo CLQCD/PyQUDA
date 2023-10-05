@@ -14,11 +14,7 @@ latt_size = [4, 4, 4, 8]
 Lx, Ly, Lz, Lt = latt_size
 Vol = Lx * Ly * Lz * Lt
 
-xi_0, nu = 2.464, 0.95
-kappa = 0.135
-mass = 1 / (2 * kappa) - 4
-
-dslash = core.getDslash(latt_size, mass, 1e-9, 1000, xi_0, nu)
+dslash = core.getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
 gauge = gauge_utils.readQIO(os.path.join(test_dir, "weak_field.lime"))
 
 
