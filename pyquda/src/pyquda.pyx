@@ -552,6 +552,14 @@ cdef class QudaInvertParam:
         self.param.epsilon = value
 
     @property
+    def improve(self):
+        return self.param.improve
+
+    @improve.setter
+    def improve(self, value):
+        self.param.improve = value
+
+    @property
     def twist_flavor(self):
         return self.param.twist_flavor
 

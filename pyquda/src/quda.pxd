@@ -127,6 +127,7 @@ cdef extern from "quda.h":
         double mu    # Twisted mass parameter
         double tm_rho  # Hasenbusch mass shift applied like twisted mass to diagonal (but not inverse)
         double epsilon # Twisted mass parameter
+        double improve # Improved Wilson/Clover parameter
 
         QudaTwistFlavorType twist_flavor  # Twisted mass flavor
 

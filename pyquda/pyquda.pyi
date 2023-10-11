@@ -157,6 +157,7 @@ class QudaInvertParam:
     mu: double
     tm_rho: double
     epsilon: double
+    improve: double
     twist_flavor: QudaTwistFlavorType
     laplace3D: int
     tol: double
