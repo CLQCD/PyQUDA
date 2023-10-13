@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(test_dir, ".."))
 
 import pyquda
 from pyquda import core
-from pyquda.utils import source, gauge_utils
+from pyquda.utils import source, io
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 pyquda.init()
@@ -26,7 +26,7 @@ xi_0 = 5.65
 nu = xi_0 / xi
 u_s = 0.780268
 dslash = core.getDslash(latt_size, 0, 0, 0, xi_0, nu / u_s, anti_periodic_t=False)
-gauge = gauge_utils.readQIO(filename)
+gauge = io.readQIOGauge(filename)
 dslash.loadGauge(gauge)
 
 sh_src12 = source.source12(latt_size, "gaussian", [x, y, z, t], rho=rho, nsteps=nsteps, xi=xi * u_s)

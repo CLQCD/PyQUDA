@@ -7,7 +7,7 @@ test_dir = os.path.dirname(os.path.abspath(__file__))
 from pyquda import core, mpi
 from pyquda.dslash import general
 from pyquda.field import Nc
-from pyquda.utils import gauge_utils
+from pyquda.utils import io
 
 general.link_recon = 18
 general.link_recon_sloppy = 18
@@ -22,7 +22,7 @@ Vol = Lx * Ly * Lz * Lt
 mass = 0.0102
 
 dslash = core.getStaggeredDslash(latt_size, mass, 1e-12, 1000, 1.0, 0.0, False)
-gauge = gauge_utils.readQIO(os.path.join(test_dir, "weak_field.lime"))
+gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
 
 dslash.loadGauge(gauge)
 

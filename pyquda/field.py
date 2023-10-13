@@ -235,9 +235,13 @@ class LatticeFermion(LatticeField):
 
 
 class LatticePropagator(LatticeField):
-    def __init__(self, latt_size: List[int]) -> None:
+    def __init__(self, latt_size: List[int], value=None) -> None:
+        Lx, Ly, Lz, Lt = latt_size
         self.latt_size = latt_size
-        self.data = newLatticeFieldData(latt_size, "Propagator")
+        if value is None:
+            self.data = newLatticeFieldData(latt_size, "Propagator")
+        else:
+            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc)
 
     def lexico(self):
         return lexico(self.getHost(), [0, 1, 2, 3, 4])
@@ -288,9 +292,13 @@ class LatticeStaggeredFermion(LatticeField):
 
 
 class LatticeStaggeredPropagator(LatticeField):
-    def __init__(self, latt_size: List[int]) -> None:
+    def __init__(self, latt_size: List[int], value=None) -> None:
+        Lx, Ly, Lz, Lt = latt_size
         self.latt_size = latt_size
-        self.data = newLatticeFieldData(latt_size, "StaggeredPropagator")
+        if value is None:
+            self.data = newLatticeFieldData(latt_size, "StaggeredPropagator")
+        else:
+            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc, Nc)
 
     def lexico(self):
         return lexico(self.getHost(), [0, 1, 2, 3, 4])
