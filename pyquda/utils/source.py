@@ -8,6 +8,7 @@ def point(latt_size: List[int], t_srce: List[int], spin: int, color: int):
     Lx, Ly, Lz, Lt = latt_size
     x, y, z, t = t_srce
     gx, gy, gz, gt = mpi.coord
+    b = LatticeFermion(latt_size) if spin is not None else LatticeStaggeredFermion(latt_size)
     if (
         gx * Lx <= x < (gx + 1) * Lx
         and gy * Ly <= y < (gy + 1) * Ly
@@ -16,10 +17,8 @@ def point(latt_size: List[int], t_srce: List[int], spin: int, color: int):
     ):
         eo = ((x - gx * Lx) + (y - gy * Ly) + (z - gz * Lz) + (t - gt * Lt)) % 2
         if spin is not None:
-            b = LatticeFermion(latt_size)
             b.data[eo, t - gt * Lt, z - gz * Lz, y - gy * Ly, (x - gx * Lx) // 2, spin, color] = 1
         else:
-            b = LatticeStaggeredFermion(latt_size)
             b.data[eo, t - gt * Lt, z - gz * Lz, y - gy * Ly, (x - gx * Lx) // 2, color] = 1
 
     return b
@@ -29,12 +28,11 @@ def wall(latt_size: List[int], t_srce: int, spin: int, color: int):
     Lx, Ly, Lz, Lt = latt_size
     gx, gy, gz, gt = mpi.coord
     t = t_srce
+    b = LatticeFermion(latt_size) if spin is not None else LatticeStaggeredFermion(latt_size)
     if gt * Lt <= t < (gt + 1) * Lt:
         if spin is not None:
-            b = LatticeFermion(latt_size)
             b.data[:, t - gt * Lt, :, :, :, spin, color] = 1
         else:
-            b = LatticeStaggeredFermion(latt_size)
             b.data[:, t - gt * Lt, :, :, :, color] = 1
 
     return b
@@ -44,12 +42,11 @@ def momentum(latt_size: List[int], t_srce: int, phase, spin: int, color: int):
     Lx, Ly, Lz, Lt = latt_size
     gx, gy, gz, gt = mpi.coord
     t = t_srce
+    b = LatticeFermion(latt_size) if spin is not None else LatticeStaggeredFermion(latt_size)
     if gt * Lt <= t < (gt + 1) * Lt:
         if spin is not None:
-            b = LatticeFermion(latt_size)
             b.data[:, t - gt * Lt, :, :, :, spin, color] = phase[:, t - gt * Lt, :, :, :]
         else:
-            b = LatticeStaggeredFermion(latt_size)
             b.data[:, t - gt * Lt, :, :, :, color] = phase[:, t - gt * Lt, :, :, :]
 
     return b

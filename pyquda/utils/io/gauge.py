@@ -6,7 +6,7 @@ from xml.etree import ElementTree as ET
 import numpy
 
 from ... import mpi
-from ...field import Nc, Nd, cb2, LatticeGauge
+from ...field import Nc, Ns, Nd, cb2, LatticeGauge
 
 precision_map = {"D": 8, "S": 4}
 
@@ -63,7 +63,10 @@ def readQIO(filename: str):
     # precision = int(ildg_format.find(f"{tag}precision").text)
     precision = precision_map[scidac_private_record_xml.find("precision").text]
     assert int(scidac_private_record_xml.find("colors").text) == Nc
-    assert int(scidac_private_record_xml.find("spins").text) == 1
+    assert (
+        int(scidac_private_record_xml.find("spins").text) == Ns
+        or int(scidac_private_record_xml.find("spins").text) == 1
+    )
     assert int(scidac_private_record_xml.find("typesize").text) == Nc * Nc * 2 * precision
     assert int(scidac_private_record_xml.find("datacount").text) == Nd
     dtype = f">c{2*precision}"

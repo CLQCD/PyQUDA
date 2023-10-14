@@ -441,30 +441,42 @@ def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
 
 
 def invert(b: LatticeFermion, invert_param: QudaInvertParam):
+    from ..mpi import rank
+
     kappa = invert_param.kappa
 
     x = LatticeFermion(b.latt_size)
 
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    print(f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS")
+    if rank == 0:
+        print(
+            f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
+        )
     x.data *= 2 * kappa
 
     return x
 
 
 def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
+    from ..mpi import rank
+
     mass = invert_param.mass
 
     x = LatticeStaggeredFermion(b.latt_size)
 
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    print(f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS")
+    if rank == 0:
+        print(
+            f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
+        )
     x.data /= 2 * mass
 
     return x
 
 
 def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
+    from ..mpi import rank
+
     invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
 
     kappa = invert_param.kappa
@@ -484,7 +496,10 @@ def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
     dslashQuda(x.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
     tmp.odd = tmp.odd + kappa * x.odd
     invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
-    print(f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS")
+    if rank == 0:
+        print(
+            f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
+        )
     dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
     x.even = tmp.even + kappa * x.even
     x.data *= 2 * kappa
