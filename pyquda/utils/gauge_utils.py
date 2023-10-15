@@ -24,7 +24,7 @@ def readQIO(filename: str):
     with open(filename, "rb") as f:
         meta: Dict[str, Tuple[int]] = {}
         buffer = f.read(8)
-        while buffer != b"":
+        while buffer != b"" and buffer != b"\x0A":
             assert buffer.startswith(b"\x45\x67\x89\xAB\x00\x01")
             length = (struct.unpack(">Q", f.read(8))[0] + 7) // 8 * 8
             name = f.read(128).strip(b"\x00").decode("utf-8")

@@ -7,7 +7,7 @@ import cupy as cp
 test_dir = os.path.dirname(os.path.abspath(__file__))
 # sys.path.insert(0, os.path.join(test_dir, ".."))
 from pyquda import core, mpi
-from pyquda.utils import gamma, phase, gauge_utils
+from pyquda.utils import gamma, phase, io
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 mpi.init()
@@ -42,7 +42,7 @@ twopt = np.zeros((Lt, Lt, len(gamma_insertion), mom_num), "<c16")
 
 
 s = time()
-gauge = gauge_utils.readQIO(os.path.join(test_dir, "weak_field.lime"))
+gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
 dslash.loadGauge(gauge)
 print(f"Read and load gauge configuration: {time()-s:.2f}sec.")
 
