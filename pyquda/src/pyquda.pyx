@@ -560,6 +560,14 @@ cdef class QudaInvertParam:
         self.param.twist_flavor = value
 
     @property
+    def covdev_mu(self):
+        return self.param.covdev_mu
+
+    @covdev_mu.setter
+    def covdev_mu(self, value):
+        self.param.covdev_mu = value
+
+    @property
     def laplace3D(self):
         return self.param.laplace3D
 

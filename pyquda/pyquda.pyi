@@ -158,6 +158,7 @@ class QudaInvertParam:
     tm_rho: double
     epsilon: double
     twist_flavor: QudaTwistFlavorType
+    covdev_mu: int
     laplace3D: int
     tol: double
     tol_restart: double
