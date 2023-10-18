@@ -1,12 +1,11 @@
 import os
 import sys
-import numpy as np
+import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 # sys.path.insert(0, os.path.join(test_dir, ".."))
 from pyquda import core, init
 from pyquda.dslash import general
-from pyquda.field import Nc
 from pyquda.utils import io
 
 general.link_recon = 18
@@ -42,9 +41,6 @@ propagator = core.invertStaggered(dslash, "point", [0, 0, 0, 0])
 
 dslash.destroy()
 
-mine = core.lexico(propagator.data.get(), [0, 1, 2, 3, 4])
-chroma = np.fromfile("pt_prop_2.bin", ">c16").reshape(Lt, Lz, Ly, Lx, Nc, Nc)
-print(np.linalg.norm(mine - chroma))
-# mine = np.einsum("tzyxba,tzyxba->t", mine.conj(), mine)
-# chroma = np.einsum("tzyxba,tzyxba->t", chroma.conj(), chroma)
-# print(mine / chroma)
+propagator_chroma = io.readQIOPropagator("pt_prop_2")
+propagator_chroma.toDevice()
+print(cp.linalg.norm(propagator.data - propagator_chroma.data))

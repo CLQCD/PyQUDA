@@ -1,12 +1,10 @@
 import os
 import sys
-import numpy as np
 import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 # sys.path.insert(0, os.path.join(test_dir, ".."))
 from pyquda import core, init
-from pyquda.field import Nc, Ns
 from pyquda.utils import io
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
@@ -33,5 +31,6 @@ propagator = core.invert(dslash, "point", [0, 0, 0, 0])
 
 dslash.destroy()
 
-propagator_chroma = cp.array(np.fromfile("pt_prop_1", ">c16", offset=8).astype("<c16")).reshape(Vol, Ns, Ns, Nc, Nc)
-print(cp.linalg.norm(propagator.data.reshape(Vol, Ns, Ns, Nc, Nc) - propagator_chroma.transpose(0, 2, 1, 4, 3)))
+propagator_chroma = io.readQIOPropagator("pt_prop_1")
+propagator_chroma.toDevice()
+print(cp.linalg.norm(propagator.data - propagator_chroma.data))
