@@ -12,7 +12,6 @@ from pyquda.field import Nc
 # field.CUDA_BACKEND = "torch"
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-pyquda.init()
 
 ensembles = {
     "A1": ([16, 16, 16, 16], 5.789),
@@ -26,6 +25,7 @@ tag = "A1"
 latt_size = ensembles[tag][0]
 Lx, Ly, Lz, Lt = latt_size
 Vol = Lx * Ly * Lz * Lt
+pyquda.init()
 
 beta = ensembles[tag][1]
 

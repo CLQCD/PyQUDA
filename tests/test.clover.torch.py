@@ -5,18 +5,18 @@ import torch
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 # sys.path.insert(0, os.path.join(test_dir, ".."))
-from pyquda import core, mpi, field
+from pyquda import core, field, init
 from pyquda.field import Nc, Ns
 from pyquda.utils import io
 
 field.CUDA_BACKEND = "torch"
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-mpi.init()
 
 latt_size = [4, 4, 4, 8]
 Lx, Ly, Lz, Lt = latt_size
 Vol = Lx * Ly * Lz * Lt
+init()
 
 xi_0, nu = 2.464, 0.95
 kappa = 0.115

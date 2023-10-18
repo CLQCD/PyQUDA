@@ -6,15 +6,15 @@ import cupy as cp
 test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(test_dir, ".."))
 
-import pyquda
-from pyquda import core
+from pyquda import core, init
 from pyquda.utils import source, io
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-pyquda.init()
 
 latt_size = [16, 16, 16, 128]
 Lx, Ly, Lz, Lt = latt_size
+init()
+
 rho = 2.0
 nsteps = 5
 x, y, z, t = 0, 0, 0, 0
