@@ -1,6 +1,7 @@
 .idea
 .vscode
 pyquda/src/*.c
+pyquda/src/*.cpp
 *.so
 .cache
 __pycache__

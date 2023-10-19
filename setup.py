@@ -42,6 +42,14 @@ extensions = [
         libraries=["quda"],
         language="c",
     ),
+    Extension(
+        "pyquda.malloc_pyquda",
+        ["pyquda/src/malloc_pyquda.pyx"],
+        include_dirs=["pyquda/include/quda"],
+        library_dirs=[libquda_path],
+        libraries=["quda"],
+        language="c++",
+    ),
 ]
 
 if BUILD_QCU:

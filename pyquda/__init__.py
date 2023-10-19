@@ -2,6 +2,7 @@ from typing import List, Literal, NamedTuple
 
 from . import mpi
 from . import pyquda as quda
+from . import malloc_pyquda
 
 try:
     from . import pyqcu as qcu
@@ -95,6 +96,8 @@ def init(grid_size: List[int] = None):
             cuda.Device(gpuid).use()
             cc = cuda.Device(gpuid).compute_capability
             _COMPUTE_CAPABILITY = _ComputeCapability(int(cc[:-1]), int(cc[-1]))
+            allocator = cuda.PythonFunctionAllocator(malloc_pyquda.pyquda_cupy_malloc, malloc_pyquda.pyquda_cupy_free)
+            cuda.set_allocator(allocator.malloc)
         elif _CUDA_BACKEND == "torch":
             cuda.set_device(gpuid)
             cc = cuda.get_device_capability(gpuid)
