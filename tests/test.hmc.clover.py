@@ -6,8 +6,7 @@ import cupy as cp
 test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(test_dir, ".."))
 
-import pyquda
-from pyquda import core, field
+from pyquda import core, field, init
 from pyquda.hmc import HMC
 from pyquda.field import Nc, Ns
 
@@ -25,7 +24,7 @@ tag = "A1"
 latt_size = ensembles[tag][0]
 Lx, Ly, Lz, Lt = latt_size
 Vol = Lx * Ly * Lz * Lt
-pyquda.init()
+init()
 
 beta = ensembles[tag][1]
 
@@ -143,7 +142,7 @@ theta_ = -0.03230286765269967
 vartheta_ = 0.08398315262876693
 lambda_ = 0.6822365335719091
 
-plaquette = pyquda.plaq()
+plaquette = core.plaq()
 print(f"\nplaquette = {plaquette}\n")
 
 t = 1.0
@@ -205,7 +204,7 @@ for i in range(100):
     else:
         hmc.loadGauge(gauge)
 
-    plaquette = pyquda.plaq()
+    plaquette = core.plaq()
 
     print(
         f"Step {i}:\n"

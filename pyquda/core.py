@@ -19,6 +19,12 @@ from .dslash.abstract import Dslash
 from .utils.source import source
 
 
+def plaq():
+    ret = [0.0, 0.0, 0.0]
+    quda.plaqQuda(ret)
+    return ret[0]
+
+
 def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
     smear_param = quda.QudaGaugeSmearParam()
     smear_param.n_steps = nstep

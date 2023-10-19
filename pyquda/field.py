@@ -1,9 +1,7 @@
-from typing import List, Literal
+from typing import List
 from enum import IntEnum
 
 import numpy
-
-CUDA_BACKEND: Literal["cupy", "torch"] = "cupy"
 
 from .pointer import ndarrayDataPointer
 
@@ -64,6 +62,8 @@ def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
 
 
 def newLatticeFieldData(latt_size: List[int], dtype: str):
+    from .mpi import CUDA_BACKEND
+
     Lx, Ly, Lz, Lt = latt_size
     if CUDA_BACKEND == "cupy":
         import cupy
@@ -112,6 +112,8 @@ class LatticeField:
         pass
 
     def backup(self):
+        from .mpi import CUDA_BACKEND
+
         if isinstance(self.data, numpy.ndarray):
             return self.data.copy()
         elif CUDA_BACKEND == "cupy":
@@ -122,6 +124,8 @@ class LatticeField:
             raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
 
     def toDevice(self):
+        from .mpi import CUDA_BACKEND
+
         if CUDA_BACKEND == "cupy":
             import cupy
 
@@ -129,11 +133,13 @@ class LatticeField:
         elif CUDA_BACKEND == "torch":
             import torch
 
-            self.data = torch.asarray(self.data, device="cuda")
+            self.data = torch.as_tensor(self.data, device="cuda")
         else:
             raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
 
     def toHost(self):
+        from .mpi import CUDA_BACKEND
+
         if isinstance(self.data, numpy.ndarray):
             pass
         elif CUDA_BACKEND == "cupy":
@@ -144,6 +150,8 @@ class LatticeField:
             raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
 
     def getHost(self):
+        from .mpi import CUDA_BACKEND
+
         if isinstance(self.data, numpy.ndarray):
             return self.data.copy()
         elif CUDA_BACKEND == "cupy":

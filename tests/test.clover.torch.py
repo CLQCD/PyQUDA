@@ -1,15 +1,13 @@
 import os
 import sys
-import numpy as np
 import torch
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
-# sys.path.insert(0, os.path.join(test_dir, ".."))
-from pyquda import core, field, init
-from pyquda.field import Nc, Ns
+sys.path.insert(0, os.path.join(test_dir, ".."))
+from pyquda import core, mpi, init
 from pyquda.utils import io
 
-field.CUDA_BACKEND = "torch"
+mpi.CUDA_BACKEND = "torch"
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
