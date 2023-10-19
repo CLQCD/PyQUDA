@@ -4,11 +4,11 @@ import numpy as np
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(test_dir, ".."))
-from pyquda import core, field, init
+from pyquda import core, field, init, setCUDABackend
 from pyquda.hmc import HMC
 from pyquda.field import Nc
 
-# field.CUDA_BACKEND = "torch"
+# setCUDABackend("torch")
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 

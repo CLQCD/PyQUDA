@@ -137,7 +137,7 @@ def newQudaMultigridParam(
     nu_pre: int,
     nu_post: int,
 ):
-    from ..mpi import compute_capability
+    from .. import getCUDAComputeCapability
 
     mg_param = QudaMultigridParam()
     mg_inv_param = QudaInvertParam()
@@ -236,7 +236,7 @@ def newQudaMultigridParam(
     mg_param.run_low_mode_check = QudaBoolean.QUDA_BOOLEAN_FALSE
     mg_param.run_oblique_proj_check = QudaBoolean.QUDA_BOOLEAN_FALSE
 
-    use_mma = QudaBoolean.QUDA_BOOLEAN_TRUE if compute_capability.major >= 7 else QudaBoolean.QUDA_BOOLEAN_FALSE
+    use_mma = QudaBoolean.QUDA_BOOLEAN_TRUE if getCUDAComputeCapability().major >= 7 else QudaBoolean.QUDA_BOOLEAN_FALSE
     mg_param.setup_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
     mg_param.dslash_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
 

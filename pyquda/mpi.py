@@ -1,91 +1,15 @@
-from typing import List, Literal, NamedTuple
-
-
-class ComputeCapability(NamedTuple):
-    major: int
-    minor: int
-
+from typing import List
 
 comm = None
 rank: int = 0
 size: int = 1
 grid: List[int] = [1, 1, 1, 1]
 coord: List[int] = [0, 0, 0, 0]
-compute_capability: ComputeCapability = ComputeCapability(0, 0)
-
-
-CUDA_BACKEND: Literal["cupy", "torch"] = "cupy"
-
-
-def init(grid_size: List[int] = None):
-    """
-    Initialize MPI along with the QUDA library.
-
-    If grid_size is None, MPI will not applied.
-    """
-    global comm, rank, size, grid, coord, compute_capability
-    if comm is None:
-        if CUDA_BACKEND == "cupy":
-            from cupy import cuda
-        elif CUDA_BACKEND == "torch":
-            from torch import cuda
-        else:
-            raise ImportError("CuPy or PyTorch is needed to handle field data")
-
-        if grid_size is not None:
-            from os import getenv
-            from platform import node as gethostname
-            from mpi4py import MPI
-            from .pyquda import initCommsGridQuda
-
-            comm = MPI.COMM_WORLD
-            rank = comm.Get_rank()
-            size = comm.Get_size()
-
-            Gx, Gy, Gz, Gt = grid_size
-            assert len(grid_size) == 4 and Gx * Gy * Gz * Gt == size
-            grid = grid_size
-            coord = [rank // Gt // Gz // Gy, rank // Gt // Gz % Gy, rank // Gt % Gz, rank % Gt]
-
-            gpuid = 0
-            hostname = gethostname()
-            hostname_recv_buf = comm.allgather(hostname)
-            for i in range(rank):
-                if hostname == hostname_recv_buf[i]:
-                    gpuid += 1
-
-            if CUDA_BACKEND == "cupy":
-                device_count = cuda.runtime.getDeviceCount()
-            elif CUDA_BACKEND == "torch":
-                device_count = cuda.device_count()
-            if gpuid >= device_count:
-                enable_mps_env = getenv("QUDA_ENABLE_MPS")
-                if enable_mps_env is not None and enable_mps_env == "1":
-                    gpuid %= device_count
-
-            initCommsGridQuda(4, grid)
-        else:
-            comm = 0
-
-        import atexit
-        from .pyquda import initQuda, endQuda
-
-        if CUDA_BACKEND == "cupy":
-            cuda.Device(gpuid).use()
-            cc = cuda.Device(gpuid).compute_capability
-            compute_capability = ComputeCapability(int(cc[:-1]), int(cc[-1]))
-        elif CUDA_BACKEND == "torch":
-            cuda.set_device(gpuid)
-            cc = cuda.get_device_capability(gpuid)
-            compute_capability = ComputeCapability(cc[0], cc[1])
-        initQuda(gpuid)
-        atexit.register(endQuda)
 
 
 def gather(data, axes: List[int] = [-1, -1, -1, -1], mode: str = None, root: int = 0):
     import numpy
 
-    global comm, rank, size, grid
     dtype = data.dtype
     Lt, Lz, Ly, Lx = [data.shape[axis] if axis != -1 else 1 for axis in axes]
     Gx, Gy, Gz, Gt = grid
