@@ -1075,7 +1075,6 @@ def computeGaugeFixingOVRQuda(
     reunit_interval: int,
     stopWtheta: int,
     param: QudaGaugeParam,
-    timeinfo: List[double, 3],
 ) -> int:
     """
     Gauge fixing with overrelaxation with support for single and multi GPU.
@@ -1098,7 +1097,6 @@ def computeGaugeFixingOVRQuda(
         0 for MILC criterion and 1 to use the theta value
     @param[in] param:
         The parameters of the external fields and the computation settings
-    @param[out] timeinfo:
     """
     ...
 
@@ -1112,7 +1110,6 @@ def computeGaugeFixingFFTQuda(
     tolerance: double,
     stopWtheta: int,
     param: QudaGaugeParam,
-    timeinfo: List[double, 3],
 ) -> int:
     """
     Gauge fixing with Steepest descent method with FFTs with support for single GPU only.
@@ -1135,7 +1132,6 @@ def computeGaugeFixingFFTQuda(
         0 for MILC criterion and 1 to use the theta value
     @param[in] param:
         The parameters of the external fields and the computation settings
-    @param[out] timeinfo:
     """
     ...
 
@@ -1149,4 +1145,5 @@ class QudaQuarkSmearParam:
     compute_2link: int
     delete_2link: int
     t0: int
-    gflops: int
+    secs: double
+    gflops: double

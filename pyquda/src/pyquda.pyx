@@ -3241,23 +3241,13 @@ def gaugeObservablesQuda(QudaGaugeObservableParam param):
 # void contractQuda(const void *x, const void *y, void *result, const QudaContractType cType, QudaInvertParam *param,
 #                     const int *X)
 
-def computeGaugeFixingOVRQuda(Pointers gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double relax_boost, double tolerance, unsigned int reunit_interval, unsigned int stopWtheta, QudaGaugeParam param, list timeinfo):
-    assert len(timeinfo) >= 3
+def computeGaugeFixingOVRQuda(Pointers gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double relax_boost, double tolerance, unsigned int reunit_interval, unsigned int stopWtheta, QudaGaugeParam param):
     assert gauge.dtype == "void"
-    cdef double c_timeinfo[3]
-    ret = quda.computeGaugeFixingOVRQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, relax_boost, tolerance, reunit_interval, stopWtheta, &param.param, c_timeinfo)
-    for i in range(3):
-        timeinfo[i] = c_timeinfo[i]
-    return ret
+    return quda.computeGaugeFixingOVRQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, relax_boost, tolerance, reunit_interval, stopWtheta, &param.param)
 
-def computeGaugeFixingFFTQuda(Pointers gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double alpha, unsigned int autotune, double tolerance, unsigned int stopWtheta, QudaGaugeParam param, list timeinfo):
-    assert len(timeinfo) >= 3
+def computeGaugeFixingFFTQuda(Pointers gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double alpha, unsigned int autotune, double tolerance, unsigned int stopWtheta, QudaGaugeParam param):
     assert gauge.dtype == "void"
-    cdef double c_timeinfo[3]
-    ret = quda.computeGaugeFixingFFTQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta, &param.param, c_timeinfo)
-    for i in range(3):
-        timeinfo[i] = c_timeinfo[i]
-    return ret
+    return quda.computeGaugeFixingFFTQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta, &param.param)
 
 # void blasGEMMQuda(void *arrayA, void *arrayB, void *arrayC, QudaBoolean native, QudaBLASParam *param)
 # void blasLUInvQuda(void *Ainv, void *A, QudaBoolean use_native, QudaBLASParam *param)
@@ -3337,6 +3327,14 @@ cdef class QudaQuarkSmearParam:
     @t0.setter
     def t0(self, value):
         self.param.t0 = value
+
+    @property
+    def secs(self):
+        return self.param.secs
+
+    @secs.setter
+    def secs(self, value):
+        self.param.secs = value
 
     @property
     def gflops(self):

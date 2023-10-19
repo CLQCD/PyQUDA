@@ -129,7 +129,7 @@ class LatticeField:
         elif CUDA_BACKEND == "torch":
             import torch
 
-            self.data = torch.asarray(self.data)
+            self.data = torch.asarray(self.data, device="cuda")
         else:
             raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
 

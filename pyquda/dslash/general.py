@@ -421,7 +421,12 @@ def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     # But I think it's wrong.
     # gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
     computeKSLinkQuda(
-        nullptrs, nullptrs, ulink.data_ptrs, inlink.data_ptrs, ndarrayDataPointer(act_path_coeff[0]), gauge_param
+        fatlink.data_ptrs,
+        nullptrs,
+        ulink.data_ptrs,
+        inlink.data_ptrs,
+        ndarrayDataPointer(act_path_coeff[0]),
+        gauge_param,
     )
     computeKSLinkQuda(
         fatlink.data_ptrs,
