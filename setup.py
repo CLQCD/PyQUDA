@@ -2,10 +2,6 @@ from os import path, environ
 from distutils.core import Extension, setup
 from Cython.Build import cythonize
 
-VERSION = "0.3.3"
-LICENSE = "MIT"
-DESCRIPTION = "Python wrapper for quda written in Cython."
-
 ld_library_path = [path.abspath(_path) for _path in environ["LD_LIBRARY_PATH"].strip().split(":")]
 
 for libquda_path in ld_library_path:
@@ -60,27 +56,4 @@ if BUILD_QCU:
         )
     )
 
-packages = [
-    "pyquda",
-    "pyquda.dslash",
-    "pyquda.utils",
-]
-package_dir = {
-    "pyquda": "pyquda",
-}
-package_data = {
-    "pyquda": ["*.pyi", "*.pxd", "src.pxd", "include/**"],
-}
-
-setup(
-    name="PyQuda",
-    version=VERSION,
-    description=DESCRIPTION,
-    author="SaltyChiang",
-    author_email="SaltyChiang@users.noreply.github.com",
-    packages=packages,
-    ext_modules=cythonize(extensions, language_level="3"),
-    license=LICENSE,
-    package_dir=package_dir,
-    package_data=package_data,
-)
+setup(ext_modules=cythonize(extensions, language_level="3"))

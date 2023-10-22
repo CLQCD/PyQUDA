@@ -15,7 +15,7 @@ from .field import (
     lexico,
     cb2,
 )
-from .dslash.abstract import Dslash
+from .dslash import Dslash
 from .utils.source import source
 
 

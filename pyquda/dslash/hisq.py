@@ -1,17 +1,13 @@
 from typing import List
 
-import numpy as np
-
-from ..pyquda import newMultigridQuda, destroyMultigridQuda, staggeredPhaseQuda, computeKSLinkQuda
-from ..pointer import ndarrayDataPointer
+from ..pyquda import newMultigridQuda, destroyMultigridQuda
 from ..field import LatticeGauge, LatticeStaggeredFermion
 from ..enum_quda import QudaDslashType, QudaInverterType, QudaSolveType, QudaPrecision
 
-from . import abstract
-from . import general
+from . import Dslash, general
 
 
-class HISQ(abstract.Dslash):
+class HISQ(Dslash):
     def __init__(
         self,
         latt_size: List[int],
