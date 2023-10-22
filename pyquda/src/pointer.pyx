@@ -2,9 +2,6 @@ from warnings import warn
 
 from libc.stdlib cimport malloc, free
 
-import numpy
-cimport numpy
-
 cdef class Pointer:
     def __cinit__(self, str dtype, *args):
         self.dtype = dtype
@@ -58,6 +55,8 @@ cdef class Pointerss(Pointer):
         self.ptr = <void *>self.ptrss
 
 def ndarrayDataPointer(ndarray, as_void=False):
+    import numpy
+
     gpu = None
 
     try:

@@ -119,6 +119,7 @@ def invert12(b12: LatticePropagator, dslash: Dslash):
             x = dslash.invert(b)
             data = x12.data.reshape(Vol, Ns, Ns, Nc, Nc)
             data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
+            b = None
 
     return x12
 

@@ -84,6 +84,7 @@ def gaussian2(latt_size: List[int], t_srce: List[int], spin: int, color: int, rh
     for _ in range(nsteps):
         # (rho**2 / 4) here aims to achieve the same result with Chroma
         _Laplacian(_b, _c, rho**2 / 4 / nsteps, dslash.invert_param)
+    _c = None
 
     if spin is not None:
         b = LatticeFermion(latt_size)
@@ -127,6 +128,7 @@ def gaussian(latt_size: List[int], t_srce: List[int], spin: int, color: int, rho
     for _ in range(nsteps):
         # (rho**2 / 4) aims to achieve the same result with Chroma
         _Laplacian(_b, _c, rho**2 / 4 / nsteps, xi, dslash.invert_param)
+    _c = None
 
     if spin is not None:
         b = LatticeFermion(latt_size)

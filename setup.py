@@ -1,9 +1,8 @@
 from os import path, environ
 from distutils.core import Extension, setup
 from Cython.Build import cythonize
-import numpy
 
-VERSION = "0.3.2"
+VERSION = "0.3.3"
 LICENSE = "MIT"
 DESCRIPTION = "Python wrapper for quda written in Cython."
 
@@ -23,28 +22,25 @@ for libqcu_path in ld_library_path:
 else:
     import warnings
 
-    warnings.warn("Cannot find libqcu.so in LD_LIBRARY_PATH environment.", RuntimeWarning)
+    warnings.warn("Cannot find libqcu.so in LD_LIBRARY_PATH environment", RuntimeWarning)
 
 extensions = [
     Extension(
-        "pyquda.pointer",
-        ["pyquda/src/pointer.pyx"],
-        include_dirs=[numpy.get_include()],
-        define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
+        name="pyquda.pointer",
+        sources=["pyquda/src/pointer.pyx"],
         language="c",
     ),
     Extension(
-        "pyquda.pyquda",
-        ["pyquda/src/pyquda.pyx"],
-        include_dirs=["pyquda/include/quda", numpy.get_include()],
-        define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
+        name="pyquda.pyquda",
+        sources=["pyquda/src/pyquda.pyx"],
+        include_dirs=["pyquda/include/quda"],
         library_dirs=[libquda_path],
         libraries=["quda"],
         language="c",
     ),
     Extension(
-        "pyquda.malloc_pyquda",
-        ["pyquda/src/malloc_pyquda.pyx"],
+        name="pyquda.malloc_pyquda",
+        sources=["pyquda/src/malloc_pyquda.pyx"],
         include_dirs=["pyquda/include/quda"],
         library_dirs=[libquda_path],
         libraries=["quda"],
@@ -55,20 +51,14 @@ extensions = [
 if BUILD_QCU:
     extensions.append(
         Extension(
-            "pyquda.pyqcu",
-            ["pyquda/src/pyqcu.pyx"],
-            include_dirs=["pyquda/include/qcu", numpy.get_include()],
-            define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
+            name="pyquda.pyqcu",
+            sources=["pyquda/src/pyqcu.pyx"],
+            include_dirs=["pyquda/include/qcu"],
             library_dirs=[libqcu_path],
             libraries=["qcu"],
             language="c",
         )
     )
-
-ext_modules = cythonize(
-    extensions,
-    language_level="3",
-)
 
 packages = [
     "pyquda",
@@ -89,7 +79,7 @@ setup(
     author="SaltyChiang",
     author_email="SaltyChiang@users.noreply.github.com",
     packages=packages,
-    ext_modules=ext_modules,
+    ext_modules=cythonize(extensions, language_level="3"),
     license=LICENSE,
     package_dir=package_dir,
     package_data=package_data,

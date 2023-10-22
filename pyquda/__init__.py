@@ -1,8 +1,8 @@
 from typing import List, Literal, NamedTuple
+from warnings import warn
 
 from . import mpi
-from . import pyquda as quda
-from . import malloc_pyquda
+from . import pyquda as quda, malloc_pyquda
 
 try:
     from . import pyqcu as qcu
@@ -45,8 +45,10 @@ def init(grid_size: List[int] = None):
 
     If grid_size is None, MPI will not applied.
     """
-    global _GPUID, _COMPUTE_CAPABILITY
     if mpi.comm is None:
+        import atexit
+        from .pyquda import initCommsGridQuda, initQuda, endQuda
+
         if _CUDA_BACKEND == "cupy":
             from cupy import cuda
         elif _CUDA_BACKEND == "torch":
@@ -59,14 +61,11 @@ def init(grid_size: List[int] = None):
             from os import getenv
             from platform import node as gethostname
             from mpi4py import MPI
-            from .pyquda import initCommsGridQuda
 
+            Gx, Gy, Gz, Gt = grid_size
             mpi.comm = MPI.COMM_WORLD
             mpi.rank = mpi.comm.Get_rank()
             mpi.size = mpi.comm.Get_size()
-
-            Gx, Gy, Gz, Gt = grid_size
-            assert Gx * Gy * Gz * Gt == mpi.size
             mpi.grid = grid_size
             mpi.coord = [mpi.rank // Gt // Gz // Gy, mpi.rank // Gt // Gz % Gy, mpi.rank // Gt % Gz, mpi.rank % Gt]
 
@@ -84,10 +83,14 @@ def init(grid_size: List[int] = None):
                 enable_mps_env = getenv("QUDA_ENABLE_MPS")
                 if enable_mps_env is not None and enable_mps_env == "1":
                     gpuid %= device_count
-
-            initCommsGridQuda(4, grid_size)
         else:
+            Gx, Gy, Gz, Gt = 1, 1, 1, 1
             mpi.comm = 0
+
+        assert Gx * Gy * Gz * Gt == mpi.size
+        initCommsGridQuda(4, [Gx, Gy, Gz, Gt])
+
+        global _GPUID, _COMPUTE_CAPABILITY
 
         gpuid += _GPUID
         _GPUID = gpuid
@@ -103,8 +106,7 @@ def init(grid_size: List[int] = None):
             cc = cuda.get_device_capability(gpuid)
             _COMPUTE_CAPABILITY = _ComputeCapability(cc[0], cc[1])
 
-        import atexit
-        from .pyquda import initQuda, endQuda
-
         initQuda(gpuid)
         atexit.register(endQuda)
+    else:
+        warn("PyQuda is already initialized", RuntimeWarning)
