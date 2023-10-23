@@ -57,16 +57,19 @@ def init(grid_size: List[int] = None):
             raise ImportError("CuPy or PyTorch is needed to handle field data")
 
         gpuid = 0
-        if grid_size is not None:
+        Gx, Gy, Gz, Gt = grid_size if grid_size is not None else [1, 1, 1, 1]
+
+        try:
+            from mpi4py import MPI
             from os import getenv
             from platform import node as gethostname
-            from mpi4py import MPI
-
-            Gx, Gy, Gz, Gt = grid_size
+        except ImportError:
+            mpi.comm = 0
+        else:
             mpi.comm = MPI.COMM_WORLD
             mpi.rank = mpi.comm.Get_rank()
             mpi.size = mpi.comm.Get_size()
-            mpi.grid = grid_size
+            mpi.grid = [Gx, Gy, Gz, Gt]
             mpi.coord = [mpi.rank // Gt // Gz // Gy, mpi.rank // Gt // Gz % Gy, mpi.rank // Gt % Gz, mpi.rank % Gt]
 
             hostname = gethostname()
@@ -83,15 +86,11 @@ def init(grid_size: List[int] = None):
                 enable_mps_env = getenv("QUDA_ENABLE_MPS")
                 if enable_mps_env is not None and enable_mps_env == "1":
                     gpuid %= device_count
-        else:
-            Gx, Gy, Gz, Gt = 1, 1, 1, 1
-            mpi.comm = 0
 
         assert Gx * Gy * Gz * Gt == mpi.size
         initCommsGridQuda(4, [Gx, Gy, Gz, Gt])
 
         global _GPUID, _COMPUTE_CAPABILITY
-
         gpuid += _GPUID
         _GPUID = gpuid
 
