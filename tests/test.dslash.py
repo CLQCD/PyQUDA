@@ -9,11 +9,11 @@ import numpy as np
 from pyquda import init
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-init()
 
-Lx, Ly, Lz, Lt = 16, 16, 16, 32
+latt_size = [16, 16, 16, 32]
+Lx, Ly, Lz, Lt = latt_size
 Nd, Ns, Nc = 4, 4, 3
-latt_size = [Lx, Ly, Lz, Lt]
+init()
 
 
 def applyDslash(Mp, p, U_seed):

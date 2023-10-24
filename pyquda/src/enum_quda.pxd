@@ -9,8 +9,11 @@ cdef extern from "enum_quda.h":
 
     ctypedef enum QudaMemoryType:
         QUDA_MEMORY_DEVICE
-        QUDA_MEMORY_PINNED
+        QUDA_MEMORY_DEVICE_PINNED
+        QUDA_MEMORY_HOST
+        QUDA_MEMORY_HOST_PINNED
         QUDA_MEMORY_MAPPED
+        QUDA_MEMORY_MANAGED
         QUDA_MEMORY_INVALID = QUDA_INVALID_ENUM
 
     #

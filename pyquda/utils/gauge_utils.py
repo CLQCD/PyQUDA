@@ -1,6 +1,7 @@
 import io
 import re
 import struct
+import warnings
 from typing import Dict, List, Tuple
 from xml.etree import ElementTree as ET
 
@@ -12,15 +13,18 @@ from ..field import Nc, Nd, cb2, LatticeGauge
 
 def readIldg(filename: str):
     """Preserve for compability."""
+    warnings.warn("Deprecated. Use `pyquda.utils.io.readQIOGauge` instead.", DeprecationWarning)
     return readQIO(filename)
 
 
 def readIldgBin(filename: str, dtype: str, latt_size: List[int]):
     """Preserve for compability."""
+    warnings.warn("Deprecated. Use `pyquda.utils.io.readILDGBinGauge` instead.", DeprecationWarning)
     return readILDGBin(filename, dtype, latt_size)
 
 
 def readQIO(filename: str):
+    warnings.warn("Deprecated. Use `pyquda.utils.io.readQIOGauge` instead.", DeprecationWarning)
     with open(filename, "rb") as f:
         meta: Dict[str, Tuple[int]] = {}
         buffer = f.read(8)
@@ -67,6 +71,7 @@ def readQIO(filename: str):
 
 
 def readILDGBin(filename: str, dtype: str, latt_size: List[int]):
+    warnings.warn("Deprecated. Use `pyquda.utils.io.readILDGBinGauge` instead.", DeprecationWarning)
     Lx, Ly, Lz, Lt = latt_size
     Gx, Gy, Gz, Gt = mpi.grid
     gx, gy, gz, gt = mpi.coord
@@ -86,6 +91,7 @@ def readILDGBin(filename: str, dtype: str, latt_size: List[int]):
 
 
 def readMILC(filename: str):
+    warnings.warn("Deprecated. Use `pyquda.utils.io.readMILCGauge` instead.", DeprecationWarning)
     with open(filename, "rb") as f:
         magic = f.read(4)
         assert struct.unpack("<i", magic)[0] == 20103

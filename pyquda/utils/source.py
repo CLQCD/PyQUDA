@@ -38,7 +38,7 @@ def wall(latt_size: List[int], t_srce: int, spin: int, color: int):
     return b
 
 
-def momentum(latt_size: List[int], t_srce: int, phase, spin: int, color: int):
+def momentum(latt_size: List[int], t_srce: int, spin: int, color: int, phase):
     Lx, Ly, Lz, Lt = latt_size
     gx, gy, gz, gt = mpi.coord
     t = t_srce
@@ -52,7 +52,50 @@ def momentum(latt_size: List[int], t_srce: int, phase, spin: int, color: int):
     return b
 
 
-def gaussian(latt_size: List[int], t_srce: int, color: int, rho: float, nsteps: int, xi: float):
+def gaussian2(latt_size: List[int], t_srce: List[int], spin: int, color: int, rho: float, nsteps: int, xi: float):
+    from .. import core
+    from ..enum_quda import QudaDslashType
+
+    def _Laplacian(src, aux, sigma, invert_param):
+        # aux = -kappa * Laplace * src + src
+        core.quda.MatQuda(aux.data_ptr, src.data_ptr, invert_param)
+        src.data = -6 * sigma * src.data + aux.data
+
+    Lx, Ly, Lz, Lt = latt_size
+    gx, gy, gz, gt = mpi.coord
+    x, y, z, t = t_srce
+    _b = LatticeStaggeredFermion(latt_size)
+    _c = LatticeStaggeredFermion(latt_size)
+
+    if (
+        gx * Lx <= x < (gx + 1) * Lx
+        and gy * Ly <= y < (gy + 1) * Ly
+        and gz * Lz <= z < (gz + 1) * Lz
+        and gt * Lt <= t < (gt + 1) * Lt
+    ):
+        eo = ((x - gx * Lx) + (y - gy * Ly) + (z - gz * Lz) + (t - gt * Lt)) % 2
+        _b.data[eo, t - gt * Lt, z - gz * Lz, y - gy * Ly, (x - gx * Lx) // 2, color] = 1
+
+    # use mass to get specific kappa = -xi * rho**2 / 4 / nsteps
+    kappa = -(rho**2) / 4 / nsteps * xi
+    mass = 1 / (2 * kappa) - 4
+    dslash = core.getDslash(latt_size, mass, 0, 0, anti_periodic_t=False)
+    dslash.invert_param.dslash_type = QudaDslashType.QUDA_LAPLACE_DSLASH
+    for _ in range(nsteps):
+        # (rho**2 / 4) here aims to achieve the same result with Chroma
+        _Laplacian(_b, _c, rho**2 / 4 / nsteps, dslash.invert_param)
+    _c = None
+
+    if spin is not None:
+        b = LatticeFermion(latt_size)
+        b.data[:, :, :, :, :, spin, :] = _b.data
+    else:
+        b = LatticeStaggeredFermion(latt_size, _b.data)
+
+    return b
+
+
+def gaussian(latt_size: List[int], t_srce: List[int], spin: int, color: int, rho: float, nsteps: int, xi: float):
     from .. import core
     from ..enum_quda import QudaDslashType, QudaParity
 
@@ -68,7 +111,8 @@ def gaussian(latt_size: List[int], t_srce: int, color: int, rho: float, nsteps: 
     Lx, Ly, Lz, Lt = latt_size
     gx, gy, gz, gt = mpi.coord
     x, y, z, t = t_srce
-    b = LatticeStaggeredFermion(latt_size)
+    _b = LatticeStaggeredFermion(latt_size)
+    _c = LatticeStaggeredFermion(latt_size)
 
     if (
         gx * Lx <= x < (gx + 1) * Lx
@@ -77,14 +121,20 @@ def gaussian(latt_size: List[int], t_srce: int, color: int, rho: float, nsteps: 
         and gt * Lt <= t < (gt + 1) * Lt
     ):
         eo = ((x - gx * Lx) + (y - gy * Ly) + (z - gz * Lz) + (t - gt * Lt)) % 2
-        b.data[eo, t - gt * Lt, z - gz * Lz, y - gy * Ly, (x - gx * Lx) // 2, color] = 1
+        _b.data[eo, t - gt * Lt, z - gz * Lz, y - gy * Ly, (x - gx * Lx) // 2, color] = 1
 
     dslash = core.getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
     dslash.invert_param.dslash_type = QudaDslashType.QUDA_LAPLACE_DSLASH
-    c = LatticeStaggeredFermion(latt_size)
     for _ in range(nsteps):
         # (rho**2 / 4) aims to achieve the same result with Chroma
-        _Laplacian(b, c, rho**2 / 4 / nsteps, xi, dslash.invert_param)
+        _Laplacian(_b, _c, rho**2 / 4 / nsteps, xi, dslash.invert_param)
+    _c = None
+
+    if spin is not None:
+        b = LatticeFermion(latt_size)
+        b.data[:, :, :, :, :, spin, :] = _b.data
+    else:
+        b = LatticeStaggeredFermion(latt_size, _b.data)
 
     return b
 
@@ -115,9 +165,9 @@ def source(
     elif source_type.lower() == "wall":
         return wall(latt_size, t_srce, spin, color)
     elif source_type.lower() == "momentum":
-        return momentum(latt_size, t_srce, source_phase, spin, color)
+        return momentum(latt_size, t_srce, spin, color, source_phase)
     elif source_type.lower() == "gaussian":
-        return gaussian(latt_size, t_srce, color, rho, nsteps, xi)
+        return gaussian(latt_size, t_srce, None, color, rho, nsteps, xi)
     elif source_type.lower() == "colorvector":
         return colorvector(latt_size, t_srce, source_phase)
     else:

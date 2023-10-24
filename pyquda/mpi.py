@@ -5,65 +5,11 @@ rank: int = 0
 size: int = 1
 grid: List[int] = [1, 1, 1, 1]
 coord: List[int] = [0, 0, 0, 0]
-gpuid: int = 0
-device = None
-
-
-def init(grid_size: List[int] = None):
-    """
-    Initialize MPI along with the QUDA library.
-
-    If grid_size is None, MPI will not applied.
-    """
-    from cupy import cuda
-
-    global comm, rank, size, grid, coord, gpuid, device
-    if comm is None:
-        if grid_size is not None:
-            from os import getenv
-            from platform import node as gethostname
-            from mpi4py import MPI
-            from .pyquda import initCommsGridQuda
-
-            comm = MPI.COMM_WORLD
-            rank = comm.Get_rank()
-            size = comm.Get_size()
-
-            Gx, Gy, Gz, Gt = grid_size
-            assert len(grid_size) == 4 and Gx * Gy * Gz * Gt == size
-            grid = grid_size
-            coord = [rank // Gt // Gz // Gy, rank // Gt // Gz % Gy, rank // Gt % Gz, rank % Gt]
-
-            gpuid = 0
-            hostname = gethostname()
-            hostname_recv_buf = comm.allgather(hostname)
-            for i in range(rank):
-                if hostname == hostname_recv_buf[i]:
-                    gpuid += 1
-
-            device_count = cuda.runtime.getDeviceCount()
-            if gpuid >= device_count:
-                enable_mps_env = getenv("QUDA_ENABLE_MPS")
-                if enable_mps_env is not None and enable_mps_env == "1":
-                    gpuid %= device_count
-
-            initCommsGridQuda(4, grid)
-        else:
-            comm = 0
-
-        import atexit
-        from .pyquda import initQuda, endQuda
-
-        device = cuda.Device(gpuid)
-        device.use()
-        initQuda(gpuid)
-        atexit.register(endQuda)
 
 
 def gather(data, axes: List[int] = [-1, -1, -1, -1], mode: str = None, root: int = 0):
     import numpy
 
-    global comm, rank, size, grid
     dtype = data.dtype
     Lt, Lz, Ly, Lx = [data.shape[axis] if axis != -1 else 1 for axis in axes]
     Gx, Gy, Gz, Gt = grid

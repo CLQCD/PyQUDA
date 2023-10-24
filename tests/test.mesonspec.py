@@ -6,23 +6,22 @@ import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 # sys.path.insert(0, os.path.join(test_dir, ".."))
-from pyquda import core, mpi
+from pyquda import core, init
 from pyquda.utils import gamma, phase, io
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-mpi.init()
 
+latt_size = [4, 4, 4, 8]
+Lx, Ly, Lz, Lt = latt_size
+Vol = Lx * Ly * Lz * Lt
 Nc, Ns, Nd = 3, 4, 4
+init()
 
 xi_0, nu = 4.8965, 0.86679
 mass = 0.09253
 coeff_r, coeff_t = 2.32582045, 0.8549165664
 
 kappa = 0.5 / (mass + 1 + 3 / (xi_0 / nu))
-
-latt_size = [4, 4, 4, 8]
-Lx, Ly, Lz, Lt = latt_size
-Vol = Lx * Ly * Lz * Lt
 
 gamma1 = gamma.gamma(1)
 gamma2 = gamma.gamma(2)

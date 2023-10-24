@@ -15,8 +15,14 @@ from .field import (
     lexico,
     cb2,
 )
-from .dslash.abstract import Dslash
+from .dslash import Dslash
 from .utils.source import source
+
+
+def plaq():
+    ret = [0.0, 0.0, 0.0]
+    quda.plaqQuda(ret)
+    return ret[0]
 
 
 def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
@@ -113,6 +119,7 @@ def invert12(b12: LatticePropagator, dslash: Dslash):
             x = dslash.invert(b)
             data = x12.data.reshape(Vol, Ns, Ns, Nc, Nc)
             data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
+            b = None
 
     return x12
 

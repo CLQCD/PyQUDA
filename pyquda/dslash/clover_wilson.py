@@ -4,11 +4,10 @@ from ..pyquda import newMultigridQuda, destroyMultigridQuda
 from ..field import LatticeGauge, LatticeFermion
 from ..enum_quda import QudaDslashType, QudaInverterType, QudaSolveType, QudaPrecision
 
-from . import abstract
-from . import general
+from . import Dslash, general
 
 
-class CloverWilson(abstract.Dslash):
+class CloverWilson(Dslash):
     def __init__(
         self,
         latt_size: List[int],

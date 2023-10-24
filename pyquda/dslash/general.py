@@ -137,7 +137,7 @@ def newQudaMultigridParam(
     nu_pre: int,
     nu_post: int,
 ):
-    from ..mpi import device
+    from .. import getCUDAComputeCapability
 
     mg_param = QudaMultigridParam()
     mg_inv_param = QudaInvertParam()
@@ -236,7 +236,7 @@ def newQudaMultigridParam(
     mg_param.run_low_mode_check = QudaBoolean.QUDA_BOOLEAN_FALSE
     mg_param.run_oblique_proj_check = QudaBoolean.QUDA_BOOLEAN_FALSE
 
-    use_mma = QudaBoolean.QUDA_BOOLEAN_TRUE if int(device.compute_capability) >= 70 else QudaBoolean.QUDA_BOOLEAN_FALSE
+    use_mma = QudaBoolean.QUDA_BOOLEAN_TRUE if getCUDAComputeCapability().major >= 7 else QudaBoolean.QUDA_BOOLEAN_FALSE
     mg_param.setup_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
     mg_param.dslash_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
 
@@ -407,9 +407,9 @@ def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     )
 
     inlink = gauge.copy()
+    ulink = LatticeGauge(gauge.latt_size)
     fatlink = LatticeGauge(gauge.latt_size)
     longlink = LatticeGauge(gauge.latt_size)
-    ulink = LatticeGauge(gauge.latt_size)
 
     loadGaugeQuda(inlink.data_ptrs, gauge_param)  # Save the original gauge for the smeared source.
 
@@ -421,7 +421,12 @@ def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     # But I think it's wrong.
     # gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
     computeKSLinkQuda(
-        nullptrs, nullptrs, ulink.data_ptrs, inlink.data_ptrs, ndarrayDataPointer(act_path_coeff[0]), gauge_param
+        nullptrs,
+        nullptrs,
+        ulink.data_ptrs,
+        inlink.data_ptrs,
+        ndarrayDataPointer(act_path_coeff[0]),
+        gauge_param,
     )
     computeKSLinkQuda(
         fatlink.data_ptrs,
@@ -438,6 +443,9 @@ def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     gauge_param.ga_pad = gauge_param.ga_pad * 3
     # gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_NO
     loadGaugeQuda(longlink.data_ptrs, gauge_param)
+    gauge_param.ga_pad = gauge_param.ga_pad / 3
+    # These field created by QUDA's allocator will not be freed automatically
+    ulink = fatlink = longlink = None
 
 
 def invert(b: LatticeFermion, invert_param: QudaInvertParam):
@@ -503,5 +511,7 @@ def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
     dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
     x.even = tmp.even + kappa * x.even
     x.data *= 2 * kappa
+
+    tmp = None
 
     return x

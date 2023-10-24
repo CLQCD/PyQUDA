@@ -62,13 +62,14 @@ def readQIO(filename: str):
         scidac_binary_data = f.read(meta["scidac-binary-data"][1])
     precision = precision_map[scidac_private_record_xml.find("precision").text]
     assert int(scidac_private_record_xml.find("colors").text) == Nc
-    if int(scidac_private_record_xml.find("spins").text) == 1:
+    assert int(scidac_private_record_xml.find("spins").text) == Ns
+    typesize = int(scidac_private_record_xml.find("typesize").text)
+    if typesize == Nc * Nc * 2 * precision:
         staggered = True
-        assert int(scidac_private_record_xml.find("typesize").text) == Nc * Nc * 2 * precision
-    else:
-        assert int(scidac_private_record_xml.find("spins").text) == Ns
-        assert int(scidac_private_record_xml.find("typesize").text) == Ns * Ns * Nc * Nc * 2 * precision
+    elif typesize == Ns * Ns * Nc * Nc * 2 * precision:
         staggered = False
+    else:
+        raise ValueError(f"Unknown typesize = {typesize} in QIO propagator")
     assert int(scidac_private_record_xml.find("datacount").text) == 1
     dtype = f">c{2*precision}"
     assert int(scidac_private_file_xml.find("spacetime").text) == Nd

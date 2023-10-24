@@ -1,9 +1,7 @@
-from typing import List, Literal
+from typing import List
 from enum import IntEnum
 
 import numpy
-
-CUDA_BACKEND: Literal["cupy", "torch"] = "cupy"
 
 from .pointer import ndarrayDataPointer
 
@@ -64,8 +62,11 @@ def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
 
 
 def newLatticeFieldData(latt_size: List[int], dtype: str):
+    from . import getCUDABackend
+
+    backend = getCUDABackend()
     Lx, Ly, Lz, Lt = latt_size
-    if CUDA_BACKEND == "cupy":
+    if backend == "cupy":
         import cupy
 
         if dtype == "Gauge":
@@ -84,7 +85,7 @@ def newLatticeFieldData(latt_size: List[int], dtype: str):
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
         else:
             raise ValueError(f"Unsupported lattice field type {dtype}")
-    elif CUDA_BACKEND == "torch":
+    elif backend == "torch":
         import torch
 
         if dtype == "Gauge":
@@ -104,7 +105,7 @@ def newLatticeFieldData(latt_size: List[int], dtype: str):
         else:
             raise ValueError(f"Unsupported lattice field type {dtype}")
     else:
-        raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
+        raise ValueError(f"Unsupported CUDA backend {backend}")
 
 
 class LatticeField:
@@ -112,56 +113,68 @@ class LatticeField:
         pass
 
     def backup(self):
+        from . import getCUDABackend
+
+        backend = getCUDABackend()
         if isinstance(self.data, numpy.ndarray):
             return self.data.copy()
-        elif CUDA_BACKEND == "cupy":
+        elif backend == "cupy":
             return self.data.copy()
-        elif CUDA_BACKEND == "torch":
+        elif backend == "torch":
             return self.data.clone()
         else:
-            raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
+            raise ValueError(f"Unsupported CUDA backend {backend}")
 
     def toDevice(self):
-        if CUDA_BACKEND == "cupy":
+        from . import getCUDABackend
+
+        backend = getCUDABackend()
+        if backend == "cupy":
             import cupy
 
             self.data = cupy.asarray(self.data)
-        elif CUDA_BACKEND == "torch":
+        elif backend == "torch":
             import torch
 
-            self.data = torch.asarray(self.data)
+            self.data = torch.as_tensor(self.data, device="cuda")
         else:
-            raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
+            raise ValueError(f"Unsupported CUDA backend {backend}")
 
     def toHost(self):
+        from . import getCUDABackend
+
+        backend = getCUDABackend()
         if isinstance(self.data, numpy.ndarray):
             pass
-        elif CUDA_BACKEND == "cupy":
+        elif backend == "cupy":
             self.data = self.data.get()
-        elif CUDA_BACKEND == "torch":
+        elif backend == "torch":
             self.data = self.data.cpu().numpy()
         else:
-            raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
+            raise ValueError(f"Unsupported CUDA backend {backend}")
 
     def getHost(self):
+        from . import getCUDABackend
+
+        backend = getCUDABackend()
         if isinstance(self.data, numpy.ndarray):
             return self.data.copy()
-        elif CUDA_BACKEND == "cupy":
+        elif backend == "cupy":
             return self.data.get()
-        elif CUDA_BACKEND == "torch":
+        elif backend == "torch":
             return self.data.cpu().numpy()
         else:
-            raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
+            raise ValueError(f"Unsupported CUDA backend {backend}")
 
 
 class LatticeGauge(LatticeField):
     def __init__(self, latt_size: List[int], value=None) -> None:
-        from .mpi import grid, coord
+        from . import mpi
 
         Lx, Ly, Lz, Lt = latt_size
         self.latt_size = latt_size
-        Gx, Gy, Gz, Gt = grid
-        gx, gy, gz, gt = coord
+        Gx, Gy, Gz, Gt = mpi.grid
+        gx, gy, gz, gt = mpi.coord
         if value is None:
             self.data = newLatticeFieldData(latt_size, "Gauge")
         else:
