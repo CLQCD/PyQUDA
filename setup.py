@@ -1,59 +1,62 @@
-from os import path, environ
+import os
 from distutils.core import Extension, setup
 from Cython.Build import cythonize
+from distutils.command.build_ext import build_ext
 
-ld_library_path = [path.abspath(_path) for _path in environ["LD_LIBRARY_PATH"].strip().split(":")]
 
-for libquda_path in ld_library_path:
-    if path.exists(path.join(libquda_path, "libquda.so")):
-        break
-else:
-    raise RuntimeError("Cannot find libquda.so in LD_LIBRARY_PATH environment")
+class build_ext_no_suffix(build_ext):
+    def get_ext_filename(self, ext_name):
+        ext_path = ext_name.split(".")
+        ext_suffix = ".so"
+        return os.path.join(*ext_path) + ext_suffix
 
-BUILD_QCU = False
-for libqcu_path in ld_library_path:
-    if path.exists(path.join(libqcu_path, "libqcu.so")):
-        BUILD_QCU = True
-        break
-else:
-    import warnings
-
-    warnings.warn("Cannot find libqcu.so in LD_LIBRARY_PATH environment", RuntimeWarning)
 
 extensions = [
     Extension(
-        name="pyquda.pointer",
-        sources=["pyquda/src/pointer.pyx"],
-        language="c",
+        name="pyquda.externals.quda.lib.libquda",
+        sources=["pyquda/externals/quda/src/quda.cpp"],
+        language="c++",
     ),
     Extension(
-        name="pyquda.pyquda",
-        sources=["pyquda/src/pyquda.pyx"],
-        include_dirs=["pyquda/include/quda"],
-        library_dirs=[libquda_path],
-        libraries=["quda"],
-        language="c",
-    ),
-    Extension(
-        name="pyquda.malloc_pyquda",
-        sources=["pyquda/src/malloc_pyquda.pyx"],
-        include_dirs=["pyquda/include/quda"],
-        library_dirs=[libquda_path],
-        libraries=["quda"],
+        name="pyquda.externals.qcu.lib.libqcu",
+        sources=["pyquda/externals/qcu/src/qcu.cpp"],
         language="c++",
     ),
 ]
 
-if BUILD_QCU:
-    extensions.append(
+extensions += cythonize(
+    [
+        Extension(
+            name="pyquda.pointer",
+            sources=["pyquda/src/pointer.pyx"],
+            language="c",
+        ),
+        Extension(
+            name="pyquda.pyquda",
+            sources=["pyquda/src/pyquda.pyx"],
+            include_dirs=["pyquda/externals/quda/include"],
+            library_dirs=["pyquda/externals/quda/lib"],
+            extra_link_args=["-Wl,--no-as-needed", "-lquda"],
+            language="c",
+        ),
+        Extension(
+            name="pyquda.malloc_pyquda",
+            sources=["pyquda/src/malloc_pyquda.pyx"],
+            include_dirs=["pyquda/externals/quda/include"],
+            library_dirs=["pyquda/externals/quda/lib"],
+            extra_link_args=["-Wl,--no-as-needed", "-lquda"],
+            language="c++",
+        ),
         Extension(
             name="pyquda.pyqcu",
             sources=["pyquda/src/pyqcu.pyx"],
-            include_dirs=["pyquda/include/qcu"],
-            library_dirs=[libqcu_path],
-            libraries=["qcu"],
+            include_dirs=["pyquda/externals/qcu/include"],
+            library_dirs=["pyquda/externals/qcu/lib"],
+            extra_link_args=["-Wl,--no-as-needed", "-lqcu"],
             language="c",
-        )
-    )
+        ),
+    ],
+    language_level="3",
+)
 
-setup(ext_modules=cythonize(extensions, language_level="3"))
+setup(ext_modules=extensions, cmdclass={"build_ext": build_ext_no_suffix})

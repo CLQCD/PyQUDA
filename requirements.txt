@@ -1,3 +1,2 @@
 mpi4py
 numpy
-cupy
