@@ -1,6 +1,5 @@
 import os
 import sys
-import numpy as np
 import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
@@ -11,7 +10,7 @@ from pyquda.utils import source, io
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
-latt_size = [16, 16, 16, 128]
+latt_size = [4, 4, 4, 8]
 Lx, Ly, Lz, Lt = latt_size
 init()
 
@@ -19,19 +18,24 @@ rho = 2.0
 nsteps = 5
 x, y, z, t = 0, 0, 0, 0
 
-filename = "/dg_hpc/LQCD/gongming/productions/confs/light.20200720.b20.16_128/s1.0_cfg_1000.lime"
-
 xi = 5.2
 xi_0 = 5.65
 nu = xi_0 / xi
 u_s = 0.780268
 dslash = core.getDslash(latt_size, 0, 0, 0, xi_0, nu / u_s, anti_periodic_t=False)
-gauge = io.readQIOGauge(filename)
+# dslash = core.getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)  #* This is used for isotropic lattice
+gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
 dslash.loadGauge(gauge)
 
-sh_src12 = source.source12(latt_size, "gaussian", [x, y, z, t], rho=rho, nsteps=nsteps, xi=xi * u_s)
+shell_source = source.source12(latt_size, "gaussian", [0, 0, 0, 0], rho=2.0, nsteps=5, xi=xi * u_s)
+# shell_source = source.source12(
+#     latt_size, "gaussian", [0, 0, 0, 0], rho=2.0, nsteps=5
+# )  #* This is used for isotropic lattice
 
-data = sh_src12.lexico()
+
+shell_source_chroma = io.readQIOPropagator("pt_prop_4")
+shell_source_chroma.toDevice()
+print(cp.linalg.norm(shell_source.data - shell_source_chroma.data))
 
 # def Laplacian(F, U, U_dag, sigma):
 #     return (
