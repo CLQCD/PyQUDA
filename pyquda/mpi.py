@@ -7,6 +7,16 @@ grid: List[int] = [1, 1, 1, 1]
 coord: List[int] = [0, 0, 0, 0]
 
 
+def rankFromCoord(coord: List[int]):
+    Gx, Gy, Gz, Gt = grid
+    return ((coord[0] * Gy + coord[1]) * Gz + coord[2]) * Gt + coord[3]
+
+
+def coordFromRank(rank: int):
+    Gx, Gy, Gz, Gt = grid
+    return [rank // Gt // Gz // Gy, rank // Gt // Gz % Gy, rank // Gt % Gz, rank % Gt]
+
+
 def gather(data, axes: List[int] = [-1, -1, -1, -1], mode: str = None, root: int = 0):
     import numpy
 

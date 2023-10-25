@@ -70,7 +70,7 @@ def init(grid_size: List[int] = None):
             mpi.rank = mpi.comm.Get_rank()
             mpi.size = mpi.comm.Get_size()
             mpi.grid = [Gx, Gy, Gz, Gt]
-            mpi.coord = [mpi.rank // Gt // Gz // Gy, mpi.rank // Gt // Gz % Gy, mpi.rank // Gt % Gz, mpi.rank % Gt]
+            mpi.coord = mpi.coordFromRank(mpi.rank)
 
             hostname = gethostname()
             hostname_recv_buf = mpi.comm.allgather(hostname)
