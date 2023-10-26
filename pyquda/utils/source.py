@@ -52,6 +52,25 @@ def momentum(latt_size: List[int], t_srce: int, spin: int, color: int, phase):
     return b
 
 
+def gaussian3(latt_size: List[int], t_srce: List[int], spin: int, color: int, rho: float, nsteps: int):
+    from .. import core
+    from ..enum_quda import QudaDslashType
+
+    _b = point(latt_size, t_srce, None, color)
+    dslash = core.getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)
+    dslash.invert_param.dslash_type = QudaDslashType.QUDA_LAPLACE_DSLASH
+    alpha = 1 / (4 * nsteps / rho**2 - 6)
+    core.quda.performWuppertalnStep(_b.data_ptr, _b.data_ptr, dslash.invert_param, nsteps, alpha)
+
+    if spin is not None:
+        b = LatticeFermion(latt_size)
+        b.data[:, :, :, :, :, spin, :] = _b.data
+    else:
+        b = LatticeStaggeredFermion(latt_size, _b.data)
+
+    return b
+
+
 def gaussian2(latt_size: List[int], t_srce: List[int], spin: int, color: int, rho: float, nsteps: int, xi: float):
     from .. import core
     from ..enum_quda import QudaDslashType
@@ -61,20 +80,8 @@ def gaussian2(latt_size: List[int], t_srce: List[int], spin: int, color: int, rh
         core.quda.MatQuda(aux.data_ptr, src.data_ptr, invert_param)
         src.data = -6 * sigma * src.data + aux.data
 
-    Lx, Ly, Lz, Lt = latt_size
-    gx, gy, gz, gt = mpi.coord
-    x, y, z, t = t_srce
-    _b = LatticeStaggeredFermion(latt_size)
+    _b = point(latt_size, t_srce, None, color)
     _c = LatticeStaggeredFermion(latt_size)
-
-    if (
-        gx * Lx <= x < (gx + 1) * Lx
-        and gy * Ly <= y < (gy + 1) * Ly
-        and gz * Lz <= z < (gz + 1) * Lz
-        and gt * Lt <= t < (gt + 1) * Lt
-    ):
-        eo = ((x - gx * Lx) + (y - gy * Ly) + (z - gz * Lz) + (t - gt * Lt)) % 2
-        _b.data[eo, t - gt * Lt, z - gz * Lz, y - gy * Ly, (x - gx * Lx) // 2, color] = 1
 
     # use mass to get specific kappa = -xi * rho**2 / 4 / nsteps
     kappa = -(rho**2) / 4 / nsteps * xi

@@ -3235,7 +3235,7 @@ def polyakovLoopQuda(list ploop, int dir):
 
 # void copyExtendedResidentGaugeQuda(void *resident_gauge)
 
-def performWuppertalnStep(Pointers h_out, Pointers h_in, QudaInvertParam param, unsigned int n_steps, double alpha):
+def performWuppertalnStep(Pointer h_out, Pointer h_in, QudaInvertParam param, unsigned int n_steps, double alpha):
     assert h_out.dtype == "void"
     assert h_in.dtype == "void"
     quda.performWuppertalnStep(h_out.ptr, h_in.ptr, &param.param, n_steps, alpha)

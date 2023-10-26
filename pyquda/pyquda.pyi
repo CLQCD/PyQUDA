@@ -1070,7 +1070,7 @@ def polyakovLoopQuda(ploop: List[double, 2], dir: int) -> None:
     """
     ...
 
-def performWuppertalnStep(h_out: Pointers, h_in: Pointers, param: QudaInvertParam, n_steps: int, alpha: double):
+def performWuppertalnStep(h_out: Pointer, h_in: Pointer, param: QudaInvertParam, n_steps: int, alpha: double):
     """
     Performs Wuppertal smearing on a given spinor using the gauge field
     gaugeSmeared, if it exist, or gaugePrecise if no smeared field is present.
