@@ -2,9 +2,7 @@ import os
 import sys
 import io
 from contextlib import contextmanager
-from tempfile import TemporaryFile
 
-import ctypes
 import cython
 
 from libc.stdio cimport stdout
@@ -12,32 +10,27 @@ from libc.stdio cimport stdout
 cimport quda
 from pyquda.pointer cimport Pointer, Pointers, Pointerss
 
-libc = ctypes.CDLL(None)
-c_stdout = ctypes.c_void_p.in_dll(libc, 'stdout')
 
 @contextmanager
-def redirect_stdout(stream):
+def redirect_stdout(value: bytearray):
     stdout_fd = sys.stdout.fileno()
+    stdout_dup_fd = os.dup(stdout_fd)
+    pipe_out, pipe_in = os.pipe()
+    os.dup2(pipe_in, stdout_fd)
 
-    def _redirect_stdout(to_fd):
-        """Redirect stdout to the given file descriptor."""
-        libc.fflush(c_stdout)
-        sys.stdout.close()
-        os.dup2(to_fd, stdout_fd)
-        sys.stdout = io.TextIOWrapper(os.fdopen(stdout_fd, 'wb'))
+    yield
 
-    saved_stdout_fd = os.dup(stdout_fd)
-    try:
-        tfile = TemporaryFile(mode='w+b')
-        _redirect_stdout(tfile.fileno())
-        yield
-        _redirect_stdout(saved_stdout_fd)
-        tfile.flush()
-        tfile.seek(0, io.SEEK_SET)
-        stream.write(tfile.read())
-    finally:
-        tfile.close()
-        os.close(saved_stdout_fd)
+    sys.stdout.write(b"\x00".decode(sys.stdout.encoding))
+    sys.stdout.flush()
+    os.close(pipe_in)
+    with io.FileIO(pipe_out, closefd=True) as fio:
+        buffer = fio.read(4096)
+        while b"\00" not in buffer:
+            value.extend(buffer)
+            buffer = fio.read(4096)
+        value.extend(buffer)
+    os.dup2(stdout_dup_fd, stdout_fd)
+    os.close(stdout_dup_fd)
 
 cdef class QudaGaugeParam:
     cdef quda.QudaGaugeParam param
@@ -46,11 +39,10 @@ cdef class QudaGaugeParam:
         self.param = quda.newQudaGaugeParam()
 
     def __repr__(self):
-        buf = io.BytesIO()
-        with redirect_stdout(buf):
+        value = bytearray()
+        with redirect_stdout(value):
             quda.printQudaGaugeParam(&self.param)
-        ret = buf.getvalue().decode("utf-8")
-        return ret
+        return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaGaugeParam *ptr):
         self.param = cython.operator.dereference(ptr)
@@ -390,11 +382,10 @@ cdef class QudaInvertParam:
         self.param = quda.newQudaInvertParam()
 
     def __repr__(self):
-        buf = io.BytesIO()
-        with redirect_stdout(buf):
+        value = bytearray()
+        with redirect_stdout(value):
             quda.printQudaInvertParam(&self.param)
-        ret = buf.getvalue().decode("utf-8")
-        return ret
+        return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaInvertParam *ptr):
         self.param = cython.operator.dereference(ptr)
@@ -1560,11 +1551,10 @@ cdef class QudaMultigridParam:
         self.param = quda.newQudaMultigridParam()
 
     def __repr__(self):
-        buf = io.BytesIO()
-        with redirect_stdout(buf):
+        value = bytearray()
+        with redirect_stdout(value):
             quda.printQudaMultigridParam(&self.param)
-        ret = buf.getvalue().decode("utf-8")
-        return ret
+        return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaMultigridParam *ptr):
         self.param = cython.operator.dereference(ptr)
@@ -2154,11 +2144,10 @@ cdef class QudaEigParam:
         self.param = quda.newQudaEigParam()
 
     def __repr__(self):
-        buf = io.BytesIO()
-        with redirect_stdout(buf):
+        value = bytearray()
+        with redirect_stdout(value):
             quda.printQudaEigParam(&self.param)
-        ret = buf.getvalue().decode("utf-8")
-        return ret
+        return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaEigParam *ptr):
         self.param = cython.operator.dereference(ptr)
@@ -2573,11 +2562,10 @@ cdef class QudaGaugeObservableParam:
         self.param = quda.newQudaGaugeObservableParam()
 
     def __repr__(self):
-        buf = io.BytesIO()
-        with redirect_stdout(buf):
+        value = bytearray()
+        with redirect_stdout(value):
             quda.printQudaGaugeObservableParam(&self.param)
-        ret = buf.getvalue().decode("utf-8")
-        return ret
+        return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaGaugeObservableParam *ptr):
         self.param = cython.operator.dereference(ptr)
@@ -2779,11 +2767,10 @@ cdef class QudaGaugeSmearParam:
         self.param = quda.newQudaGaugeSmearParam()
 
     # def __repr__(self):
-    #     buf = io.BytesIO()
-    #     with redirect_stdout(buf):
+    #     value = bytearray()
+    #     with redirect_stdout(value):
     #         quda.printQudaGaugeSmearParam(&self.param)
-    #     ret = buf.getvalue().decode("utf-8")
-    #     return ret
+    #     return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaGaugeSmearParam *ptr):
         self.param = cython.operator.dereference(ptr)
@@ -2851,11 +2838,10 @@ cdef class QudaBLASParam:
         self.param = quda.newQudaBLASParam()
 
     def __repr__(self):
-        buf = io.BytesIO()
-        with redirect_stdout(buf):
+        value = bytearray()
+        with redirect_stdout(value):
             quda.printQudaBLASParam(&self.param)
-        ret = buf.getvalue().decode("utf-8")
-        return ret
+        return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaBLASParam *ptr):
         self.param = cython.operator.dereference(ptr)
@@ -3276,11 +3262,10 @@ cdef class QudaQuarkSmearParam:
         pass
 
     # def __repr__(self):
-    #     buf = io.BytesIO()
-    #     with redirect_stdout(buf):
+    #     value = bytearray()
+    #     with redirect_stdout(value):
     #         quda.printQudaQuarkSmearParam(&self.param)
-    #     ret = buf.getvalue().decode("utf-8")
-    #     return ret
+    #     return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaQuarkSmearParam *ptr):
         self.param = cython.operator.dereference(ptr)
