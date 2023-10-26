@@ -3153,7 +3153,10 @@ def computeKSLinkQuda(Pointers fatlink, Pointers longlink, Pointers ulink, Point
     assert path_coeff.dtype == "double"
     quda.computeKSLinkQuda(fatlink.ptr, longlink.ptr, ulink.ptr, inlink.ptr, <double *>path_coeff.ptr, &param.param)
 
-# void computeTwoLinkQuda(void *twolink, void *inlink, QudaGaugeParam *param)
+def computeTwoLinkQuda(Pointers twolink, Pointers inlink, QudaGaugeParam param):
+    assert twolink.dtype == "void"
+    assert inlink.dtype == "void"
+    quda.computeTwoLinkQuda(twolink.ptr, inlink.ptr, &param.param)
 
 def momResidentQuda(Pointers mom, QudaGaugeParam param):
     assert mom.dtype == "void"
@@ -3223,11 +3226,19 @@ def plaqQuda(list plaq):
     for i in range(3):
         plaq[i] = c_plaq[i]
 
-# void polyakovLoopQuda(double ploop[2], int dir)
+def polyakovLoopQuda(list ploop, int dir):
+    assert len(ploop) >= 2
+    cdef double c_ploop[2]
+    quda.polyakovLoopQuda(c_ploop, dir)
+    for i in range(2):
+        ploop[i] = c_ploop[i]
 
 # void copyExtendedResidentGaugeQuda(void *resident_gauge)
 
-# void performWuppertalnStep(void *h_out, void *h_in, QudaInvertParam *param, unsigned int n_steps, double alpha)
+def performWuppertalnStep(Pointers h_out, Pointers h_in, QudaInvertParam param, unsigned int n_steps, double alpha):
+    assert h_out.dtype == "void"
+    assert h_in.dtype == "void"
+    quda.performWuppertalnStep(h_out.ptr, h_in.ptr, &param.param, n_steps, alpha)
 
 def performGaugeSmearQuda(QudaGaugeSmearParam smear_param, QudaGaugeObservableParam obs_param):
     quda.performGaugeSmearQuda(&smear_param.param, &obs_param.param)

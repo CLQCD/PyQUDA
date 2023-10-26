@@ -558,6 +558,7 @@ def endQuda() -> None:
 def loadGaugeQuda(h_gauge: Pointers, param: QudaGaugeParam) -> None:
     """
     Load the gauge field from the host.
+
     @param h_gauge:
         Base pointer to host gauge field (regardless of dimensionality)
     @param param:
@@ -574,6 +575,7 @@ def freeGaugeQuda() -> None:
 def freeUniqueGaugeQuda(link_type: QudaLinkType) -> None:
     """
     Free a unique type (Wilson, HISQ fat, HISQ long, smeared) of internal gauge field.
+
     @param link_type[in]:
         Type of link type to free up
     """
@@ -588,6 +590,7 @@ def freeGaugeSmearedQuda() -> None:
 def saveGaugeQuda(h_gauge: Pointers, param: QudaGaugeParam) -> None:
     """
     Save the gauge field to the host.
+
     @param h_gauge:
         Base pointer to host gauge field (regardless of dimensionality)
     @param param:
@@ -599,6 +602,7 @@ def loadCloverQuda(h_clover: Pointer, h_clovinv: Pointer, inv_param: QudaInvertP
     """
     Load the clover term and/or the clover inverse from the host.
     Either h_clover or h_clovinv may be set to NULL.
+
     @param h_clover:
         Base pointer to host clover field
     @param h_cloverinv:
@@ -619,6 +623,7 @@ def invertQuda(h_x: Pointer, h_b: Pointer, param: QudaInvertParam) -> None:
     Perform the solve, according to the parameters set in param.  It
     is assumed that the gauge field has already been loaded via
     loadGaugeQuda().
+
     @param h_x:
         Solution spinor field
     @param h_b:
@@ -639,6 +644,7 @@ def invertMultiShiftQuda(_hp_x: Pointers, _hp_b: Pointer, param: QudaInvertParam
     is larger than 1, in which case gauge field is not required to be loaded beforehand; otherwise
     this interface would just work as @invertQuda, which requires gauge field to be loaded beforehand,
     and the gauge field pointer and gauge_param are not used.
+
     @param _hp_x:
         Array of solution spinor fields
     @param _hp_b:
@@ -657,6 +663,7 @@ def newMultigridQuda(param: QudaMultigridParam) -> Pointer:
     Setup the multigrid solver, according to the parameters set in param.  It
     is assumed that the gauge field has already been loaded via
     loadGaugeQuda().
+
     @param param:
         Contains all metadata regarding host and device
         storage and solver parameters
@@ -666,6 +673,7 @@ def newMultigridQuda(param: QudaMultigridParam) -> Pointer:
 def destroyMultigridQuda(mg_instance: Pointer):
     """
     Free resources allocated by the multigrid solver
+
     @param mg_instance:
         Pointer to instance of multigrid_solver
     @param param:
@@ -677,6 +685,7 @@ def destroyMultigridQuda(mg_instance: Pointer):
 def updateMultigridQuda(mg_instance: Pointer, param: QudaMultigridParam):
     """
     Updates the multigrid preconditioner for the new gauge / clover field
+
     @param mg_instance:
         Pointer to instance of multigrid_solver
     @param param:
@@ -689,6 +698,7 @@ def updateMultigridQuda(mg_instance: Pointer, param: QudaMultigridParam):
 def dumpMultigridQuda(mg_instance: Pointer, param: QudaMultigridParam):
     """
     Dump the null-space vectors to disk
+
     @param[in] mg_instance:
         Pointer to the instance of multigrid_solver
     @param[in] param:
@@ -701,6 +711,7 @@ def dumpMultigridQuda(mg_instance: Pointer, param: QudaMultigridParam):
 def dslashQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam, parity: QudaParity) -> None:
     """
     Apply the Dslash operator (D_{eo} or D_{oe}).
+
     @param h_out:
         Result spinor field
     @param h_in:
@@ -716,6 +727,7 @@ def dslashQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam, parity
 def cloverQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam, parity: QudaParity, inverse: int) -> None:
     """
     Apply the clover operator or its inverse.
+
     @param h_out:
         Result spinor field
     @param h_in:
@@ -733,6 +745,7 @@ def cloverQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam, parity
 def MatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> None:
     """
     Apply the full Dslash matrix, possibly even/odd preconditioned.
+
     @param h_out:
         Result spinor field
     @param h_in:
@@ -746,6 +759,7 @@ def MatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> None:
 def MatDagMatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> None:
     r"""
     Apply M^{\dag}M, possibly even/odd preconditioned.
+
     @param h_out:
         Result spinor field
     @param h_in:
@@ -760,6 +774,18 @@ def computeKSLinkQuda(
     fatlink: Pointers, longlink: Pointers, ulink: Pointers, inlink: Pointers, path_coeff: Pointer, param: QudaGaugeParam
 ) -> None:
     """ """
+    ...
+
+def computeTwoLinkQuda(twolink: Pointers, inlink: Pointers, param: QudaGaugeParam) -> None:
+    """
+    Computes the trace of the Polyakov loop of the current resident field
+    in a given direction.
+
+    @param[out] ploop:
+        Trace of the Polyakov loop in direction dir
+    @param[in] dir:
+        Direction of Polyakov loop
+    """
     ...
 
 def momResidentQuda(mom: Pointer, param: QudaGaugeParam) -> None:
@@ -1026,14 +1052,47 @@ def gaussMomQuda(seed: int, sigma: double) -> None:
 def plaqQuda(plaq: List[double, 3]) -> None:
     """
     Computes the total, spatial and temporal plaquette averages of the loaded gauge configuration.
+
     @param[out] plaq:
         Array for storing the averages (total, spatial, temporal)
+    """
+    ...
+
+def polyakovLoopQuda(ploop: List[double, 2], dir: int) -> None:
+    """
+    Computes the trace of the Polyakov loop of the current resident field
+    in a given direction.
+
+    @param[out] ploop:
+        Trace of the Polyakov loop in direction dir
+    @param[in] dir:
+        Direction of Polyakov loop
+    """
+    ...
+
+def performWuppertalnStep(h_out: Pointers, h_in: Pointers, param: QudaInvertParam, n_steps: int, alpha: double):
+    """
+    Performs Wuppertal smearing on a given spinor using the gauge field
+    gaugeSmeared, if it exist, or gaugePrecise if no smeared field is present.
+
+    @param h_out:
+        Result spinor field
+    @param h_in:
+        Input spinor field
+    @param param:
+        Contains all metadata regarding host and device
+        storage and operator which will be applied to the spinor
+    @param n_steps:
+        Number of steps to apply.
+    @param alpha:
+        Alpha coefficient for Wuppertal smearing.
     """
     ...
 
 def performGaugeSmearQuda(smear_param: QudaGaugeSmearParam, obs_param: QudaGaugeObservableParam) -> None:
     """
     Performs APE, Stout, or Over Imroved STOUT smearing on gaugePrecise and stores it in gaugeSmeared
+
     @param[in] smear_param:
         Parameter struct that defines the computation parameters
     @param[in,out] obs_param:
@@ -1045,6 +1104,7 @@ def performGaugeSmearQuda(smear_param: QudaGaugeSmearParam, obs_param: QudaGauge
 def performWFlowQuda(smear_param: QudaGaugeSmearParam, obs_param: QudaGaugeObservableParam) -> None:
     """
     Performs Wilson Flow on gaugePrecise and stores it in gaugeSmeared
+
     @param[in] smear_param:
         Parameter struct that defines the computation parameters
     @param[in,out] obs_param:
@@ -1059,6 +1119,7 @@ def gaugeObservablesQuda(param: QudaGaugeObservableParam):
     smeared gauge field is presently loaded (in gaugeSmeared) the
     observables are computed on this, else the resident gauge field
     will be used.
+
     @param[in,out] param:
         Parameter struct that defines which
         observables we are making and the resulting observables.
@@ -1078,6 +1139,7 @@ def computeGaugeFixingOVRQuda(
 ) -> int:
     """
     Gauge fixing with overrelaxation with support for single and multi GPU.
+
     @param[in,out] gauge:
         gauge field to be fixed
     @param[in] gauge_dir:
@@ -1113,6 +1175,7 @@ def computeGaugeFixingFFTQuda(
 ) -> int:
     """
     Gauge fixing with Steepest descent method with FFTs with support for single GPU only.
+
     @param[in,out] gauge:
         gauge field to be fixed
     @param[in] gauge_dir:
