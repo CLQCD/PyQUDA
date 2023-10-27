@@ -156,7 +156,7 @@ theta_ = -0.03230286765269967
 vartheta_ = 0.08398315262876693
 lambda_ = 0.6822365335719091
 
-plaquette = core.plaq()
+plaquette = core.quda.plaqQuda()[0]
 print(f"\nplaquette = {plaquette}\n")
 
 t = 1.0
@@ -198,7 +198,7 @@ for i in range(100):
     else:
         hmc.loadGauge(gauge)
 
-    plaquette = core.plaq()
+    plaquette = core.quda.plaqQuda()[0]
 
     print(
         f"Step {i}:\n"

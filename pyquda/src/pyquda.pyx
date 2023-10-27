@@ -3205,19 +3205,15 @@ def gaussGaugeQuda(unsigned long long seed, double sigma):
 def gaussMomQuda(unsigned long long seed, double sigma):
     quda.gaussMomQuda(seed, sigma)
 
-def plaqQuda(list plaq):
-    assert len(plaq) >= 3
-    cdef double c_plaq[3]
-    quda.plaqQuda(c_plaq)
-    for i in range(3):
-        plaq[i] = c_plaq[i]
+def plaqQuda() -> list:
+    cdef double plaq[3]
+    quda.plaqQuda(plaq)
+    return plaq
 
-def polyakovLoopQuda(list ploop, int dir):
-    assert len(ploop) >= 2
-    cdef double c_ploop[2]
-    quda.polyakovLoopQuda(c_ploop, dir)
-    for i in range(2):
-        ploop[i] = c_ploop[i]
+def polyakovLoopQuda(int dir) -> list:
+    cdef double ploop[2]
+    quda.polyakovLoopQuda(ploop, dir)
+    return ploop
 
 # void copyExtendedResidentGaugeQuda(void *resident_gauge)
 

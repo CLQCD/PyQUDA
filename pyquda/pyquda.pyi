@@ -778,13 +778,15 @@ def computeKSLinkQuda(
 
 def computeTwoLinkQuda(twolink: Pointers, inlink: Pointers, param: QudaGaugeParam) -> None:
     """
-    Computes the trace of the Polyakov loop of the current resident field
-    in a given direction.
+    Compute two-link field
 
-    @param[out] ploop:
-        Trace of the Polyakov loop in direction dir
-    @param[in] dir:
-        Direction of Polyakov loop
+    @param[out] twolink:
+        computed two-link field
+    @param[in] inlink:
+        the external field
+    @param[in] param:
+        Contains all metadata regarding host and device
+        storage
     """
     ...
 
@@ -1049,24 +1051,24 @@ def gaussMomQuda(seed: int, sigma: double) -> None:
     """
     ...
 
-def plaqQuda(plaq: List[double, 3]) -> None:
+def plaqQuda() -> List[double, 3]:
     """
     Computes the total, spatial and temporal plaquette averages of the loaded gauge configuration.
 
-    @param[out] plaq:
+    @return plaq:
         Array for storing the averages (total, spatial, temporal)
     """
     ...
 
-def polyakovLoopQuda(ploop: List[double, 2], dir: int) -> None:
+def polyakovLoopQuda(dir: int) -> List[double, 2]:
     """
     Computes the trace of the Polyakov loop of the current resident field
     in a given direction.
 
-    @param[out] ploop:
-        Trace of the Polyakov loop in direction dir
     @param[in] dir:
         Direction of Polyakov loop
+    @return ploop:
+        Trace of the Polyakov loop in direction dir
     """
     ...
 
