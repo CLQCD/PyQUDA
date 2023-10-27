@@ -90,7 +90,7 @@ def newLatticeFieldData(latt_size: List[int], dtype: str):
 
         if dtype == "Gauge":
             ret = torch.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128, device="cuda")
-            ret[:] = torch.eye(Nc)
+            ret[:] = torch.eye(Nc, device="cuda")
             return ret
         elif dtype == "Colorvector":
             return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128, device="cuda")

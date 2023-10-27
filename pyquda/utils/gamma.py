@@ -1,22 +1,22 @@
 from functools import lru_cache
 
-import cupy
+from .. import getCUDABackend
 
 
-class _Constant:
+class _ConstantCuPy:
     @staticmethod
     @lru_cache(1)
-    def zero():
+    def zero(cupy):
         return cupy.zeros((4, 4))
 
     @staticmethod
     @lru_cache(1)
-    def one():
+    def one(cupy):
         return cupy.identity(4)
 
     @staticmethod
     @lru_cache(1)
-    def gamma_0():
+    def gamma_0(cupy):
         return cupy.array(
             [
                 [0, 0, 0, 1j],
@@ -28,7 +28,7 @@ class _Constant:
 
     @staticmethod
     @lru_cache(1)
-    def gamma_1():
+    def gamma_1(cupy):
         return cupy.array(
             [
                 [0, 0, 0, -1],
@@ -40,7 +40,7 @@ class _Constant:
 
     @staticmethod
     @lru_cache(1)
-    def gamma_2():
+    def gamma_2(cupy):
         return cupy.array(
             [
                 [0, 0, 1j, 0],
@@ -52,7 +52,7 @@ class _Constant:
 
     @staticmethod
     @lru_cache(1)
-    def gamma_3():
+    def gamma_3(cupy):
         return cupy.array(
             [
                 [0, 0, 1, 0],
@@ -63,17 +63,100 @@ class _Constant:
         )
 
 
+class _ConstantTorch:
+    @staticmethod
+    @lru_cache(1)
+    def zero(torch):
+        return torch.zeros((4, 4), device="cuda")
+
+    @staticmethod
+    @lru_cache(1)
+    def one(torch):
+        return torch.eye(4, device="cuda")
+
+    @staticmethod
+    @lru_cache(1)
+    def gamma_0(torch):
+        return torch.as_tensor(
+            [
+                [0, 0, 0, 1j],
+                [0, 0, 1j, 0],
+                [0, -1j, 0, 0],
+                [-1j, 0, 0, 0],
+            ],
+            device="cuda",
+        )
+
+    @staticmethod
+    @lru_cache(1)
+    def gamma_1(torch):
+        return torch.as_tensor(
+            [
+                [0, 0, 0, -1],
+                [0, 0, 1, 0],
+                [0, 1, 0, 0],
+                [-1, 0, 0, 0],
+            ],
+            device="cuda",
+        )
+
+    @staticmethod
+    @lru_cache(1)
+    def gamma_2(torch):
+        return torch.as_tensor(
+            [
+                [0, 0, 1j, 0],
+                [0, 0, 0, -1j],
+                [-1j, 0, 0, 0],
+                [0, 1j, 0, 0],
+            ],
+            device="cuda",
+        )
+
+    @staticmethod
+    @lru_cache(1)
+    def gamma_3(torch):
+        return torch.as_tensor(
+            [
+                [0, 0, 1, 0],
+                [0, 0, 0, 1],
+                [1, 0, 0, 0],
+                [0, 1, 0, 0],
+            ],
+            device="cuda",
+        )
+
+
 def gamma(n: int):
     assert isinstance(n, int) and n >= 0 and n <= 15
-    return cupy.asarray(
-        (_Constant.gamma_0() if n & 0b0001 else _Constant.one())
-        @ (_Constant.gamma_1() if n & 0b0010 else _Constant.one())
-        @ (_Constant.gamma_2() if n & 0b0100 else _Constant.one())
-        @ (_Constant.gamma_3() if n & 0b1000 else _Constant.one())
-    )
+    backend = getCUDABackend()
+    if backend == "cupy":
+        import cupy
+
+        return cupy.asarray(
+            (_ConstantCuPy.gamma_0(cupy) if n & 0b0001 else _ConstantCuPy.one(cupy))
+            @ (_ConstantCuPy.gamma_1(cupy) if n & 0b0010 else _ConstantCuPy.one(cupy))
+            @ (_ConstantCuPy.gamma_2(cupy) if n & 0b0100 else _ConstantCuPy.one(cupy))
+            @ (_ConstantCuPy.gamma_3(cupy) if n & 0b1000 else _ConstantCuPy.one(cupy))
+        )
+    elif backend == "torch":
+        import torch
+
+        return torch.as_tensor(
+            (_ConstantTorch.gamma_0(torch) if n & 0b0001 else _ConstantTorch.one(torch))
+            @ (_ConstantTorch.gamma_1(torch) if n & 0b0010 else _ConstantTorch.one(torch))
+            @ (_ConstantTorch.gamma_2(torch) if n & 0b0100 else _ConstantTorch.one(torch))
+            @ (_ConstantTorch.gamma_3(torch) if n & 0b1000 else _ConstantTorch.one(torch)),
+            device="cuda",
+        )
 
 
 def bilateral_apply(data, out, axis, gamma_left, gamma_right, conj):
+    backend = getCUDABackend()
+    if backend == "torch":
+        raise ValueError("`bilateral_apply` doesn't support torch backend yet.")
+    import cupy
+
     gamma_left = cupy.sparse.csr_matrix(gamma_left)
     gamma_right = cupy.sparse.csc_matrix(gamma_right)
     shape = data.shape
