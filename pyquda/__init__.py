@@ -4,11 +4,6 @@ from warnings import warn
 from . import mpi
 from . import pyquda as quda, malloc_pyquda
 
-try:
-    from . import pyqcu as qcu
-except ImportError as e:
-    print(e)
-
 
 class _ComputeCapability(NamedTuple):
     major: int
