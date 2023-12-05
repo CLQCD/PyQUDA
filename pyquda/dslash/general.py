@@ -1,25 +1,87 @@
 from typing import List
 
+import numpy as np
+
+from ..pointer import Pointer, Pointers, ndarrayDataPointer
 from ..pyquda import (
-    Pointer, QudaGaugeParam, QudaInvertParam, QudaMultigridParam, loadCloverQuda, loadGaugeQuda, invertQuda,
-    dslashQuda, cloverQuda
+    QudaGaugeParam,
+    QudaInvertParam,
+    QudaMultigridParam,
+    computeKSLinkQuda,
+    loadCloverQuda,
+    loadGaugeQuda,
+    invertQuda,
+    dslashQuda,
+    cloverQuda,
+    staggeredPhaseQuda,
 )
-from ..field import LatticeGauge, LatticeFermion
+from ..field import LatticeGauge, LatticeFermion, LatticeStaggeredFermion
 from ..enum_quda import (  # noqa: F401
-    QudaMemoryType, QudaLinkType, QudaGaugeFieldOrder, QudaTboundary, QudaPrecision, QudaReconstructType,
-    QudaGaugeFixed, QudaDslashType, QudaInverterType, QudaEigType, QudaEigSpectrumType, QudaSolutionType,
-    QudaSolveType, QudaMultigridCycleType, QudaSchwarzType, QudaResidualType, QudaCABasis, QudaMatPCType, QudaDagType,
-    QudaMassNormalization, QudaSolverNormalization, QudaPreserveSource, QudaDiracFieldOrder, QudaCloverFieldOrder,
-    QudaVerbosity, QudaTune, QudaPreserveDirac, QudaParity, QudaDiracType, QudaFieldLocation, QudaSiteSubset,
-    QudaSiteOrder, QudaFieldOrder, QudaFieldCreate, QudaGammaBasis, QudaSourceType, QudaNoiseType, QudaProjectionType,
-    QudaPCType, QudaTwistFlavorType, QudaTwistDslashType, QudaTwistCloverDslashType, QudaTwistGamma5Type,
-    QudaUseInitGuess, QudaDeflatedGuess, QudaComputeNullVector, QudaSetupType, QudaTransferType, QudaBoolean,
-    QudaBLASOperation, QudaBLASDataType, QudaBLASDataOrder, QudaDirection, QudaLinkDirection, QudaFieldGeometry,
-    QudaGhostExchange, QudaStaggeredPhase, QudaContractType, QudaContractGamma, QudaExtLibType
+    QudaMemoryType,
+    QudaLinkType,
+    QudaGaugeFieldOrder,
+    QudaTboundary,
+    QudaPrecision,
+    QudaReconstructType,
+    QudaGaugeFixed,
+    QudaDslashType,
+    QudaInverterType,
+    QudaEigType,
+    QudaEigSpectrumType,
+    QudaSolutionType,
+    QudaSolveType,
+    QudaMultigridCycleType,
+    QudaSchwarzType,
+    QudaResidualType,
+    QudaCABasis,
+    QudaMatPCType,
+    QudaDagType,
+    QudaMassNormalization,
+    QudaSolverNormalization,
+    QudaPreserveSource,
+    QudaDiracFieldOrder,
+    QudaCloverFieldOrder,
+    QudaVerbosity,
+    QudaTune,
+    QudaPreserveDirac,
+    QudaParity,
+    QudaDiracType,
+    QudaFieldLocation,
+    QudaSiteSubset,
+    QudaSiteOrder,
+    QudaFieldOrder,
+    QudaFieldCreate,
+    QudaGammaBasis,
+    QudaSourceType,
+    QudaNoiseType,
+    QudaProjectionType,
+    QudaPCType,
+    QudaTwistFlavorType,
+    QudaTwistDslashType,
+    QudaTwistCloverDslashType,
+    QudaTwistGamma5Type,
+    QudaUseInitGuess,
+    QudaDeflatedGuess,
+    QudaComputeNullVector,
+    QudaSetupType,
+    QudaTransferType,
+    QudaBoolean,
+    QudaBLASOperation,
+    QudaBLASDataType,
+    QudaBLASDataOrder,
+    QudaDirection,
+    QudaLinkDirection,
+    QudaFieldGeometry,
+    QudaGhostExchange,
+    QudaStaggeredPhase,
+    QudaContractType,
+    QudaContractGamma,
+    QudaExtLibType,
 )
 from ..enum_quda import QUDA_MAX_DIM, QUDA_MAX_MULTI_SHIFT, QUDA_MAX_MG_LEVEL
 
 nullptr = Pointer("void")
+nullptrs = Pointers("void", 0)
 
 cpu_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
 cuda_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
@@ -30,12 +92,14 @@ link_recon = QudaReconstructType.QUDA_RECONSTRUCT_12
 link_recon_sloppy = QudaReconstructType.QUDA_RECONSTRUCT_12
 
 
-def newQudaGaugeParam(X: List[int], anisotropy: float, t_boundary: int):
+def newQudaGaugeParam(X: List[int], anisotropy: float, t_boundary: int, tadpole_coeff: float, naik_epsilon: float):
     gauge_param = QudaGaugeParam()
 
     gauge_param.X = X
 
     gauge_param.anisotropy = anisotropy
+    gauge_param.tadpole_coeff = tadpole_coeff
+    gauge_param.scale = -(1 + naik_epsilon) / (24 * tadpole_coeff * tadpole_coeff)
     gauge_param.type = QudaLinkType.QUDA_WILSON_LINKS
     gauge_param.gauge_order = QudaGaugeFieldOrder.QUDA_QDP_GAUGE_ORDER
     gauge_param.t_boundary = QudaTboundary.QUDA_ANTI_PERIODIC_T if t_boundary == -1 else QudaTboundary.QUDA_PERIODIC_T
@@ -53,15 +117,17 @@ def newQudaGaugeParam(X: List[int], anisotropy: float, t_boundary: int):
     gauge_param.reconstruct_precondition = link_recon_sloppy
     gauge_param.reconstruct_eigensolver = link_recon_sloppy
 
+    gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_CHROMA
+
     Lx, Ly, Lz, Lt = X
-    ga_pad = Lx * Ly * Lz * Lt // min(Lx, Ly, Lz, Lt) // 2
-    gauge_param.ga_pad = ga_pad
+    gauge_param.ga_pad = Lx * Ly * Lz * Lt // min(Lx, Ly, Lz, Lt) // 2
     gauge_param.gauge_fix = QudaGaugeFixed.QUDA_GAUGE_FIXED_NO
 
     return gauge_param
 
 
 def newQudaMultigridParam(
+    mass: float,
     kappa: float,
     geo_block_size: List[List[int]],
     coarse_tol: float,
@@ -71,15 +137,18 @@ def newQudaMultigridParam(
     nu_pre: int,
     nu_post: int,
 ):
+    from .. import getCUDAComputeCapability
+
     mg_param = QudaMultigridParam()
     mg_inv_param = QudaInvertParam()
 
     mg_inv_param.inv_type = QudaInverterType.QUDA_GCR_INVERTER
+    mg_inv_param.mass = mass
     mg_inv_param.kappa = kappa
     mg_inv_param.Ls = 1
     mg_inv_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
     mg_inv_param.solve_type = QudaSolveType.QUDA_DIRECT_SOLVE
-    mg_inv_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
+    mg_inv_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
     mg_inv_param.dagger = QudaDagType.QUDA_DAG_NO
     mg_inv_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
     mg_inv_param.gcrNkrylov = 12
@@ -167,33 +236,36 @@ def newQudaMultigridParam(
     mg_param.run_low_mode_check = QudaBoolean.QUDA_BOOLEAN_FALSE
     mg_param.run_oblique_proj_check = QudaBoolean.QUDA_BOOLEAN_FALSE
 
-    mg_param.use_mma = QudaBoolean.QUDA_BOOLEAN_TRUE
+    use_mma = QudaBoolean.QUDA_BOOLEAN_TRUE if getCUDAComputeCapability().major >= 7 else QudaBoolean.QUDA_BOOLEAN_FALSE
+    mg_param.setup_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
+    mg_param.dslash_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
 
     return mg_param, mg_inv_param
 
 
 def newQudaInvertParam(
+    mass: float,
     kappa: float,
     tol: float,
     maxiter: int,
     clover_coeff: float,
     clover_anisotropy: float,
-    mg_param: QudaMultigridParam = None
+    mg_param: QudaMultigridParam = None,
 ):
     invert_param = QudaInvertParam()
 
     # invert_param.dslash_type = QudaDslashType.QUDA_CLOVER_WILSON_DSLASH
-    # invert_param.mass = 0.5 / kappa - (1.0 + 3.0 / anisotropy)
+    invert_param.mass = mass
     invert_param.kappa = kappa
 
     invert_param.laplace3D = 3
 
     invert_param.Ls = 1
 
-    # invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
+    invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
     invert_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
-    # invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE
-    invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
+    invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE
+    invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
     invert_param.dagger = QudaDagType.QUDA_DAG_NO
     invert_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
     invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
@@ -265,7 +337,7 @@ def loadClover(gauge: LatticeGauge, gauge_param: QudaGaugeParam, invert_param: Q
     reconstruct = gauge_param.reconstruct
     use_resident_gauge = gauge_param.use_resident_gauge
 
-    gauge_data_bak = gauge.data.copy()
+    gauge_data_bak = gauge.backup()
     if clover_anisotropy != 1.0:
         gauge.setAnisotropy(clover_anisotropy)
     gauge_param.anisotropy = 1.0
@@ -276,38 +348,144 @@ def loadClover(gauge: LatticeGauge, gauge_param: QudaGaugeParam, invert_param: Q
     loadCloverQuda(nullptr, nullptr, invert_param)
     gauge_param.anisotropy = anisotropy
     gauge_param.reconstruct = reconstruct
-    gauge.data = gauge_data_bak.copy()
+    gauge.data = gauge_data_bak
 
 
 def loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
-    anisotropy = gauge_param.anisotropy
     use_resident_gauge = gauge_param.use_resident_gauge
 
-    gauge_data_bak = gauge.data.copy()
+    gauge_data_bak = gauge.backup()
     if gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
         gauge.setAntiPeroidicT()
-    if anisotropy != 1.0:
-        gauge.setAnisotropy(anisotropy)
+    if gauge_param.anisotropy != 1.0:
+        gauge.setAnisotropy(gauge_param.anisotropy)
     gauge_param.use_resident_gauge = 0
     loadGaugeQuda(gauge.data_ptrs, gauge_param)
     gauge_param.use_resident_gauge = use_resident_gauge
     gauge.data = gauge_data_bak
 
 
+def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
+    act_path_coeff = np.zeros((3, 6), "<f8")
+    u1 = 1.0 / gauge_param.tadpole_coeff
+    u2 = u1 * u1
+    u4 = u2 * u2
+    u6 = u4 * u2
+    # First path: create V, W links
+    act_path_coeff[0] = np.asarray(
+        [
+            (1.0 / 8.0),  # one link
+            u2 * (0.0),  # Naik
+            u2 * (-1.0 / 8.0) * 0.5,  # simple staple
+            u4 * (1.0 / 8.0) * 0.25 * 0.5,  # displace link in two directions
+            u6 * (-1.0 / 8.0) * 0.125 * (1.0 / 6.0),  # displace link in three directions
+            u4 * (0.0),  # Lepage term
+        ]
+    )
+    # Second path: create X, long links
+    act_path_coeff[1] = np.asarray(
+        [
+            ((1.0 / 8.0) + (2.0 * 6.0 / 16.0) + (1.0 / 8.0)),  # one link
+            # One link is 1/8 as in fat7 + 2*3/8 for Lepage + 1/8 for Naik
+            (-1.0 / 24.0),  # Naik
+            (-1.0 / 8.0) * 0.5,  # simple staple
+            (1.0 / 8.0) * 0.25 * 0.5,  # displace link in two directions
+            (-1.0 / 8.0) * 0.125 * (1.0 / 6.0),  # displace link in three directions
+            (-2.0 / 16.0),  # Lepage term, correct O(a^2) 2x ASQTAD
+        ]
+    )
+    # Paths for epsilon corrections. Not used if n_naiks = 1.
+    act_path_coeff[2] = np.asarray(
+        [
+            (1.0 / 8.0),  # one link b/c of Naik
+            (-1.0 / 24.0),  # Naik
+            0.0,  # simple staple
+            0.0,  # displace link in two directions
+            0.0,  # displace link in three directions
+            0.0,  # Lepage term
+        ]
+    )
+
+    inlink = gauge.copy()
+    ulink = LatticeGauge(gauge.latt_size)
+    fatlink = LatticeGauge(gauge.latt_size)
+    longlink = LatticeGauge(gauge.latt_size)
+
+    loadGaugeQuda(inlink.data_ptrs, gauge_param)  # Save the original gauge for the smeared source.
+
+    gauge_param.return_result_gauge = 1
+    staggeredPhaseQuda(inlink.data_ptrs, gauge_param)
+    gauge_param.staggered_phase_applied = 1
+
+    # Chroma uses periodic boundary condition to do the SU(3) projection.
+    # But I think it's wrong.
+    # gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
+    computeKSLinkQuda(
+        nullptrs,
+        nullptrs,
+        ulink.data_ptrs,
+        inlink.data_ptrs,
+        ndarrayDataPointer(act_path_coeff[0]),
+        gauge_param,
+    )
+    computeKSLinkQuda(
+        fatlink.data_ptrs,
+        longlink.data_ptrs,
+        nullptrs,
+        ulink.data_ptrs,
+        ndarrayDataPointer(act_path_coeff[1]),
+        gauge_param,
+    )
+
+    gauge_param.type = QudaLinkType.QUDA_ASQTAD_FAT_LINKS
+    loadGaugeQuda(fatlink.data_ptrs, gauge_param)
+    gauge_param.type = QudaLinkType.QUDA_ASQTAD_LONG_LINKS
+    gauge_param.ga_pad = gauge_param.ga_pad * 3
+    # gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_NO
+    loadGaugeQuda(longlink.data_ptrs, gauge_param)
+    gauge_param.ga_pad = gauge_param.ga_pad / 3
+    # These field created by QUDA's allocator will not be freed automatically
+    ulink = fatlink = longlink = None
+
+
 def invert(b: LatticeFermion, invert_param: QudaInvertParam):
+    from ..mpi import rank
+
     kappa = invert_param.kappa
 
     x = LatticeFermion(b.latt_size)
 
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
+    if rank == 0:
+        print(
+            f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
+        )
     x.data *= 2 * kappa
 
     return x
 
 
+def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
+    from ..mpi import rank
+
+    mass = invert_param.mass
+
+    x = LatticeStaggeredFermion(b.latt_size)
+
+    invertQuda(x.data_ptr, b.data_ptr, invert_param)
+    if rank == 0:
+        print(
+            f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
+        )
+    x.data /= 2 * mass
+
+    return x
+
+
 def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
+    from ..mpi import rank
+
     invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
-    invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
 
     kappa = invert_param.kappa
 
@@ -326,8 +504,14 @@ def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
     dslashQuda(x.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
     tmp.odd = tmp.odd + kappa * x.odd
     invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
+    if rank == 0:
+        print(
+            f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
+        )
     dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
     x.even = tmp.even + kappa * x.even
     x.data *= 2 * kappa
+
+    tmp = None
 
     return x

@@ -2,176 +2,35 @@ import os
 import sys
 import io
 from contextlib import contextmanager
-from tempfile import TemporaryFile
 
-import ctypes
 import cython
 
-import numpy
-cimport numpy
-import cupy
-
 from libc.stdio cimport stdout
-from libc.stdlib cimport malloc, free
 
 cimport quda
+from pyquda.pointer cimport Pointer, Pointers, Pointerss
 
-libc = ctypes.CDLL(None)
-c_stdout = ctypes.c_void_p.in_dll(libc, 'stdout')
 
 @contextmanager
-def redirect_stdout(stream):
+def redirect_stdout(value: bytearray):
     stdout_fd = sys.stdout.fileno()
+    stdout_dup_fd = os.dup(stdout_fd)
+    pipe_out, pipe_in = os.pipe()
+    os.dup2(pipe_in, stdout_fd)
 
-    def _redirect_stdout(to_fd):
-        """Redirect stdout to the given file descriptor."""
-        libc.fflush(c_stdout)
-        sys.stdout.close()
-        os.dup2(to_fd, stdout_fd)
-        sys.stdout = io.TextIOWrapper(os.fdopen(stdout_fd, 'wb'))
+    yield
 
-    saved_stdout_fd = os.dup(stdout_fd)
-    try:
-        tfile = TemporaryFile(mode='w+b')
-        _redirect_stdout(tfile.fileno())
-        yield
-        _redirect_stdout(saved_stdout_fd)
-        tfile.flush()
-        tfile.seek(0, io.SEEK_SET)
-        stream.write(tfile.read())
-    finally:
-        tfile.close()
-        os.close(saved_stdout_fd)
-
-cdef class Pointer:
-    cdef void *ptr
-    dtype: str
-
-    def __cinit__(self, str dtype, *args):
-        self.dtype = dtype
-        self.ptr = NULL
-
-    cdef set_ptr(self, void *ptr):
-        self.ptr = ptr
-
-cdef class Pointers(Pointer):
-    cdef unsigned int n1
-    cdef void **ptrs
-
-    def __cinit__(self, str dtype, unsigned int n1):
-        self.n1 = n1
-        if n1 > 0:
-            self.ptrs = <void **>malloc(n1 * sizeof(void *))
-            for i in range(n1):
-                self.ptrs[i] = NULL
-        else:
-            self.ptrs = <void **>NULL
-
-    def __dealloc__(self):
-        if self.ptrs:
-            free(self.ptrs)
-
-    cdef set_ptrs(self, void **ptrs):
-        for i in range(self.n1):
-            self.ptrs[i] = ptrs[i]
-        self.ptr = <void *>self.ptrs
-
-cdef class Pointerss(Pointer):
-    cdef unsigned int n1, n2
-    cdef void ***ptrss
-
-    def __cinit__(self, str dtype, unsigned int n1, unsigned int n2):
-        self.n1 = n1
-        self.n2 = n2
-        if n1 > 0 and n2 > 0:
-            self.ptrss = <void ***>malloc(n1 * sizeof(void **))
-            for i in range(n1):
-                self.ptrss[i] = <void **>malloc(n2 * sizeof(void *))
-                for j in range(n2):
-                    self.ptrss[i][j] = NULL
-        else:
-            self.ptrss = <void ***>NULL
-
-    def __dealloc__(self):
-        if self.ptrss:
-            for i in range(self.n1):
-                free(self.ptrss[i])
-            free(self.ptrss)
-
-    cdef set_ptrss(self, void ***ptrss):
-        for i in range(self.n1):
-            for j in range(self.n2):
-                self.ptrss[i][j] = ptrss[i][j]
-        self.ptr = <void *>self.ptrss
-
-def ndarrayDataPointer(ndarray, as_void=False):
-    if isinstance(ndarray, numpy.ndarray):
-        gpu = False
-    elif isinstance(ndarray, cupy.ndarray):
-        gpu = True
-    else:
-        raise TypeError("ndarrayDataPointer: ndarray should be numpy.ndarray or cupy.ndarray.")
-    if not as_void:
-        dtype = ndarray.dtype.str
-        if dtype == "<i4":
-            dtype = "int"
-        elif dtype == "<f8":
-            dtype = "double"
-        elif dtype == "<c16":
-            dtype = "double_complex"
-        else:
-            raise TypeError(f"ndarrayDataPointer: ndarray has unsupported dtype={dtype}.")
-    else:
-        dtype = "void"
-    shape = ndarray.shape
-    ndim = ndarray.ndim
-    cdef size_t ptr_uint64
-    cdef void **ptrs
-    cdef void ***ptrss
-    if ndim == 1:
-        ptr1 = Pointer(dtype)
-        if not gpu:
-            ptr_uint64 = ndarray.ctypes.data
-        else:
-            ptr_uint64 = ndarray.data.ptr
-        ptr1.set_ptr(<void *>ptr_uint64)
-        return ptr1
-    elif ndim == 2:
-        ptr2 = Pointers(dtype, shape[0])
-        ptrs = <void **>malloc(shape[0] * sizeof(void *))
-        if not gpu:
-            for i in range(shape[0]):
-                ptr_uint64 = ndarray[i].ctypes.data
-                ptrs[i] = <void *>ptr_uint64
-        else:
-            for i in range(shape[0]):
-                ptr_uint64 = ndarray[i].data.ptr
-                ptrs[i] = <void *>ptr_uint64
-        ptr2.set_ptrs(ptrs)
-        free(ptrs)
-        return ptr2
-    elif ndim == 3:
-        ptr3 = Pointerss(dtype, shape[0], shape[1])
-        ptrss = <void ***>malloc(shape[0] * sizeof(void **))
-        for i in range(shape[0]):
-            ptrss[i] = <void **>malloc(shape[1] * sizeof(void *))
-        if not gpu:
-            for i in range(shape[0]):
-                for j in range(shape[1]):
-                    ptr_uint64 = ndarray[i, j].ctypes.data
-                    ptrss[i][j] = <void *>ptr_uint64
-        else:
-            for i in range(shape[0]):
-                for j in range(shape[1]):
-                    ptr_uint64 = ndarray[i, j].data.ptr
-                    ptrss[i][j] = <void *>ptr_uint64
-        ptr3.set_ptrss(ptrss)
-        for i in range(shape[0]):
-            free(ptrss[i])
-        free(ptrss)
-        return ptr3
-    else:
-        raise NotImplementedError("ndarray.ndim > 3 not implemented yet.")
+    sys.stdout.write(b"\x00".decode(sys.stdout.encoding))
+    sys.stdout.flush()
+    os.close(pipe_in)
+    with io.FileIO(pipe_out, closefd=True) as fio:
+        buffer = fio.read(4096)
+        while b"\00" not in buffer:
+            value.extend(buffer)
+            buffer = fio.read(4096)
+        value.extend(buffer)
+    os.dup2(stdout_dup_fd, stdout_fd)
+    os.close(stdout_dup_fd)
 
 cdef class QudaGaugeParam:
     cdef quda.QudaGaugeParam param
@@ -180,11 +39,10 @@ cdef class QudaGaugeParam:
         self.param = quda.newQudaGaugeParam()
 
     def __repr__(self):
-        buf = io.BytesIO()
-        with redirect_stdout(buf):
+        value = bytearray()
+        with redirect_stdout(value):
             quda.printQudaGaugeParam(&self.param)
-        ret = buf.getvalue().decode("utf-8")
-        return ret
+        return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaGaugeParam *ptr):
         self.param = cython.operator.dereference(ptr)
@@ -524,11 +382,10 @@ cdef class QudaInvertParam:
         self.param = quda.newQudaInvertParam()
 
     def __repr__(self):
-        buf = io.BytesIO()
-        with redirect_stdout(buf):
+        value = bytearray()
+        with redirect_stdout(value):
             quda.printQudaInvertParam(&self.param)
-        ret = buf.getvalue().decode("utf-8")
-        return ret
+        return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaInvertParam *ptr):
         self.param = cython.operator.dereference(ptr)
@@ -1710,11 +1567,10 @@ cdef class QudaMultigridParam:
         self.param = quda.newQudaMultigridParam()
 
     def __repr__(self):
-        buf = io.BytesIO()
-        with redirect_stdout(buf):
+        value = bytearray()
+        with redirect_stdout(value):
             quda.printQudaMultigridParam(&self.param)
-        ret = buf.getvalue().decode("utf-8")
-        return ret
+        return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaMultigridParam *ptr):
         self.param = cython.operator.dereference(ptr)
@@ -1824,6 +1680,22 @@ cdef class QudaMultigridParam:
     @verbosity.setter
     def verbosity(self, value):
         self.param.verbosity = value
+
+    @property
+    def setup_use_mma(self):
+        return self.param.setup_use_mma
+
+    @setup_use_mma.setter
+    def setup_use_mma(self, value):
+        self.param.setup_use_mma = value
+
+    @property
+    def dslash_use_mma(self):
+        return self.param.dslash_use_mma
+
+    @dslash_use_mma.setter
+    def dslash_use_mma(self, value):
+        self.param.dslash_use_mma = value
 
     @property
     def setup_inv_type(self):
@@ -2202,6 +2074,14 @@ cdef class QudaMultigridParam:
         self.param.vec_outfile = value
 
     @property
+    def mg_vec_partfile(self):
+        return self.param.mg_vec_partfile
+
+    @mg_vec_partfile.setter
+    def mg_vec_partfile(self, value):
+        self.param.mg_vec_partfile = value
+
+    @property
     def coarse_guess(self):
         return self.param.coarse_guess
 
@@ -2266,14 +2146,6 @@ cdef class QudaMultigridParam:
         self.param.staggered_kd_dagger_approximation = value
 
     @property
-    def use_mma(self):
-        return self.param.use_mma
-
-    @use_mma.setter
-    def use_mma(self, value):
-        self.param.use_mma = value
-
-    @property
     def thin_update_only(self):
         return self.param.thin_update_only
 
@@ -2288,11 +2160,10 @@ cdef class QudaEigParam:
         self.param = quda.newQudaEigParam()
 
     def __repr__(self):
-        buf = io.BytesIO()
-        with redirect_stdout(buf):
+        value = bytearray()
+        with redirect_stdout(value):
             quda.printQudaEigParam(&self.param)
-        ret = buf.getvalue().decode("utf-8")
-        return ret
+        return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaEigParam *ptr):
         self.param = cython.operator.dereference(ptr)
@@ -2541,6 +2412,22 @@ cdef class QudaEigParam:
         self.param.block_size = value
 
     @property
+    def max_ortho_attempts(self):
+        return self.param.max_ortho_attempts
+
+    @max_ortho_attempts.setter
+    def max_ortho_attempts(self, value):
+        self.param.max_ortho_attempts = value
+
+    @property
+    def ortho_block_size(self):
+        return self.param.ortho_block_size
+
+    @ortho_block_size.setter
+    def ortho_block_size(self, value):
+        self.param.ortho_block_size = value
+
+    @property
     def arpack_check(self):
         return self.param.arpack_check
 
@@ -2653,6 +2540,14 @@ cdef class QudaEigParam:
         self.param.io_parity_inflate = value
 
     @property
+    def partfile(self):
+        return self.param.partfile
+
+    @partfile.setter
+    def partfile(self, value):
+        self.param.partfile = value
+
+    @property
     def gflops(self):
         return self.param.gflops
 
@@ -2683,11 +2578,10 @@ cdef class QudaGaugeObservableParam:
         self.param = quda.newQudaGaugeObservableParam()
 
     def __repr__(self):
-        buf = io.BytesIO()
-        with redirect_stdout(buf):
+        value = bytearray()
+        with redirect_stdout(value):
             quda.printQudaGaugeObservableParam(&self.param)
-        ret = buf.getvalue().decode("utf-8")
-        return ret
+        return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaGaugeObservableParam *ptr):
         self.param = cython.operator.dereference(ptr)
@@ -2889,11 +2783,10 @@ cdef class QudaGaugeSmearParam:
         self.param = quda.newQudaGaugeSmearParam()
 
     # def __repr__(self):
-    #     buf = io.BytesIO()
-    #     with redirect_stdout(buf):
+    #     value = bytearray()
+    #     with redirect_stdout(value):
     #         quda.printQudaGaugeSmearParam(&self.param)
-    #     ret = buf.getvalue().decode("utf-8")
-    #     return ret
+    #     return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaGaugeSmearParam *ptr):
         self.param = cython.operator.dereference(ptr)
@@ -2961,11 +2854,10 @@ cdef class QudaBLASParam:
         self.param = quda.newQudaBLASParam()
 
     def __repr__(self):
-        buf = io.BytesIO()
-        with redirect_stdout(buf):
+        value = bytearray()
+        with redirect_stdout(value):
             quda.printQudaBLASParam(&self.param)
-        ret = buf.getvalue().decode("utf-8")
-        return ret
+        return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaBLASParam *ptr):
         self.param = cython.operator.dereference(ptr)
@@ -3178,6 +3070,12 @@ def loadGaugeQuda(Pointers h_gauge, QudaGaugeParam param):
 def freeGaugeQuda():
     quda.freeGaugeQuda()
 
+def freeUniqueGaugeQuda(quda.QudaLinkType link_type):
+    quda.freeUniqueGaugeQuda(link_type)
+
+def freeGaugeSmearedQuda():
+    quda.freeGaugeSmearedQuda()
+
 def saveGaugeQuda(Pointers h_gauge, QudaGaugeParam param):
     assert h_gauge.dtype == "void"
     quda.saveGaugeQuda(h_gauge.ptr, &param.param)
@@ -3248,9 +3146,21 @@ def MatDagMatQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param):
 
 # void set_dim(int *)
 # void pack_ghost(void **cpuLink, void **cpuGhost, int nFace, QudaPrecision precision)
-# void computeKSLinkQuda(void* fatlink, void* longlink, void* ulink, void* inlink, double *path_coeff, QudaGaugeParam *param)
 
-def momResidentQuda(Pointer mom, QudaGaugeParam param):
+def computeKSLinkQuda(Pointers fatlink, Pointers longlink, Pointers ulink, Pointers inlink, Pointer path_coeff, QudaGaugeParam param):
+    assert fatlink.dtype == "void"
+    assert longlink.dtype == "void"
+    assert ulink.dtype == "void"
+    assert inlink.dtype == "void"
+    assert path_coeff.dtype == "double"
+    quda.computeKSLinkQuda(fatlink.ptr, longlink.ptr, ulink.ptr, inlink.ptr, <double *>path_coeff.ptr, &param.param)
+
+def computeTwoLinkQuda(Pointers twolink, Pointers inlink, QudaGaugeParam param):
+    assert twolink.dtype == "void"
+    assert inlink.dtype == "void"
+    quda.computeTwoLinkQuda(twolink.ptr, inlink.ptr, &param.param)
+
+def momResidentQuda(Pointers mom, QudaGaugeParam param):
     assert mom.dtype == "void"
     quda.momResidentQuda(mom.ptr, &param.param)
 
@@ -3264,7 +3174,7 @@ def computeGaugePathQuda(Pointers out, Pointers sitelink, Pointer input_path_buf
     assert sitelink.dtype == "void"
     return quda.computeGaugePathQuda(out.ptr, sitelink.ptr, <int ***>input_path_buf.ptr, <int *>path_length.ptr, <double *>loop_coeff.ptr, num_paths, max_length, dt, &qudaGaugeParam.param)
 
-def computeGaugeLoopTraceQuda(traces: Pointer, input_path_buf: Pointers, path_length: Pointer, loop_coeff: Pointer, num_paths: int, max_length: int, factor: double):
+def computeGaugeLoopTraceQuda(Pointer traces, Pointers input_path_buf, Pointer path_length, Pointer loop_coeff, int num_paths, int max_length, double factor):
     assert traces.dtype == "double_complex"
     assert input_path_buf.dtype == "int"
     assert path_length.dtype == "int"
@@ -3277,7 +3187,9 @@ def updateGaugeFieldQuda(Pointers gauge, Pointers momentum, double dt, int conj_
     assert momentum.dtype == "void"
     quda.updateGaugeFieldQuda(gauge.ptr, momentum.ptr, dt, conj_mom, exact, &param.param)
 
-# void staggeredPhaseQuda(void *gauge_h, QudaGaugeParam *param)
+def staggeredPhaseQuda(Pointers gauge_h, QudaGaugeParam param):
+    assert gauge_h.dtype == "void"
+    quda.staggeredPhaseQuda(gauge_h.ptr, &param.param)
 
 def projectSU3Quda(Pointers gauge_h, double tol, QudaGaugeParam param):
     assert gauge_h.dtype == "void"
@@ -3309,18 +3221,22 @@ def gaussGaugeQuda(unsigned long long seed, double sigma):
 def gaussMomQuda(unsigned long long seed, double sigma):
     quda.gaussMomQuda(seed, sigma)
 
-def plaqQuda(list plaq):
-    assert len(plaq) >= 3
-    cdef double c_plaq[3]
-    quda.plaqQuda(c_plaq)
-    for i in range(3):
-        plaq[i] = c_plaq[i]
+def plaqQuda() -> list:
+    cdef double plaq[3]
+    quda.plaqQuda(plaq)
+    return plaq
 
-# void polyakovLoopQuda(double ploop[2], int dir)
+def polyakovLoopQuda(int dir) -> list:
+    cdef double ploop[2]
+    quda.polyakovLoopQuda(ploop, dir)
+    return ploop
 
 # void copyExtendedResidentGaugeQuda(void *resident_gauge)
 
-# void performWuppertalnStep(void *h_out, void *h_in, QudaInvertParam *param, unsigned int n_steps, double alpha)
+def performWuppertalnStep(Pointer h_out, Pointer h_in, QudaInvertParam param, unsigned int n_steps, double alpha):
+    assert h_out.dtype == "void"
+    assert h_in.dtype == "void"
+    quda.performWuppertalnStep(h_out.ptr, h_in.ptr, &param.param, n_steps, alpha)
 
 def performGaugeSmearQuda(QudaGaugeSmearParam smear_param, QudaGaugeObservableParam obs_param):
     quda.performGaugeSmearQuda(&smear_param.param, &obs_param.param)
@@ -3334,23 +3250,13 @@ def gaugeObservablesQuda(QudaGaugeObservableParam param):
 # void contractQuda(const void *x, const void *y, void *result, const QudaContractType cType, QudaInvertParam *param,
 #                     const int *X)
 
-def computeGaugeFixingOVRQuda(Pointers gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double relax_boost, double tolerance, unsigned int reunit_interval, unsigned int stopWtheta, QudaGaugeParam param, list timeinfo):
-    assert len(timeinfo) >= 3
+def computeGaugeFixingOVRQuda(Pointers gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double relax_boost, double tolerance, unsigned int reunit_interval, unsigned int stopWtheta, QudaGaugeParam param):
     assert gauge.dtype == "void"
-    cdef double c_timeinfo[3]
-    ret = quda.computeGaugeFixingOVRQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, relax_boost, tolerance, reunit_interval, stopWtheta, &param.param, c_timeinfo)
-    for i in range(3):
-        timeinfo[i] = c_timeinfo[i]
-    return ret
+    return quda.computeGaugeFixingOVRQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, relax_boost, tolerance, reunit_interval, stopWtheta, &param.param)
 
-def computeGaugeFixingFFTQuda(Pointers gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double alpha, unsigned int autotune, double tolerance, unsigned int stopWtheta, QudaGaugeParam param, list timeinfo):
-    assert len(timeinfo) >= 3
+def computeGaugeFixingFFTQuda(Pointers gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double alpha, unsigned int autotune, double tolerance, unsigned int stopWtheta, QudaGaugeParam param):
     assert gauge.dtype == "void"
-    cdef double c_timeinfo[3]
-    ret = quda.computeGaugeFixingFFTQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta, &param.param, c_timeinfo)
-    for i in range(3):
-        timeinfo[i] = c_timeinfo[i]
-    return ret
+    return quda.computeGaugeFixingFFTQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta, &param.param)
 
 # void blasGEMMQuda(void *arrayA, void *arrayB, void *arrayC, QudaBoolean native, QudaBLASParam *param)
 # void blasLUInvQuda(void *Ainv, void *A, QudaBoolean use_native, QudaBLASParam *param)
@@ -3359,3 +3265,91 @@ def computeGaugeFixingFFTQuda(Pointers gauge, unsigned int gauge_dir, unsigned i
 
 # void* newDeflationQuda(QudaEigParam *param)
 # void destroyDeflationQuda(void *df_instance)
+
+cdef class QudaQuarkSmearParam:
+    cdef quda.QudaQuarkSmearParam param
+
+    def __init__(self):
+        # self.param = quda.QudaQuarkSmearParam()
+        pass
+
+    # def __repr__(self):
+    #     value = bytearray()
+    #     with redirect_stdout(value):
+    #         quda.printQudaQuarkSmearParam(&self.param)
+    #     return value.decode(sys.stdout.encoding)
+
+    cdef from_ptr(self, quda.QudaQuarkSmearParam *ptr):
+        self.param = cython.operator.dereference(ptr)
+
+    @property
+    def inv_param(self):
+        param = QudaInvertParam()
+        param.from_ptr(self.param.inv_param)
+        return param
+
+    @inv_param.setter
+    def inv_param(self, value):
+        self.set_inv_param(value)
+
+    cdef set_inv_param(self, QudaInvertParam value):
+        self.param.inv_param = &value.param
+
+
+    @property
+    def n_steps(self):
+        return self.param.n_steps
+
+    @n_steps.setter
+    def n_steps(self, value):
+        self.param.n_steps = value
+
+    @property
+    def width(self):
+        return self.param.width
+
+    @width.setter
+    def width(self, value):
+        self.param.width = value
+
+    @property
+    def compute_2link(self):
+        return self.param.compute_2link
+
+    @compute_2link.setter
+    def compute_2link(self, value):
+        self.param.compute_2link = value
+
+    @property
+    def delete_2link(self):
+        return self.param.delete_2link
+
+    @delete_2link.setter
+    def delete_2link(self, value):
+        self.param.delete_2link = value
+
+    @property
+    def t0(self):
+        return self.param.t0
+
+    @t0.setter
+    def t0(self, value):
+        self.param.t0 = value
+
+    @property
+    def secs(self):
+        return self.param.secs
+
+    @secs.setter
+    def secs(self, value):
+        self.param.secs = value
+
+    @property
+    def gflops(self):
+        return self.param.gflops
+
+    @gflops.setter
+    def gflops(self, value):
+        self.param.gflops = value
+
+# void performTwoLinkGaussianSmearNStep(void *h_in, QudaQuarkSmearParam *smear_param)

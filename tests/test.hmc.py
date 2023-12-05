@@ -1,23 +1,22 @@
 import os
 import sys
 import numpy as np
-import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(test_dir, ".."))
-import pyquda
-from pyquda import field
+from pyquda import core, field, init, setCUDABackend
 from pyquda.hmc import HMC
 from pyquda.field import Nc
 
+# setCUDABackend("torch")
+
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-pyquda.init()
 
 ensembles = {
     "A1": ([16, 16, 16, 16], 5.789),
     "B0": ([24, 24, 24, 24], 6),
     "C2": ([32, 32, 32, 32], 6.179),
-    "D1": ([48, 48, 48, 48], 6.475)
+    "D1": ([48, 48, 48, 48], 6.475),
 }
 
 tag = "A1"
@@ -25,11 +24,11 @@ tag = "A1"
 latt_size = ensembles[tag][0]
 Lx, Ly, Lz, Lt = latt_size
 Vol = Lx * Ly * Lz * Lt
+init()
 
 beta = ensembles[tag][1]
 
-gauge = field.LatticeGauge(latt_size, None, True)
-gauge.data[:] = cp.identity(Nc)
+gauge = field.LatticeGauge(latt_size, None)
 
 hmc = HMC(latt_size, 0, 0, 0)
 hmc.loadGauge(gauge)
@@ -157,7 +156,7 @@ theta_ = -0.03230286765269967
 vartheta_ = 0.08398315262876693
 lambda_ = 0.6822365335719091
 
-plaquette = pyquda.plaq()
+plaquette = core.quda.plaqQuda()[0]
 print(f"\nplaquette = {plaquette}\n")
 
 t = 1.0
@@ -185,7 +184,7 @@ for i in range(100):
         hmc.updateGaugeField(rho_ * dt)
         hmc.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
 
-    hmc.reunitGaugeField(gauge, 1e-15)
+    hmc.reunitGaugeField(1e-15)
 
     kinetic1 = hmc.actionMom()
     potential1 = hmc.actionGauge(path, lengths, coeffs, num_paths, max_length)
@@ -199,15 +198,15 @@ for i in range(100):
     else:
         hmc.loadGauge(gauge)
 
-    plaquette = pyquda.plaq()
+    plaquette = core.quda.plaqQuda()[0]
 
     print(
-        f'Step {i}:\n'
-        f'PE_old = {potential}, KE_old = {kinetic}\n'
-        f'PE = {potential1}, KE = {kinetic1}\n'
-        f'Delta_PE = {potential1 - potential}, Delta_KE = {kinetic1 - kinetic}\n'
-        f'Delta_E = {energy1 - energy}\n'
-        f'accept rate = {min(1, np.exp(energy - energy1))*100:.2f}%\n'
-        f'accept? {accept or not not warm}\n'
-        f'plaquette = {plaquette}\n'
+        f"Step {i}:\n"
+        f"PE_old = {potential}, KE_old = {kinetic}\n"
+        f"PE = {potential1}, KE = {kinetic1}\n"
+        f"Delta_PE = {potential1 - potential}, Delta_KE = {kinetic1 - kinetic}\n"
+        f"Delta_E = {energy1 - energy}\n"
+        f"accept rate = {min(1, np.exp(energy - energy1))*100:.2f}%\n"
+        f"accept? {accept or not not warm}\n"
+        f"plaquette = {plaquette}\n"
     )

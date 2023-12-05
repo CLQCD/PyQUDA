@@ -6,19 +6,17 @@ import cupy as cp
 test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(test_dir, ".."))
 
-import pyquda
-from pyquda import core, enum_quda, field
+from pyquda import core, field, init
 from pyquda.hmc import HMC
 from pyquda.field import Nc, Ns
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-pyquda.init()
 
 ensembles = {
     "A1": ([16, 16, 16, 16], 5.789),
     "B0": ([24, 24, 24, 24], 6),
     "C2": ([32, 32, 32, 32], 6.179),
-    "D1": ([48, 48, 48, 48], 6.475)
+    "D1": ([48, 48, 48, 48], 6.475),
 }
 
 tag = "A1"
@@ -26,16 +24,16 @@ tag = "A1"
 latt_size = ensembles[tag][0]
 Lx, Ly, Lz, Lt = latt_size
 Vol = Lx * Ly * Lz * Lt
+init()
 
 beta = ensembles[tag][1]
 
-gauge = field.LatticeGauge(latt_size, None, True)
-gauge.data[:] = cp.identity(Nc)
+gauge = field.LatticeGauge(latt_size, None)
 
 mass = 4
 kappa = 1 / (2 * (mass + 4))
 csw = 1.0
-hmc = HMC(latt_size, mass, 1e-9, 1000, csw)
+hmc = HMC(latt_size, mass, 1e-9, 1000, csw, True)
 hmc.loadGauge(gauge)
 
 invert_param = hmc.invert_param
@@ -144,11 +142,11 @@ theta_ = -0.03230286765269967
 vartheta_ = 0.08398315262876693
 lambda_ = 0.6822365335719091
 
-plaquette = pyquda.plaq()
+plaquette = core.quda.plaqQuda()[0]
 print(f"\nplaquette = {plaquette}\n")
 
 t = 1.0
-dt = 0.1
+dt = 0.2
 steps = round(t / dt)
 dt = t / steps
 warm = 20
@@ -160,44 +158,42 @@ for i in range(100):
     r = cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
     noise = core.LatticeFermion(latt_size, cp.sqrt(-cp.log(r)) * (cp.cos(phi) + 1j * cp.sin(phi)))
 
-    hmc.updateClover()
-    invert_param.dagger = enum_quda.QudaDagType.QUDA_DAG_YES
-    pyquda.quda.MatQuda(noise.odd_ptr, noise.even_ptr, invert_param)
-    invert_param.dagger = enum_quda.QudaDagType.QUDA_DAG_NO
-    pyquda.quda.invertQuda(noise.even_ptr, noise.odd_ptr, invert_param)
+    # cp.random.manual_seed(i)
+    # phi = 2 * cp.pi * cp.rand((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), device="cuda", dtype=cp.float64)
+    # r = cp.rand((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), device="cuda",  dtype=cp.float64)
+    # noise = core.LatticeFermion(latt_size, cp.sqrt(-cp.log(r)) * (cp.cos(phi) + 1j * cp.sin(phi)))
+
+    hmc.initNoise(noise, i)
 
     kinetic = hmc.actionMom()
     potential = hmc.actionGauge(path, lengths, coeffs, num_paths, max_length)
-    potential += hmc.actionFermion()
+    potential += hmc.actionFermion(noise)
     energy = kinetic + potential
 
     for step in range(steps):
         hmc.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeCloverForce(vartheta_ * dt, noise, -kappa**2, -kappa * csw / 8)
+        hmc.computeCloverForce(vartheta_ * dt, noise, -(kappa**2), -kappa * csw / 8)
         hmc.updateGaugeField(rho_ * dt)
         hmc.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeCloverForce(lambda_ * dt, noise, -kappa**2, -kappa * csw / 8)
+        hmc.computeCloverForce(lambda_ * dt, noise, -(kappa**2), -kappa * csw / 8)
         hmc.updateGaugeField(theta_ * dt)
         hmc.computeGaugeForce((0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeCloverForce((0.5 - (lambda_ + vartheta_)) * dt, noise, -kappa**2, -kappa * csw / 8)
+        hmc.computeCloverForce((0.5 - (lambda_ + vartheta_)) * dt, noise, -(kappa**2), -kappa * csw / 8)
         hmc.updateGaugeField((1.0 - 2 * (theta_ + rho_)) * dt)
         hmc.computeGaugeForce((0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeCloverForce((0.5 - (lambda_ + vartheta_)) * dt, noise, -kappa**2, -kappa * csw / 8)
+        hmc.computeCloverForce((0.5 - (lambda_ + vartheta_)) * dt, noise, -(kappa**2), -kappa * csw / 8)
         hmc.updateGaugeField(theta_ * dt)
         hmc.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeCloverForce(lambda_ * dt, noise, -kappa**2, -kappa * csw / 8)
+        hmc.computeCloverForce(lambda_ * dt, noise, -(kappa**2), -kappa * csw / 8)
         hmc.updateGaugeField(rho_ * dt)
         hmc.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeCloverForce(vartheta_ * dt, noise, -kappa**2, -kappa * csw / 8)
+        hmc.computeCloverForce(vartheta_ * dt, noise, -(kappa**2), -kappa * csw / 8)
 
-    hmc.reunitGaugeField(gauge, 1e-15)
-
-    hmc.updateClover()
-    pyquda.quda.invertQuda(noise.even_ptr, noise.odd_ptr, invert_param)
+    hmc.reunitGaugeField(1e-15)
 
     kinetic1 = hmc.actionMom()
     potential1 = hmc.actionGauge(path, lengths, coeffs, num_paths, max_length)
-    potential1 += hmc.actionFermion()
+    potential1 += hmc.actionFermion(noise)
     energy1 = kinetic1 + potential1
 
     accept = np.random.rand() < np.exp(energy - energy1)
@@ -208,15 +204,15 @@ for i in range(100):
     else:
         hmc.loadGauge(gauge)
 
-    plaquette = pyquda.plaq()
+    plaquette = core.quda.plaqQuda()[0]
 
     print(
-        f'Step {i}:\n'
-        f'PE_old = {potential}, KE_old = {kinetic}\n'
-        f'PE = {potential1}, KE = {kinetic1}\n'
-        f'Delta_PE = {potential1 - potential}, Delta_KE = {kinetic1 - kinetic}\n'
-        f'Delta_E = {energy1 - energy}\n'
-        f'accept rate = {min(1, np.exp(energy - energy1))*100:.2f}%\n'
-        f'accept? {accept or not not warm}\n'
-        f'plaquette = {plaquette}\n'
+        f"Step {i}:\n"
+        f"PE_old = {potential}, KE_old = {kinetic}\n"
+        f"PE = {potential1}, KE = {kinetic1}\n"
+        f"Delta_PE = {potential1 - potential}, Delta_KE = {kinetic1 - kinetic}\n"
+        f"Delta_E = {energy1 - energy}\n"
+        f"accept rate = {min(1, np.exp(energy - energy1))*100:.2f}%\n"
+        f"accept? {accept or not not warm}\n"
+        f"plaquette = {plaquette}\n"
     )

@@ -5,41 +5,41 @@ from xml.etree import ElementTree as ET
 
 import numpy
 
-from .. import mpi
-from ..field import Nc, cb2
+from ... import mpi
+from ...field import Nc, cb2
 
 
-def readStr(f: io.BufferedReader) -> str:
+def _readStr(f: io.BufferedReader) -> str:
     length = struct.unpack(">i", f.read(4))[0]
     return f.read(length).decode("utf-8")
 
 
-def readTuple(f: io.BufferedReader) -> Tuple[int]:
+def _readTuple(f: io.BufferedReader) -> Tuple[int]:
     length = struct.unpack(">i", f.read(4))[0]
     cnt = length // 4
     fmt = ">" + "i" * cnt
     return struct.unpack(fmt, f.read(4 * cnt))
 
 
-def readPos(f: io.BufferedReader) -> int:
+def _readPos(f: io.BufferedReader) -> int:
     return struct.unpack(">qq", f.read(16))[1]
 
 
-def readVersion(f: io.BufferedReader) -> int:
+def _readVersion(f: io.BufferedReader) -> int:
     return struct.unpack(">i", f.read(4))[0]
 
 
 def readTimeSlice(filename: str, Ne: int = None):
     with open(filename, "rb") as f:
         offsets: Dict[Tuple[int], int] = {}
-        assert readStr(f) == "XXXXQDPLazyDiskMapObjFileXXXX"
-        assert readVersion(f) == 1
-        format = ET.ElementTree(ET.fromstring(readStr(f)))
-        f.seek(readPos(f))
+        assert _readStr(f) == "XXXXQDPLazyDiskMapObjFileXXXX"
+        assert _readVersion(f) == 1
+        format = ET.ElementTree(ET.fromstring(_readStr(f)))
+        f.seek(_readPos(f))
         num_records = struct.unpack(">I", f.read(4))[0]
         for _ in range(num_records):
-            key = readTuple(f)
-            val = readPos(f)
+            key = _readTuple(f)
+            val = _readPos(f)
             offsets[key] = val
     precision = 32
     binary_dtype = f">c{2*precision//8}"

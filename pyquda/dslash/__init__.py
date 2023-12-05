@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from ..pyquda import Pointer, QudaGaugeParam, QudaInvertParam, QudaMultigridParam
+from ..pointer import Pointer
+from ..pyquda import QudaGaugeParam, QudaInvertParam, QudaMultigridParam
 from ..field import LatticeGauge, LatticeFermion
 
 
@@ -17,18 +18,27 @@ class Dslash(ABC):
         pass
 
     @abstractmethod
-    def newQudaGaugeParam(self, latt_size: List[int], anisotropy: float, t_boundary: int):
+    def newQudaGaugeParam(self, latt_size: List[int], anisotropy: float, t_boundary: int, *args, **kwargs):
         pass
 
     @abstractmethod
     def newQudaMultigridParam(
-        self, multigrid: bool, kappa: float, geo_block_size: List[List[int]], coarse_tol: float, coarse_maxiter: int,
-        setup_tol: float, setup_maxiter: int, nu_pre: int, nu_post: int
+        self,
+        multigrid: bool,
+        mass: float,
+        kappa: float,
+        geo_block_size: List[List[int]],
+        coarse_tol: float,
+        coarse_maxiter: int,
+        setup_tol: float,
+        setup_maxiter: int,
+        nu_pre: int,
+        nu_post: int,
     ):
         pass
 
     @abstractmethod
-    def newQudaInvertParam(self, kappa: float, tol: float, maxiter: float, *args, **kwargs):
+    def newQudaInvertParam(self, mass: float, kappa: float, tol: float, maxiter: float, *args, **kwargs):
         pass
 
     @abstractmethod

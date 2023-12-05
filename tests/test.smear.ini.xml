@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <chroma>
   <annotation>
-; $Id: fermstate.ini.xml,v 1.1 2006-09-21 20:18:15 edwards Exp $
-;
-; Test input file for chroma main program
-;
+    ; $Id: fermstate.ini.xml,v 1.1 2006-09-21 20:18:15 edwards Exp $
+    ;
+    ; Test input file for chroma main program
+    ;
   </annotation>
   <Param>
     <InlineMeasurements>

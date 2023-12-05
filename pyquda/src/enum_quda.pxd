@@ -9,8 +9,11 @@ cdef extern from "enum_quda.h":
 
     ctypedef enum QudaMemoryType:
         QUDA_MEMORY_DEVICE
-        QUDA_MEMORY_PINNED
+        QUDA_MEMORY_DEVICE_PINNED
+        QUDA_MEMORY_HOST
+        QUDA_MEMORY_HOST_PINNED
         QUDA_MEMORY_MAPPED
+        QUDA_MEMORY_MANAGED
         QUDA_MEMORY_INVALID = QUDA_INVALID_ENUM
 
     #
@@ -336,10 +339,11 @@ cdef extern from "enum_quda.h":
         QUDA_INVALID_FIELD_ORDER = QUDA_INVALID_ENUM
 
     ctypedef enum QudaFieldCreate:
-        QUDA_NULL_FIELD_CREATE      # create new field
-        QUDA_ZERO_FIELD_CREATE      # create new field and zero it
-        QUDA_COPY_FIELD_CREATE      # create copy to field
-        QUDA_REFERENCE_FIELD_CREATE # create reference to field
+        QUDA_NULL_FIELD_CREATE      # new field
+        QUDA_ZERO_FIELD_CREATE      # new field and zero it
+        QUDA_COPY_FIELD_CREATE      # copy to field
+        QUDA_REFERENCE_FIELD_CREATE # reference to field
+        QUDA_GHOST_FIELD_CREATE     # dummy field used only for ghost storage
         QUDA_INVALID_FIELD_CREATE = QUDA_INVALID_ENUM
 
     ctypedef enum QudaGammaBasis:
@@ -491,7 +495,7 @@ cdef extern from "enum_quda.h":
     ctypedef enum QudaStaggeredPhase:
         QUDA_STAGGERED_PHASE_NO = 0
         QUDA_STAGGERED_PHASE_MILC = 1
-        QUDA_STAGGERED_PHASE_CPS = 2
+        QUDA_STAGGERED_PHASE_CHROMA = 2
         QUDA_STAGGERED_PHASE_TIFR = 3
         QUDA_STAGGERED_PHASE_INVALID = QUDA_INVALID_ENUM
 
@@ -526,6 +530,11 @@ cdef extern from "enum_quda.h":
         QUDA_GAUGE_SMEAR_WILSON_FLOW
         QUDA_GAUGE_SMEAR_SYMANZIK_FLOW
         QUDA_GAUGE_SMEAR_INVALID = QUDA_INVALID_ENUM
+
+    ctypedef enum QudaFermionSmearType:
+        QUDA_FERMION_SMEAR_TYPE_GAUSSIAN
+        QUDA_FERMION_SMEAR_TYPE_WUPPERTAL
+        QUDA_FERMION_SMEAR_TYPE_INVALID = QUDA_INVALID_ENUM
 
     # Allows to choose an appropriate external library
     ctypedef enum QudaExtLibType:

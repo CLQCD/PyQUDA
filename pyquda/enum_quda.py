@@ -1,62 +1,62 @@
 from enum import IntEnum
 
-QUDA_INVALID_ENUM = -0x7fffffff - 1
+QUDA_INVALID_ENUM = -0x7FFFFFFF - 1
 
 QUDA_VERSION_MAJOR = 1
 QUDA_VERSION_MINOR = 1
 QUDA_VERSION_SUBMINOR = 0
 
-QUDA_VERSION = ((QUDA_VERSION_MAJOR << 16) | (QUDA_VERSION_MINOR << 8) | QUDA_VERSION_SUBMINOR)
-'''
+QUDA_VERSION = (QUDA_VERSION_MAJOR << 16) | (QUDA_VERSION_MINOR << 8) | QUDA_VERSION_SUBMINOR
+"""
 @def   QUDA_VERSION
 @brief This macro is deprecated.  Use QUDA_VERSION_MAJOR, etc., instead.
-'''
+"""
 
 QUDA_MAX_DIM = 6
-'''
+"""
 @def   QUDA_MAX_DIM
 @brief Maximum number of dimensions supported by QUDA.  In practice, no
 routines make use of more than 5.
-'''
+"""
 
 QUDA_MAX_GEOMETRY = 8
-'''
+"""
 @def   QUDA_MAX_GEOMETRY
 @brief Maximum geometry supported by a field.  This essentially is
 the maximum number of dimensions supported per lattice site.
-'''
+"""
 
 QUDA_MAX_MULTI_SHIFT = 32
-'''
+"""
 @def QUDA_MAX_MULTI_SHIFT
 @brief Maximum number of shifts supported by the multi-shift solver.
     This number may be changed if need be.
-'''
+"""
 
 QUDA_MAX_BLOCK_SRC = 64
-'''
+"""
 @def QUDA_MAX_BLOCK_SRC
 @brief Maximum number of sources that can be supported by the block solver
-'''
+"""
 
 QUDA_MAX_ARRAY_SIZE = QUDA_MAX_MULTI_SHIFT if QUDA_MAX_MULTI_SHIFT > QUDA_MAX_BLOCK_SRC else QUDA_MAX_BLOCK_SRC
-'''
+"""
 @def QUDA_MAX_ARRAY
 @brief Maximum array length used in QudaInvertParam arrays
-'''
+"""
 
 QUDA_MAX_DWF_LS = 32
-'''
+"""
 @def   QUDA_MAX_DWF_LS
 @brief Maximum length of the Ls dimension for domain-wall fermions
-'''
+"""
 
 QUDA_MAX_MG_LEVEL = 5
-'''
+"""
 @def QUDA_MAX_MG_LEVEL
 @brief Maximum number of multi-grid levels.  This number may be
 increased if needed.
-'''
+"""
 
 
 class qudaError_t(IntEnum):
@@ -67,8 +67,11 @@ class qudaError_t(IntEnum):
 
 class QudaMemoryType(IntEnum):
     QUDA_MEMORY_DEVICE = 0
-    QUDA_MEMORY_PINNED = 1
-    QUDA_MEMORY_MAPPED = 2
+    QUDA_MEMORY_DEVICE_PINNED = 1
+    QUDA_MEMORY_HOST = 2
+    QUDA_MEMORY_HOST_PINNED = 3
+    QUDA_MEMORY_MAPPED = 4
+    QUDA_MEMORY_MANAGED = 5
     QUDA_MEMORY_INVALID = QUDA_INVALID_ENUM
 
 
@@ -432,10 +435,11 @@ class QudaFieldOrder(IntEnum):
 
 
 class QudaFieldCreate(IntEnum):
-    QUDA_NULL_FIELD_CREATE = 0  # create new field
-    QUDA_ZERO_FIELD_CREATE = 1  # create new field and zero it
-    QUDA_COPY_FIELD_CREATE = 2  # create copy to field
-    QUDA_REFERENCE_FIELD_CREATE = 3  # create reference to field
+    QUDA_NULL_FIELD_CREATE = 0  # new field
+    QUDA_ZERO_FIELD_CREATE = 1  # new field and zero it
+    QUDA_COPY_FIELD_CREATE = 2  # copy to field
+    QUDA_REFERENCE_FIELD_CREATE = 3  # reference to field
+    QUDA_GHOST_FIELD_CREATE = 4  # dummy field used only for ghost storage
     QUDA_INVALID_FIELD_CREATE = QUDA_INVALID_ENUM
 
 
@@ -613,7 +617,7 @@ class QudaGhostExchange(IntEnum):
 class QudaStaggeredPhase(IntEnum):
     QUDA_STAGGERED_PHASE_NO = 0
     QUDA_STAGGERED_PHASE_MILC = 1
-    QUDA_STAGGERED_PHASE_CPS = 2
+    QUDA_STAGGERED_PHASE_CHROMA = 2
     QUDA_STAGGERED_PHASE_TIFR = 3
     QUDA_STAGGERED_PHASE_INVALID = QUDA_INVALID_ENUM
 
@@ -651,6 +655,12 @@ class QudaGaugeSmearType(IntEnum):
     QUDA_GAUGE_SMEAR_WILSON_FLOW = 3
     QUDA_GAUGE_SMEAR_SYMANZIK_FLOW = 4
     QUDA_GAUGE_SMEAR_INVALID = QUDA_INVALID_ENUM
+
+
+class QudaFermionSmearType(IntEnum):
+    QUDA_FERMION_SMEAR_TYPE_GAUSSIAN = 0
+    QUDA_FERMION_SMEAR_TYPE_WUPPERTAL = 1
+    QUDA_FERMION_SMEAR_TYPE_INVALID = QUDA_INVALID_ENUM
 
 
 # Allows to choose an appropriate external library
