@@ -1,15 +1,15 @@
 import os
 import sys
-import numpy as np
 import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 # sys.path.insert(0, os.path.join(test_dir, ".."))
-from pyquda import core, mpi
+from pyquda import core, init
 from pyquda.field import Nc, Ns, LatticePropagator
-from pyquda.utils import gauge_utils, source
+from pyquda.utils import io, source
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
+init()
 
 latt_size = [4, 4, 4, 8]
 Lx, Ly, Lz, Lt = latt_size
@@ -30,9 +30,8 @@ dslash = core.getDslash(latt_size, mass, 1e-9, 1000, xi_0, nu, coeff_t, coeff_r,
 dslash.invert_param.residual_type = QudaResidualType.QUDA_L2_ABSOLUTE_RESIDUAL
 dslash.invert_param.alpha = alpha
 dslash.invert_param.source_time = source_time
-gauge = gauge_utils.readIldg(os.path.join(test_dir, "weak_field.lime"))
+gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
 
-mpi.init()
 
 dslash.loadGauge(gauge)
 
@@ -48,5 +47,6 @@ for spin in range(Ns):
 
 dslash.destroy()
 
-propagator_chroma = cp.array(np.fromfile("pt_prop_1", ">c16", offset=8).astype("<c16")).reshape(Vol, Ns, Ns, Nc, Nc)
-print(cp.linalg.norm(propagator.data.reshape(Vol, Ns, Ns, Nc, Nc) - propagator_chroma.transpose(0, 2, 1, 4, 3)))
+propagator_chroma = io.readQIOPropagator("pt_prop_1")
+propagator_chroma.toDevice()
+print(cp.linalg.norm(propagator.data - propagator_chroma.data))
