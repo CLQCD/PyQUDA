@@ -5,7 +5,7 @@ from xml.etree import ElementTree as ET
 
 import numpy
 
-from ... import mpi
+from ... import getGridSize, getGridCoord
 from ...field import Nc, Ns, Nd, cb2, LatticeGauge
 
 precision_map = {"D": 8, "S": 4}
@@ -13,8 +13,8 @@ precision_map = {"D": 8, "S": 4}
 
 def fromILDGBuffer(buffer: bytes, dtype: str, latt_size: List[int]):
     Lx, Ly, Lz, Lt = latt_size
-    Gx, Gy, Gz, Gt = mpi.grid
-    gx, gy, gz, gt = mpi.coord
+    Gx, Gy, Gz, Gt = getGridSize()
+    gx, gy, gz, gt = getGridCoord()
     latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
     Lx, Ly, Lz, Lt = latt_size
 

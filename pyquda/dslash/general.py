@@ -2,6 +2,7 @@ from typing import List
 
 import numpy as np
 
+from .. import getMPIRank
 from ..pointer import Pointer, Pointers, ndarrayDataPointer
 from ..pyquda import (
     QudaGaugeParam,
@@ -449,14 +450,12 @@ def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
 
 
 def invert(b: LatticeFermion, invert_param: QudaInvertParam):
-    from ..mpi import rank
-
     kappa = invert_param.kappa
 
     x = LatticeFermion(b.latt_size)
 
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    if rank == 0:
+    if getMPIRank() == 0:
         print(
             f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
         )
@@ -466,14 +465,12 @@ def invert(b: LatticeFermion, invert_param: QudaInvertParam):
 
 
 def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
-    from ..mpi import rank
-
     mass = invert_param.mass
 
     x = LatticeStaggeredFermion(b.latt_size)
 
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    if rank == 0:
+    if getMPIRank() == 0:
         print(
             f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
         )
@@ -483,8 +480,6 @@ def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
 
 
 def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
-    from ..mpi import rank
-
     invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
 
     kappa = invert_param.kappa
@@ -504,7 +499,7 @@ def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
     dslashQuda(x.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
     tmp.odd = tmp.odd + kappa * x.odd
     invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
-    if rank == 0:
+    if getMPIRank() == 0:
         print(
             f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
         )

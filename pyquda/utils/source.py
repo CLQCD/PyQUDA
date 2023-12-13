@@ -1,13 +1,13 @@
 from typing import List, Literal, Union
 
-from .. import mpi
+from .. import getGridCoord
 from ..field import Nc, Ns, LatticeFermion, LatticePropagator, LatticeStaggeredFermion, LatticeStaggeredPropagator
 
 
 def point(latt_size: List[int], t_srce: List[int], spin: int, color: int):
     Lx, Ly, Lz, Lt = latt_size
     x, y, z, t = t_srce
-    gx, gy, gz, gt = mpi.coord
+    gx, gy, gz, gt = getGridCoord()
     b = LatticeFermion(latt_size) if spin is not None else LatticeStaggeredFermion(latt_size)
     if (
         gx * Lx <= x < (gx + 1) * Lx
@@ -26,7 +26,7 @@ def point(latt_size: List[int], t_srce: List[int], spin: int, color: int):
 
 def wall(latt_size: List[int], t_srce: int, spin: int, color: int):
     Lx, Ly, Lz, Lt = latt_size
-    gx, gy, gz, gt = mpi.coord
+    gx, gy, gz, gt = getGridCoord()
     t = t_srce
     b = LatticeFermion(latt_size) if spin is not None else LatticeStaggeredFermion(latt_size)
     if gt * Lt <= t < (gt + 1) * Lt:
@@ -40,7 +40,7 @@ def wall(latt_size: List[int], t_srce: int, spin: int, color: int):
 
 def momentum(latt_size: List[int], t_srce: int, spin: int, color: int, phase):
     Lx, Ly, Lz, Lt = latt_size
-    gx, gy, gz, gt = mpi.coord
+    gx, gy, gz, gt = getGridCoord()
     t = t_srce
     b = LatticeFermion(latt_size) if spin is not None else LatticeStaggeredFermion(latt_size)
     if gt * Lt <= t < (gt + 1) * Lt:
@@ -116,7 +116,7 @@ def gaussian(latt_size: List[int], t_srce: List[int], spin: int, color: int, rho
         src.data = (1 - sigma * 6) * src.data + sigma * aux.data
 
     Lx, Ly, Lz, Lt = latt_size
-    gx, gy, gz, gt = mpi.coord
+    gx, gy, gz, gt = getGridCoord()
     x, y, z, t = t_srce
     _b = LatticeStaggeredFermion(latt_size)
     _c = LatticeStaggeredFermion(latt_size)
@@ -148,7 +148,7 @@ def gaussian(latt_size: List[int], t_srce: List[int], spin: int, color: int, rho
 
 def colorvector(latt_size: List[int], t_srce: int, phase):
     Lx, Ly, Lz, Lt = latt_size
-    gx, gy, gz, gt = mpi.coord
+    gx, gy, gz, gt = getGridCoord()
     t = t_srce
     b = LatticeStaggeredFermion(latt_size)
     if gt * Lt <= t < (gt + 1) * Lt:
@@ -174,7 +174,9 @@ def source(
     elif source_type.lower() == "momentum":
         return momentum(latt_size, t_srce, spin, color, source_phase)
     elif source_type.lower() == "gaussian":
-        return gaussian(latt_size, t_srce, None, color, rho, nsteps, xi)
+        return gaussian(latt_size, t_srce, spin, color, rho, nsteps, xi)
+    elif source_type.lower() == "smearedgaussian":
+        return gaussian3(latt_size, t_srce, spin, color, rho, nsteps)
     elif source_type.lower() == "colorvector":
         return colorvector(latt_size, t_srce, source_phase)
     else:
@@ -183,7 +185,7 @@ def source(
 
 def source12(
     latt_size: List[int],
-    source_type: Literal["point", "wall", "momentum", "gaussian", "colorvector"],
+    source_type: Literal["point", "wall", "momentum", "gaussian", "smearedgaussian", "colorvector"],
     t_srce: Union[int, List[int]],
     source_phase=None,
     rho: float = 0.0,
@@ -200,7 +202,7 @@ def source12(
         for color in range(Nc):
             for spin in range(Ns):
                 data[:, spin, spin, :, color] = b.data.reshape(Vol, Nc)
-    elif source_type.lower() in ["gaussian"]:
+    elif source_type.lower() in ["gaussian", "smearedgaussian"]:
         for color in range(Nc):
             b = source(latt_size, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
             for spin in range(Ns):
@@ -216,7 +218,7 @@ def source12(
 
 def source3(
     latt_size: List[int],
-    source_type: Literal["point", "wall", "momentum", "gaussian", "colorvector"],
+    source_type: Literal["point", "wall", "momentum", "gaussian", "smearedgaussian", "colorvector"],
     t_srce: Union[int, List[int]],
     source_phase=None,
     rho: float = 0.0,

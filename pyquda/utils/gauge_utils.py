@@ -7,7 +7,7 @@ from xml.etree import ElementTree as ET
 
 import numpy
 
-from .. import mpi
+from .. import getGridSize, getGridCoord
 from ..field import Nc, Nd, cb2, LatticeGauge
 
 
@@ -51,8 +51,8 @@ def readQIO(filename: str):
         int(format.find(f"{tag}lt").text),
     ]
     Lx, Ly, Lz, Lt = latt_size
-    Gx, Gy, Gz, Gt = mpi.grid
-    gx, gy, gz, gt = mpi.coord
+    Gx, Gy, Gz, Gt = getGridSize()
+    gx, gy, gz, gt = getGridCoord()
     latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
     Lx, Ly, Lz, Lt = latt_size
 
@@ -73,8 +73,8 @@ def readQIO(filename: str):
 def readILDGBin(filename: str, dtype: str, latt_size: List[int]):
     warnings.warn("Deprecated. Use `pyquda.utils.io.readILDGBinGauge` instead.", DeprecationWarning)
     Lx, Ly, Lz, Lt = latt_size
-    Gx, Gy, Gz, Gt = mpi.grid
-    gx, gy, gz, gt = mpi.coord
+    Gx, Gy, Gz, Gt = getGridSize()
+    gx, gy, gz, gt = getGridCoord()
 
     gauge_raw = (
         numpy.fromfile(filename, dtype)
@@ -104,8 +104,8 @@ def readMILC(filename: str):
     binary_dtype = "<c8"
     ndarray_dtype = "<c16"
     Lx, Ly, Lz, Lt = latt_size
-    Gx, Gy, Gz, Gt = mpi.grid
-    gx, gy, gz, gt = mpi.coord
+    Gx, Gy, Gz, Gt = getGridSize()
+    gx, gy, gz, gt = getGridCoord()
     latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
     Lx, Ly, Lz, Lt = latt_size
 

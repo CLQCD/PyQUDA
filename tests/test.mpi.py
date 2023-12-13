@@ -33,8 +33,6 @@ dslash.loadGauge(gauge)
 
 propagator = core.invert(dslash, "point", [0, 0, 0, 0])
 
-# propagator_all = mpi.gather(propagator.data, [1, 2, 3, 4])
-
 propagator_chroma = io.readQIOPropagator("pt_prop_1")
 propagator_chroma.toDevice()
 print(cp.linalg.norm(propagator.data - propagator_chroma.data))

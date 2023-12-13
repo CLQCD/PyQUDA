@@ -169,12 +169,12 @@ class LatticeField:
 
 class LatticeGauge(LatticeField):
     def __init__(self, latt_size: List[int], value=None) -> None:
-        from . import mpi
+        from . import getGridSize, getGridCoord
 
         Lx, Ly, Lz, Lt = latt_size
         self.latt_size = latt_size
-        Gx, Gy, Gz, Gt = mpi.grid
-        gx, gy, gz, gt = mpi.coord
+        Gx, Gy, Gz, Gt = getGridSize()
+        gx, gy, gz, gt = getGridCoord()
         if value is None:
             self.data = newLatticeFieldData(latt_size, "Gauge")
         else:

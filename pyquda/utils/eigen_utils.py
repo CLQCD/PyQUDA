@@ -5,7 +5,7 @@ from xml.etree import ElementTree as ET
 
 import numpy
 
-from .. import mpi
+from .. import getGridSize, getGridCoord
 from ..field import Nc, cb2
 
 
@@ -49,8 +49,8 @@ def readTimeSlice(filename: str, Ne: int = None):
     if Ne is None:
         Ne = int(format.find("num_vecs").text)
 
-    Gx, Gy, Gz, Gt = mpi.grid
-    gx, gy, gz, gt = mpi.coord
+    Gx, Gy, Gz, Gt = getGridSize()
+    gx, gy, gz, gt = getGridCoord()
     latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
     Lx, Ly, Lz, Lt = latt_size
 
