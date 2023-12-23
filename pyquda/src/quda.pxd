@@ -443,8 +443,8 @@ cdef extern from "quda.h":
         QudaBoolean use_mobius_fused_kernel
 
         # Parameters for distance preconditioning
-        double alpha
-        int source_time
+        double distance_pc_alpha
+        int distance_pc_t0
 
 
     # Parameter set for solving eigenvalue problems.

@@ -1545,20 +1545,20 @@ cdef class QudaInvertParam:
         self.param.use_mobius_fused_kernel = value
 
     @property
-    def alpha(self):
-        return self.param.alpha
+    def distance_pc_alpha(self):
+        return self.param.distance_pc_alpha
 
-    @alpha.setter
-    def alpha(self, value):
-        self.param.alpha = value
+    @distance_pc_alpha.setter
+    def distance_pc_alpha(self, value):
+        self.param.distance_pc_alpha = value
 
     @property
-    def source_time(self):
-        return self.param.source_time
+    def distance_pc_t0(self):
+        return self.param.distance_pc_t0
 
-    @source_time.setter
-    def source_time(self, value):
-        self.param.source_time = value
+    @distance_pc_t0.setter
+    def distance_pc_t0(self, value):
+        self.param.distance_pc_t0 = value
 
 cdef class QudaMultigridParam:
     cdef quda.QudaMultigridParam param

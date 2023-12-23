@@ -280,8 +280,8 @@ class QudaInvertParam:
     extlib_type: QudaExtLibType
     native_blas_lapack: QudaBoolean
     use_mobius_fused_kernel: QudaBoolean
-    alpha: double
-    source_time: int
+    distance_pc_alpha: double
+    distance_pc_t0: int
 
 class QudaEigParam:
     def __init__(self) -> None: ...

@@ -5,8 +5,7 @@ import cupy as cp
 test_dir = os.path.dirname(os.path.abspath(__file__))
 # sys.path.insert(0, os.path.join(test_dir, ".."))
 from pyquda import core, init
-from pyquda.field import Nc, Ns, LatticePropagator
-from pyquda.utils import io, source
+from pyquda.utils import io
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 init()
@@ -20,30 +19,22 @@ kappa = 0.115
 coeff = 1.17
 coeff_r, coeff_t = 0.91, 1.07
 alpha = 0.4
-source_time = 0
+t0 = 0
 
 mass = 1 / (2 * kappa) - 4
 
-from pyquda.enum_quda import QudaResidualType
+from pyquda.dslash import general
 
 dslash = core.getDslash(latt_size, mass, 1e-9, 1000, xi_0, nu, coeff_t, coeff_r, multigrid=False)
-dslash.invert_param.residual_type = QudaResidualType.QUDA_L2_ABSOLUTE_RESIDUAL
-dslash.invert_param.alpha = alpha
-dslash.invert_param.source_time = source_time
+general.cuda_prec_sloppy = 8
+dslash.invert_param.distance_pc_alpha = alpha
+dslash.invert_param.distance_pc_t0 = t0
 gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
 
 
 dslash.loadGauge(gauge)
 
-propagator = LatticePropagator(latt_size)
-data = propagator.data.reshape(Vol, Ns, Ns, Nc, Nc)
-for spin in range(Ns):
-    for color in range(Nc):
-        b = source.source(latt_size, "point", [0, 0, 0, source_time], spin, color)
-        b.data /= cp.cosh(alpha * cp.roll(cp.arange(-Lt / 2, Lt / 2), source_time)).reshape(-1, 1, 1, 1, 1, 1)
-        x = dslash.invert(b)
-        x.data *= cp.cosh(alpha * cp.roll(cp.arange(-Lt / 2, Lt / 2), source_time)).reshape(-1, 1, 1, 1, 1, 1)
-        data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
+propagator = core.invert(dslash, "point", [0, 0, 0, t0])
 
 dslash.destroy()
 
