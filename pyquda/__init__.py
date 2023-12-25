@@ -58,7 +58,7 @@ def init(grid_size: List[int] = None):
         except ImportError:
             _MPI_COMM = 0
         else:
-            _MPI_COMM: MPI.Comm = MPI.COMM_WORLD
+            _MPI_COMM = MPI.COMM_WORLD
             _MPI_SIZE = _MPI_COMM.Get_size()
             _MPI_RANK = _MPI_COMM.Get_rank()
             _GRID_SIZE = [Gx, Gy, Gz, Gt]
