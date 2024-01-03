@@ -1,6 +1,8 @@
 from typing import List, Literal, NamedTuple
 from warnings import warn
 
+from mpi4py import MPI
+
 from . import pyquda as quda
 
 
@@ -9,7 +11,7 @@ class _ComputeCapability(NamedTuple):
     minor: int
 
 
-_MPI_COMM = None
+_MPI_COMM: MPI.Comm = None
 _MPI_SIZE: int = 1
 _MPI_RANK: int = 0
 _GRID_SIZE: List[int] = [1, 1, 1, 1]
@@ -35,10 +37,10 @@ def init(grid_size: List[int] = None):
 
     If grid_size is None, MPI will not applied.
     """
-    global _MPI_COMM, _MPI_SIZE, _MPI_RANK, _GRID_SIZE, _GRID_COORD
     if _MPI_COMM is None:
         import atexit
-        from .pyquda import initCommsGridQuda, initQuda, endQuda
+        from os import getenv
+        from platform import node as gethostname
 
         if _CUDA_BACKEND == "cupy":
             from cupy import cuda
@@ -48,41 +50,36 @@ def init(grid_size: List[int] = None):
         else:
             raise ImportError("CuPy or PyTorch is needed to handle field data")
 
+        global _MPI_COMM, _MPI_SIZE, _MPI_RANK, _GRID_SIZE, _GRID_COORD
+        global _GPUID, _COMPUTE_CAPABILITY
+
         gpuid = 0
         Gx, Gy, Gz, Gt = grid_size if grid_size is not None else [1, 1, 1, 1]
 
-        try:
-            from mpi4py import MPI
-            from os import getenv
-            from platform import node as gethostname
-        except ImportError:
-            _MPI_COMM = 0
-        else:
-            _MPI_COMM = MPI.COMM_WORLD
-            _MPI_SIZE = _MPI_COMM.Get_size()
-            _MPI_RANK = _MPI_COMM.Get_rank()
-            _GRID_SIZE = [Gx, Gy, Gz, Gt]
-            _GRID_COORD = getCoordFromRank(_MPI_RANK)
+        _MPI_COMM = MPI.COMM_WORLD
+        _MPI_SIZE = _MPI_COMM.Get_size()
+        _MPI_RANK = _MPI_COMM.Get_rank()
+        _GRID_SIZE = [Gx, Gy, Gz, Gt]
+        _GRID_COORD = getCoordFromRank(_MPI_RANK)
 
-            hostname = gethostname()
-            hostname_recv_buf = _MPI_COMM.allgather(hostname)
-            for i in range(_MPI_RANK):
-                if hostname == hostname_recv_buf[i]:
-                    gpuid += 1
+        hostname = gethostname()
+        hostname_recv_buf = _MPI_COMM.allgather(hostname)
+        for i in range(_MPI_RANK):
+            if hostname == hostname_recv_buf[i]:
+                gpuid += 1
 
-            if _CUDA_BACKEND == "cupy":
-                device_count = cuda.runtime.getDeviceCount()
-            elif _CUDA_BACKEND == "torch":
-                device_count = cuda.device_count()
-            if gpuid >= device_count:
-                enable_mps_env = getenv("QUDA_ENABLE_MPS")
-                if enable_mps_env is not None and enable_mps_env == "1":
-                    gpuid %= device_count
+        if _CUDA_BACKEND == "cupy":
+            device_count = cuda.runtime.getDeviceCount()
+        elif _CUDA_BACKEND == "torch":
+            device_count = cuda.device_count()
+        if gpuid >= device_count:
+            enable_mps_env = getenv("QUDA_ENABLE_MPS")
+            if enable_mps_env is not None and enable_mps_env == "1":
+                gpuid %= device_count
 
         assert Gx * Gy * Gz * Gt == _MPI_SIZE
-        initCommsGridQuda(4, [Gx, Gy, Gz, Gt])
+        quda.initCommsGridQuda(4, [Gx, Gy, Gz, Gt])
 
-        global _GPUID, _COMPUTE_CAPABILITY
         gpuid += _GPUID
         _GPUID = gpuid
 
@@ -97,8 +94,8 @@ def init(grid_size: List[int] = None):
             cc = cuda.get_device_capability(gpuid)
             _COMPUTE_CAPABILITY = _ComputeCapability(cc[0], cc[1])
 
-        initQuda(gpuid)
-        atexit.register(endQuda)
+        quda.initQuda(gpuid)
+        atexit.register(quda.endQuda)
     else:
         warn("PyQuda is already initialized", RuntimeWarning)
 
