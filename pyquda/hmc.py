@@ -78,7 +78,7 @@ class HMC:
 
         self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION
-        self.invert_param.verbosity = QudaVerbosity.QUDA_SILENT
+        # self.invert_param.verbosity = QudaVerbosity.QUDA_SILENT
         self.invert_param.compute_action = 1
         self.invert_param.compute_clover_trlog = 1
 
@@ -110,6 +110,8 @@ class HMC:
 
     def updateGaugeField(self, dt: float):
         updateGaugeFieldQuda(nullptr, nullptr, dt, False, False, self.gauge_param)
+        loadGaugeQuda(nullptr, self.gauge_param)
+        loadGaugeQuda(nullptr, self.gauge_param)
         self.updated_clover = False
 
     def computeCloverForce(self, dt, x: LatticeFermion, kappa2, ck):
