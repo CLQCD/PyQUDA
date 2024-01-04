@@ -37,6 +37,7 @@ def init(grid_size: List[int] = None):
 
     If grid_size is None, MPI will not applied.
     """
+    global _MPI_COMM, _MPI_SIZE, _MPI_RANK, _GRID_SIZE, _GRID_COORD
     if _MPI_COMM is None:
         import atexit
         from os import getenv
@@ -50,7 +51,6 @@ def init(grid_size: List[int] = None):
         else:
             raise ImportError("CuPy or PyTorch is needed to handle field data")
 
-        global _MPI_COMM, _MPI_SIZE, _MPI_RANK, _GRID_SIZE, _GRID_COORD
         global _GPUID, _COMPUTE_CAPABILITY
 
         gpuid = 0
