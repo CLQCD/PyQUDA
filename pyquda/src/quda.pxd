@@ -1499,9 +1499,9 @@ cdef extern from "quda.h":
     void createCloverQuda(QudaInvertParam* param)
 
     #
-    # Compute the clover force contributions in each dimension mu given
-    # the array of solution fields, and compute the resulting momentum
-    # field.
+    # Compute the clover force contributions from a set of partial
+    # fractions stemming from a rational approximation suitable for use
+    # within MILC.
     #
     # @param mom Force matrix
     # @param dt Integrating step size
