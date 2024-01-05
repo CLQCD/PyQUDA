@@ -17,6 +17,7 @@ class Wilson(Dslash):
         maxiter: int,
         geo_block_size: List[List[int]] = None,
     ) -> None:
+        self.latt_info = latt_info
         cuda_prec_sloppy = general.cuda_prec_sloppy
         if geo_block_size is not None and cuda_prec_sloppy < QudaPrecision.QUDA_SINGLE_PRECISION:
             general.cuda_prec_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION  # Using half with multigrid doesn't work

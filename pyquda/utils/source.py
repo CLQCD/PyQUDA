@@ -56,7 +56,7 @@ def gaussian3(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, 
     from ..enum_quda import QudaDslashType
 
     _b = point(latt_info, t_srce, None, color)
-    dslash = core.getDslash(latt_info.size, 0, 0, 0, anti_periodic_t=False)
+    dslash = core.getDslash(latt_info.global_size, 0, 0, 0, anti_periodic_t=False)
     dslash.invert_param.dslash_type = QudaDslashType.QUDA_LAPLACE_DSLASH
     alpha = 1 / (4 * nsteps / rho**2 - 6)
     core.quda.performWuppertalnStep(_b.data_ptr, _b.data_ptr, dslash.invert_param, nsteps, alpha)
@@ -85,7 +85,7 @@ def gaussian2(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, 
     # use mass to get specific kappa = -xi * rho**2 / 4 / nsteps
     kappa = -(rho**2) / 4 / nsteps * xi
     mass = 1 / (2 * kappa) - 4
-    dslash = core.getDslash(latt_info.size, mass, 0, 0, anti_periodic_t=False)
+    dslash = core.getDslash(latt_info.global_size, mass, 0, 0, anti_periodic_t=False)
     dslash.invert_param.dslash_type = QudaDslashType.QUDA_LAPLACE_DSLASH
     for _ in range(nsteps):
         # (rho**2 / 4) here aims to achieve the same result with Chroma
@@ -129,7 +129,7 @@ def gaussian(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, r
         eo = ((x - gx * Lx) + (y - gy * Ly) + (z - gz * Lz) + (t - gt * Lt)) % 2
         _b.data[eo, t - gt * Lt, z - gz * Lz, y - gy * Ly, (x - gx * Lx) // 2, color] = 1
 
-    dslash = core.getDslash(latt_info.size, 0, 0, 0, anti_periodic_t=False)
+    dslash = core.getDslash(latt_info.global_size, 0, 0, 0, anti_periodic_t=False)
     dslash.invert_param.dslash_type = QudaDslashType.QUDA_LAPLACE_DSLASH
     for _ in range(nsteps):
         # (rho**2 / 4) aims to achieve the same result with Chroma

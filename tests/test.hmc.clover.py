@@ -31,7 +31,7 @@ gauge = LatticeGauge(latt_info, None)
 mass = 4
 kappa = 1 / (2 * (mass + 4))
 csw = 1.0
-hmc = HMC(latt_info.size, mass, 1e-9, 1000, csw, True)
+hmc = HMC(latt_info.global_size, mass, 1e-9, 1000, csw, True)
 hmc.loadGauge(gauge)
 hmc.loadMom(gauge)
 

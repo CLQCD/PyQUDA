@@ -58,7 +58,7 @@ def invert(
     rho: float = 0.0,
     nsteps: int = 1,
 ):
-    latt_info = LatticeInfo(dslash.gauge_param.X)
+    latt_info = dslash.latt_info
     Vol = latt_info.volume
     Ns, Nc = latt_info.Ns, latt_info.Nc
     xi = dslash.gauge_param.anisotropy
@@ -67,7 +67,7 @@ def invert(
     data = prop.data.reshape(Vol, Ns, Ns, Nc, Nc)
     for spin in range(Ns):
         for color in range(Nc):
-            b = source(latt_info.size, source_type, t_srce, spin, color, source_phase, rho, nsteps, xi)
+            b = source(latt_info.global_size, source_type, t_srce, spin, color, source_phase, rho, nsteps, xi)
             x = dslash.invert(b)
             data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
 
@@ -82,7 +82,7 @@ def invertStaggered(
     rho: float = 0.0,
     nsteps: int = 1,
 ):
-    latt_info = LatticeInfo(dslash.gauge_param.X)
+    latt_info = dslash.latt_info
     Vol = latt_info.volume
     Nc = latt_info.Nc
     xi = dslash.gauge_param.anisotropy
@@ -90,7 +90,7 @@ def invertStaggered(
     prop = LatticeStaggeredPropagator(latt_info)
     data = prop.data.reshape(Vol, Nc, Nc)
     for color in range(Nc):
-        b = source(latt_info.size, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
+        b = source(latt_info.global_size, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
         x = dslash.invert(b)
         data[:, :, color] = x.data.reshape(Vol, Nc)
 

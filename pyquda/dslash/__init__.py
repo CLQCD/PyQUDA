@@ -7,6 +7,7 @@ from ..field import LatticeInfo, LatticeGauge, LatticeFermion
 
 
 class Dslash(ABC):
+    latt_info: LatticeInfo
     gauge_param: QudaGaugeParam
     invert_param: QudaInvertParam
     mg_param: QudaMultigridParam

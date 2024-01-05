@@ -28,7 +28,7 @@ Nc = latt_info.Nc
 
 gauge = LatticeGauge(latt_info, None)
 
-hmc = HMC(latt_info.size, 0, 0, 0)
+hmc = HMC(latt_info.global_size, 0, 0, 0)
 hmc.loadGauge(gauge)
 hmc.loadMom(gauge)
 

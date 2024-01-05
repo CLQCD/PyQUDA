@@ -14,15 +14,11 @@ def fromILDGBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
     Gx, Gy, Gz, Gt = latt_info.grid_size
     gx, gy, gz, gt = latt_info.grid_coord
     Lx, Ly, Lz, Lt = latt_info.size
-    GLx, GLy, GLz, GLt = latt_info.global_size
     Nc, Nd = latt_info.Nc, latt_info.Nd
-
-    latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
-    Lx, Ly, Lz, Lt = latt_size
 
     gauge_raw = (
         numpy.frombuffer(buffer, dtype)
-        .reshape(GLt, GLz, GLy, GLx, Nd, Nc, Nc)[
+        .reshape(Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nd, Nc, Nc)[
             gt * Lt : (gt + 1) * Lt, gz * Lz : (gz + 1) * Lz, gy * Ly : (gy + 1) * Ly, gx * Lx : (gx + 1) * Lx
         ]
         .astype("<c16")

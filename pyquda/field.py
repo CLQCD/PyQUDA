@@ -21,8 +21,8 @@ class LatticeInfo:
         Gx, Gy, Gz, Gt = getGridSize()
         gx, gy, gz, gt = getGridCoord()
 
-        self.Gx, self.Gy, self.Gz, self.Gt = [Gx, Gy, Gz, Gt]
-        self.gx, self.gy, self.gz, self.gt = [gx, gy, gz, gt]
+        self.Gx, self.Gy, self.Gz, self.Gt = Gx, Gy, Gz, Gt
+        self.gx, self.gy, self.gz, self.gt = gx, gy, gz, gt
         self.grid_size = [Gx, Gy, Gz, Gt]
         self.grid_coord = [gx, gy, gz, gt]
         self.global_size = [Lx, Ly, Lz, Lt]
@@ -30,7 +30,7 @@ class LatticeInfo:
         assert Lx % Gx == 0 and Ly % Gy == 0 and Lz % Gz == 0 and Lt % Gt == 0
         Lx, Ly, Lz, Lt = Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt
         assert Lx % 2 == 0 and Ly % 2 == 0 and Lz % 2 == 0 and Lt % 2 == 0
-        self.Lx, self.Ly, self.Lz, self.Lt = [Lx, Ly, Lz, Lt]
+        self.Lx, self.Ly, self.Lz, self.Lt = Lx, Ly, Lz, Lt
         self.size = [Lx, Ly, Lz, Lt]
         self.volume = Lx * Ly * Lz * Lt
         self.size_cb2 = [Lx // 2, Ly, Lz, Lt]

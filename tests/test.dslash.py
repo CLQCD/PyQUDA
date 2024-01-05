@@ -1,11 +1,13 @@
 import os
 import sys
 import numpy as np
+import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 # sys.path.insert(1, os.path.join(test_dir, ".."))
-from pyquda import init
-from pyquda.field import LatticeInfo
+from pyquda import init, core, quda
+from pyquda.field import LatticeInfo, LatticeGauge, LatticeFermion
+from pyquda.enum_quda import QudaParity
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
@@ -15,18 +17,25 @@ Lx, Ly, Lz, Lt = latt_info.size
 Ns, Nc = latt_info.Ns, latt_info.Nc
 
 
-def applyDslash(Mp, p, U_seed):
-    import cupy as cp
-    from pyquda import core, quda
-    from pyquda.enum_quda import QudaParity
-    from pyquda.field import LatticeFermion
-    from pyquda.utils import gauge_utils
+def gaussGauge(latt_info: LatticeInfo, seed: int):
+    gauge = LatticeGauge(latt_info, None)
 
+    dslash = core.getDslash(latt_info.global_size, 0, 0, 0, anti_periodic_t=False)
+    dslash.gauge_param.use_resident_gauge = 0
+    quda.loadGaugeQuda(gauge.data_ptrs, dslash.gauge_param)
+    dslash.gauge_param.use_resident_gauge = 1
+    quda.gaussGaugeQuda(seed, 1.0)
+    quda.saveGaugeQuda(gauge.data_ptrs, dslash.gauge_param)
+
+    return gauge
+
+
+def applyDslash(Mp, p, U_seed):
     # Set parameters in Dslash and use m=-3.5 to make kappa=1
-    dslash = core.getDslash(latt_info.size, -3.5, 0, 0, anti_periodic_t=False)
+    dslash = core.getDslash(latt_info.global_size, -3.5, 0, 0, anti_periodic_t=False)
 
     # Generate gauge and then load it
-    U = gauge_utils.gaussGauge(latt_info.size, U_seed)
+    U = gaussGauge(latt_info, U_seed)
     dslash.loadGauge(U)
 
     # Load a from p and allocate b
