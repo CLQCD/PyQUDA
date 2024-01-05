@@ -7,7 +7,7 @@ test_dir = os.path.dirname(os.path.abspath(__file__))
 from pyquda import core, init
 from pyquda.utils import io
 from pyquda.field import LatticeInfo
-from pyquda.dslash import general
+from pyquda.dirac import general
 
 general.link_recon = 18
 general.link_recon_sloppy = 18

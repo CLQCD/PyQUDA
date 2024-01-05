@@ -5,7 +5,7 @@ from xml.etree import ElementTree as ET
 
 import numpy
 
-from ...field import LatticeInfo, cb2, LatticeGauge
+from ...field import Nc, Nd, LatticeInfo, cb2, LatticeGauge
 
 precision_map = {"D": 8, "S": 4}
 
@@ -14,7 +14,6 @@ def fromILDGBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
     Gx, Gy, Gz, Gt = latt_info.grid_size
     gx, gy, gz, gt = latt_info.grid_coord
     Lx, Ly, Lz, Lt = latt_info.size
-    Nc, Nd = latt_info.Nc, latt_info.Nd
 
     gauge_raw = (
         numpy.frombuffer(buffer, dtype)
@@ -62,7 +61,8 @@ def readQIO(filename: str):
     precision = precision_map[scidac_private_record_xml.find("precision").text]
     Ns = int(scidac_private_record_xml.find("spins").text)
     Nc = int(scidac_private_record_xml.find("colors").text)
-    Nd = int(scidac_private_record_xml.find("datacount").text)
+    Nd = int(scidac_private_file_xml.find("spacetime").text)
+    assert int(scidac_private_record_xml.find("datacount").text) == Nd
     assert int(scidac_private_record_xml.find("typesize").text) == Nc * Nc * 2 * precision
     dtype = f">c{2*precision}"
     # latt_size = [
@@ -71,9 +71,8 @@ def readQIO(filename: str):
     #     int(ildg_format.find(f"{tag}lz").text),
     #     int(ildg_format.find(f"{tag}lt").text),
     # ]
-    assert int(scidac_private_file_xml.find("spacetime").text) == Nd
     latt_size = map(int, scidac_private_file_xml.find("dims").text.split())
-    latt_info = LatticeInfo(latt_size, 1, 1, Ns, Nc, Nd)
+    latt_info = LatticeInfo(latt_size, 1, 1)
 
     return fromILDGBuffer(ildg_binary_data, dtype, latt_info)
 

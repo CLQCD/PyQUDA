@@ -5,7 +5,7 @@ from xml.etree import ElementTree as ET
 
 import numpy
 
-from ...field import LatticeInfo, LatticePropagator, LatticeStaggeredPropagator, cb2
+from ...field import Ns, Nc, Nd, LatticeInfo, LatticePropagator, LatticeStaggeredPropagator, cb2
 
 precision_map = {"D": 8, "S": 4}
 
@@ -14,7 +14,6 @@ def fromSCIDACBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo, staggere
     Gx, Gy, Gz, Gt = latt_info.grid_size
     gx, gy, gz, gt = latt_info.grid_coord
     Lx, Ly, Lz, Lt = latt_info.size
-    Ns, Nc = latt_info.Ns, latt_info.Nc
 
     if not staggered:
         propagator_raw = (
@@ -59,9 +58,8 @@ def readQIO(filename: str):
         f.seek(meta["scidac-binary-data"][0])
         scidac_binary_data = f.read(meta["scidac-binary-data"][1])
     precision = precision_map[scidac_private_record_xml.find("precision").text]
-    Nc = int(scidac_private_record_xml.find("colors").text)
-    Ns = int(scidac_private_record_xml.find("spins").text)
-    Nd = 4
+    assert int(scidac_private_record_xml.find("colors").text) == Nc
+    assert int(scidac_private_record_xml.find("spins").text) == Ns
     typesize = int(scidac_private_record_xml.find("typesize").text)
     if typesize == Nc * Nc * 2 * precision:
         staggered = True
@@ -73,6 +71,6 @@ def readQIO(filename: str):
     dtype = f">c{2*precision}"
     assert int(scidac_private_file_xml.find("spacetime").text) == Nd
     latt_size = map(int, scidac_private_file_xml.find("dims").text.split())
-    latt_info = LatticeInfo(latt_size, 1, 1, Ns, Nc, Nd)
+    latt_info = LatticeInfo(latt_size, 1, 1)
 
     return fromSCIDACBuffer(scidac_binary_data, dtype, latt_info, staggered)

@@ -6,7 +6,7 @@ test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(1, os.path.join(test_dir, ".."))
 from pyquda import quda, init
 from pyquda.hmc import HMC
-from pyquda.field import LatticeGauge, LatticeInfo
+from pyquda.field import Nc, LatticeInfo, LatticeGauge
 
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
@@ -24,7 +24,6 @@ tag = "A1"
 init(backend="torch")
 latt_info = LatticeInfo(ensembles[tag][0])
 beta = ensembles[tag][1]
-Nc = latt_info.Nc
 
 gauge = LatticeGauge(latt_info, None)
 

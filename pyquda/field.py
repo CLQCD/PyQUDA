@@ -6,14 +6,15 @@ from .pointer import ndarrayDataPointer
 
 
 class LatticeInfo:
+    Ns: int = 4
+    Nc: int = 3
+    Nd: int = 4
+
     def __init__(
         self,
         latt_size: List[int],
         t_boundary: Literal[1, -1] = -1,
         anisotropy: float = 1.0,
-        Ns: int = 4,
-        Nc: int = 3,
-        Nd: int = 4,
     ) -> None:
         from . import getGridSize, getGridCoord
 
@@ -39,7 +40,9 @@ class LatticeInfo:
 
         self.t_boundary = t_boundary
         self.anisotropy = anisotropy
-        self.Ns, self.Nc, self.Nd = Ns, Nc, Nd
+
+
+Ns, Nc, Nd = LatticeInfo.Ns, LatticeInfo.Nc, LatticeInfo.Nd
 
 
 def lexico(data: numpy.ndarray, axes: List[int], dtype=None):
@@ -91,7 +94,6 @@ def newLatticeFieldData(latt_info: LatticeInfo, dtype: str):
 
     backend = getCUDABackend()
     Lx, Ly, Lz, Lt = latt_info.size
-    Ns, Nc, Nd = latt_info.Ns, latt_info.Nc, latt_info.Nd
     if backend == "cupy":
         import cupy
 
@@ -197,7 +199,6 @@ class LatticeGauge(LatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         self.latt_info = latt_info
         Lx, Ly, Lz, Lt = latt_info.size
-        Nc, Nd = latt_info.Nc, latt_info.Nd
         if value is None:
             self.data = newLatticeFieldData(latt_info, "Gauge")
         else:
@@ -210,12 +211,10 @@ class LatticeGauge(LatticeField):
     def setAntiPeroidicT(self):
         if self.t_boundary:
             Lt = self.latt_info.Lt
-            Nd = self.latt_info.Nd
             data = self.data.reshape(Nd, 2, Lt, -1)
             data[Nd - 1, :, Lt - 1] *= -1
 
     def setAnisotropy(self, anisotropy: float):
-        Nd = self.latt_info.Nd
         data = self.data.reshape(Nd, -1)
         data[: Nd - 1] /= anisotropy
 
@@ -235,7 +234,6 @@ class LatticeFermion(LatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         self.latt_info = latt_info
         Lx, Ly, Lz, Lt = latt_info.size
-        Ns, Nc = latt_info.Ns, latt_info.Nc
         if value is None:
             self.data = newLatticeFieldData(latt_info, "Fermion")
         else:
@@ -277,7 +275,6 @@ class LatticePropagator(LatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         self.latt_info = latt_info
         Lx, Ly, Lz, Lt = latt_info.size
-        Ns, Nc = latt_info.Ns, latt_info.Nc
         if value is None:
             self.data = newLatticeFieldData(latt_info, "Propagator")
         else:
@@ -294,7 +291,6 @@ class LatticeStaggeredFermion(LatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         self.latt_info = latt_info
         Lx, Ly, Lz, Lt = latt_info.size
-        Nc = latt_info.Nc
         if value is None:
             self.data = newLatticeFieldData(latt_info, "StaggeredFermion")
         else:
@@ -336,7 +332,6 @@ class LatticeStaggeredPropagator(LatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         self.latt_info = latt_info
         Lx, Ly, Lz, Lt = latt_info.size
-        Nc = latt_info.Nc
         if value is None:
             self.data = newLatticeFieldData(latt_info, "StaggeredPropagator")
         else:

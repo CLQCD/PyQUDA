@@ -1,6 +1,14 @@
 from typing import List, Literal, Union
 
-from ..field import LatticeInfo, LatticeFermion, LatticePropagator, LatticeStaggeredFermion, LatticeStaggeredPropagator
+from ..field import (
+    Ns,
+    Nc,
+    LatticeInfo,
+    LatticeFermion,
+    LatticePropagator,
+    LatticeStaggeredFermion,
+    LatticeStaggeredPropagator,
+)
 
 
 def point(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int):
@@ -193,7 +201,6 @@ def source12(
     xi: float = 1.0,
 ):
     latt_info = LatticeInfo(latt_size)
-    Ns, Nc = latt_info.Ns, latt_info.Nc
     volume = latt_info.volume
 
     b12 = LatticePropagator(latt_info)
@@ -227,7 +234,6 @@ def source3(
     xi: float = 1.0,
 ):
     latt_info = LatticeInfo(latt_size)
-    Nc = latt_info.Nc
     volume = latt_info.volume
 
     b3 = LatticeStaggeredPropagator(latt_info)

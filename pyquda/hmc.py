@@ -25,7 +25,7 @@ from .pyquda import (
     computeGaugeForceQuda,
     computeGaugeLoopTraceQuda,
 )
-from .field import LatticeInfo, LatticeGauge, LatticeFermion
+from .field import Ns, Nc, LatticeInfo, LatticeGauge, LatticeFermion
 from .enum_quda import (
     QudaBoolean,
     QudaGaugeSmearType,
@@ -189,10 +189,9 @@ class HMC:
         return traces.real.sum()
 
     def actionFermion(self, x: LatticeFermion) -> float:
-        volume_cb2, Ns, Nc = self.latt_info.volume_cb2, self.latt_info.Ns, self.latt_info.Nc
         self.updateClover()
         invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
-        return self.invert_param.action[0] - volume_cb2 * Ns * Nc - 2 * self.invert_param.trlogA[1]
+        return self.invert_param.action[0] - self.latt_info.volume_cb2 * Ns * Nc - 2 * self.invert_param.trlogA[1]
 
     def updateClover(self):
         if not self.updated_clover:

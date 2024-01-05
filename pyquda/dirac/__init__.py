@@ -6,7 +6,7 @@ from ..pyquda import QudaGaugeParam, QudaInvertParam, QudaMultigridParam
 from ..field import LatticeInfo, LatticeGauge, LatticeFermion
 
 
-class Dslash(ABC):
+class Dirac(ABC):
     latt_info: LatticeInfo
     gauge_param: QudaGaugeParam
     invert_param: QudaInvertParam
