@@ -78,7 +78,7 @@ class HMC:
 
         self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION
-        # self.invert_param.verbosity = QudaVerbosity.QUDA_SILENT
+        self.invert_param.verbosity = QudaVerbosity.QUDA_SILENT
         self.invert_param.compute_action = 1
         self.invert_param.compute_clover_trlog = 1
 
@@ -111,12 +111,13 @@ class HMC:
     def updateGaugeField(self, dt: float):
         updateGaugeFieldQuda(nullptr, nullptr, dt, False, False, self.gauge_param)
         loadGaugeQuda(nullptr, self.gauge_param)
-        loadGaugeQuda(nullptr, self.gauge_param)
         self.updated_clover = False
 
     def computeCloverForce(self, dt, x: LatticeFermion, kappa2, ck):
         self.updateClover()
         invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
+        # Some conventions force the dagger to be YES here
+        self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
         computeCloverForceQuda(
             nullptr,
             dt,
@@ -131,6 +132,7 @@ class HMC:
             self.gauge_param,
             self.invert_param,
         )
+        self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
 
     def computeGaugeForce(self, dt, force, lengths, coeffs, num_paths, max_length):
         computeGaugeForceQuda(
@@ -200,10 +202,9 @@ class HMC:
 
     def initNoise(self, x: LatticeFermion, seed: int):
         self.updateClover()
-        dagger = self.invert_param.dagger
         self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
         MatQuda(x.odd_ptr, x.even_ptr, self.invert_param)
-        self.invert_param.dagger = dagger
+        self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
 
     def smearGauge(self):
         t_boundary = self.gauge_param.t_boundary

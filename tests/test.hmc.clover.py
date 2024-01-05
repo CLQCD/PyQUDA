@@ -11,7 +11,6 @@ from pyquda.hmc import HMC
 from pyquda.field import Nc, Ns
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-os.environ["QUDA_ENABLE_TUNNING"] = "0"
 
 ensembles = {
     "A1": ([16, 16, 16, 16], 5.789),
@@ -36,9 +35,6 @@ kappa = 1 / (2 * (mass + 4))
 csw = 1.0
 hmc = HMC(latt_size, mass, 1e-9, 1000, csw, True)
 hmc.loadGauge(gauge)
-
-invert_param = hmc.invert_param
-
 hmc.loadMom(gauge)
 
 
@@ -151,7 +147,7 @@ dt = 0.2
 steps = round(t / dt)
 dt = t / steps
 warm = 20
-for i in range(20):
+for i in range(100):
     hmc.gaussMom(i)
 
     cp.random.seed(i)
