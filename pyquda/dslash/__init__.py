@@ -3,7 +3,7 @@ from typing import List
 
 from ..pointer import Pointer
 from ..pyquda import QudaGaugeParam, QudaInvertParam, QudaMultigridParam
-from ..field import LatticeGauge, LatticeFermion
+from ..field import LatticeInfo, LatticeGauge, LatticeFermion
 
 
 class Dslash(ABC):
@@ -18,7 +18,7 @@ class Dslash(ABC):
         pass
 
     @abstractmethod
-    def newQudaGaugeParam(self, latt_size: List[int], anisotropy: float, t_boundary: int, *args, **kwargs):
+    def newQudaGaugeParam(self, latt_info: LatticeInfo, *args, **kwargs):
         pass
 
     @abstractmethod

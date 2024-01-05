@@ -1,7 +1,7 @@
 from typing import List
 
 from ..pyquda import newMultigridQuda, destroyMultigridQuda
-from ..field import LatticeGauge, LatticeFermion
+from ..field import LatticeInfo, LatticeGauge, LatticeFermion
 from ..enum_quda import QudaDslashType, QudaInverterType, QudaSolveType, QudaPrecision
 
 from . import Dslash, general
@@ -10,29 +10,27 @@ from . import Dslash, general
 class CloverWilson(Dslash):
     def __init__(
         self,
-        latt_size: List[int],
+        latt_info: LatticeInfo,
         mass: float,
         kappa: float,
         tol: float,
         maxiter: int,
-        xi: float = 1.0,
         clover_coeff: float = 0.0,
         clover_xi: float = 1.0,
-        t_boundary: int = -1,
         geo_block_size: List[List[int]] = None,
     ) -> None:
         cuda_prec_sloppy = general.cuda_prec_sloppy
         if geo_block_size is not None and cuda_prec_sloppy < QudaPrecision.QUDA_SINGLE_PRECISION:
             general.cuda_prec_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION  # Using half with multigrid doesn't work
         self.mg_instance = None
-        self.newQudaGaugeParam(latt_size, xi, t_boundary)
+        self.newQudaGaugeParam(latt_info)
         self.newQudaMultigridParam(geo_block_size, mass, kappa, 1e-1, 12, 5e-6, 1000, 0, 8)
         self.newQudaInvertParam(mass, kappa, tol, maxiter, clover_coeff, clover_xi)
         if geo_block_size is not None and cuda_prec_sloppy < QudaPrecision.QUDA_SINGLE_PRECISION:
             general.cuda_prec_sloppy = cuda_prec_sloppy
 
-    def newQudaGaugeParam(self, latt_size: List[int], anisotropy: float, t_boundary: int):
-        gauge_param = general.newQudaGaugeParam(latt_size, anisotropy, t_boundary, 1.0, 0.0)
+    def newQudaGaugeParam(self, latt_info: LatticeInfo):
+        gauge_param = general.newQudaGaugeParam(latt_info, 1.0, 0.0)
         self.gauge_param = gauge_param
 
     def newQudaMultigridParam(

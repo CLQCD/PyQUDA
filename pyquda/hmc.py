@@ -25,7 +25,7 @@ from .pyquda import (
     computeGaugeForceQuda,
     computeGaugeLoopTraceQuda,
 )
-from .field import Ns, Nc
+from .field import LatticeInfo, LatticeGauge, LatticeFermion
 from .enum_quda import (
     QudaBoolean,
     QudaGaugeSmearType,
@@ -37,7 +37,7 @@ from .enum_quda import (
     QudaReconstructType,
     QudaDagType,
 )
-from .core import LatticeGauge, LatticeFermion, getDslash
+from .core import getDslash
 
 nullptr = Pointers("void", 0)
 
@@ -59,8 +59,7 @@ class HMC:
             latt_size, mass, tol, maxiter, clover_coeff_t=clover_coeff, anti_periodic_t=anti_periodic_t
         )
 
-        Lx, Ly, Lz, Lt = latt_size
-        self.volume = Lx * Ly * Lz * Lt
+        self.latt_info = LatticeInfo(latt_size)
         self.updated_clover = False
         self.gauge_param: QudaGaugeParam = self.dslash.gauge_param
         self.invert_param: QudaInvertParam = self.dslash.invert_param
@@ -148,7 +147,7 @@ class HMC:
         )
 
     def reunitGaugeField(self, tol: float):
-        gauge = LatticeGauge(self.gauge_param.X, None)
+        gauge = LatticeGauge(self.latt_info, None)
         t_boundary = self.gauge_param.t_boundary
         reconstruct = self.gauge_param.reconstruct
         self.saveGauge(gauge)
@@ -190,9 +189,10 @@ class HMC:
         return traces.real.sum()
 
     def actionFermion(self, x: LatticeFermion) -> float:
+        volume_cb2, Ns, Nc = self.latt_info.volume_cb2, self.latt_info.Ns, self.latt_info.Nc
         self.updateClover()
         invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
-        return self.invert_param.action[0] - self.volume / 2 * Ns * Nc - 2 * self.invert_param.trlogA[1]
+        return self.invert_param.action[0] - volume_cb2 * Ns * Nc - 2 * self.invert_param.trlogA[1]
 
     def updateClover(self):
         if not self.updated_clover:
@@ -210,8 +210,8 @@ class HMC:
         t_boundary = self.gauge_param.t_boundary
         reconstruct = self.gauge_param.reconstruct
         _type = self.gauge_param.type
-        gauge = LatticeGauge(self.gauge_param.X, None)
-        smeared_gauge = LatticeGauge(self.gauge_param.X, None)
+        gauge = LatticeGauge(self.latt_info, None)
+        smeared_gauge = LatticeGauge(self.latt_info, None)
         self.saveGauge(gauge)
         self.gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
         self.gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO

@@ -3,12 +3,11 @@ import sys
 import numpy as np
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(test_dir, ".."))
-from pyquda import core, field, init, setCUDABackend
+sys.path.insert(1, os.path.join(test_dir, ".."))
+from pyquda import quda, init
 from pyquda.hmc import HMC
-from pyquda.field import Nc
+from pyquda.field import LatticeGauge, LatticeInfo
 
-# setCUDABackend("torch")
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
@@ -21,20 +20,16 @@ ensembles = {
 
 tag = "A1"
 
-latt_size = ensembles[tag][0]
-Lx, Ly, Lz, Lt = latt_size
-Vol = Lx * Ly * Lz * Lt
-init()
-
+# init()
+init(backend="torch")
+latt_info = LatticeInfo(ensembles[tag][0])
 beta = ensembles[tag][1]
+Nc = latt_info.Nc
 
-gauge = field.LatticeGauge(latt_size, None)
+gauge = LatticeGauge(latt_info, None)
 
-hmc = HMC(latt_size, 0, 0, 0)
+hmc = HMC(latt_info.size, 0, 0, 0)
 hmc.loadGauge(gauge)
-
-gauge_param = hmc.gauge_param
-
 hmc.loadMom(gauge)
 
 
@@ -156,7 +151,7 @@ theta_ = -0.03230286765269967
 vartheta_ = 0.08398315262876693
 lambda_ = 0.6822365335719091
 
-plaquette = core.quda.plaqQuda()[0]
+plaquette = quda.plaqQuda()[0]
 print(f"\nplaquette = {plaquette}\n")
 
 t = 1.0
@@ -198,7 +193,7 @@ for i in range(100):
     else:
         hmc.loadGauge(gauge)
 
-    plaquette = core.quda.plaqQuda()[0]
+    plaquette = quda.plaqQuda()[0]
 
     print(
         f"Step {i}:\n"

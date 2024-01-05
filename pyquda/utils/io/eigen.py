@@ -5,8 +5,7 @@ from xml.etree import ElementTree as ET
 
 import numpy
 
-from ... import getGridSize, getGridCoord
-from ...field import Nc, cb2
+from ...field import LatticeInfo, cb2
 
 
 def _readStr(f: io.BufferedReader) -> str:
@@ -45,14 +44,14 @@ def readTimeSlice(filename: str, Ne: int = None):
     binary_dtype = f">c{2*precision//8}"
     ndarray_dtype = f"<c{2*precision//8}"
     latt_size = [int(x) for x in format.find("lattSize").text.split()]
-    Lx, Ly, Lz, Lt = latt_size
     if Ne is None:
         Ne = int(format.find("num_vecs").text)
 
-    Gx, Gy, Gz, Gt = getGridSize()
-    gx, gy, gz, gt = getGridCoord()
-    latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
-    Lx, Ly, Lz, Lt = latt_size
+    latt_info = LatticeInfo(latt_size)
+    Gx, Gy, Gz, Gt = latt_info.grid_size
+    gx, gy, gz, gt = latt_info.grid_coord
+    Lx, Ly, Lz, Lt = latt_info.size
+    Nc = latt_info.Nc
 
     eigen_raw = numpy.zeros((Ne, Lt, Lz, Ly, Lx, Nc), ndarray_dtype)
     for e in range(Ne):

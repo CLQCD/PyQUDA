@@ -4,11 +4,10 @@ import numpy as np
 import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(test_dir, ".."))
-
-from pyquda import core, field, init
+sys.path.insert(1, os.path.join(test_dir, ".."))
+from pyquda import quda, init
 from pyquda.hmc import HMC
-from pyquda.field import Nc, Ns
+from pyquda.field import LatticeFermion, LatticeGauge, LatticeInfo
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
@@ -21,19 +20,18 @@ ensembles = {
 
 tag = "A1"
 
-latt_size = ensembles[tag][0]
-Lx, Ly, Lz, Lt = latt_size
-Vol = Lx * Ly * Lz * Lt
 init()
-
+latt_info = LatticeInfo(ensembles[tag][0])
 beta = ensembles[tag][1]
+Lx, Ly, Lz, Lt = latt_info.size
+Ns, Nc = latt_info.Ns, latt_info.Nc
 
-gauge = field.LatticeGauge(latt_size, None)
+gauge = LatticeGauge(latt_info, None)
 
 mass = 4
 kappa = 1 / (2 * (mass + 4))
 csw = 1.0
-hmc = HMC(latt_size, mass, 1e-9, 1000, csw, True)
+hmc = HMC(latt_info.size, mass, 1e-9, 1000, csw, True)
 hmc.loadGauge(gauge)
 hmc.loadMom(gauge)
 
@@ -139,7 +137,7 @@ theta_ = -0.03230286765269967
 vartheta_ = 0.08398315262876693
 lambda_ = 0.6822365335719091
 
-plaquette = core.quda.plaqQuda()[0]
+plaquette = quda.plaqQuda()[0]
 print(f"\nplaquette = {plaquette}\n")
 
 t = 1.0
@@ -153,12 +151,12 @@ for i in range(100):
     cp.random.seed(i)
     phi = 2 * cp.pi * cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
     r = cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
-    noise = core.LatticeFermion(latt_size, cp.sqrt(-cp.log(r)) * (cp.cos(phi) + 1j * cp.sin(phi)))
+    noise = LatticeFermion(latt_info, cp.sqrt(-cp.log(r)) * (cp.cos(phi) + 1j * cp.sin(phi)))
 
     # cp.random.manual_seed(i)
     # phi = 2 * cp.pi * cp.rand((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), device="cuda", dtype=cp.float64)
     # r = cp.rand((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), device="cuda",  dtype=cp.float64)
-    # noise = core.LatticeFermion(latt_size, cp.sqrt(-cp.log(r)) * (cp.cos(phi) + 1j * cp.sin(phi)))
+    # noise = LatticeFermion(latt_info, cp.sqrt(-cp.log(r)) * (cp.cos(phi) + 1j * cp.sin(phi)))
 
     hmc.initNoise(noise, i)
 
@@ -201,7 +199,7 @@ for i in range(100):
     else:
         hmc.loadGauge(gauge)
 
-    plaquette = core.quda.plaqQuda()[0]
+    plaquette = quda.plaqQuda()[0]
 
     print(
         f"Step {i}:\n"

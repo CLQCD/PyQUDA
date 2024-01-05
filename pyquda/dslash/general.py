@@ -16,7 +16,7 @@ from ..pyquda import (
     cloverQuda,
     staggeredPhaseQuda,
 )
-from ..field import LatticeGauge, LatticeFermion, LatticeStaggeredFermion
+from ..field import LatticeInfo, LatticeGauge, LatticeFermion, LatticeStaggeredFermion
 from ..enum_quda import (  # noqa: F401
     QudaMemoryType,
     QudaLinkType,
@@ -93,17 +93,17 @@ link_recon = QudaReconstructType.QUDA_RECONSTRUCT_12
 link_recon_sloppy = QudaReconstructType.QUDA_RECONSTRUCT_12
 
 
-def newQudaGaugeParam(X: List[int], anisotropy: float, t_boundary: int, tadpole_coeff: float, naik_epsilon: float):
+def newQudaGaugeParam(lattice: LatticeInfo, tadpole_coeff: float, naik_epsilon: float):
     gauge_param = QudaGaugeParam()
 
-    gauge_param.X = X
+    gauge_param.X = lattice.size
 
-    gauge_param.anisotropy = anisotropy
+    gauge_param.anisotropy = lattice.anisotropy
     gauge_param.tadpole_coeff = tadpole_coeff
     gauge_param.scale = -(1 + naik_epsilon) / (24 * tadpole_coeff * tadpole_coeff)
     gauge_param.type = QudaLinkType.QUDA_WILSON_LINKS
     gauge_param.gauge_order = QudaGaugeFieldOrder.QUDA_QDP_GAUGE_ORDER
-    gauge_param.t_boundary = QudaTboundary.QUDA_ANTI_PERIODIC_T if t_boundary == -1 else QudaTboundary.QUDA_PERIODIC_T
+    gauge_param.t_boundary = lattice.t_boundary
 
     gauge_param.cpu_prec = cpu_prec
     gauge_param.cuda_prec = cuda_prec
@@ -120,8 +120,7 @@ def newQudaGaugeParam(X: List[int], anisotropy: float, t_boundary: int, tadpole_
 
     gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_CHROMA
 
-    Lx, Ly, Lz, Lt = X
-    gauge_param.ga_pad = Lx * Ly * Lz * Lt // min(Lx, Ly, Lz, Lt) // 2
+    gauge_param.ga_pad = lattice.ga_pad
     gauge_param.gauge_fix = QudaGaugeFixed.QUDA_GAUGE_FIXED_NO
 
     return gauge_param
@@ -408,9 +407,9 @@ def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     )
 
     inlink = gauge.copy()
-    ulink = LatticeGauge(gauge.latt_size)
-    fatlink = LatticeGauge(gauge.latt_size)
-    longlink = LatticeGauge(gauge.latt_size)
+    ulink = LatticeGauge(gauge.latt_info)
+    fatlink = LatticeGauge(gauge.latt_info)
+    longlink = LatticeGauge(gauge.latt_info)
 
     loadGaugeQuda(inlink.data_ptrs, gauge_param)  # Save the original gauge for the smeared source.
 
@@ -452,10 +451,10 @@ def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
 def invert(b: LatticeFermion, invert_param: QudaInvertParam):
     kappa = invert_param.kappa
 
-    x = LatticeFermion(b.latt_size)
+    x = LatticeFermion(b.latt_info)
 
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    if getMPIRank() == 0:
+    if getMPIRank() == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
         print(
             f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
         )
@@ -467,10 +466,10 @@ def invert(b: LatticeFermion, invert_param: QudaInvertParam):
 def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
     mass = invert_param.mass
 
-    x = LatticeStaggeredFermion(b.latt_size)
+    x = LatticeStaggeredFermion(b.latt_info)
 
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    if getMPIRank() == 0:
+    if getMPIRank() == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
         print(
             f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
         )
@@ -484,8 +483,8 @@ def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
 
     kappa = invert_param.kappa
 
-    x = LatticeFermion(b.latt_size)
-    tmp = LatticeFermion(b.latt_size)
+    x = LatticeFermion(b.latt_info)
+    tmp = LatticeFermion(b.latt_info)
 
     # tmp.data = 2 * kappa * b.data
     # dslashQuda(x.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
@@ -499,7 +498,7 @@ def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
     dslashQuda(x.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
     tmp.odd = tmp.odd + kappa * x.odd
     invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
-    if getMPIRank() == 0:
+    if getMPIRank() == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
         print(
             f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
         )

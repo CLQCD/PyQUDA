@@ -2,17 +2,17 @@ import os
 import sys
 import cupy as cp
 
-test_dir = os.path.dirname(os.path.abspath(__file__))
-# sys.path.insert(0, os.path.join(test_dir, ".."))
 
+test_dir = os.path.dirname(os.path.abspath(__file__))
+# sys.path.insert(1, os.path.join(test_dir, ".."))
 from pyquda import core, init
 from pyquda.utils import source, io
+from pyquda.field import LatticeInfo
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
-latt_size = [4, 4, 4, 8]
-Lx, Ly, Lz, Lt = latt_size
 init()
+latt_info = LatticeInfo([4, 4, 4, 8])
 
 rho = 2.0
 nsteps = 5
@@ -22,14 +22,14 @@ xi = 5.2
 xi_0 = 5.65
 nu = xi_0 / xi
 u_s = 0.780268
-dslash = core.getDslash(latt_size, 0, 0, 0, xi_0, nu / u_s, anti_periodic_t=False)
-# dslash = core.getDslash(latt_size, 0, 0, 0, anti_periodic_t=False)  #* This is used for isotropic lattice
+dslash = core.getDslash(latt_info.size, 0, 0, 0, xi_0, nu / u_s, anti_periodic_t=False)
+# dslash = core.getDslash(latt_info.size, 0, 0, 0, anti_periodic_t=False)  #* This is used for isotropic lattice
 gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
 dslash.loadGauge(gauge)
 
-shell_source = source.source12(latt_size, "gaussian", [0, 0, 0, 0], rho=2.0, nsteps=5, xi=xi * u_s)
+shell_source = source.source12(latt_info.size, "gaussian", [0, 0, 0, 0], rho=2.0, nsteps=5, xi=xi * u_s)
 # shell_source = source.source12(
-#     latt_size, "gaussian", [0, 0, 0, 0], rho=2.0, nsteps=5
+#     latt_info.size, "gaussian", [0, 0, 0, 0], rho=2.0, nsteps=5
 # )  #* This is used for isotropic lattice
 
 
@@ -53,7 +53,7 @@ print(cp.linalg.norm(shell_source.data - shell_source_chroma.data))
 # from pyquda.core import lexico
 # gauge = cp.asarray(lexico(gauge.data, [1, 2, 3, 4, 5]))
 # pt_src = cp.zeros((Lt, Lz, Ly, Lx, Nc, Nc))
-# pt_src = source.source12(latt_size, "point", [x, y, z, t])
+# pt_src = source.source12(latt_info.size, "point", [x, y, z, t])
 # pt_src.data = cp.asarray(pt_src.lexico())
 # U = gauge[:, t].copy()
 # U_dag = U.conj().transpose(0, 1, 2, 3, 5, 4)

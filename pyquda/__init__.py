@@ -3,6 +3,7 @@ from warnings import warn
 
 from mpi4py import MPI
 
+__version__ = "0.5.0"
 from . import pyquda as quda
 
 
@@ -21,17 +22,17 @@ _CUDA_BACKEND: Literal["cupy", "torch"] = "cupy"
 _COMPUTE_CAPABILITY: _ComputeCapability = _ComputeCapability(0, 0)
 
 
-def getRankFromCoord(coord: List[int]):
-    Gx, Gy, Gz, Gt = _GRID_SIZE
-    return ((coord[0] * Gy + coord[1]) * Gz + coord[2]) * Gt + coord[3]
+def getRankFromCoord(coord: List[int], grid: List[int]) -> int:
+    x, y, z, t = grid
+    return ((coord[0] * y + coord[1]) * z + coord[2]) * t + coord[3]
 
 
-def getCoordFromRank(rank: int):
-    Gx, Gy, Gz, Gt = _GRID_SIZE
-    return [rank // Gt // Gz // Gy, rank // Gt // Gz % Gy, rank // Gt % Gz, rank % Gt]
+def getCoordFromRank(rank: int, grid: List[int]) -> List[int]:
+    x, y, z, t = grid
+    return [rank // t // z // y, rank // t // z % y, rank // t % z, rank % t]
 
 
-def init(grid_size: List[int] = None):
+def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy"):
     """
     Initialize MPI along with the QUDA library.
 
@@ -43,15 +44,14 @@ def init(grid_size: List[int] = None):
         from os import getenv
         from platform import node as gethostname
 
-        if _CUDA_BACKEND == "cupy":
+        assert backend in ["cupy", "torch"], f"Unsupported backend {backend}"
+        if backend == "cupy":
             from cupy import cuda
             from . import malloc_pyquda
-        elif _CUDA_BACKEND == "torch":
+        elif backend == "torch":
             from torch import cuda
         else:
             raise ImportError("CuPy or PyTorch is needed to handle field data")
-
-        global _GPUID, _COMPUTE_CAPABILITY
 
         gpuid = 0
         Gx, Gy, Gz, Gt = grid_size if grid_size is not None else [1, 1, 1, 1]
@@ -60,7 +60,10 @@ def init(grid_size: List[int] = None):
         _MPI_SIZE = _MPI_COMM.Get_size()
         _MPI_RANK = _MPI_COMM.Get_rank()
         _GRID_SIZE = [Gx, Gy, Gz, Gt]
-        _GRID_COORD = getCoordFromRank(_MPI_RANK)
+        _GRID_COORD = getCoordFromRank(_MPI_RANK, _GRID_SIZE)
+        assert _MPI_SIZE == Gx * Gy * Gz * Gt
+
+        global _GPUID, _CUDA_BACKEND, _COMPUTE_CAPABILITY
 
         hostname = gethostname()
         hostname_recv_buf = _MPI_COMM.allgather(hostname)
@@ -68,32 +71,32 @@ def init(grid_size: List[int] = None):
             if hostname == hostname_recv_buf[i]:
                 gpuid += 1
 
-        if _CUDA_BACKEND == "cupy":
+        if backend == "cupy":
             device_count = cuda.runtime.getDeviceCount()
-        elif _CUDA_BACKEND == "torch":
+        elif backend == "torch":
             device_count = cuda.device_count()
         if gpuid >= device_count:
             enable_mps_env = getenv("QUDA_ENABLE_MPS")
             if enable_mps_env is not None and enable_mps_env == "1":
                 gpuid %= device_count
 
-        assert Gx * Gy * Gz * Gt == _MPI_SIZE
-        quda.initCommsGridQuda(4, [Gx, Gy, Gz, Gt])
-
         gpuid += _GPUID
         _GPUID = gpuid
 
-        if _CUDA_BACKEND == "cupy":
+        _CUDA_BACKEND = backend
+
+        if backend == "cupy":
             cuda.Device(gpuid).use()
             cc = cuda.Device(gpuid).compute_capability
             _COMPUTE_CAPABILITY = _ComputeCapability(int(cc[:-1]), int(cc[-1]))
             allocator = cuda.PythonFunctionAllocator(malloc_pyquda.pyquda_cupy_malloc, malloc_pyquda.pyquda_cupy_free)
             cuda.set_allocator(allocator.malloc)
-        elif _CUDA_BACKEND == "torch":
+        elif backend == "torch":
             cuda.set_device(gpuid)
             cc = cuda.get_device_capability(gpuid)
             _COMPUTE_CAPABILITY = _ComputeCapability(cc[0], cc[1])
 
+        quda.initCommsGridQuda(4, [Gx, Gy, Gz, Gt])
         quda.initQuda(gpuid)
         atexit.register(quda.endQuda)
     else:
@@ -127,12 +130,6 @@ def setGPUID(gpuid: int):
 
 def getGPUID():
     return _GPUID
-
-
-def setCUDABackend(backend: Literal["cupy", "torch"]):
-    assert backend in ["cupy", "torch"], f"Unsupported backend {backend}"
-    global _CUDA_BACKEND
-    _CUDA_BACKEND = backend
 
 
 def getCUDABackend():

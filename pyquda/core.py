@@ -4,14 +4,12 @@ from math import sqrt
 from . import pyquda as quda
 from . import enum_quda
 from .field import (
+    LatticeInfo,
     LatticeGauge,
     LatticeFermion,
     LatticePropagator,
     LatticeStaggeredFermion,
     LatticeStaggeredPropagator,
-    Nc,
-    Nd,
-    Ns,
     lexico,
     cb2,
 )
@@ -60,16 +58,16 @@ def invert(
     rho: float = 0.0,
     nsteps: int = 1,
 ):
-    latt_size = dslash.gauge_param.X
+    latt_info = LatticeInfo(dslash.gauge_param.X)
+    Vol = latt_info.volume
+    Ns, Nc = latt_info.Ns, latt_info.Nc
     xi = dslash.gauge_param.anisotropy
-    Lx, Ly, Lz, Lt = latt_size
-    Vol = Lx * Ly * Lz * Lt
 
-    prop = LatticePropagator(latt_size)
+    prop = LatticePropagator(latt_info)
     data = prop.data.reshape(Vol, Ns, Ns, Nc, Nc)
     for spin in range(Ns):
         for color in range(Nc):
-            b = source(latt_size, source_type, t_srce, spin, color, source_phase, rho, nsteps, xi)
+            b = source(latt_info.size, source_type, t_srce, spin, color, source_phase, rho, nsteps, xi)
             x = dslash.invert(b)
             data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
 
@@ -84,15 +82,15 @@ def invertStaggered(
     rho: float = 0.0,
     nsteps: int = 1,
 ):
-    latt_size = dslash.gauge_param.X
+    latt_info = LatticeInfo(dslash.gauge_param.X)
+    Vol = latt_info.volume
+    Nc = latt_info.Nc
     xi = dslash.gauge_param.anisotropy
-    Lx, Ly, Lz, Lt = latt_size
-    Vol = Lx * Ly * Lz * Lt
 
-    prop = LatticeStaggeredPropagator(latt_size)
+    prop = LatticeStaggeredPropagator(latt_info)
     data = prop.data.reshape(Vol, Nc, Nc)
     for color in range(Nc):
-        b = source(latt_size, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
+        b = source(latt_info.size, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
         x = dslash.invert(b)
         data[:, :, color] = x.data.reshape(Vol, Nc)
 
@@ -100,14 +98,14 @@ def invertStaggered(
 
 
 def invert12(b12: LatticePropagator, dslash: Dslash):
-    latt_size = b12.latt_size
-    Lx, Ly, Lz, Lt = latt_size
-    Vol = Lx * Ly * Lz * Lt
+    latt_info = b12.latt_info
+    Vol = latt_info.volume
+    Ns, Nc = latt_info.Ns, latt_info.Nc
 
-    x12 = LatticePropagator(latt_size)
+    x12 = LatticePropagator(latt_info)
     for spin in range(Ns):
         for color in range(Nc):
-            b = LatticeFermion(latt_size)
+            b = LatticeFermion(latt_info)
             data = b.data.reshape(Vol, Ns, Nc)
             data[:] = b12.data.reshape(Vol, Ns, Ns, Nc, Nc)[:, :, spin, :, color]
             x = dslash.invert(b)
@@ -130,6 +128,7 @@ def getDslash(
     anti_periodic_t: bool = True,
     multigrid: List[List[int]] = None,
 ):
+    Nd = 4
     xi = xi_0 / nu
     kappa = 1 / (2 * (mass + 1 + (Nd - 1) / xi))
     if xi != 1.0:
@@ -149,17 +148,18 @@ def getDslash(
             geo_block_size = [[2, 2, 2, 2], [4, 4, 4, 4]]
         else:
             geo_block_size = multigrid
+    latt_info = LatticeInfo(latt_size, t_boundary, xi)
 
     if clover_coeff != 0.0:
         from .dslash import clover_wilson
 
         return clover_wilson.CloverWilson(
-            latt_size, mass, kappa, tol, maxiter, xi, clover_coeff, clover_xi, t_boundary, geo_block_size
+            latt_info, mass, kappa, tol, maxiter, clover_coeff, clover_xi, geo_block_size
         )
     else:
         from .dslash import wilson
 
-        return wilson.Wilson(latt_size, mass, kappa, tol, maxiter, xi, t_boundary, geo_block_size)
+        return wilson.Wilson(latt_info, mass, kappa, tol, maxiter, geo_block_size)
 
 
 def getStaggeredDslash(
@@ -171,12 +171,14 @@ def getStaggeredDslash(
     naik_epsilon: float = 0.0,
     anti_periodic_t: bool = True,
 ):
+    Nd = 4
     kappa = 1 / (2 * (mass + Nd))
     if anti_periodic_t:
         t_boundary = -1
     else:
         t_boundary = 1
+    latt_info = LatticeInfo(latt_size, t_boundary, 1.0)
 
     from .dslash import hisq
 
-    return hisq.HISQ(latt_size, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, t_boundary, None)
+    return hisq.HISQ(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, None)

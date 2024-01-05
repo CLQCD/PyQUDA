@@ -5,17 +5,18 @@ import numpy as np
 import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
-# sys.path.insert(0, os.path.join(test_dir, ".."))
+# sys.path.insert(1, os.path.join(test_dir, ".."))
 from pyquda import core, init
 from pyquda.utils import gamma, phase, io
+from pyquda.field import LatticeInfo
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
-latt_size = [4, 4, 4, 8]
-Lx, Ly, Lz, Lt = latt_size
-Vol = Lx * Ly * Lz * Lt
-Nc, Ns, Nd = 3, 4, 4
 init()
+latt_info = LatticeInfo([4, 4, 4, 8])
+Lx, Ly, Lz, Lt = latt_info.size
+Vol = latt_info.volume
+Nc, Ns, Nd = 3, 4, 4
 
 xi_0, nu = 4.8965, 0.86679
 mass = 0.09253
@@ -33,10 +34,10 @@ gamma_insertion = [(gamma5, gamma5), (gamma4 @ gamma5, gamma4 @ gamma5)]
 
 mom_list = phase.getMomList(9)
 mom_num = len(mom_list)
-mom_phase = phase.Phase(latt_size)
+mom_phase = phase.Phase(latt_info.size)
 phase_list = mom_phase.cache(mom_list)
 
-dslash = core.getDslash(latt_size, mass, 1e-9, 1000, xi_0, nu, coeff_t, coeff_r, multigrid=True)
+dslash = core.getDslash(latt_info.size, mass, 1e-9, 1000, xi_0, nu, coeff_t, coeff_r, multigrid=True)
 twopt = np.zeros((Lt, Lt, len(gamma_insertion), mom_num), "<c16")
 
 

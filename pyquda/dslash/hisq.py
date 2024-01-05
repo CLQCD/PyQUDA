@@ -1,7 +1,7 @@
 from typing import List
 
 from ..pyquda import newMultigridQuda, destroyMultigridQuda
-from ..field import LatticeGauge, LatticeStaggeredFermion
+from ..field import LatticeInfo, LatticeGauge, LatticeStaggeredFermion
 from ..enum_quda import QudaDslashType, QudaInverterType, QudaSolveType, QudaPrecision
 
 from . import Dslash, general
@@ -10,30 +10,27 @@ from . import Dslash, general
 class HISQ(Dslash):
     def __init__(
         self,
-        latt_size: List[int],
+        latt_info: LatticeInfo,
         mass: float,
         kappa: float,
         tol: float,
         maxiter: int,
         tadpole_coeff: float = 1.0,
         naik_epsilon: float = 0.0,
-        t_boundary: int = -1,
         geo_block_size: List[List[int]] = None,
     ) -> None:
         cuda_prec_sloppy = general.cuda_prec_sloppy
         if geo_block_size is not None and cuda_prec_sloppy < QudaPrecision.QUDA_SINGLE_PRECISION:
             general.cuda_prec_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION  # Using half with multigrid doesn't work
         self.mg_instance = None
-        self.newQudaGaugeParam(latt_size, 1.0, t_boundary, tadpole_coeff, naik_epsilon)
+        self.newQudaGaugeParam(latt_info, tadpole_coeff, naik_epsilon)
         self.newQudaMultigridParam(geo_block_size, mass, kappa, 1e-1, 12, 5e-6, 1000, 0, 8)
         self.newQudaInvertParam(mass, kappa, tol, maxiter)
         if geo_block_size is not None and cuda_prec_sloppy < QudaPrecision.QUDA_SINGLE_PRECISION:
             general.cuda_prec_sloppy = cuda_prec_sloppy
 
-    def newQudaGaugeParam(
-        self, latt_size: List[int], anisotropy: float, t_boundary: int, tadpole_coeff: float, naik_epsilon: float
-    ):
-        gauge_param = general.newQudaGaugeParam(latt_size, anisotropy, t_boundary, tadpole_coeff, naik_epsilon)
+    def newQudaGaugeParam(self, latt_info: LatticeInfo, tadpole_coeff: float, naik_epsilon: float):
+        gauge_param = general.newQudaGaugeParam(latt_info, tadpole_coeff, naik_epsilon)
         self.gauge_param = gauge_param
 
     def newQudaMultigridParam(
