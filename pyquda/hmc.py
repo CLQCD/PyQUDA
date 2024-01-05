@@ -37,7 +37,7 @@ from .enum_quda import (
     QudaReconstructType,
     QudaDagType,
 )
-from .core import getDslash
+from .core import getDirac
 
 nullptr = Pointers("void", 0)
 
@@ -45,24 +45,21 @@ nullptr = Pointers("void", 0)
 class HMC:
     def __init__(
         self,
-        latt_size: List[int],
+        latt_info: LatticeInfo,
         mass: float,
         tol: float,
         maxiter: int,
         clover_coeff: float = 0.0,
-        anti_periodic_t=True,
         stout_nstep: int = 0,
         stout_rho: float = 0.0,
         stout_ndim: Literal[3, 4] = 4,
     ) -> None:
-        self.dslash = getDslash(
-            latt_size, mass, tol, maxiter, clover_coeff_t=clover_coeff, anti_periodic_t=anti_periodic_t
-        )
+        self.dirac = getDirac(latt_info, mass, tol, maxiter, clover_coeff_t=clover_coeff)
 
-        self.latt_info = LatticeInfo(latt_size)
+        self.latt_info = latt_info
         self.updated_clover = False
-        self.gauge_param: QudaGaugeParam = self.dslash.gauge_param
-        self.invert_param: QudaInvertParam = self.dslash.invert_param
+        self.gauge_param: QudaGaugeParam = self.dirac.gauge_param
+        self.invert_param: QudaInvertParam = self.dirac.invert_param
         self.smear_param = QudaGaugeSmearParam()
         self.obs_param = QudaGaugeObservableParam()
 

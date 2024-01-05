@@ -22,12 +22,12 @@ tag = "A1"
 
 # init()
 init(backend="torch")
-latt_info = LatticeInfo(ensembles[tag][0])
+latt_info = LatticeInfo(ensembles[tag][0], -1)
 beta = ensembles[tag][1]
 
 gauge = LatticeGauge(latt_info, None)
 
-hmc = HMC(latt_info.global_size, 0, 0, 0)
+hmc = HMC(latt_info, 0, 0, 0)
 hmc.loadGauge(gauge)
 hmc.loadMom(gauge)
 

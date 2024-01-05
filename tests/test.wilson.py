@@ -17,7 +17,7 @@ xi_0, nu = 2.464, 0.95
 kappa = 0.135
 mass = 1 / (2 * kappa) - 4
 
-dslash = core.getDslash(latt_info.global_size, mass, 1e-9, 1000, xi_0, nu, multigrid=False)
+dslash = core.getDslash(latt_info.size, mass, 1e-9, 1000, xi_0, nu, multigrid=False)
 gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
 
 dslash.loadGauge(gauge)

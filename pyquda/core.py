@@ -69,7 +69,7 @@ def invert(
     data = prop.data.reshape(Vol, Ns, Ns, Nc, Nc)
     for spin in range(Ns):
         for color in range(Nc):
-            b = source(latt_info.global_size, source_type, t_srce, spin, color, source_phase, rho, nsteps, xi)
+            b = source(latt_info.size, source_type, t_srce, spin, color, source_phase, rho, nsteps, xi)
             x = dslash.invert(b)
             data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
 
@@ -91,7 +91,7 @@ def invertStaggered(
     prop = LatticeStaggeredPropagator(latt_info)
     data = prop.data.reshape(Vol, Nc, Nc)
     for color in range(Nc):
-        b = source(latt_info.global_size, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
+        b = source(latt_info.size, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
         x = dslash.invert(b)
         data[:, :, color] = x.data.reshape(Vol, Nc)
 
@@ -128,7 +128,12 @@ def getDslash(
     anti_periodic_t: bool = True,
     multigrid: List[List[int]] = None,
 ):
-    Nd = 4
+    from . import getGridSize
+
+    Gx, Gy, Gz, Gt = getGridSize()
+    Lx, Ly, Lz, Lt = latt_size
+    Lx, Ly, Lz, Lt = Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt
+
     xi = xi_0 / nu
     kappa = 1 / (2 * (mass + 1 + (Nd - 1) / xi))
     if xi != 1.0:
@@ -148,7 +153,7 @@ def getDslash(
             geo_block_size = [[2, 2, 2, 2], [4, 4, 4, 4]]
         else:
             geo_block_size = multigrid
-    latt_info = LatticeInfo(latt_size, t_boundary, xi)
+    latt_info = LatticeInfo([Lx, Ly, Lz, Lt], t_boundary, xi)
 
     if clover_coeff != 0.0:
         from .dirac import clover_wilson
@@ -169,13 +174,18 @@ def getStaggeredDslash(
     naik_epsilon: float = 0.0,
     anti_periodic_t: bool = True,
 ):
-    Nd = 4
+    from . import getGridSize
+
+    Gx, Gy, Gz, Gt = getGridSize()
+    Lx, Ly, Lz, Lt = latt_size
+    Lx, Ly, Lz, Lt = Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt
+
     kappa = 1 / (2 * (mass + Nd))
     if anti_periodic_t:
         t_boundary = -1
     else:
         t_boundary = 1
-    latt_info = LatticeInfo(latt_size, t_boundary, 1.0)
+    latt_info = LatticeInfo([Lx, Ly, Lz, Lt], t_boundary, 1.0)
 
     from .dirac import hisq
 

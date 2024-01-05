@@ -37,7 +37,7 @@ mom_num = len(mom_list)
 mom_phase = phase.Phase(latt_info.size)
 phase_list = mom_phase.cache(mom_list)
 
-dslash = core.getDslash(latt_info.global_size, mass, 1e-9, 1000, xi_0, nu, coeff_t, coeff_r, multigrid=True)
+dslash = core.getDslash(latt_info.size, mass, 1e-9, 1000, xi_0, nu, coeff_t, coeff_r, multigrid=True)
 twopt = np.zeros((Lt, Lt, len(gamma_insertion), mom_num), "<c16")
 
 

@@ -5,7 +5,7 @@ from xml.etree import ElementTree as ET
 
 import numpy
 
-from ...field import Nc, Nd, LatticeInfo, cb2, LatticeGauge
+from ...field import Ns, Nc, Nd, LatticeInfo, cb2, LatticeGauge
 
 precision_map = {"D": 8, "S": 4}
 
@@ -59,11 +59,13 @@ def readQIO(filename: str):
     # tag = re.match(r"\{.*\}", ildg_format.getroot().tag).group(0)
     # precision = int(ildg_format.find(f"{tag}precision").text)
     precision = precision_map[scidac_private_record_xml.find("precision").text]
-    Ns = int(scidac_private_record_xml.find("spins").text)
-    Nc = int(scidac_private_record_xml.find("colors").text)
-    Nd = int(scidac_private_file_xml.find("spacetime").text)
-    assert int(scidac_private_record_xml.find("datacount").text) == Nd
+    assert int(scidac_private_record_xml.find("colors").text) == Nc
+    assert (
+        int(scidac_private_record_xml.find("spins").text) == Ns
+        or int(scidac_private_record_xml.find("spins").text) == 1
+    )
     assert int(scidac_private_record_xml.find("typesize").text) == Nc * Nc * 2 * precision
+    assert int(scidac_private_record_xml.find("datacount").text) == Nd
     dtype = f">c{2*precision}"
     # latt_size = [
     #     int(ildg_format.find(f"{tag}lx").text),
@@ -71,6 +73,7 @@ def readQIO(filename: str):
     #     int(ildg_format.find(f"{tag}lz").text),
     #     int(ildg_format.find(f"{tag}lt").text),
     # ]
+    assert int(scidac_private_file_xml.find("spacetime").text) == Nd
     latt_size = map(int, scidac_private_file_xml.find("dims").text.split())
     latt_info = LatticeInfo(latt_size, 1, 1)
 

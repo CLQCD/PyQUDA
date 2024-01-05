@@ -13,7 +13,7 @@ os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 init()
 latt_info = LatticeInfo([4, 4, 4, 8])
 
-dslash = core.getDslash(latt_info.global_size, 0, 0, 0, anti_periodic_t=False)
+dslash = core.getDslash(latt_info.size, 0, 0, 0, anti_periodic_t=False)
 gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
 
 

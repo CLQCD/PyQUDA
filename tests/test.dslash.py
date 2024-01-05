@@ -19,7 +19,7 @@ Lx, Ly, Lz, Lt = latt_info.size
 def gaussGauge(latt_info: LatticeInfo, seed: int):
     gauge = LatticeGauge(latt_info, None)
 
-    dslash = core.getDslash(latt_info.global_size, 0, 0, 0, anti_periodic_t=False)
+    dslash = core.getDslash(latt_info.size, 0, 0, 0, anti_periodic_t=False)
     dslash.gauge_param.use_resident_gauge = 0
     quda.loadGaugeQuda(gauge.data_ptrs, dslash.gauge_param)
     dslash.gauge_param.use_resident_gauge = 1
@@ -31,7 +31,7 @@ def gaussGauge(latt_info: LatticeInfo, seed: int):
 
 def applyDslash(Mp, p, U_seed):
     # Set parameters in Dslash and use m=-3.5 to make kappa=1
-    dslash = core.getDslash(latt_info.global_size, -3.5, 0, 0, anti_periodic_t=False)
+    dslash = core.getDslash(latt_info.size, -3.5, 0, 0, anti_periodic_t=False)
 
     # Generate gauge and then load it
     U = gaussGauge(latt_info, U_seed)
