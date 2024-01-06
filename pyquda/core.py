@@ -156,13 +156,13 @@ def getDslash(
     latt_info = LatticeInfo([Lx, Ly, Lz, Lt], t_boundary, xi)
 
     if clover_coeff != 0.0:
-        from .dirac import clover_wilson
+        from .dirac.clover_wilson import CloverWilson
 
-        return clover_wilson.CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_coeff, clover_xi, geo_block_size)
+        return CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_coeff, clover_xi, geo_block_size)
     else:
-        from .dirac import wilson
+        from .dirac.wilson import Wilson
 
-        return wilson.Wilson(latt_info, mass, kappa, tol, maxiter, geo_block_size)
+        return Wilson(latt_info, mass, kappa, tol, maxiter, geo_block_size)
 
 
 def getStaggeredDslash(
@@ -187,9 +187,9 @@ def getStaggeredDslash(
         t_boundary = 1
     latt_info = LatticeInfo([Lx, Ly, Lz, Lt], t_boundary, 1.0)
 
-    from .dirac import hisq
+    from .dirac.hisq import HISQ
 
-    return hisq.HISQ(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, None)
+    return HISQ(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, None)
 
 
 def getDirac(
@@ -219,13 +219,13 @@ def getDirac(
             geo_block_size = multigrid
 
     if clover_coeff != 0.0:
-        from .dirac import clover_wilson
+        from .dirac.clover_wilson import CloverWilson
 
-        return clover_wilson.CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_coeff, clover_xi, geo_block_size)
+        return CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_coeff, clover_xi, geo_block_size)
     else:
-        from .dirac import wilson
+        from .dirac.wilson import Wilson
 
-        return wilson.Wilson(latt_info, mass, kappa, tol, maxiter, geo_block_size)
+        return Wilson(latt_info, mass, kappa, tol, maxiter, geo_block_size)
 
 
 def getStaggeredDirac(
@@ -239,6 +239,6 @@ def getStaggeredDirac(
     assert latt_info.anisotropy == 1.0
     kappa = 1 / (2 * (mass + Nd))
 
-    from .dirac import hisq
+    from .dirac.hisq import HISQ
 
-    return hisq.HISQ(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, None)
+    return HISQ(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, None)

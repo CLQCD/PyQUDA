@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import Literal
 
 import numpy
 
@@ -7,12 +7,10 @@ from .pyquda import (
     QudaGaugeObservableParam,
     QudaGaugeParam,
     QudaInvertParam,
-    QudaMultigridParam,
     QudaGaugeSmearParam,
     loadCloverQuda,
     freeCloverQuda,
     loadGaugeQuda,
-    performGaugeSmearQuda,
     saveGaugeQuda,
     updateGaugeFieldQuda,
     MatQuda,
@@ -21,9 +19,11 @@ from .pyquda import (
     momResidentQuda,
     gaussMomQuda,
     momActionQuda,
+    plaqQuda,
     computeCloverForceQuda,
     computeGaugeForceQuda,
     computeGaugeLoopTraceQuda,
+    performGaugeSmearQuda,
 )
 from .field import Ns, Nc, LatticeInfo, LatticeGauge, LatticeFermion
 from .enum_quda import (
@@ -63,15 +63,6 @@ class HMC:
         self.smear_param = QudaGaugeSmearParam()
         self.obs_param = QudaGaugeObservableParam()
 
-        self.gauge_param.overwrite_gauge = 0
-        self.gauge_param.overwrite_mom = 0
-        self.gauge_param.use_resident_gauge = 1
-        self.gauge_param.use_resident_mom = 1
-        self.gauge_param.make_resident_gauge = 1
-        self.gauge_param.make_resident_mom = 1
-        self.gauge_param.return_result_gauge = 0
-        self.gauge_param.return_result_mom = 0
-
         self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION
         self.invert_param.verbosity = QudaVerbosity.QUDA_SILENT
@@ -93,10 +84,9 @@ class HMC:
         gauge_in = gauge.copy()
         if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
             gauge_in.setAntiPeroidicT()
-        use_resident_gauge = self.gauge_param.use_resident_gauge
         self.gauge_param.use_resident_gauge = 0
         loadGaugeQuda(gauge_in.data_ptrs, self.gauge_param)
-        self.gauge_param.use_resident_gauge = use_resident_gauge
+        self.gauge_param.use_resident_gauge = 1
         self.updated_clover = False
 
     def saveGauge(self, gauge: LatticeGauge):
@@ -158,13 +148,13 @@ class HMC:
         self.loadGauge(gauge)
 
     def loadMom(self, mom: LatticeGauge):
-        make_resident_mom = self.gauge_param.make_resident_mom
-        return_result_mom = self.gauge_param.return_result_mom
-        self.gauge_param.make_resident_mom = 1
-        self.gauge_param.return_result_mom = 0
+        # make_resident_mom = self.gauge_param.make_resident_mom
+        # return_result_mom = self.gauge_param.return_result_mom
+        # self.gauge_param.make_resident_mom = 1
+        # self.gauge_param.return_result_mom = 0
         momResidentQuda(mom.data_ptrs, self.gauge_param)
-        self.gauge_param.make_resident_mom = make_resident_mom
-        self.gauge_param.return_result_mom = return_result_mom
+        # self.gauge_param.make_resident_mom = make_resident_mom
+        # self.gauge_param.return_result_mom = return_result_mom
 
     def gaussMom(self, seed: int):
         gaussMomQuda(seed, 1.0)
@@ -189,6 +179,9 @@ class HMC:
         self.updateClover()
         invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
         return self.invert_param.action[0] - self.latt_info.volume_cb2 * Ns * Nc - 2 * self.invert_param.trlogA[1]
+
+    def plaquette(self):
+        return plaqQuda()[0]
 
     def updateClover(self):
         if not self.updated_clover:

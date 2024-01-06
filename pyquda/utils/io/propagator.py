@@ -7,7 +7,7 @@ import numpy
 
 from ...field import Ns, Nc, Nd, LatticeInfo, LatticePropagator, LatticeStaggeredPropagator, cb2
 
-precision_map = {"D": 8, "S": 4}
+_precision_map = {"D": 8, "S": 4}
 
 
 def fromSCIDACBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo, staggered: bool):
@@ -57,7 +57,7 @@ def readQIO(filename: str):
         )
         f.seek(meta["scidac-binary-data"][0])
         scidac_binary_data = f.read(meta["scidac-binary-data"][1])
-    precision = precision_map[scidac_private_record_xml.find("precision").text]
+    precision = _precision_map[scidac_private_record_xml.find("precision").text]
     assert int(scidac_private_record_xml.find("colors").text) == Nc
     assert int(scidac_private_record_xml.find("spins").text) == Ns
     typesize = int(scidac_private_record_xml.find("typesize").text)

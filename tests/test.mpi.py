@@ -20,7 +20,7 @@ kappa = 0.115
 coeff = 1.17
 coeff_r, coeff_t = 0.91, 1.07
 mass = 1 / (2 * kappa) - 4
-dslash = core.getDslash(latt_info.size, mass, 1e-9, 1000, xi_0, nu, coeff_t, coeff_r)
+dslash = core.getDslash(latt_info.size, mass, 1e-12, 1000, xi_0, nu, coeff_t, coeff_r)
 
 gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
 

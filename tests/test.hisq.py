@@ -7,10 +7,6 @@ test_dir = os.path.dirname(os.path.abspath(__file__))
 from pyquda import core, init
 from pyquda.utils import io
 from pyquda.field import LatticeInfo
-from pyquda.dirac import general
-
-general.link_recon = 18
-general.link_recon_sloppy = 18
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
@@ -43,3 +39,7 @@ dslash.destroy()
 propagator_chroma = io.readQIOPropagator("pt_prop_2")
 propagator_chroma.toDevice()
 print(cp.linalg.norm(propagator.data - propagator_chroma.data))
+
+twopt = cp.einsum("etzyxab,etzyxab->t", propagator.data.conj(), propagator.data)
+twopt_chroma = cp.einsum("etzyxab,etzyxab->t", propagator_chroma.data.conj(), propagator_chroma.data)
+print(cp.linalg.norm(twopt - twopt_chroma))

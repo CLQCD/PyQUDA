@@ -4,7 +4,7 @@ import numpy as np
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(1, os.path.join(test_dir, ".."))
-from pyquda import quda, init
+from pyquda import init
 from pyquda.hmc import HMC
 from pyquda.field import Nc, LatticeInfo, LatticeGauge
 
@@ -150,7 +150,7 @@ theta_ = -0.03230286765269967
 vartheta_ = 0.08398315262876693
 lambda_ = 0.6822365335719091
 
-plaquette = quda.plaqQuda()[0]
+plaquette = hmc.plaquette()
 print(f"\nplaquette = {plaquette}\n")
 
 t = 1.0
@@ -192,7 +192,7 @@ for i in range(100):
     else:
         hmc.loadGauge(gauge)
 
-    plaquette = quda.plaqQuda()[0]
+    plaquette = hmc.plaquette()
 
     print(
         f"Step {i}:\n"

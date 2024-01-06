@@ -19,19 +19,20 @@ class CloverWilson(Dirac):
         clover_xi: float = 1.0,
         geo_block_size: List[List[int]] = None,
     ) -> None:
-        self.latt_info = latt_info
+        super().__init__(latt_info)
         cuda_prec_sloppy = general.cuda_prec_sloppy
-        if geo_block_size is not None and cuda_prec_sloppy < QudaPrecision.QUDA_SINGLE_PRECISION:
-            general.cuda_prec_sloppy = QudaPrecision.QUDA_SINGLE_PRECISION  # Using half with multigrid doesn't work
+        single_prec = QudaPrecision.QUDA_SINGLE_PRECISION
+        if geo_block_size is not None and cuda_prec_sloppy < single_prec:
+            general.cuda_prec_sloppy = single_prec  # Using half with multigrid doesn't work
         self.mg_instance = None
-        self.newQudaGaugeParam(latt_info)
+        self.newQudaGaugeParam()
         self.newQudaMultigridParam(geo_block_size, mass, kappa, 1e-1, 12, 5e-6, 1000, 0, 8)
         self.newQudaInvertParam(mass, kappa, tol, maxiter, clover_coeff, clover_xi)
-        if geo_block_size is not None and cuda_prec_sloppy < QudaPrecision.QUDA_SINGLE_PRECISION:
+        if geo_block_size is not None and cuda_prec_sloppy < single_prec:
             general.cuda_prec_sloppy = cuda_prec_sloppy
 
-    def newQudaGaugeParam(self, latt_info: LatticeInfo):
-        gauge_param = general.newQudaGaugeParam(latt_info, 1.0, 0.0)
+    def newQudaGaugeParam(self):
+        gauge_param = general.newQudaGaugeParam(self.latt_info, 1.0, 0.0)
         self.gauge_param = gauge_param
 
     def newQudaMultigridParam(
@@ -70,9 +71,9 @@ class CloverWilson(Dirac):
             invert_param.dslash_type = QudaDslashType.QUDA_CLOVER_WILSON_DSLASH
         self.invert_param = invert_param
 
-    def loadGauge(self, U: LatticeGauge):
-        general.loadClover(U, self.gauge_param, self.invert_param)
-        general.loadGauge(U, self.gauge_param)
+    def loadGauge(self, gauge: LatticeGauge):
+        general.loadClover(gauge, self.gauge_param, self.invert_param)
+        general.loadGauge(gauge, self.gauge_param)
         if self.mg_param is not None:
             if self.mg_instance is not None:
                 self.destroy()

@@ -418,6 +418,8 @@ class QudaGaugeObservableParam:
     su_project: QudaBoolean
     compute_plaquette: QudaBoolean
     plaquette: List[double, 3]
+    compute_polyakov_loop: QudaBoolean
+    ploop: List[double, 2]
     compute_gauge_loop_trace: QudaBoolean
     traces: Pointer
     input_path_buff: Pointers
@@ -431,6 +433,7 @@ class QudaGaugeObservableParam:
     energy: List[double, 3]
     compute_qcharge_density: QudaBoolean
     qcharge_density: Pointer
+    remove_staggered_phase: QudaBoolean
 
 class QudaGaugeSmearParam:
     def __init__(self) -> None: ...

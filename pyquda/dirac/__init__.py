@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import List
 
 from ..pointer import Pointer
 from ..pyquda import QudaGaugeParam, QudaInvertParam, QudaMultigridParam
@@ -14,36 +13,11 @@ class Dirac(ABC):
     mg_inv_param: QudaInvertParam
     mg_instance: Pointer
 
-    @abstractmethod
-    def __init__(self) -> None:
-        pass
+    def __init__(self, latt_info: LatticeInfo) -> None:
+        self.latt_info = latt_info
 
     @abstractmethod
-    def newQudaGaugeParam(self, latt_info: LatticeInfo, *args, **kwargs):
-        pass
-
-    @abstractmethod
-    def newQudaMultigridParam(
-        self,
-        multigrid: bool,
-        mass: float,
-        kappa: float,
-        geo_block_size: List[List[int]],
-        coarse_tol: float,
-        coarse_maxiter: int,
-        setup_tol: float,
-        setup_maxiter: int,
-        nu_pre: int,
-        nu_post: int,
-    ):
-        pass
-
-    @abstractmethod
-    def newQudaInvertParam(self, mass: float, kappa: float, tol: float, maxiter: float, *args, **kwargs):
-        pass
-
-    @abstractmethod
-    def loadGauge(self, U: LatticeGauge):
+    def loadGauge(self, gauge: LatticeGauge):
         pass
 
     @abstractmethod

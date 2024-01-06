@@ -14,7 +14,7 @@
         <Frequency>1</Frequency>
         <Param>
           <version>1</version>
-          <GFAccu>1.0e-15</GFAccu>
+          <GFAccu>2e-15</GFAccu>
           <GFMax>1000</GFMax>
           <OrDo>false</OrDo>
           <OrPara>1.0</OrPara>

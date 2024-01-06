@@ -5,9 +5,9 @@ from xml.etree import ElementTree as ET
 
 import numpy
 
-from ...field import Ns, Nc, Nd, LatticeInfo, cb2, LatticeGauge
+from ...field import Ns, Nc, Nd, LatticeInfo, LatticeGauge, cb2
 
-precision_map = {"D": 8, "S": 4}
+_precision_map = {"D": 8, "S": 4}
 
 
 def fromILDGBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
@@ -58,7 +58,7 @@ def readQIO(filename: str):
         ildg_binary_data = f.read(meta["ildg-binary-data"][1])
     # tag = re.match(r"\{.*\}", ildg_format.getroot().tag).group(0)
     # precision = int(ildg_format.find(f"{tag}precision").text)
-    precision = precision_map[scidac_private_record_xml.find("precision").text]
+    precision = _precision_map[scidac_private_record_xml.find("precision").text]
     assert int(scidac_private_record_xml.find("colors").text) == Nc
     assert (
         int(scidac_private_record_xml.find("spins").text) == Ns

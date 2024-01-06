@@ -17,7 +17,7 @@ dslash = core.getDslash(latt_info.size, 0, 0, 0, anti_periodic_t=False)
 gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
 
 
-quda.computeGaugeFixingOVRQuda(gauge.data_ptrs, 4, 1000, 1, 1.0, 1e-15, 1, 1, dslash.gauge_param)
+quda.computeGaugeFixingOVRQuda(gauge.data_ptrs, 4, 1000, 1, 1.0, 2e-15, 1, 1, dslash.gauge_param)
 
 land_gauge = io.readQIOGauge("coul_cfg.lime")
 print(np.linalg.norm(land_gauge.data - gauge.data))
