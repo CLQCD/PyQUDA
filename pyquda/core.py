@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Literal, Union
 from math import sqrt
 
 from . import pyquda as quda
@@ -18,6 +18,42 @@ from .field import (
 )
 from .dirac import Dirac
 from .utils.source import source
+
+_DEFAULT_LATTICE: LatticeInfo = None
+
+
+def setDefaultLattice(latt_size: List[int], t_boundary: Literal[1, -1] = -1, anisotropy: float = 1.0):
+    global _DEFAULT_LATTICE
+    _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
+
+
+def getDefaultLattice():
+    return _DEFAULT_LATTICE
+
+
+class LatticeGaugeDefault(LatticeGauge):
+    def __init__(self, value=None) -> None:
+        super().__init__(_DEFAULT_LATTICE, value)
+
+
+class LatticeFermionDefault(LatticeFermion):
+    def __init__(self, value=None) -> None:
+        super().__init__(_DEFAULT_LATTICE, value)
+
+
+class LatticePropagatorDefault(LatticePropagator):
+    def __init__(self, value=None) -> None:
+        super().__init__(_DEFAULT_LATTICE, value)
+
+
+class LatticeStaggeredFermionDefault(LatticeStaggeredFermion):
+    def __init__(self, value=None) -> None:
+        super().__init__(_DEFAULT_LATTICE, value)
+
+
+class LatticeStaggeredPropagatorDefault(LatticeStaggeredPropagator):
+    def __init__(self, value=None) -> None:
+        super().__init__(_DEFAULT_LATTICE, value)
 
 
 def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):

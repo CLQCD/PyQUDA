@@ -5,7 +5,6 @@ from mpi4py import MPI
 
 __version__ = "0.5.0"
 from . import pyquda as quda
-from .field import LatticeInfo
 
 
 class _ComputeCapability(NamedTuple):
@@ -21,7 +20,6 @@ _GRID_COORD: List[int] = [0, 0, 0, 0]
 _GPUID: int = 0
 _CUDA_BACKEND: Literal["cupy", "torch"] = "cupy"
 _COMPUTE_CAPABILITY: _ComputeCapability = _ComputeCapability(0, 0)
-_DEFAULT_LATTICE: LatticeInfo = None
 
 
 def getRankFromCoord(coord: List[int], grid: List[int]) -> int:
@@ -140,15 +138,6 @@ def getCUDABackend():
 
 def getCUDAComputeCapability():
     return _COMPUTE_CAPABILITY
-
-
-def setDefaultLattice(latt_size: List[int], t_boundary: Literal[1, -1] = -1, anisotropy: float = 1.0):
-    global _DEFAULT_LATTICE
-    _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
-
-
-def getDefaultLattice():
-    return _DEFAULT_LATTICE
 
 
 def gather(data, axes: List[int] = [-1, -1, -1, -1], mode: str = None, root: int = 0):
