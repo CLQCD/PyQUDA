@@ -16,7 +16,10 @@ class LatticeInfo:
         t_boundary: Literal[1, -1] = -1,
         anisotropy: float = 1.0,
     ) -> None:
-        from . import getGridSize, getGridCoord
+        from . import getMPIComm, getGridSize, getGridCoord
+
+        if getMPIComm() is None:
+            raise RuntimeError("pyquda.init() must be called before contructing LatticeInfo")
 
         Gx, Gy, Gz, Gt = getGridSize()
         gx, gy, gz, gt = getGridCoord()
