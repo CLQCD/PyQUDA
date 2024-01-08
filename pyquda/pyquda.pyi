@@ -444,8 +444,12 @@ class QudaGaugeSmearParam:
     epsilon: double
     alpha: double
     rho: double
+    alpha1: double
+    alpha2: double
+    alpha3: double
     meas_interval: int
     smear_type: QudaGaugeSmearType
+    dir_ignore: int
 
 class QudaBLASParam:
     def __init__(self) -> None: ...

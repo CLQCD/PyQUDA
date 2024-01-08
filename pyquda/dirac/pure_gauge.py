@@ -56,27 +56,35 @@ class PureGauge:
         saveGaugeQuda(gauge.data_ptrs, self.gauge_param)
         self.gauge_param.type = QudaLinkType.QUDA_WILSON_LINKS
 
-    def smearAPE(self, n_steps: int, alpha: float, dir: int):
+    def smearAPE(self, n_steps: int, alpha: float, dir_ignore: int):
+        dimAPE = 3 if dir_ignore >= 0 and dir_ignore <= 3 else 4
         self.smear_param.n_steps = n_steps
-        self.smear_param.alpha = alpha
+        self.smear_param.alpha = (dimAPE - 1) / (dimAPE - 1 + alpha / 2)  # Match with chroma
         self.smear_param.meas_interval = n_steps + 1
-        if dir == 3:
-            self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_APE
-        else:
-            raise NotImplementedError("Applying APE in 4 dimensions not implemented")
+        self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_APE
+        self.smear_param.dir_ignore = dir_ignore
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_TRUE
         performGaugeSmearQuda(self.smear_param, self.obs_param)
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
 
-    def smearSTOUT(self, n_steps: int, rho: float, dir: int):
+    def smearSTOUT(self, n_steps: int, rho: float, dir_ignore: int):
         self.smear_param.n_steps = n_steps
         self.smear_param.rho = rho
         self.smear_param.meas_interval = n_steps + 1
-        if dir == 3:
-            self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_STOUT
-        else:
-            self.smear_param.epsilon = 1.0
-            self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_OVRIMP_STOUT
+        self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_STOUT
+        self.smear_param.dir_ignore = dir_ignore
+        self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_TRUE
+        performGaugeSmearQuda(self.smear_param, self.obs_param)
+        self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
+
+    def smearHYP(self, n_steps: int, alpha1: float, alpha2: float, alpha3: float, dir_ignore: int):
+        self.smear_param.n_steps = n_steps
+        self.smear_param.alpha1 = alpha1
+        self.smear_param.alpha2 = alpha2
+        self.smear_param.alpha3 = alpha3
+        self.smear_param.meas_interval = n_steps + 1
+        self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_HYP
+        self.smear_param.dir_ignore = dir_ignore
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_TRUE
         performGaugeSmearQuda(self.smear_param, self.obs_param)
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE

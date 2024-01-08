@@ -235,16 +235,22 @@ class LatticeGauge(LatticeField):
 
             self.pure_gauge = PureGauge(self.latt_info)
 
-    def smearAPE(self, n_steps: int, alpha: float, dir: int):
+    def smearAPE(self, n_steps: int, alpha: float, dir_ignore: int):
         self.initPureGuage()
         self.pure_gauge.loadGauge(self)
-        self.pure_gauge.smearAPE(n_steps, alpha, dir)
+        self.pure_gauge.smearAPE(n_steps, alpha, dir_ignore)
         self.pure_gauge.saveSmearedGauge(self)
 
-    def smearSTOUT(self, n_steps: int, rho: float, dir: int):
+    def smearSTOUT(self, n_steps: int, rho: float, dir_ignore: int):
         self.initPureGuage()
         self.pure_gauge.loadGauge(self)
-        self.pure_gauge.smearSTOUT(n_steps, rho, dir)
+        self.pure_gauge.smearSTOUT(n_steps, rho, dir_ignore)
+        self.pure_gauge.saveSmearedGauge(self)
+
+    def smearHYP(self, n_steps: int, alpha1: float, alpha2: float, alpha3: float, dir_ignore: int):
+        self.initPureGuage()
+        self.pure_gauge.loadGauge(self)
+        self.pure_gauge.smearHYP(n_steps, alpha1, alpha2, alpha3, dir_ignore)
         self.pure_gauge.saveSmearedGauge(self)
 
     def plaquette(self):
