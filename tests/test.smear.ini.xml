@@ -13,6 +13,37 @@
         <Name>LINK_SMEAR</Name>
         <Frequency>1</Frequency>
         <Param>
+          <version>2</version>
+          <LinkSmearingType>APE_SMEAR</LinkSmearingType>
+          <link_smear_fact>2.5</link_smear_fact>
+          <link_smear_num>1</link_smear_num>
+          <no_smear_dir>4</no_smear_dir>
+          <BlkMax>100</BlkMax>
+          <BlkAccu>2.0e-15</BlkAccu>
+        </Param>
+        <NamedObject>
+          <gauge_id>default_gauge_field</gauge_id>
+          <linksmear_id>ape</linksmear_id>
+        </NamedObject>
+      </elem>
+
+      <elem>
+        <Name>QIO_WRITE_NAMED_OBJECT</Name>
+        <Frequency>1</Frequency>
+        <NamedObject>
+          <object_id>ape</object_id>
+          <object_type>Multi1dLatticeColorMatrix</object_type>
+        </NamedObject>
+        <File>
+          <file_name>ape.lime</file_name>
+          <file_volfmt>SINGLEFILE</file_volfmt>
+        </File>
+      </elem>
+
+      <elem>
+        <Name>LINK_SMEAR</Name>
+        <Frequency>1</Frequency>
+        <Param>
           <LinkSmearingType>STOUT_SMEAR</LinkSmearingType>
           <link_smear_fact>0.241</link_smear_fact>
           <link_smear_num>1</link_smear_num>
@@ -41,34 +72,6 @@
         <Name>LINK_SMEAR</Name>
         <Frequency>1</Frequency>
         <Param>
-          <LinkSmearingType>APE_SMEAR</LinkSmearingType>
-          <link_smear_fact>2.5</link_smear_fact>
-          <link_smear_num>1</link_smear_num>
-          <no_smear_dir>4</no_smear_dir>
-        </Param>
-        <NamedObject>
-          <gauge_id>default_gauge_field</gauge_id>
-          <linksmear_id>ape</linksmear_id>
-        </NamedObject>
-      </elem>
-
-      <elem>
-        <Name>QIO_WRITE_NAMED_OBJECT</Name>
-        <Frequency>1</Frequency>
-        <NamedObject>
-          <object_id>ape</object_id>
-          <object_type>Multi1dLatticeColorMatrix</object_type>
-        </NamedObject>
-        <File>
-          <file_name>ape.lime</file_name>
-          <file_volfmt>SINGLEFILE</file_volfmt>
-        </File>
-      </elem>
-
-      <elem>
-        <Name>LINK_SMEAR</Name>
-        <Frequency>1</Frequency>
-        <Param>
           <version>5</version>
           <LinkSmearingType>HYP_SMEAR</LinkSmearingType>
           <alpha1>0.75</alpha1>
@@ -77,7 +80,7 @@
           <num_smear>1</num_smear>
           <no_smear_dir>4</no_smear_dir>
           <BlkMax>100</BlkMax>
-          <BlkAccu>1.0e-5</BlkAccu>
+          <BlkAccu>2.0e-15</BlkAccu>
         </Param>
         <NamedObject>
           <gauge_id>default_gauge_field</gauge_id>
