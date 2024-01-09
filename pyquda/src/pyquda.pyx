@@ -1545,12 +1545,12 @@ cdef class QudaInvertParam:
         self.param.use_mobius_fused_kernel = value
 
     @property
-    def distance_pc_alpha(self):
-        return self.param.distance_pc_alpha
+    def distance_pc_alpha0(self):
+        return self.param.distance_pc_alpha0
 
-    @distance_pc_alpha.setter
-    def distance_pc_alpha(self, value):
-        self.param.distance_pc_alpha = value
+    @distance_pc_alpha0.setter
+    def distance_pc_alpha0(self, value):
+        self.param.distance_pc_alpha0 = value
 
     @property
     def distance_pc_t0(self):

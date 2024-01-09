@@ -280,7 +280,7 @@ class QudaInvertParam:
     extlib_type: QudaExtLibType
     native_blas_lapack: QudaBoolean
     use_mobius_fused_kernel: QudaBoolean
-    distance_pc_alpha: double
+    distance_pc_alpha0: double
     distance_pc_t0: int
 
 class QudaEigParam:

@@ -18,16 +18,16 @@ xi_0, nu = 2.464, 0.95
 kappa = 0.115
 coeff = 1.17
 coeff_r, coeff_t = 0.91, 1.07
-alpha = 0.4
+alpha0 = 0.4
 t0 = 0
 
 mass = 1 / (2 * kappa) - 4
 
-from pyquda.dslash import general
+from pyquda.dirac import general
 
 dslash = core.getDslash(latt_size, mass, 1e-9, 1000, xi_0, nu, coeff_t, coeff_r, multigrid=False)
 general.cuda_prec_sloppy = 8
-dslash.invert_param.distance_pc_alpha = alpha
+dslash.invert_param.distance_pc_alpha0 = alpha0
 dslash.invert_param.distance_pc_t0 = t0
 gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
 
