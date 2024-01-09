@@ -2,7 +2,7 @@ from typing import List
 
 import numpy
 
-from .. import mpi, getCUDABackend
+from .. import getGridSize, getGridCoord, getCUDABackend
 
 
 def isqrt(n):
@@ -40,8 +40,8 @@ def getMomDict(mom2_max, mom2_min=0):
 class Phase:
     def __init__(self, latt_size: List[int]) -> None:
         Lx, Ly, Lz, Lt = latt_size
-        Gx, Gy, Gz, Gt = mpi.grid
-        gx, gy, gz, gt = mpi.coord
+        Gx, Gy, Gz, Gt = getGridSize()
+        gx, gy, gz, gt = getGridCoord()
         x = numpy.arange(gx * Lx, (gx + 1) * Lx).reshape(1, 1, Lx).repeat(Lz, 0).repeat(Ly, 1) * (
             2j * numpy.pi / (Lx * Gx)
         )

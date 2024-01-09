@@ -420,6 +420,8 @@ class QudaGaugeObservableParam:
     su_project: QudaBoolean
     compute_plaquette: QudaBoolean
     plaquette: List[double, 3]
+    compute_polyakov_loop: QudaBoolean
+    ploop: List[double, 2]
     compute_gauge_loop_trace: QudaBoolean
     traces: Pointer
     input_path_buff: Pointers
@@ -433,6 +435,7 @@ class QudaGaugeObservableParam:
     energy: List[double, 3]
     compute_qcharge_density: QudaBoolean
     qcharge_density: Pointer
+    remove_staggered_phase: QudaBoolean
 
 class QudaGaugeSmearParam:
     def __init__(self) -> None: ...
@@ -991,9 +994,9 @@ def computeCloverForceQuda(
     inv_param: QudaInvertParam,
 ):
     """
-    Compute the clover force contributions in each dimension mu given
-    the array of solution fields, and compute the resulting momentum
-    field.
+    Compute the clover force contributions from a set of partial
+    fractions stemming from a rational approximation suitable for use
+    within MILC.
 
     @param mom:
         Force matrix

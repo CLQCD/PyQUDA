@@ -1,22 +1,59 @@
-from typing import List, Union
+from typing import List, Literal, Union
 from math import sqrt
 
 from . import pyquda as quda
 from . import enum_quda
 from .field import (
+    Ns,
+    Nc,
+    Nd,
+    LatticeInfo,
     LatticeGauge,
     LatticeFermion,
     LatticePropagator,
     LatticeStaggeredFermion,
     LatticeStaggeredPropagator,
-    Nc,
-    Nd,
-    Ns,
     lexico,
     cb2,
 )
-from .dslash import Dslash
+from .dirac import Dirac
 from .utils.source import source
+
+_DEFAULT_LATTICE: LatticeInfo = None
+
+
+def setDefaultLattice(latt_size: List[int], t_boundary: Literal[1, -1] = -1, anisotropy: float = 1.0):
+    global _DEFAULT_LATTICE
+    _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
+
+
+def getDefaultLattice():
+    return _DEFAULT_LATTICE
+
+
+class LatticeGaugeDefault(LatticeGauge):
+    def __init__(self, value=None) -> None:
+        super().__init__(_DEFAULT_LATTICE, value)
+
+
+class LatticeFermionDefault(LatticeFermion):
+    def __init__(self, value=None) -> None:
+        super().__init__(_DEFAULT_LATTICE, value)
+
+
+class LatticePropagatorDefault(LatticePropagator):
+    def __init__(self, value=None) -> None:
+        super().__init__(_DEFAULT_LATTICE, value)
+
+
+class LatticeStaggeredFermionDefault(LatticeStaggeredFermion):
+    def __init__(self, value=None) -> None:
+        super().__init__(_DEFAULT_LATTICE, value)
+
+
+class LatticeStaggeredPropagatorDefault(LatticeStaggeredPropagator):
+    def __init__(self, value=None) -> None:
+        super().__init__(_DEFAULT_LATTICE, value)
 
 
 def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
@@ -53,23 +90,22 @@ def smear4(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
 
 
 def invert(
-    dslash: Dslash,
+    dslash: Dirac,
     source_type: str,
     t_srce: Union[int, List[int]],
     source_phase=None,
     rho: float = 0.0,
     nsteps: int = 1,
 ):
-    latt_size = dslash.gauge_param.X
+    latt_info = dslash.latt_info
+    Vol = latt_info.volume
     xi = dslash.gauge_param.anisotropy
-    Lx, Ly, Lz, Lt = latt_size
-    Vol = Lx * Ly * Lz * Lt
 
-    prop = LatticePropagator(latt_size)
+    prop = LatticePropagator(latt_info)
     data = prop.data.reshape(Vol, Ns, Ns, Nc, Nc)
     for spin in range(Ns):
         for color in range(Nc):
-            b = source(latt_size, source_type, t_srce, spin, color, source_phase, rho, nsteps, xi)
+            b = source(latt_info.size, source_type, t_srce, spin, color, source_phase, rho, nsteps, xi)
             x = dslash.invert(b)
             data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
 
@@ -77,37 +113,35 @@ def invert(
 
 
 def invertStaggered(
-    dslash: Dslash,
+    dslash: Dirac,
     source_type: str,
     t_srce: Union[int, List[int]],
     source_phase=None,
     rho: float = 0.0,
     nsteps: int = 1,
 ):
-    latt_size = dslash.gauge_param.X
-    xi = dslash.gauge_param.anisotropy
-    Lx, Ly, Lz, Lt = latt_size
-    Vol = Lx * Ly * Lz * Lt
+    latt_info = dslash.latt_info
+    Vol = latt_info.volume
+    xi = dslash.latt_info.anisotropy
 
-    prop = LatticeStaggeredPropagator(latt_size)
+    prop = LatticeStaggeredPropagator(latt_info)
     data = prop.data.reshape(Vol, Nc, Nc)
     for color in range(Nc):
-        b = source(latt_size, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
+        b = source(latt_info.size, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
         x = dslash.invert(b)
         data[:, :, color] = x.data.reshape(Vol, Nc)
 
     return prop
 
 
-def invert12(b12: LatticePropagator, dslash: Dslash):
-    latt_size = b12.latt_size
-    Lx, Ly, Lz, Lt = latt_size
-    Vol = Lx * Ly * Lz * Lt
+def invert12(b12: LatticePropagator, dslash: Dirac):
+    latt_info = b12.latt_info
+    Vol = latt_info.volume
 
-    x12 = LatticePropagator(latt_size)
+    x12 = LatticePropagator(latt_info)
     for spin in range(Ns):
         for color in range(Nc):
-            b = LatticeFermion(latt_size)
+            b = LatticeFermion(latt_info)
             data = b.data.reshape(Vol, Ns, Nc)
             data[:] = b12.data.reshape(Vol, Ns, Ns, Nc, Nc)[:, :, spin, :, color]
             x = dslash.invert(b)
@@ -130,6 +164,12 @@ def getDslash(
     anti_periodic_t: bool = True,
     multigrid: List[List[int]] = None,
 ):
+    from . import getGridSize
+
+    Gx, Gy, Gz, Gt = getGridSize()
+    Lx, Ly, Lz, Lt = latt_size
+    Lx, Ly, Lz, Lt = Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt
+
     xi = xi_0 / nu
     kappa = 1 / (2 * (mass + 1 + (Nd - 1) / xi))
     if xi != 1.0:
@@ -149,17 +189,16 @@ def getDslash(
             geo_block_size = [[2, 2, 2, 2], [4, 4, 4, 4]]
         else:
             geo_block_size = multigrid
+    latt_info = LatticeInfo([Lx, Ly, Lz, Lt], t_boundary, xi)
 
     if clover_coeff != 0.0:
-        from .dslash import clover_wilson
+        from .dirac.clover_wilson import CloverWilson
 
-        return clover_wilson.CloverWilson(
-            latt_size, mass, kappa, tol, maxiter, xi, clover_coeff, clover_xi, t_boundary, geo_block_size
-        )
+        return CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_coeff, clover_xi, geo_block_size)
     else:
-        from .dslash import wilson
+        from .dirac.wilson import Wilson
 
-        return wilson.Wilson(latt_size, mass, kappa, tol, maxiter, xi, t_boundary, geo_block_size)
+        return Wilson(latt_info, mass, kappa, tol, maxiter, geo_block_size)
 
 
 def getStaggeredDslash(
@@ -171,12 +210,71 @@ def getStaggeredDslash(
     naik_epsilon: float = 0.0,
     anti_periodic_t: bool = True,
 ):
+    from . import getGridSize
+
+    Gx, Gy, Gz, Gt = getGridSize()
+    Lx, Ly, Lz, Lt = latt_size
+    Lx, Ly, Lz, Lt = Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt
+
     kappa = 1 / (2 * (mass + Nd))
     if anti_periodic_t:
         t_boundary = -1
     else:
         t_boundary = 1
+    latt_info = LatticeInfo([Lx, Ly, Lz, Lt], t_boundary, 1.0)
 
-    from .dslash import hisq
+    from .dirac.hisq import HISQ
 
-    return hisq.HISQ(latt_size, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, t_boundary, None)
+    return HISQ(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, None)
+
+
+def getDirac(
+    latt_info: LatticeInfo,
+    mass: float,
+    tol: float,
+    maxiter: int,
+    xi_0: float = 1.0,
+    clover_coeff_t: float = 0.0,
+    clover_coeff_r: float = 1.0,
+    multigrid: List[List[int]] = None,
+):
+    xi = latt_info.anisotropy
+    kappa = 1 / (2 * (mass + 1 + (Nd - 1) / xi))
+    if xi != 1.0:
+        clover_coeff = xi_0 * clover_coeff_t**2 / clover_coeff_r
+        clover_xi = sqrt(xi_0 * clover_coeff_t / clover_coeff_r)
+    else:
+        clover_coeff = clover_coeff_t
+        clover_xi = 1.0
+    if not multigrid:
+        geo_block_size = None
+    else:
+        if not isinstance(multigrid, list):
+            geo_block_size = [[2, 2, 2, 2], [4, 4, 4, 4]]
+        else:
+            geo_block_size = multigrid
+
+    if clover_coeff != 0.0:
+        from .dirac.clover_wilson import CloverWilson
+
+        return CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_coeff, clover_xi, geo_block_size)
+    else:
+        from .dirac.wilson import Wilson
+
+        return Wilson(latt_info, mass, kappa, tol, maxiter, geo_block_size)
+
+
+def getStaggeredDirac(
+    latt_info: LatticeInfo,
+    mass: float,
+    tol: float,
+    maxiter: int,
+    tadpole_coeff: float = 1.0,
+    naik_epsilon: float = 0.0,
+):
+    assert latt_info.anisotropy == 1.0
+    kappa = 1 / (2 * (mass + Nd))
+
+    from .dirac.hisq import HISQ
+
+    return HISQ(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, None)

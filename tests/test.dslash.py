@@ -1,38 +1,45 @@
 import os
 import sys
-
-# test_dir = os.path.dirname(os.path.abspath(__file__))
-# sys.path.insert(0, os.path.join(test_dir, ".."))
-
 import numpy as np
+import cupy as cp
 
-from pyquda import init
+test_dir = os.path.dirname(os.path.abspath(__file__))
+# sys.path.insert(1, os.path.join(test_dir, ".."))
+from pyquda import init, core, quda
+from pyquda.field import Ns, Nc, LatticeInfo, LatticeGauge, LatticeFermion
+from pyquda.enum_quda import QudaParity
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
-latt_size = [16, 16, 16, 32]
-Lx, Ly, Lz, Lt = latt_size
-Nd, Ns, Nc = 4, 4, 3
 init()
+latt_info = LatticeInfo([16, 16, 16, 32])
+Lx, Ly, Lz, Lt = latt_info.size
+
+
+def gaussGauge(latt_info: LatticeInfo, seed: int):
+    gauge = LatticeGauge(latt_info, None)
+
+    dslash = core.getDslash(latt_info.size, 0, 0, 0, anti_periodic_t=False)
+    dslash.gauge_param.use_resident_gauge = 0
+    quda.loadGaugeQuda(gauge.data_ptrs, dslash.gauge_param)
+    dslash.gauge_param.use_resident_gauge = 1
+    quda.gaussGaugeQuda(seed, 1.0)
+    quda.saveGaugeQuda(gauge.data_ptrs, dslash.gauge_param)
+
+    return gauge
 
 
 def applyDslash(Mp, p, U_seed):
-    import cupy as cp
-    from pyquda import core, quda
-    from pyquda.enum_quda import QudaParity
-    from pyquda.field import LatticeFermion
-    from pyquda.utils import gauge_utils
-
     # Set parameters in Dslash and use m=-3.5 to make kappa=1
-    dslash = core.getDslash(latt_size, -3.5, 0, 0, anti_periodic_t=False)
+    dslash = core.getDslash(latt_info.size, -3.5, 0, 0, anti_periodic_t=False)
 
     # Generate gauge and then load it
-    U = gauge_utils.gaussGauge(latt_size, U_seed)
+    U = gaussGauge(latt_info, U_seed)
     dslash.loadGauge(U)
 
     # Load a from p and allocate b
-    a = LatticeFermion(latt_size, cp.asarray(core.cb2(p, [0, 1, 2, 3])))
-    b = LatticeFermion(latt_size)
+    a = LatticeFermion(latt_info, cp.asarray(core.cb2(p, [0, 1, 2, 3])))
+    b = LatticeFermion(latt_info)
 
     # Dslash a = b
     quda.dslashQuda(b.even_ptr, a.odd_ptr, dslash.invert_param, QudaParity.QUDA_EVEN_PARITY)

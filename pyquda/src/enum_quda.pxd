@@ -370,6 +370,7 @@ cdef extern from "enum_quda.h":
         QUDA_DILUTION_COLOR
         QUDA_DILUTION_SPIN_COLOR
         QUDA_DILUTION_SPIN_COLOR_EVEN_ODD
+        QUDA_DILUTION_BLOCK
         QUDA_DILUTION_INVALID = QUDA_INVALID_ENUM
 
     # used to select projection method for deflated solvers

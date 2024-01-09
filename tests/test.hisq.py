@@ -3,29 +3,24 @@ import sys
 import cupy as cp
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
-# sys.path.insert(0, os.path.join(test_dir, ".."))
+# sys.path.insert(1, os.path.join(test_dir, ".."))
 from pyquda import core, init
-from pyquda.dslash import general
 from pyquda.utils import io
-
-general.link_recon = 18
-general.link_recon_sloppy = 18
+from pyquda.field import LatticeInfo
 
 os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
-latt_size = [4, 4, 4, 8]
-Lx, Ly, Lz, Lt = latt_size
-Vol = Lx * Ly * Lz * Lt
 init()
+latt_info = LatticeInfo([4, 4, 4, 8])
 
 mass = 0.0102
 
-dslash = core.getStaggeredDslash(latt_size, mass, 1e-12, 1000, 1.0, 0.0, False)
+dslash = core.getStaggeredDslash(latt_info.size, mass, 1e-12, 1000, 1.0, 0.0, False)
 gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
 
 dslash.loadGauge(gauge)
 
-# import cupy as cp
+# Lx, Ly, Lz, Lt = latt_info.size
 # Cx = np.arange(Lx).reshape(1, 1, 1, Lx).repeat(Ly, 2).repeat(Lz, 1).repeat(Lt, 0)
 # Cy = np.arange(Ly).reshape(1, 1, Ly, 1).repeat(Lx, 3).repeat(Lz, 1).repeat(Lt, 0)
 # Cz = np.arange(Lz).reshape(1, Lz, 1, 1).repeat(Lx, 3).repeat(Ly, 2).repeat(Lt, 0)
@@ -44,3 +39,7 @@ dslash.destroy()
 propagator_chroma = io.readQIOPropagator("pt_prop_2")
 propagator_chroma.toDevice()
 print(cp.linalg.norm(propagator.data - propagator_chroma.data))
+
+twopt = cp.einsum("etzyxab,etzyxab->t", propagator.data.conj(), propagator.data)
+twopt_chroma = cp.einsum("etzyxab,etzyxab->t", propagator_chroma.data.conj(), propagator_chroma.data)
+print(cp.linalg.norm(twopt - twopt_chroma))

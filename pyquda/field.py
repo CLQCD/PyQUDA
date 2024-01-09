@@ -1,20 +1,51 @@
-from typing import List
-from enum import IntEnum
+from typing import List, Literal
 
 import numpy
 
 from .pointer import ndarrayDataPointer
 
 
-class LatticeConstant(IntEnum):
-    Nc = 3
-    Nd = 4
-    Ns = 4
+class LatticeInfo:
+    Ns: int = 4
+    Nc: int = 3
+    Nd: int = 4
+
+    def __init__(
+        self,
+        latt_size: List[int],
+        t_boundary: Literal[1, -1] = -1,
+        anisotropy: float = 1.0,
+    ) -> None:
+        from . import getMPIComm, getGridSize, getGridCoord
+
+        if getMPIComm() is None:
+            raise RuntimeError("pyquda.init() must be called before contructing LatticeInfo")
+
+        Gx, Gy, Gz, Gt = getGridSize()
+        gx, gy, gz, gt = getGridCoord()
+        Lx, Ly, Lz, Lt = latt_size
+
+        self.Gx, self.Gy, self.Gz, self.Gt = Gx, Gy, Gz, Gt
+        self.gx, self.gy, self.gz, self.gt = gx, gy, gz, gt
+        self.grid_size = [Gx, Gy, Gz, Gt]
+        self.grid_coord = [gx, gy, gz, gt]
+        self.global_size = [Lx, Ly, Lz, Lt]
+        self.global_volume = Lx * Ly * Lz * Lt
+        assert Lx % Gx == 0 and Ly % Gy == 0 and Lz % Gz == 0 and Lt % Gt == 0
+        Lx, Ly, Lz, Lt = Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt
+        assert Lx % 2 == 0 and Ly % 2 == 0 and Lz % 2 == 0 and Lt % 2 == 0
+        self.Lx, self.Ly, self.Lz, self.Lt = Lx, Ly, Lz, Lt
+        self.size = [Lx, Ly, Lz, Lt]
+        self.volume = Lx * Ly * Lz * Lt
+        self.size_cb2 = [Lx // 2, Ly, Lz, Lt]
+        self.volume_cb2 = Lx * Ly * Lz * Lt // 2
+        self.ga_pad = Lx * Ly * Lz * Lt // min(Lx, Ly, Lz, Lt) // 2
+
+        self.t_boundary = t_boundary
+        self.anisotropy = anisotropy
 
 
-Nc = LatticeConstant.Nc
-Nd = LatticeConstant.Nd
-Ns = LatticeConstant.Ns
+Ns, Nc, Nd = LatticeInfo.Ns, LatticeInfo.Nc, LatticeInfo.Nd
 
 
 def lexico(data: numpy.ndarray, axes: List[int], dtype=None):
@@ -61,11 +92,11 @@ def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
     return data_cb2.reshape(*shape[: axes[0]], 2, Lt, Lz, Ly, Lx // 2, *shape[axes[-1] + 1 :])
 
 
-def newLatticeFieldData(latt_size: List[int], dtype: str):
+def newLatticeFieldData(latt_info: LatticeInfo, dtype: str):
     from . import getCUDABackend
 
     backend = getCUDABackend()
-    Lx, Ly, Lz, Lt = latt_size
+    Lx, Ly, Lz, Lt = latt_info.size
     if backend == "cupy":
         import cupy
 
@@ -109,8 +140,8 @@ def newLatticeFieldData(latt_size: List[int], dtype: str):
 
 
 class LatticeField:
-    def __init__(self) -> None:
-        pass
+    def __init__(self, latt_info: LatticeInfo) -> None:
+        self.latt_info = latt_info
 
     def backup(self):
         from . import getCUDABackend
@@ -168,31 +199,24 @@ class LatticeField:
 
 
 class LatticeGauge(LatticeField):
-    def __init__(self, latt_size: List[int], value=None) -> None:
-        from . import mpi
-
-        Lx, Ly, Lz, Lt = latt_size
-        self.latt_size = latt_size
-        Gx, Gy, Gz, Gt = mpi.grid
-        gx, gy, gz, gt = mpi.coord
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info)
+        Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.data = newLatticeFieldData(latt_size, "Gauge")
+            self.data = newLatticeFieldData(latt_info, "Gauge")
         else:
             self.data = value.reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc)
-        self.t_boundary = gt == Gt - 1
+        self.pure_gauge = None
 
     def copy(self):
-        return LatticeGauge(self.latt_size, self.backup())
+        return LatticeGauge(self.latt_info, self.backup())
 
     def setAntiPeroidicT(self):
-        if self.t_boundary:
-            Lt = self.latt_size[Nd - 1]
-            data = self.data.reshape(Nd, 2, Lt, -1)
-            data[Nd - 1, :, Lt - 1] *= -1
+        if self.latt_info.gt == self.latt_info.Gt - 1:
+            self.data[Nd - 1, :, self.latt_info.Lt - 1] *= -1
 
     def setAnisotropy(self, anisotropy: float):
-        data = self.data.reshape(Nd, -1)
-        data[: Nd - 1] /= anisotropy
+        self.data[: Nd - 1] /= anisotropy
 
     @property
     def data_ptr(self):
@@ -205,13 +229,47 @@ class LatticeGauge(LatticeField):
     def lexico(self):
         return lexico(self.getHost(), [1, 2, 3, 4, 5])
 
+    def initPureGuage(self):
+        if self.pure_gauge is None:
+            from .dirac.pure_gauge import PureGauge
+
+            self.pure_gauge = PureGauge(self.latt_info)
+
+    def smearAPE(self, n_steps: int, alpha: float, dir: int):
+        self.initPureGuage()
+        self.pure_gauge.loadGauge(self)
+        self.pure_gauge.smearAPE(n_steps, alpha, dir)
+        self.pure_gauge.saveSmearedGauge(self)
+
+    def smearSTOUT(self, n_steps: int, rho: float, dir: int):
+        self.initPureGuage()
+        self.pure_gauge.loadGauge(self)
+        self.pure_gauge.smearSTOUT(n_steps, rho, dir)
+        self.pure_gauge.saveSmearedGauge(self)
+
+    def plaquette(self):
+        self.initPureGuage()
+        return self.pure_gauge.plaquette()
+
+    def polyakovLoop(self):
+        self.initPureGuage()
+        return self.pure_gauge.polyakovLoop()
+
+    def energy(self):
+        self.initPureGuage()
+        return self.pure_gauge.energy()
+
+    def qcharge(self):
+        self.initPureGuage()
+        return self.pure_gauge.qcharge()
+
 
 class LatticeFermion(LatticeField):
-    def __init__(self, latt_size: List[int], value=None) -> None:
-        Lx, Ly, Lz, Lt = latt_size
-        self.latt_size = latt_size
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info)
+        Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.data = newLatticeFieldData(latt_size, "Fermion")
+            self.data = newLatticeFieldData(latt_info, "Fermion")
         else:
             self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
 
@@ -248,11 +306,11 @@ class LatticeFermion(LatticeField):
 
 
 class LatticePropagator(LatticeField):
-    def __init__(self, latt_size: List[int], value=None) -> None:
-        Lx, Ly, Lz, Lt = latt_size
-        self.latt_size = latt_size
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info)
+        Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.data = newLatticeFieldData(latt_size, "Propagator")
+            self.data = newLatticeFieldData(latt_info, "Propagator")
         else:
             self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc)
 
@@ -264,11 +322,11 @@ class LatticePropagator(LatticeField):
 
 
 class LatticeStaggeredFermion(LatticeField):
-    def __init__(self, latt_size: List[int], value=None) -> None:
-        Lx, Ly, Lz, Lt = latt_size
-        self.latt_size = latt_size
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info)
+        Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.data = newLatticeFieldData(latt_size, "StaggeredFermion")
+            self.data = newLatticeFieldData(latt_info, "StaggeredFermion")
         else:
             self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc)
 
@@ -305,11 +363,11 @@ class LatticeStaggeredFermion(LatticeField):
 
 
 class LatticeStaggeredPropagator(LatticeField):
-    def __init__(self, latt_size: List[int], value=None) -> None:
-        Lx, Ly, Lz, Lt = latt_size
-        self.latt_size = latt_size
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info)
+        Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.data = newLatticeFieldData(latt_size, "StaggeredPropagator")
+            self.data = newLatticeFieldData(latt_info, "StaggeredPropagator")
         else:
             self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc, Nc)
 
