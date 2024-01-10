@@ -1,8 +1,8 @@
 from typing import List, Literal, Union
-from math import sqrt
 
-from . import pyquda as quda
-from . import enum_quda
+import numpy
+
+from . import pyquda as quda, enum_quda, getMPIComm, getMPISize, getMPIRank, getGridSize, getCoordFromRank
 from .field import (
     Ns,
     Nc,
@@ -152,6 +152,48 @@ def invert12(b12: LatticePropagator, dslash: Dirac):
     return x12
 
 
+def gatherLattice(data: numpy.ndarray, axes: List[int], reduce_op: Literal["sum", "mean"] = "sum", root: int = 0):
+    Gx, Gy, Gz, Gt = getGridSize()
+    Lt, Lz, Ly, Lx = [data.shape[axis] if axis >= 0 else 1 for axis in axes]
+    keep = tuple([axis for axis in axes if axis >= 0])
+    keep = (0, -1) if keep == () else keep
+    reduce_op = tuple([keep[0] + d for d in range(4) if axes[d] == -1])
+    prefix = data.shape[: keep[0]]
+    suffix = data.shape[keep[-1] + 1 :]
+    prefix_size = numpy.prod(prefix)
+    suffix_size = numpy.prod(suffix)
+
+    if getMPIRank() == root:
+        sendbuf = data.reshape(-1)
+        recvbuf = numpy.zeros((getMPISize(), data.size), data.dtype)
+        getMPIComm().Gatherv(sendbuf, recvbuf, root)
+
+        data = numpy.zeros_like(recvbuf).reshape(prefix_size, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, suffix_size)
+        for rank in range(getMPISize()):
+            gx, gy, gz, gt = getCoordFromRank(rank, getGridSize())
+            data[
+                :,
+                gt * Lt : (gt + 1) * Lt,
+                gz * Lz : (gz + 1) * Lz,
+                gy * Ly : (gy + 1) * Ly,
+                gx * Lx : (gx + 1) * Lx,
+                :,
+            ] = recvbuf[rank].reshape(prefix_size, Lt, Lz, Ly, Lx, suffix_size)
+        data = data.reshape(*prefix, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, *suffix)
+
+        if reduce_op.lower() == "sum":
+            return data.sum(reduce_op)
+        elif reduce_op.lower() == "mean":
+            return data.mean(reduce_op)
+        else:
+            raise NotImplementedError(f"core.gather doesn't support reduce operator reduce_op={reduce_op}")
+    else:
+        sendbuf = data.reshape(-1)
+        recvbuf = None
+        getMPIComm().Gatherv(sendbuf, recvbuf, root)
+        return None
+
+
 def getDslash(
     latt_size: List[int],
     mass: float,
@@ -164,8 +206,6 @@ def getDslash(
     anti_periodic_t: bool = True,
     multigrid: List[List[int]] = None,
 ):
-    from . import getGridSize
-
     Gx, Gy, Gz, Gt = getGridSize()
     Lx, Ly, Lz, Lt = latt_size
     Lx, Ly, Lz, Lt = Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt
@@ -174,7 +214,7 @@ def getDslash(
     kappa = 1 / (2 * (mass + 1 + (Nd - 1) / xi))
     if xi != 1.0:
         clover_coeff = xi_0 * clover_coeff_t**2 / clover_coeff_r
-        clover_xi = sqrt(xi_0 * clover_coeff_t / clover_coeff_r)
+        clover_xi = (xi_0 * clover_coeff_t / clover_coeff_r) ** 0.5
     else:
         clover_coeff = clover_coeff_t
         clover_xi = 1.0
@@ -210,8 +250,6 @@ def getStaggeredDslash(
     naik_epsilon: float = 0.0,
     anti_periodic_t: bool = True,
 ):
-    from . import getGridSize
-
     Gx, Gy, Gz, Gt = getGridSize()
     Lx, Ly, Lz, Lt = latt_size
     Lx, Ly, Lz, Lt = Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt
@@ -242,7 +280,7 @@ def getDirac(
     kappa = 1 / (2 * (mass + 1 + (Nd - 1) / xi))
     if xi != 1.0:
         clover_coeff = xi_0 * clover_coeff_t**2 / clover_coeff_r
-        clover_xi = sqrt(xi_0 * clover_coeff_t / clover_coeff_r)
+        clover_xi = (xi_0 * clover_coeff_t / clover_coeff_r) ** 0.5
     else:
         clover_coeff = clover_coeff_t
         clover_xi = 1.0
