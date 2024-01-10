@@ -160,7 +160,7 @@ def newQudaMultigridParam(
     mg_inv_param.solve_type = QudaSolveType.QUDA_DIRECT_SOLVE
     mg_inv_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
     mg_inv_param.dagger = QudaDagType.QUDA_DAG_NO
-    mg_inv_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
+    mg_inv_param.mass_normalization = QudaMassNormalization.QUDA_ASYMMETRIC_MASS_NORMALIZATION
     mg_inv_param.gcrNkrylov = 12
     mg_inv_param.tol = 1e-10
     mg_inv_param.maxiter = 10000
@@ -277,7 +277,7 @@ def newQudaInvertParam(
     invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE
     invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
     invert_param.dagger = QudaDagType.QUDA_DAG_NO
-    invert_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
+    invert_param.mass_normalization = QudaMassNormalization.QUDA_ASYMMETRIC_MASS_NORMALIZATION
     invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
     invert_param.pipeline = 0
     invert_param.Nsteps = 2
@@ -458,31 +458,29 @@ def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
 
 
 def invert(b: LatticeFermion, invert_param: QudaInvertParam):
-    kappa = invert_param.kappa
-
     x = LatticeFermion(b.latt_info)
 
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
     if getMPIRank() == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
         print(
-            f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
+            "PyQuda: "
+            f"Time = {invert_param.secs:.3f} secs, "
+            f"Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
         )
-    x.data *= 2 * kappa
 
     return x
 
 
 def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
-    mass = invert_param.mass
-
     x = LatticeStaggeredFermion(b.latt_info)
 
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
     if getMPIRank() == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
         print(
-            f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
+            "PyQuda: "
+            f"Time = {invert_param.secs:.3f} secs, "
+            f"Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
         )
-    x.data /= 2 * mass
 
     return x
 
@@ -495,9 +493,9 @@ def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
     x = LatticeFermion(b.latt_info)
     tmp = LatticeFermion(b.latt_info)
 
-    # tmp.data = 2 * kappa * b.data
     # dslashQuda(x.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
     # tmp.odd = tmp.odd + kappa * x.odd
+    # tmp.even *= 2 * kappa
     # invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
     # dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
     # x.even = tmp.even + kappa * x.even
@@ -506,14 +504,17 @@ def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
     cloverQuda(tmp.odd_ptr, b.odd_ptr, invert_param, QudaParity.QUDA_ODD_PARITY, 1)
     dslashQuda(x.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
     tmp.odd = tmp.odd + kappa * x.odd
+    # QUDA_ASYMMETRIC_MASS_NORMALIZATION makes the even part 1 / (2 * kappa) instead of 1
+    tmp.even *= 2 * kappa
     invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
     if getMPIRank() == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
         print(
-            f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
+            "PyQuda: "
+            f"Time = {invert_param.secs:.3f} secs, "
+            f"Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
         )
     dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
     x.even = tmp.even + kappa * x.even
-    x.data *= 2 * kappa
 
     tmp = None
 
