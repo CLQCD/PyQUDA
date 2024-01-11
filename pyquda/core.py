@@ -157,7 +157,7 @@ def gatherLattice(data: numpy.ndarray, axes: List[int], reduce_op: Literal["sum"
     Lt, Lz, Ly, Lx = [data.shape[axis] if axis >= 0 else 1 for axis in axes]
     keep = tuple([axis for axis in axes if axis >= 0])
     keep = (0, -1) if keep == () else keep
-    reduce_op = tuple([keep[0] + d for d in range(4) if axes[d] == -1])
+    reduce_axis = tuple([keep[0] + d for d in range(4) if axes[d] == -1])
     prefix = data.shape[: keep[0]]
     suffix = data.shape[keep[-1] + 1 :]
     prefix_size = numpy.prod(prefix)
@@ -182,9 +182,9 @@ def gatherLattice(data: numpy.ndarray, axes: List[int], reduce_op: Literal["sum"
         data = data.reshape(*prefix, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, *suffix)
 
         if reduce_op.lower() == "sum":
-            return data.sum(reduce_op)
+            return data.sum(reduce_axis)
         elif reduce_op.lower() == "mean":
-            return data.mean(reduce_op)
+            return data.mean(reduce_axis)
         else:
             raise NotImplementedError(f"core.gather doesn't support reduce operator reduce_op={reduce_op}")
     else:
