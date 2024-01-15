@@ -153,6 +153,35 @@ def invert12(b12: LatticePropagator, dslash: Dirac):
 
 
 def gatherLattice(data: numpy.ndarray, axes: List[int], reduce_op: Literal["sum", "mean"] = "sum", root: int = 0):
+    """
+    MPI gather or reduce data from all MPI subgrid onto the root process.
+
+    Args:
+    - data: numpy.ndarray
+        The local data array to be gathered.
+    - axes: List[int]
+        A list of length 4 specifying the axes along with the data gathered.
+        Axes order should be (t z y x).
+        Use axis >= 0 for gather lattice data along this axis direction.
+            Warning: In this case, the length of the time / space axes
+                times grid_size should match the global lattice shape.
+        Use axis = -1 for the dimensions to which reduce_op mode should be applied.
+    - reduce_op: Literal["sum", "mean"], optional
+        The reduction operation to be applied after gathering the datai when its axis == -1. Default is "sum".
+    - root: int, optional
+        The rank of the root process that will receive the gathered data. Default is 0.
+
+    Returns:
+    - numpy.ndarray
+        The gathered and reduced data array on the root process.
+
+    Raises:
+    - NotImplementedError
+        If the specified reduce operation is not supported.
+
+    Note:
+    - This function assumes that MPI environment has been initialized before its invocation.
+    """
     Gx, Gy, Gz, Gt = getGridSize()
     Lt, Lz, Ly, Lx = [data.shape[axis] if axis >= 0 else 1 for axis in axes]
     keep = tuple([axis for axis in axes if axis >= 0])
