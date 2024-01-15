@@ -15,7 +15,7 @@ def gatherGaugeFieldRaw(gauge_send: numpy.ndarray, latt_info: LatticeInfo):
 
     Gx, Gy, Gz, Gt = latt_info.grid_size
     Lt, Lz, Ly, Lx = latt_info.size
-    dtype = gauge_send.data.dtype
+    dtype = gauge_send.dtype
 
     if latt_info.mpi_rank == 0:
         gauge_recv = numpy.zeros((Gt * Gz * Gy * Gx, Nd, Lt, Lz, Ly, Lx, Nc, Nc), dtype)
@@ -91,12 +91,12 @@ def fromKYUBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
     return gauge_raw
 
 
-def toKYUBuffer(gauge_lexico: numpy.ndarray, latt_info: LatticeInfo, root: int = 0):
+def toKYUBuffer(gauge_lexico: numpy.ndarray, latt_info: LatticeInfo):
     Gx, Gy, Gz, Gt = latt_info.grid_size
     Lx, Ly, Lz, Lt = latt_info.size
 
-    gauge_raw = gatherGaugeFieldRaw(gauge_lexico, latt_info, root)
-    if latt_info.mpi_rank == root:
+    gauge_raw = gatherGaugeFieldRaw(gauge_lexico, latt_info)
+    if latt_info.mpi_rank == 0:
         buffer = (
             gauge_raw.view("<f8")
             .reshape(Nd, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nc, Nc, 2)
@@ -196,7 +196,8 @@ def readKYU(filename: str, latt_info: LatticeInfo):
 def writeKYU(filename: str, gauge: LatticeGauge):
     latt_info = gauge.latt_info
 
-    buffer = gatherGaugeFieldRaw(gauge, latt_info)
+    gauge_raw = gatherGaugeFieldRaw(gauge.lexico(), latt_info)
+    kyu_binary_data = toKYUBuffer(gauge_raw, latt_info)
     if latt_info.mpi_rank == 0:
         with open(filename, "wb") as f:
-            f.write(buffer)
+            f.write(kyu_binary_data)
