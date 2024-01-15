@@ -2,7 +2,6 @@ from typing import List
 
 import numpy as np
 
-from .. import getMPIRank
 from ..pointer import Pointer, Pointers, ndarrayDataPointer
 from ..pyquda import (
     QudaGaugeParam,
@@ -458,10 +457,11 @@ def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
 
 
 def invert(b: LatticeFermion, invert_param: QudaInvertParam):
-    x = LatticeFermion(b.latt_info)
+    latt_info = b.latt_info
+    x = LatticeFermion(latt_info)
 
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    if getMPIRank() == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
+    if latt_info.mpi_rank == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
         print(
             "PyQuda: "
             f"Time = {invert_param.secs:.3f} secs, "
@@ -472,10 +472,11 @@ def invert(b: LatticeFermion, invert_param: QudaInvertParam):
 
 
 def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
-    x = LatticeStaggeredFermion(b.latt_info)
+    latt_info = b.latt_info
+    x = LatticeFermion(latt_info)
 
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    if getMPIRank() == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
+    if latt_info.mpi_rank == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
         print(
             "PyQuda: "
             f"Time = {invert_param.secs:.3f} secs, "
@@ -486,12 +487,13 @@ def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
 
 
 def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
-    invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
+    latt_info = b.latt_info
 
     kappa = invert_param.kappa
+    invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
 
-    x = LatticeFermion(b.latt_info)
-    tmp = LatticeFermion(b.latt_info)
+    x = LatticeFermion(latt_info)
+    tmp = LatticeFermion(latt_info)
 
     # dslashQuda(x.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
     # tmp.odd = tmp.odd + kappa * x.odd
@@ -507,7 +509,7 @@ def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
     # QUDA_ASYMMETRIC_MASS_NORMALIZATION makes the even part 1 / (2 * kappa) instead of 1
     tmp.even *= 2 * kappa
     invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
-    if getMPIRank() == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
+    if latt_info.mpi_rank == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
         print(
             "PyQuda: "
             f"Time = {invert_param.secs:.3f} secs, "

@@ -16,24 +16,28 @@ class LatticeInfo:
         t_boundary: Literal[1, -1] = -1,
         anisotropy: float = 1.0,
     ) -> None:
-        from . import getMPIComm, getGridSize, getGridCoord
+        from . import getMPIComm, getMPISize, getMPIRank, getGridSize, getGridCoord
 
         if getMPIComm() is None:
             raise RuntimeError("pyquda.init() must be called before contructing LatticeInfo")
 
-        Gx, Gy, Gz, Gt = getGridSize()
-        gx, gy, gz, gt = getGridCoord()
+        self.mpi_size = getMPISize()
+        self.mpi_rank = getMPIRank()
+        self.grid_size = getGridSize()
+        self.grid_coord = getGridCoord()
+
+        Gx, Gy, Gz, Gt = self.grid_size
+        gx, gy, gz, gt = self.grid_coord
         Lx, Ly, Lz, Lt = latt_size
 
+        assert (
+            Lx % (2 * Gx) == 0 and Ly % (2 * Gy) == 0 and Lz % (2 * Gz) == 0 and Lt % (2 * Gt) == 0
+        ), "Necessary for consistant even-odd preconditioning"
         self.Gx, self.Gy, self.Gz, self.Gt = Gx, Gy, Gz, Gt
         self.gx, self.gy, self.gz, self.gt = gx, gy, gz, gt
-        self.grid_size = [Gx, Gy, Gz, Gt]
-        self.grid_coord = [gx, gy, gz, gt]
         self.global_size = [Lx, Ly, Lz, Lt]
         self.global_volume = Lx * Ly * Lz * Lt
-        assert Lx % Gx == 0 and Ly % Gy == 0 and Lz % Gz == 0 and Lt % Gt == 0
         Lx, Ly, Lz, Lt = Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt
-        assert Lx % 2 == 0 and Ly % 2 == 0 and Lz % 2 == 0 and Lt % 2 == 0
         self.Lx, self.Ly, self.Lz, self.Lt = Lx, Ly, Lz, Lt
         self.size = [Lx, Ly, Lz, Lt]
         self.volume = Lx * Ly * Lz * Lt

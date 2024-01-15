@@ -19,20 +19,26 @@ def fromSCIDACBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo, staggere
         propagator_raw = (
             numpy.frombuffer(buffer, dtype)
             .reshape(Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Ns, Nc, Nc)[
-                gt * Lt : (gt + 1) * Lt, gz * Lz : (gz + 1) * Lz, gy * Ly : (gy + 1) * Ly, gx * Lx : (gx + 1) * Lx
+                gt * Lt : (gt + 1) * Lt,
+                gz * Lz : (gz + 1) * Lz,
+                gy * Ly : (gy + 1) * Ly,
+                gx * Lx : (gx + 1) * Lx,
             ]
             .astype("<c16")
         )
-        return LatticePropagator(latt_info, cb2(propagator_raw, [0, 1, 2, 3]))
     else:
         propagator_raw = (
             numpy.frombuffer(buffer, dtype)
             .reshape(Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nc, Nc)[
-                gt * Lt : (gt + 1) * Lt, gz * Lz : (gz + 1) * Lz, gy * Ly : (gy + 1) * Ly, gx * Lx : (gx + 1) * Lx
+                gt * Lt : (gt + 1) * Lt,
+                gz * Lz : (gz + 1) * Lz,
+                gy * Ly : (gy + 1) * Ly,
+                gx * Lx : (gx + 1) * Lx,
             ]
             .astype("<c16")
         )
-        return LatticeStaggeredPropagator(latt_info, cb2(propagator_raw, [0, 1, 2, 3]))
+
+    return propagator_raw
 
 
 def readQIO(filename: str):
@@ -72,5 +78,9 @@ def readQIO(filename: str):
     assert int(scidac_private_file_xml.find("spacetime").text) == Nd
     latt_size = map(int, scidac_private_file_xml.find("dims").text.split())
     latt_info = LatticeInfo(latt_size, 1, 1)
+    propagator_raw = fromSCIDACBuffer(scidac_binary_data, dtype, latt_info, staggered)
 
-    return fromSCIDACBuffer(scidac_binary_data, dtype, latt_info, staggered)
+    if not staggered:
+        return LatticePropagator(latt_info, cb2(propagator_raw, [0, 1, 2, 3]))
+    else:
+        return LatticeStaggeredPropagator(latt_info, cb2(propagator_raw, [0, 1, 2, 3]))

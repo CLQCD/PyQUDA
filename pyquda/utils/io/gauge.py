@@ -10,6 +10,36 @@ from ...field import Ns, Nc, Nd, LatticeInfo, LatticeGauge, cb2
 _precision_map = {"D": 8, "S": 4}
 
 
+def gatherGaugeFieldRaw(gauge_send: numpy.ndarray, latt_info: LatticeInfo):
+    from ... import getMPIComm, getCoordFromRank
+
+    Gx, Gy, Gz, Gt = latt_info.grid_size
+    Lt, Lz, Ly, Lx = latt_info.size
+    dtype = gauge_send.data.dtype
+
+    if latt_info.mpi_rank == 0:
+        gauge_recv = numpy.zeros((Gt * Gz * Gy * Gx, Nd, Lt, Lz, Ly, Lx, Nc, Nc), dtype)
+        getMPIComm().Gatherv(gauge_send, gauge_recv)
+
+        gauge_raw = numpy.zeros((Nd, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nc, Nc), dtype)
+        for rank in range(latt_info.mpi_size):
+            gx, gy, gz, gt = getCoordFromRank(rank, [Gx, Gy, Gz, Gt])
+            gauge_raw[
+                :,
+                gt * Lt : (gt + 1) * Lt,
+                gz * Lz : (gz + 1) * Lz,
+                gy * Ly : (gy + 1) * Ly,
+                gx * Lx : (gx + 1) * Lx,
+            ] = gauge_recv[rank]
+    else:
+        gauge_recv = None
+        getMPIComm().Gatherv(gauge_send, gauge_recv)
+
+        gauge_raw = None
+
+    return gauge_raw
+
+
 def fromILDGBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
     Gx, Gy, Gz, Gt = latt_info.grid_size
     gx, gy, gz, gt = latt_info.grid_coord
@@ -18,18 +48,66 @@ def fromILDGBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
     gauge_raw = (
         numpy.frombuffer(buffer, dtype)
         .reshape(Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nd, Nc, Nc)[
-            gt * Lt : (gt + 1) * Lt, gz * Lz : (gz + 1) * Lz, gy * Ly : (gy + 1) * Ly, gx * Lx : (gx + 1) * Lx
+            gt * Lt : (gt + 1) * Lt,
+            gz * Lz : (gz + 1) * Lz,
+            gy * Ly : (gy + 1) * Ly,
+            gx * Lx : (gx + 1) * Lx,
         ]
         .astype("<c16")
         .transpose(4, 0, 1, 2, 3, 5, 6)
     )
 
-    return LatticeGauge(latt_info, cb2(gauge_raw, [1, 2, 3, 4]))
+    return gauge_raw
 
 
 def fromMILCBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
     """MILC and ILDG data have the exactly same layout."""
     return fromILDGBuffer(buffer, dtype, latt_info)
+
+
+def fromKYUBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
+    Gx, Gy, Gz, Gt = latt_info.grid_size
+    gx, gy, gz, gt = latt_info.grid_coord
+    Lx, Ly, Lz, Lt = latt_info.size
+
+    gauge_raw = (
+        numpy.frombuffer(buffer, dtype)
+        .reshape(Nd, Nc, Nc, 2, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx)[
+            :,
+            :,
+            :,
+            :,
+            gt * Lt : (gt + 1) * Lt,
+            gz * Lz : (gz + 1) * Lz,
+            gy * Ly : (gy + 1) * Ly,
+            gx * Lx : (gx + 1) * Lx,
+        ]
+        .astype("<f8")
+        .transpose(0, 4, 5, 6, 7, 2, 1, 3)
+        .reshape(Nd, Lt, Lz, Ly, Lx, Nc, Nc * 2)
+        .view("<c16")
+    )
+
+    return gauge_raw
+
+
+def toKYUBuffer(gauge_lexico: numpy.ndarray, latt_info: LatticeInfo, root: int = 0):
+    Gx, Gy, Gz, Gt = latt_info.grid_size
+    Lx, Ly, Lz, Lt = latt_info.size
+
+    gauge_raw = gatherGaugeFieldRaw(gauge_lexico, latt_info, root)
+    if latt_info.mpi_rank == root:
+        buffer = (
+            gauge_raw.view("<f8")
+            .reshape(Nd, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nc, Nc, 2)
+            .transpose(0, 6, 5, 7, 1, 2, 3, 4)
+            .astype(">f8")
+            .tobytes()
+        )
+    else:
+        buffer = None
+
+    return buffer
 
 
 def readQIO(filename: str):
@@ -76,16 +154,18 @@ def readQIO(filename: str):
     assert int(scidac_private_file_xml.find("spacetime").text) == Nd
     latt_size = map(int, scidac_private_file_xml.find("dims").text.split())
     latt_info = LatticeInfo(latt_size, 1, 1)
+    gauge_raw = fromILDGBuffer(ildg_binary_data, dtype, latt_info)
 
-    return fromILDGBuffer(ildg_binary_data, dtype, latt_info)
+    return LatticeGauge(latt_info, cb2(gauge_raw, [1, 2, 3, 4]))
 
 
 def readILDGBin(filename: str, dtype: str, latt_size: LatticeInfo):
     with open(filename, "rb") as f:
         ildg_binary_data = f.read()
     latt_info = LatticeInfo(latt_size)
+    gauge_raw = fromILDGBuffer(ildg_binary_data, dtype, latt_info)
 
-    return fromILDGBuffer(ildg_binary_data, dtype, latt_info)
+    return LatticeGauge(latt_info, cb2(gauge_raw, [1, 2, 3, 4]))
 
 
 def readMILC(filename: str):
@@ -99,5 +179,24 @@ def readMILC(filename: str):
         # milc_binary_data = f.read(Lt * Lz * Ly * Lx * Nd * Nc * Nc * 2 * 4)
         milc_binary_data = f.read()
     latt_info = LatticeInfo(latt_size)
+    gauge_raw = fromMILCBuffer(milc_binary_data, "<c8", latt_info)
 
-    return fromMILCBuffer(milc_binary_data, "<c8", latt_info)
+    return LatticeGauge(latt_info, cb2(gauge_raw, [1, 2, 3, 4]))
+
+
+def readKYU(filename: str, latt_info: LatticeInfo):
+    with open(filename, "rb") as f:
+        # kyu_binary_data = f.read(Nd * Nc * Nc * 2 * Lt * Lz * Ly * Lx * 8)
+        kyu_binary_data = f.read()
+    gauge_raw = fromKYUBuffer(kyu_binary_data, ">f8", latt_info)
+
+    return LatticeGauge(latt_info, cb2(gauge_raw, [1, 2, 3, 4]))
+
+
+def writeKYU(filename: str, gauge: LatticeGauge):
+    latt_info = gauge.latt_info
+
+    buffer = gatherGaugeFieldRaw(gauge, latt_info)
+    if latt_info.mpi_rank == 0:
+        with open(filename, "wb") as f:
+            f.write(buffer)
