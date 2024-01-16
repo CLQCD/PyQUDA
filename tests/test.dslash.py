@@ -1,17 +1,13 @@
-import os
-import sys
 import numpy as np
 import cupy as cp
 
-test_dir = os.path.dirname(os.path.abspath(__file__))
-# sys.path.insert(1, os.path.join(test_dir, ".."))
+from check_pyquda import test_dir
+
 from pyquda import init, core, quda
 from pyquda.field import Ns, Nc, LatticeInfo, LatticeGauge, LatticeFermion
 from pyquda.enum_quda import QudaParity
 
-os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-
-init()
+init(resource_path=".cache")
 latt_info = LatticeInfo([16, 16, 16, 32])
 Lx, Ly, Lz, Lt = latt_info.size
 

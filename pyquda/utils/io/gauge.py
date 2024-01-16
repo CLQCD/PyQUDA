@@ -144,7 +144,6 @@ def readQIO(filename: str):
     )
     assert int(scidac_private_record_xml.find("typesize").text) == Nc * Nc * 2 * precision
     assert int(scidac_private_record_xml.find("datacount").text) == Nd
-    dtype = f">c{2*precision}"
     # latt_size = [
     #     int(ildg_format.find(f"{tag}lx").text),
     #     int(ildg_format.find(f"{tag}ly").text),
@@ -154,7 +153,7 @@ def readQIO(filename: str):
     assert int(scidac_private_file_xml.find("spacetime").text) == Nd
     latt_size = map(int, scidac_private_file_xml.find("dims").text.split())
     latt_info = LatticeInfo(latt_size, 1, 1)
-    gauge_raw = fromILDGBuffer(ildg_binary_data, dtype, latt_info)
+    gauge_raw = fromILDGBuffer(ildg_binary_data, f">c{2*precision}", latt_info)
 
     return LatticeGauge(latt_info, cb2(gauge_raw, [1, 2, 3, 4]))
 
@@ -171,15 +170,17 @@ def readILDGBin(filename: str, dtype: str, latt_size: LatticeInfo):
 def readMILC(filename: str):
     with open(filename, "rb") as f:
         magic = f.read(4)
-        assert struct.unpack("<i", magic)[0] == 20103
+        assert struct.unpack("<i", magic)[0] == 20103 or struct.unpack(">i", magic)[0] == 20103
         latt_size = struct.unpack("<iiii", f.read(16))
         time_stamp = f.read(64).decode()
         assert struct.unpack("<i", f.read(4))[0] == 0
         sum29, sum31 = struct.unpack("<II", f.read(8))
         # milc_binary_data = f.read(Lt * Lz * Ly * Lx * Nd * Nc * Nc * 2 * 4)
         milc_binary_data = f.read()
+    print(time_stamp, sum29, sum31)
+    endianness = "<" if struct.unpack("<i", magic)[0] == 20103 else ">"
     latt_info = LatticeInfo(latt_size)
-    gauge_raw = fromMILCBuffer(milc_binary_data, "<c8", latt_info)
+    gauge_raw = fromMILCBuffer(milc_binary_data, f"{endianness}c8", latt_info)
 
     return LatticeGauge(latt_info, cb2(gauge_raw, [1, 2, 3, 4]))
 

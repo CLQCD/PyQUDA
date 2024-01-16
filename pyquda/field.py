@@ -267,6 +267,76 @@ class LatticeGauge(LatticeField):
         self.initPureGuage()
         return self.pure_gauge.qcharge()
 
+    def fixingOVR(
+        self,
+        gauge_dir: Literal[3, 4],
+        Nsteps: int,
+        verbose_interval: int,
+        relax_boost: float,
+        tolerance: float,
+        reunit_interval: int,
+        stopWtheta: int,
+    ):
+        """
+        Gauge fixing with overrelaxation with support for single and multi GPU.
+
+        Parameters
+        ----------
+        gauge_dir: {3, 4}
+            3 for Coulomb gauge fixing, 4 for Landau gauge fixing
+        Nsteps: int
+            maximum number of steps to perform gauge fixing
+        verbose_interval: int
+            print gauge fixing info when iteration count is a multiple of this
+        relax_boost: float
+            gauge fixing parameter of the overrelaxation method, most common value is 1.5 or 1.7.
+        tolerance: float
+            torelance value to stop the method, if this value is zero then the method stops when
+            iteration reachs the maximum number of steps defined by Nsteps
+        reunit_interval: int
+            reunitarize gauge field when iteration count is a multiple of this
+        stopWtheta: int
+            0 for MILC criterion and 1 to use the theta value
+        """
+        self.initPureGuage()
+        self.pure_gauge.fixingOVR(
+            self, gauge_dir, Nsteps, verbose_interval, relax_boost, tolerance, reunit_interval, stopWtheta
+        )
+
+    def fixingFFT(
+        self,
+        gauge_dir: Literal[3, 4],
+        Nsteps: int,
+        verbose_interval: int,
+        alpha: float,
+        autotune: int,
+        tolerance: float,
+        stopWtheta: int,
+    ):
+        """
+        Gauge fixing with Steepest descent method with FFTs with support for single GPU only.
+
+        Parameters
+        ----------
+        gauge_dir: {3, 4}
+            3 for Coulomb gauge fixing, 4 for Landau gauge fixing
+        Nsteps: int
+            maximum number of steps to perform gauge fixing
+        verbose_interval: int
+            print gauge fixing info when iteration count is a multiple of this
+        alpha: float
+            gauge fixing parameter of the method, most common value is 0.08
+        autotune: int
+            1 to autotune the method, i.e., if the Fg inverts its tendency we decrease the alpha value
+        tolerance: float
+            torelance value to stop the method, if this value is zero then the method stops when
+            iteration reachs the maximum number of steps defined by Nsteps
+        stopWtheta: int
+            0 for MILC criterion and 1 to use the theta value
+        """
+        self.initPureGuage()
+        self.pure_gauge.fixingFFT(self, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta)
+
 
 class LatticeFermion(LatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:

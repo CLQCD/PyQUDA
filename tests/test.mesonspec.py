@@ -1,18 +1,15 @@
 import os
-import sys
 from time import time
 import numpy as np
 import cupy as cp
 
-test_dir = os.path.dirname(os.path.abspath(__file__))
-# sys.path.insert(1, os.path.join(test_dir, ".."))
+from check_pyquda import test_dir
+
 from pyquda import core, init
 from pyquda.utils import gamma, phase, io
 from pyquda.field import LatticeInfo
 
-os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-
-init()
+init(resource_path=".cache")
 latt_info = LatticeInfo([4, 4, 4, 8])
 Lx, Ly, Lz, Lt = latt_info.size
 Vol = latt_info.volume

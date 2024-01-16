@@ -1,3 +1,5 @@
+from typing import Literal
+
 from ..pyquda import (
     QudaGaugeParam,
     QudaGaugeSmearParam,
@@ -6,6 +8,8 @@ from ..pyquda import (
     saveGaugeQuda,
     performGaugeSmearQuda,
     gaugeObservablesQuda,
+    computeGaugeFixingOVRQuda,
+    computeGaugeFixingFFTQuda,
 )
 from ..field import LatticeInfo, LatticeGauge
 from ..enum_quda import QudaBoolean, QudaGaugeSmearType, QudaLinkType, QudaReconstructType
@@ -23,6 +27,7 @@ class PureGauge:
         self.latt_info = LatticeInfo(latt_info.global_size, 1, 1.0)
         link_recon = general.link_recon
         link_recon_sloppy = general.link_recon_sloppy
+        # Use QUDA_RECONSTRUCT_NO to ensure slight deviations from SU(3) can be preserved
         recon_no = QudaReconstructType.QUDA_RECONSTRUCT_NO
         if link_recon < recon_no or link_recon_sloppy < recon_no:
             general.link_recon = recon_no
@@ -110,3 +115,49 @@ class PureGauge:
         # performGaugeSmearQuda(self.obs_param)
         # self.obs_param.compute_qcharge_density = QudaBoolean.QUDA_BOOLEAN_TRUE
         raise NotImplementedError("qchargeDensity not implemented. Confusing size of ndarray.")
+
+    def fixingOVR(
+        self,
+        gauge: LatticeGauge,
+        gauge_dir: Literal[3, 4],
+        Nsteps: int,
+        verbose_interval: int,
+        relax_boost: float,
+        tolerance: float,
+        reunit_interval: int,
+        stopWtheta: int,
+    ):
+        computeGaugeFixingOVRQuda(
+            gauge.data_ptrs,
+            gauge_dir,
+            Nsteps,
+            verbose_interval,
+            relax_boost,
+            tolerance,
+            reunit_interval,
+            stopWtheta,
+            self.gauge_param,
+        )
+
+    def fixingFFT(
+        self,
+        gauge: LatticeGauge,
+        gauge_dir: Literal[3, 4],
+        Nsteps: int,
+        verbose_interval: int,
+        alpha: float,
+        autotune: int,
+        tolerance: float,
+        stopWtheta: int,
+    ):
+        computeGaugeFixingFFTQuda(
+            gauge.data_ptrs,
+            gauge_dir,
+            Nsteps,
+            verbose_interval,
+            alpha,
+            autotune,
+            tolerance,
+            stopWtheta,
+            self.gauge_param,
+        )

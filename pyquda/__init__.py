@@ -32,7 +32,7 @@ def getCoordFromRank(rank: int, grid: List[int]) -> List[int]:
     return [rank // t // z // y, rank // t // z % y, rank // t % z, rank % t]
 
 
-def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy"):
+def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy", resource_path: str = None):
     """
     Initialize MPI along with the QUDA library.
 
@@ -41,7 +41,7 @@ def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy"
     global _MPI_COMM, _MPI_SIZE, _MPI_RANK, _GRID_SIZE, _GRID_COORD
     if _MPI_COMM is None:
         import atexit
-        from os import getenv
+        from os import environ
         from platform import node as gethostname
 
         assert backend in ["cupy", "torch"], f"Unsupported backend {backend}"
@@ -76,8 +76,7 @@ def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy"
         elif backend == "torch":
             device_count = cuda.device_count()
         if gpuid >= device_count:
-            enable_mps_env = getenv("QUDA_ENABLE_MPS")
-            if enable_mps_env is not None and enable_mps_env == "1":
+            if "QUDA_ENABLE_MPS" in environ and environ["QUDA_ENABLE_MPS"] == "1":
                 gpuid %= device_count
 
         gpuid += _GPUID
@@ -96,6 +95,8 @@ def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy"
             cc = cuda.get_device_capability(gpuid)
             _COMPUTE_CAPABILITY = _ComputeCapability(cc[0], cc[1])
 
+        if "QUDA_RESOURCE_PATH" not in environ and resource_path is not None:
+            environ["QUDA_RESOURCE_PATH"] = resource_path
         quda.initCommsGridQuda(4, [Gx, Gy, Gz, Gt])
         quda.initQuda(gpuid)
         atexit.register(quda.endQuda)
