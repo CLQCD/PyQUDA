@@ -177,7 +177,7 @@ def readMILC(filename: str):
         sum29, sum31 = struct.unpack("<II", f.read(8))
         # milc_binary_data = f.read(Lt * Lz * Ly * Lx * Nd * Nc * Nc * 2 * 4)
         milc_binary_data = f.read()
-    print(time_stamp, sum29, sum31)
+    # print(time_stamp, sum29, sum31)
     endianness = "<" if struct.unpack("<i", magic)[0] == 20103 else ">"
     latt_info = LatticeInfo(latt_size)
     gauge_raw = fromMILCBuffer(milc_binary_data, f"{endianness}c8", latt_info)

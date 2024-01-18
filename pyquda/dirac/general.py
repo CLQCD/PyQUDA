@@ -473,7 +473,7 @@ def invert(b: LatticeFermion, invert_param: QudaInvertParam):
 
 def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
     latt_info = b.latt_info
-    x = LatticeFermion(latt_info)
+    x = LatticeStaggeredFermion(latt_info)
 
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
     if latt_info.mpi_rank == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
