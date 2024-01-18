@@ -1,4 +1,5 @@
 import io
+from os import path
 import struct
 from typing import Dict, Tuple
 from xml.etree import ElementTree as ET
@@ -110,7 +111,8 @@ def toKYUBuffer(gauge_lexico: numpy.ndarray, latt_info: LatticeInfo):
     return buffer
 
 
-def readQIO(filename: str):
+def readChromaQIO(filename: str):
+    filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
         meta: Dict[str, Tuple[int]] = {}
         buffer = f.read(8)
@@ -159,6 +161,7 @@ def readQIO(filename: str):
 
 
 def readILDGBin(filename: str, dtype: str, latt_size: LatticeInfo):
+    filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
         ildg_binary_data = f.read()
     latt_info = LatticeInfo(latt_size)
@@ -168,24 +171,26 @@ def readILDGBin(filename: str, dtype: str, latt_size: LatticeInfo):
 
 
 def readMILC(filename: str):
+    filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
         magic = f.read(4)
         assert struct.unpack("<i", magic)[0] == 20103 or struct.unpack(">i", magic)[0] == 20103
-        latt_size = struct.unpack("<iiii", f.read(16))
+        endian = "<" if struct.unpack("<i", magic)[0] == 20103 else ">"
+        latt_size = struct.unpack(f"{endian}iiii", f.read(16))
         time_stamp = f.read(64).decode()
-        assert struct.unpack("<i", f.read(4))[0] == 0
-        sum29, sum31 = struct.unpack("<II", f.read(8))
+        assert struct.unpack(f"{endian}i", f.read(4))[0] == 0
+        sum29, sum31 = struct.unpack(f"{endian}II", f.read(8))
         # milc_binary_data = f.read(Lt * Lz * Ly * Lx * Nd * Nc * Nc * 2 * 4)
         milc_binary_data = f.read()
     # print(time_stamp, sum29, sum31)
-    endianness = "<" if struct.unpack("<i", magic)[0] == 20103 else ">"
     latt_info = LatticeInfo(latt_size)
-    gauge_raw = fromMILCBuffer(milc_binary_data, f"{endianness}c8", latt_info)
+    gauge_raw = fromMILCBuffer(milc_binary_data, f"{endian}c8", latt_info)
 
     return LatticeGauge(latt_info, cb2(gauge_raw, [1, 2, 3, 4]))
 
 
 def readKYU(filename: str, latt_info: LatticeInfo):
+    filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
         # kyu_binary_data = f.read(Nd * Nc * Nc * 2 * Lt * Lz * Ly * Lx * 8)
         kyu_binary_data = f.read()
@@ -195,10 +200,9 @@ def readKYU(filename: str, latt_info: LatticeInfo):
 
 
 def writeKYU(filename: str, gauge: LatticeGauge):
+    filename = path.expanduser(path.expandvars(filename))
     latt_info = gauge.latt_info
-
-    gauge_raw = gatherGaugeFieldRaw(gauge.lexico(), latt_info)
-    kyu_binary_data = toKYUBuffer(gauge_raw, latt_info)
+    kyu_binary_data = toKYUBuffer(gauge.lexico(), latt_info)
     if latt_info.mpi_rank == 0:
         with open(filename, "wb") as f:
             f.write(kyu_binary_data)

@@ -1,4 +1,5 @@
 import io
+from os import path
 import struct
 from typing import Dict, Tuple
 from xml.etree import ElementTree as ET
@@ -29,6 +30,7 @@ def _readVersion(f: io.BufferedReader) -> int:
 
 
 def readTimeSlice(filename: str, Ne: int = None):
+    filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
         offsets: Dict[Tuple[int], int] = {}
         assert _readStr(f) == "XXXXQDPLazyDiskMapObjFileXXXX"

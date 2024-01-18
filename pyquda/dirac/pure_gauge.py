@@ -8,6 +8,7 @@ from ..pyquda import (
     saveGaugeQuda,
     performGaugeSmearQuda,
     gaugeObservablesQuda,
+    projectSU3Quda,
     computeGaugeFixingOVRQuda,
     computeGaugeFixingFFTQuda,
 )
@@ -56,10 +57,16 @@ class PureGauge:
         loadGaugeQuda(gauge.data_ptrs, self.gauge_param)
         self.gauge_param.use_resident_gauge = 1
 
+    def saveGauge(self, gauge: LatticeGauge):
+        saveGaugeQuda(gauge.data_ptrs, self.gauge_param)
+
     def saveSmearedGauge(self, gauge: LatticeGauge):
         self.gauge_param.type = QudaLinkType.QUDA_SMEARED_LINKS
         saveGaugeQuda(gauge.data_ptrs, self.gauge_param)
         self.gauge_param.type = QudaLinkType.QUDA_WILSON_LINKS
+
+    def projectSU3(self, gauge: LatticeGauge, tol: float):
+        projectSU3Quda(gauge.data_ptrs, tol, self.gauge_param)
 
     def smearAPE(self, n_steps: int, alpha: float, dir: int):
         self.smear_param.n_steps = n_steps

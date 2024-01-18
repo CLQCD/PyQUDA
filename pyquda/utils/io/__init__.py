@@ -1,9 +1,14 @@
 from .gauge import (
-    readQIO as readQIOGauge,
+    readChromaQIO as readQIOGauge,
+    readChromaQIO as readChromaQIOGauge,
     readMILC as readMILCGauge,
     readILDGBin as readILDGBinGauge,
     readKYU as readKYUGauge,
     writeKYU as writeKYUGauge,
 )
-from .propagator import readQIO as readQIOPropagator
+from .propagator import (
+    readChromaQIO as readQIOPropagator,
+    readChromaQIO as readChromaQIOPropagator,
+    readMILCQIO as readMILCQIOPropagator,
+)
 from .eigen import readTimeSlice as readTimeSliceEivenvector
