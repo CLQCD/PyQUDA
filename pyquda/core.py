@@ -189,8 +189,8 @@ def gatherLattice(data: numpy.ndarray, axes: List[int], reduce_op: Literal["sum"
     reduce_axis = tuple([keep[0] + d for d in range(4) if axes[d] == -1])
     prefix = data.shape[: keep[0]]
     suffix = data.shape[keep[-1] + 1 :]
-    prefix_size = numpy.prod(prefix)
-    suffix_size = numpy.prod(suffix)
+    prefix_size = int(numpy.prod(prefix))
+    suffix_size = int(numpy.prod(suffix))
 
     if getMPIRank() == root:
         sendbuf = data.reshape(-1)
@@ -283,7 +283,7 @@ def getStaggeredDslash(
     Lx, Ly, Lz, Lt = latt_size
     Lx, Ly, Lz, Lt = Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt
 
-    kappa = 1 / (2 * (mass + Nd))
+    kappa = 1 / 2
     if anti_periodic_t:
         t_boundary = -1
     else:
@@ -340,7 +340,7 @@ def getStaggeredDirac(
     naik_epsilon: float = 0.0,
 ):
     assert latt_info.anisotropy == 1.0
-    kappa = 1 / (2 * (mass + Nd))
+    kappa = 1 / 2
 
     from .dirac.hisq import HISQ
 

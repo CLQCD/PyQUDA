@@ -1,5 +1,4 @@
 from typing import List
-
 import numpy as np
 
 from ..pointer import Pointer, Pointers, ndarrayDataPointer
@@ -456,17 +455,22 @@ def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     gauge_param.use_resident_gauge = 1
 
 
-def invert(b: LatticeFermion, invert_param: QudaInvertParam):
-    latt_info = b.latt_info
-    x = LatticeFermion(latt_info)
-
-    invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    if latt_info.mpi_rank == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
+def performance(invert_param: QudaInvertParam):
+    if invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
         print(
             "PyQuda: "
             f"Time = {invert_param.secs:.3f} secs, "
             f"Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
         )
+
+
+def invert(b: LatticeFermion, invert_param: QudaInvertParam):
+    latt_info = b.latt_info
+    x = LatticeFermion(latt_info)
+
+    invertQuda(x.data_ptr, b.data_ptr, invert_param)
+    if latt_info.mpi_rank == 0:
+        performance(invert_param)
 
     return x
 
@@ -476,48 +480,55 @@ def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
     x = LatticeStaggeredFermion(latt_info)
 
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    if latt_info.mpi_rank == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
-        print(
-            "PyQuda: "
-            f"Time = {invert_param.secs:.3f} secs, "
-            f"Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
-        )
+    if latt_info.mpi_rank == 0:
+        performance(invert_param)
 
     return x
 
 
 def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
-    latt_info = b.latt_info
-
     kappa = invert_param.kappa
     invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
 
+    latt_info = b.latt_info
     x = LatticeFermion(latt_info)
     tmp = LatticeFermion(latt_info)
 
-    # dslashQuda(x.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
-    # tmp.odd = tmp.odd + kappa * x.odd
-    # tmp.even *= 2 * kappa
-    # invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
+    # dslashQuda(x.odd_ptr, b.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
+    # x.even = b.odd + kappa * x.odd
+    # invertQuda(x.odd_ptr, x.even_ptr, invert_param)
     # dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
-    # x.even = tmp.even + kappa * x.even
+    # x.even = kappa * (2 * b.even + x.even)
 
     cloverQuda(tmp.even_ptr, b.even_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY, 1)
     cloverQuda(tmp.odd_ptr, b.odd_ptr, invert_param, QudaParity.QUDA_ODD_PARITY, 1)
     dslashQuda(x.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
-    tmp.odd = tmp.odd + kappa * x.odd
-    # QUDA_ASYMMETRIC_MASS_NORMALIZATION makes the even part 1 / (2 * kappa) instead of 1
-    tmp.even *= 2 * kappa
-    invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
-    if latt_info.mpi_rank == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
-        print(
-            "PyQuda: "
-            f"Time = {invert_param.secs:.3f} secs, "
-            f"Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
-        )
+    x.even = tmp.odd + kappa * x.odd
+    # * QUDA_ASYMMETRIC_MASS_NORMALIZATION makes the even part 1 / (2 * kappa) instead of 1
+    invertQuda(x.odd_ptr, x.even_ptr, invert_param)
+    if latt_info.mpi_rank == 0:
+        performance(invert_param)
     dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
-    x.even = tmp.even + kappa * x.even
+    x.even = kappa * (2 * tmp.even + x.even)
 
     tmp = None
+
+    return x
+
+
+def invertStaggeredPC(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
+    mass = invert_param.mass
+    invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
+
+    latt_info = b.latt_info
+    x = LatticeStaggeredFermion(latt_info)
+
+    dslashQuda(x.odd_ptr, b.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
+    x.even = (2 * mass) * b.odd + x.odd
+    invertQuda(x.odd_ptr, x.even_ptr, invert_param)
+    if latt_info.mpi_rank == 0:
+        performance(invert_param)
+    dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
+    x.even = (0.5 / mass) * (b.even + x.even)
 
     return x
