@@ -446,6 +446,8 @@ class QudaGaugeSmearParam:
     rho: double
     meas_interval: int
     smear_type: QudaGaugeSmearType
+    restart: QudaBoolean
+    t0: int
 
 class QudaBLASParam:
     def __init__(self) -> None: ...
