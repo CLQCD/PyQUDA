@@ -153,13 +153,17 @@ def gaussian(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, r
     return b
 
 
-def colorvector(latt_info: LatticeInfo, t_srce: int, phase):
+def colorvector(latt_info: LatticeInfo, t_srce: int, spin: int, phase):
     Lt = latt_info.Lt
     gt = latt_info.gt
     t = t_srce
-    b = LatticeStaggeredFermion(latt_info)
+    b = LatticeFermion(latt_info) if spin is not None else LatticeStaggeredFermion(latt_info)
     if gt * Lt <= t < (gt + 1) * Lt:
-        b.data[:, t - gt * Lt, :, :, :, :] = phase[:, t - gt * Lt, :, :, :, :]
+        if spin is not None:
+            b.data[:, t - gt * Lt, :, :, :, spin, :] = phase[:, t - gt * Lt, :, :, :]
+        else:
+            b.data[:, t - gt * Lt, :, :, :, :] = phase[:, t - gt * Lt, :, :, :]
+
     return b
 
 
@@ -192,7 +196,7 @@ def source(
     elif source_type.lower() == "smearedgaussian":
         return gaussian3(latt_info, t_srce, spin, color, rho, nsteps)
     elif source_type.lower() == "colorvector":
-        return colorvector(latt_info, t_srce, source_phase)
+        return colorvector(latt_info, t_srce, spin, source_phase)
     else:
         raise NotImplementedError(f"{source_type} source is not implemented yet.")
 

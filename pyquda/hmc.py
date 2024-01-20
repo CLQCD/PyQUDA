@@ -185,7 +185,7 @@ class HMC:
 
     def updateClover(self):
         if not self.updated_clover:
-            freeCloverQuda()
+            # freeCloverQuda()
             loadCloverQuda(nullptr, nullptr, self.invert_param)
             self.updated_clover = True
 
