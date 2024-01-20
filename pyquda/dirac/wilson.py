@@ -57,12 +57,10 @@ class Wilson(Dirac):
 
     def newQudaInvertParam(self, mass: float, kappa: float, tol: float, maxiter: int):
         invert_param = general.newQudaInvertParam(mass, kappa, tol, maxiter, 0.0, 1.0, self.mg_param)
+        invert_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
         if self.mg_param is not None:
-            invert_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
             invert_param.inv_type = QudaInverterType.QUDA_GCR_INVERTER
             invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE
-        else:
-            invert_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
         self.invert_param = invert_param
 
     def loadGauge(self, gauge: LatticeGauge):

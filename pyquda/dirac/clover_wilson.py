@@ -1,8 +1,8 @@
 from typing import List
 
-from ..pyquda import newMultigridQuda, destroyMultigridQuda
-from ..field import LatticeInfo, LatticeGauge, LatticeFermion
-from ..enum_quda import QudaDslashType, QudaInverterType, QudaSolveType, QudaPrecision
+from ..pyquda import newMultigridQuda, destroyMultigridQuda, updateMultigridQuda
+from ..field import LatticeInfo, LatticeGauge, LatticeClover, LatticeFermion
+from ..enum_quda import QudaBoolean, QudaDslashType, QudaInverterType, QudaSolveType, QudaPrecision
 
 from . import Dirac, general
 
@@ -56,6 +56,8 @@ class CloverWilson(Dirac):
             mg_param, mg_inv_param = None, None
         self.mg_param = mg_param
         self.mg_inv_param = mg_inv_param
+        self.clover: LatticeClover = None
+        self.clover_inv: LatticeClover = None
 
     def newQudaInvertParam(
         self, mass: float, kappa: float, tol: float, maxiter: int, clover_coeff: float, clover_xi: float
@@ -63,16 +65,29 @@ class CloverWilson(Dirac):
         invert_param = general.newQudaInvertParam(
             mass, kappa, tol, maxiter, kappa * clover_coeff, clover_xi, self.mg_param
         )
+        invert_param.dslash_type = QudaDslashType.QUDA_CLOVER_WILSON_DSLASH
         if self.mg_param is not None:
-            invert_param.dslash_type = QudaDslashType.QUDA_CLOVER_WILSON_DSLASH
             invert_param.inv_type = QudaInverterType.QUDA_GCR_INVERTER
             invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE
-        else:
-            invert_param.dslash_type = QudaDslashType.QUDA_CLOVER_WILSON_DSLASH
         self.invert_param = invert_param
 
+    def saveClover(self, gauge: LatticeGauge):
+        if self.clover is None or self.clover_inv is None:
+            self.clover = LatticeClover(gauge.latt_info)
+            self.clover_inv = LatticeClover(gauge.latt_info)
+        general.saveClover(self.clover, self.clover_inv, gauge, self.gauge_param, self.invert_param)
+
+    def restoreClover(self):
+        assert self.clover is not None and self.clover_inv is not None
+        general.loadClover(self.clover, self.clover_inv, None, self.gauge_param, self.invert_param)
+        if self.mg_param is not None:
+            if self.mg_instance is not None:
+                self.mg_param.thin_update_only = QudaBoolean.QUDA_BOOLEAN_TRUE
+                updateMultigridQuda(self.mg_instance, self.mg_param)
+                self.mg_param.thin_update_only = QudaBoolean.QUDA_BOOLEAN_TRUE
+
     def loadGauge(self, gauge: LatticeGauge):
-        general.loadClover(gauge, self.gauge_param, self.invert_param)
+        general.loadClover(self.clover, self.clover_inv, gauge, self.gauge_param, self.invert_param)
         general.loadGauge(gauge, self.gauge_param)
         if self.mg_param is not None:
             if self.mg_instance is not None:

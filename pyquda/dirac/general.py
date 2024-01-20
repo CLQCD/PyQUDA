@@ -14,7 +14,7 @@ from ..pyquda import (
     cloverQuda,
     staggeredPhaseQuda,
 )
-from ..field import LatticeInfo, LatticeGauge, LatticeFermion, LatticeStaggeredFermion
+from ..field import LatticeInfo, LatticeGauge, LatticeClover, LatticeFermion, LatticeStaggeredFermion
 from ..enum_quda import (  # noqa: F401
     QudaMemoryType,
     QudaLinkType,
@@ -310,11 +310,13 @@ def newQudaInvertParam(
         invert_param.clover_cuda_prec_precondition = cuda_prec_precondition
         invert_param.clover_cuda_prec_eigensolver = cuda_prec_eigensolver
         invert_param.clover_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
-        invert_param.clover_order = QudaCloverFieldOrder.QUDA_FLOAT2_CLOVER_ORDER
+        invert_param.clover_order = QudaCloverFieldOrder.QUDA_PACKED_CLOVER_ORDER
         invert_param.clover_csw = clover_anisotropy  # to save clover_anisotropy, not real csw
         invert_param.clover_coeff = clover_coeff
         invert_param.compute_clover = 1
         invert_param.compute_clover_inverse = 1
+        invert_param.return_clover = 0
+        invert_param.return_clover_inverse = 0
 
     if False:
         invert_param.num_offset = 1
@@ -339,7 +341,45 @@ def newQudaInvertParam(
     return invert_param
 
 
-def loadClover(gauge: LatticeGauge, gauge_param: QudaGaugeParam, invert_param: QudaInvertParam):
+def loadClover(
+    clover: LatticeClover,
+    clover_inv: LatticeClover,
+    gauge: LatticeGauge,
+    gauge_param: QudaGaugeParam,
+    invert_param: QudaInvertParam,
+):
+    if clover is None or clover_inv is None:
+        clover_anisotropy = invert_param.clover_csw
+        anisotropy = gauge_param.anisotropy
+        reconstruct = gauge_param.reconstruct
+
+        gauge_data_bak = gauge.backup()
+        if clover_anisotropy != 1.0:
+            gauge.setAnisotropy(clover_anisotropy)
+        gauge_param.anisotropy = 1.0
+        gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
+        gauge_param.use_resident_gauge = 0
+        loadGaugeQuda(gauge.data_ptrs, gauge_param)
+        gauge_param.use_resident_gauge = 1
+        loadCloverQuda(nullptr, nullptr, invert_param)
+        gauge_param.anisotropy = anisotropy
+        gauge_param.reconstruct = reconstruct
+        gauge.data = gauge_data_bak
+    else:
+        invert_param.compute_clover = 0
+        invert_param.compute_clover_inverse = 0
+        loadCloverQuda(clover.data_ptr, clover_inv.data_ptr, invert_param)
+        invert_param.compute_clover = 1
+        invert_param.compute_clover_inverse = 1
+
+
+def saveClover(
+    clover: LatticeClover,
+    clover_inv: LatticeClover,
+    gauge: LatticeGauge,
+    gauge_param: QudaGaugeParam,
+    invert_param: QudaInvertParam,
+):
     clover_anisotropy = invert_param.clover_csw
     anisotropy = gauge_param.anisotropy
     reconstruct = gauge_param.reconstruct
@@ -352,7 +392,11 @@ def loadClover(gauge: LatticeGauge, gauge_param: QudaGaugeParam, invert_param: Q
     gauge_param.use_resident_gauge = 0
     loadGaugeQuda(gauge.data_ptrs, gauge_param)
     gauge_param.use_resident_gauge = 1
-    loadCloverQuda(nullptr, nullptr, invert_param)
+    invert_param.return_clover = 1
+    invert_param.return_clover_inverse = 1
+    loadCloverQuda(clover.data_ptr, clover_inv.data_ptr, invert_param)
+    invert_param.return_clover = 0
+    invert_param.return_clover_inverse = 0
     gauge_param.anisotropy = anisotropy
     gauge_param.reconstruct = reconstruct
     gauge.data = gauge_data_bak

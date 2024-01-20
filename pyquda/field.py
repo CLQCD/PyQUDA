@@ -118,6 +118,8 @@ def newLatticeFieldData(latt_info: LatticeInfo, dtype: str):
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
         elif dtype == "StaggeredPropagator":
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
+        elif dtype == "Clover":
+            return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), "<f8")
         else:
             raise ValueError(f"Unsupported lattice field type {dtype}")
     elif backend == "torch":
@@ -137,6 +139,8 @@ def newLatticeFieldData(latt_info: LatticeInfo, dtype: str):
             return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128, device="cuda")
         elif dtype == "StaggeredPropagator":
             return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128, device="cuda")
+        elif dtype == "Clover":
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), dtype=torch.float64, device="cuda")
         else:
             raise ValueError(f"Unsupported lattice field type {dtype}")
     else:
@@ -346,6 +350,20 @@ class LatticeGauge(LatticeField):
         """
         self.initPureGauge()
         self.pure_gauge.fixingFFT(self, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta)
+
+
+class LatticeClover(LatticeField):
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info)
+        Lx, Ly, Lz, Lt = latt_info.size
+        if value is None:
+            self.data = newLatticeFieldData(latt_info, "Clover")
+        else:
+            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2)
+
+    @property
+    def data_ptr(self):
+        return ndarrayDataPointer(self.data.reshape(-1), True)
 
 
 class LatticeFermion(LatticeField):
