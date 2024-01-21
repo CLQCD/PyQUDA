@@ -154,7 +154,7 @@ def readChromaQIO(filename: str):
     # ]
     assert int(scidac_private_file_xml.find("spacetime").text) == Nd
     latt_size = map(int, scidac_private_file_xml.find("dims").text.split())
-    latt_info = LatticeInfo(latt_size, 1, 1)
+    latt_info = LatticeInfo(latt_size)
     gauge_raw = fromILDGBuffer(ildg_binary_data, f">c{2*precision}", latt_info)
 
     return LatticeGauge(latt_info, cb2(gauge_raw, [1, 2, 3, 4]))

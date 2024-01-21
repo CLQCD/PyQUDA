@@ -5,14 +5,14 @@ from check_pyquda import test_dir
 
 from pyquda import core, init
 from pyquda.utils import io
-from pyquda.field import LatticeInfo
 
 init(resource_path=".cache")
-latt_info = LatticeInfo([4, 4, 4, 8])
 
 mass = 0.0102
 
-dslash = core.getStaggeredDslash(latt_info.size, mass, 1e-12, 1000, 1.0, 0.0, False)
+core.setDefaultLattice([4, 4, 4, 8], 1, 1.0)
+
+dslash = core.getStaggeredDiracDefault(mass, 1e-12, 1000, 1.0, 0.0)
 gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
 
 dslash.loadGauge(gauge)

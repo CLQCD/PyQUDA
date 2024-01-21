@@ -17,7 +17,7 @@ tag = "A1"
 
 # init(resource_path=".cache")
 init(backend="torch", resource_path=".cache")
-latt_info = LatticeInfo(ensembles[tag][0], -1)
+latt_info = LatticeInfo(ensembles[tag][0], -1, 1.0)
 beta = ensembles[tag][1]
 
 gauge = LatticeGauge(latt_info, None)

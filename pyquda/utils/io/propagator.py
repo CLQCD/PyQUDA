@@ -118,7 +118,7 @@ def readChromaQIO(filename: str):
     dtype = f">c{2*precision}"
     assert int(scidac_private_file_xml.find("spacetime").text) == Nd
     latt_size = map(int, scidac_private_file_xml.find("dims").text.split())
-    latt_info = LatticeInfo(latt_size, 1, 1)
+    latt_info = LatticeInfo(latt_size)
     propagator_raw = fromSCIDACBuffer(scidac_binary_data, dtype, latt_info, staggered)
 
     if not staggered:
@@ -170,7 +170,7 @@ def readMILCQIO(filename: str):
     dtype = f">c{2*precision}"
     assert int(scidac_private_file_xml.find("spacetime").text) == Nd
     latt_size = map(int, scidac_private_file_xml.find("dims").text.split())
-    latt_info = LatticeInfo(latt_size, 1, 1)
+    latt_info = LatticeInfo(latt_size)
     propagator_raw = fromMultiSCIDACBuffer(scidac_binary_data, dtype, latt_info, staggered)
 
     if not staggered:

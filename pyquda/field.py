@@ -13,7 +13,7 @@ class LatticeInfo:
     def __init__(
         self,
         latt_size: List[int],
-        t_boundary: Literal[1, -1] = -1,
+        t_boundary: Literal[1, -1] = 1,
         anisotropy: float = 1.0,
     ) -> None:
         from . import getMPIComm, getMPISize, getMPIRank, getGridSize, getGridCoord
@@ -245,9 +245,7 @@ class LatticeGauge(LatticeField):
 
     def projectSU3(self, tol: float):
         self.initPureGauge()
-        self.pure_gauge.loadGauge(self)
         self.pure_gauge.projectSU3(self, tol)
-        self.pure_gauge.saveGauge(self)
 
     def smearAPE(self, n_steps: int, alpha: float, dir: int):
         self.initPureGauge()
@@ -280,6 +278,25 @@ class LatticeGauge(LatticeField):
         self.initPureGauge()
         self.pure_gauge.loadGauge(self)
         return self.pure_gauge.qcharge()
+
+    def gauss(self, seed: int, sigma: float):
+        """
+        Generate Gaussian distributed fields and store in the
+        resident gauge field.  We create a Gaussian-distributed su(n)
+        field and exponentiate it, e.g., U = exp(sigma * H), where H is
+        the distributed su(n) field and sigma is the width of the
+        distribution (sigma = 0 results in a free field, and sigma = 1 has
+        maximum disorder).
+
+        seed: int
+            The seed used for the RNG
+        sigma: float
+            Width of Gaussian distrubution
+        """
+        self.initPureGauge()
+        self.pure_gauge.loadGauge(self)
+        self.pure_gauge.gauss(seed, sigma)
+        self.pure_gauge.saveGauge(self)
 
     def fixingOVR(
         self,

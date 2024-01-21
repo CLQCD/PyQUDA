@@ -3,7 +3,7 @@ from warnings import warn
 
 from mpi4py import MPI
 
-__version__ = "0.5.0"
+__version__ = "0.5.2"
 from . import pyquda as quda
 
 

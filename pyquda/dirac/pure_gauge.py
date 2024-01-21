@@ -4,6 +4,7 @@ from ..pyquda import (
     QudaGaugeParam,
     QudaGaugeSmearParam,
     QudaGaugeObservableParam,
+    gaussGaugeQuda,
     loadGaugeQuda,
     saveGaugeQuda,
     performGaugeSmearQuda,
@@ -25,7 +26,7 @@ class PureGauge:
     obs_param: QudaGaugeObservableParam
 
     def __init__(self, latt_info: LatticeInfo) -> None:
-        self.latt_info = LatticeInfo(latt_info.global_size, 1, 1.0)
+        self.latt_info = LatticeInfo(latt_info.global_size)
         link_recon = general.link_recon
         link_recon_sloppy = general.link_recon_sloppy
         # Use QUDA_RECONSTRUCT_NO to ensure slight deviations from SU(3) can be preserved
@@ -66,7 +67,11 @@ class PureGauge:
         self.gauge_param.type = QudaLinkType.QUDA_WILSON_LINKS
 
     def projectSU3(self, gauge: LatticeGauge, tol: float):
+        self.gauge_param.use_resident_gauge = 0
+        self.gauge_param.return_result_gauge = 1
         projectSU3Quda(gauge.data_ptrs, tol, self.gauge_param)
+        self.gauge_param.use_resident_gauge = 1
+        self.gauge_param.return_result_gauge = 0
 
     def smearAPE(self, n_steps: int, alpha: float, dir: int):
         self.smear_param.n_steps = n_steps
@@ -103,6 +108,7 @@ class PureGauge:
         self.obs_param.compute_polyakov_loop = QudaBoolean.QUDA_BOOLEAN_TRUE
         gaugeObservablesQuda(self.obs_param)
         self.obs_param.compute_polyakov_loop = QudaBoolean.QUDA_BOOLEAN_FALSE
+        return self.obs_param.ploop
 
     def energy(self):
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_TRUE
@@ -122,6 +128,9 @@ class PureGauge:
         # performGaugeSmearQuda(self.obs_param)
         # self.obs_param.compute_qcharge_density = QudaBoolean.QUDA_BOOLEAN_TRUE
         raise NotImplementedError("qchargeDensity not implemented. Confusing size of ndarray.")
+
+    def gauss(self, seed: int, sigma: float):
+        gaussGaugeQuda(seed, sigma)
 
     def fixingOVR(
         self,
