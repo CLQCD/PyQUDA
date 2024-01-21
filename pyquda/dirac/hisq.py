@@ -1,13 +1,13 @@
 from typing import List
 
 from ..pyquda import newMultigridQuda, destroyMultigridQuda
-from ..field import LatticeInfo, LatticeGauge, LatticeStaggeredFermion
+from ..field import LatticeInfo, LatticeGauge
 from ..enum_quda import QudaDslashType, QudaInverterType, QudaReconstructType, QudaSolveType, QudaPrecision
 
-from . import Dirac, general
+from . import StaggeredDirac, general
 
 
-class HISQ(Dirac):
+class HISQ(StaggeredDirac):
     def __init__(
         self,
         latt_info: LatticeInfo,
@@ -88,6 +88,3 @@ class HISQ(Dirac):
         if self.mg_instance is not None:
             destroyMultigridQuda(self.mg_instance)
             self.mg_instance = None
-
-    def invert(self, b: LatticeStaggeredFermion):
-        return general.invertStaggered(b, self.invert_param)

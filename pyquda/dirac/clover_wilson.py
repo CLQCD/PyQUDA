@@ -1,7 +1,7 @@
 from typing import List
 
 from ..pyquda import newMultigridQuda, destroyMultigridQuda, updateMultigridQuda
-from ..field import LatticeInfo, LatticeGauge, LatticeClover, LatticeFermion
+from ..field import LatticeInfo, LatticeGauge, LatticeClover
 from ..enum_quda import QudaBoolean, QudaDslashType, QudaInverterType, QudaSolveType, QudaPrecision
 
 from . import Dirac, general
@@ -84,7 +84,7 @@ class CloverWilson(Dirac):
             if self.mg_instance is not None:
                 self.mg_param.thin_update_only = QudaBoolean.QUDA_BOOLEAN_TRUE
                 updateMultigridQuda(self.mg_instance, self.mg_param)
-                self.mg_param.thin_update_only = QudaBoolean.QUDA_BOOLEAN_TRUE
+                self.mg_param.thin_update_only = QudaBoolean.QUDA_BOOLEAN_FALSE
 
     def loadGauge(self, gauge: LatticeGauge):
         general.loadClover(self.clover, self.clover_inv, gauge, self.gauge_param, self.invert_param)
@@ -99,6 +99,3 @@ class CloverWilson(Dirac):
         if self.mg_instance is not None:
             destroyMultigridQuda(self.mg_instance)
             self.mg_instance = None
-
-    def invert(self, b: LatticeFermion):
-        return general.invert(b, self.invert_param)

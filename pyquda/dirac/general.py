@@ -10,6 +10,8 @@ from ..pyquda import (
     loadCloverQuda,
     loadGaugeQuda,
     invertQuda,
+    MatQuda,
+    MatDagMatQuda,
     dslashQuda,
     cloverQuda,
     staggeredPhaseQuda,
@@ -528,6 +530,34 @@ def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
         performance(invert_param)
 
     return x
+
+
+def mat(x: LatticeFermion, invert_param: QudaInvertParam):
+    latt_info = x.latt_info
+    b = LatticeFermion(latt_info)
+
+    MatQuda(b.data_ptr, x.data_ptr, invert_param)
+
+
+def matStaggered(x: LatticeStaggeredFermion, invert_param: QudaInvertParam):
+    latt_info = x.latt_info
+    b = LatticeStaggeredFermion(latt_info)
+
+    MatQuda(b.data_ptr, x.data_ptr, invert_param)
+
+
+def matDagMat(x: LatticeFermion, invert_param: QudaInvertParam):
+    latt_info = x.latt_info
+    b = LatticeFermion(latt_info)
+
+    MatDagMatQuda(b.data_ptr, x.data_ptr, invert_param)
+
+
+def matDagMatStaggered(x: LatticeStaggeredFermion, invert_param: QudaInvertParam):
+    latt_info = x.latt_info
+    b = LatticeStaggeredFermion(latt_info)
+
+    MatDagMatQuda(b.data_ptr, x.data_ptr, invert_param)
 
 
 def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):

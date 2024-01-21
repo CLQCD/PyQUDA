@@ -1,7 +1,7 @@
 from typing import List
 
 from ..pyquda import newMultigridQuda, destroyMultigridQuda
-from ..field import LatticeInfo, LatticeGauge, LatticeFermion
+from ..field import LatticeInfo, LatticeGauge
 from ..enum_quda import QudaDslashType, QudaInverterType, QudaSolveType, QudaPrecision
 
 from . import Dirac, general
@@ -75,6 +75,3 @@ class Wilson(Dirac):
         if self.mg_instance is not None:
             destroyMultigridQuda(self.mg_instance)
             self.mg_instance = None
-
-    def invert(self, b: LatticeFermion):
-        return general.invert(b, self.invert_param)

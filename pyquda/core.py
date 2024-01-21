@@ -16,7 +16,7 @@ from .field import (
     lexico,
     cb2,
 )
-from .dirac import Dirac
+from .dirac import Dirac, StaggeredDirac
 from .utils.source import source
 
 _DEFAULT_LATTICE: LatticeInfo = None
