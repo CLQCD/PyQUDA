@@ -1,7 +1,6 @@
-import os
 import cupy as cp
 
-from check_pyquda import test_dir
+from check_pyquda import weak_field
 
 from pyquda import core, init
 from pyquda.utils import io
@@ -15,7 +14,7 @@ mass = 1 / (2 * kappa) - 4
 core.setDefaultLattice([4, 4, 4, 8], -1, xi_0 / nu)
 
 dslash = core.getDiracDefault(mass, 1e-12, 1000, xi_0, multigrid=False)
-gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
+gauge = io.readQIOGauge(weak_field)
 
 dslash.loadGauge(gauge)
 

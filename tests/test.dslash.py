@@ -1,10 +1,10 @@
 import numpy as np
 import cupy as cp
 
-from check_pyquda import test_dir
+from check_pyquda import weak_field
 
 from pyquda import init, core, quda
-from pyquda.field import Ns, Nc, LatticeInfo, LatticeGauge, LatticeFermion
+from pyquda.field import Ns, Nc
 from pyquda.enum_quda import QudaParity
 
 init(resource_path=".cache")

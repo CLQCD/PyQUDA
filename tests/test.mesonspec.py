@@ -1,9 +1,8 @@
-import os
 from time import perf_counter
 import numpy as np
 import cupy as cp
 
-from check_pyquda import test_dir
+from check_pyquda import weak_field
 
 from pyquda import core, init
 from pyquda.utils import gamma, phase, io
@@ -39,7 +38,7 @@ twopt = np.zeros((Lt, Lt, len(gamma_insertion), mom_num), "<c16")
 
 
 s = perf_counter()
-gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
+gauge = io.readQIOGauge(weak_field)
 dslash.loadGauge(gauge)
 print(f"Read and load gauge configuration: {perf_counter()-s:.2f}sec.")
 

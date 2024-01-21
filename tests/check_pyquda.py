@@ -1,6 +1,7 @@
 import os
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
+weak_field = os.path.join(test_dir, "weak_field.lime")
 
 try:
     import pyquda
@@ -12,3 +13,9 @@ except ModuleNotFoundError:
     import pyquda
 finally:
     print(f"PYQUDA: You are using {pyquda.__file__} as pyquda")
+
+
+def chroma(ini_xml: str):
+    chroma_path = os.path.abspath(os.path.join(test_dir, "bin", "chroma"))
+    ini_xml_path = os.path.abspath(os.path.join(test_dir, ini_xml))
+    assert os.system(f"{chroma_path} -i {ini_xml_path}")
