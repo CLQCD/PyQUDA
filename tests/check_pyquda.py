@@ -18,4 +18,4 @@ finally:
 def chroma(ini_xml: str):
     chroma_path = os.path.abspath(os.path.join(test_dir, "bin", "chroma"))
     ini_xml_path = os.path.abspath(os.path.join(test_dir, ini_xml))
-    assert os.system(f"{chroma_path} -i {ini_xml_path}")
+    return os.system(f"{chroma_path} -i {ini_xml_path}")
