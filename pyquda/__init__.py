@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Any, List, Literal, NamedTuple
+from typing import TYPE_CHECKING, List, Literal, NamedTuple
 from warnings import warn
 
 if TYPE_CHECKING:
@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 from mpi4py import MPI
 
-__version__ = "0.5.2"
+__version__ = "0.5.3"
 from . import pyquda as quda
 
 
