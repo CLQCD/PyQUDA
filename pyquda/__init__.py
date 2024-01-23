@@ -36,11 +36,6 @@ def getCoordFromRank(rank: int, grid: List[int]) -> List[int]:
     return [rank // t // z // y, rank // t // z % y, rank // t % z, rank % t]
 
 
-def warnRoot(message: str, category: type[Warning] | None = None, stacklevel: int = 1, source: Any | None = None):
-    if _MPI_RANK == 0:
-        warn(message, category, stacklevel, source)
-
-
 def printRoot(
     *values: object,
     sep: str | None = " ",
@@ -115,10 +110,10 @@ def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy"
 
         if "QUDA_RESOURCE_PATH" in environ:
             if resource_path is not None:
-                warnRoot("WARNING: Both QUDA_RESOURCE_PATH and init(resource_path) are set", RuntimeWarning)
+                warn("WARNING: Both QUDA_RESOURCE_PATH and init(resource_path) are set", RuntimeWarning)
         else:
             if resource_path is None:
-                warnRoot("WARNING: Neither QUDA_RESOURCE_PATH nor init(resource_path) is set", RuntimeWarning)
+                warn("WARNING: Neither QUDA_RESOURCE_PATH nor init(resource_path) is set", RuntimeWarning)
             else:
                 environ["QUDA_RESOURCE_PATH"] = resource_path
         if "QUDA_RESOURCE_PATH" in environ:
@@ -128,7 +123,7 @@ def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy"
         quda.initQuda(gpuid)
         atexit.register(quda.endQuda)
     else:
-        warnRoot("WARNING: PyQuda is already initialized", RuntimeWarning)
+        warn("WARNING: PyQuda is already initialized", RuntimeWarning)
 
 
 def getMPIComm():
