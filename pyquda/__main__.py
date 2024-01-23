@@ -29,4 +29,5 @@ def main():
     exec(open(args.script).read())
 
 
-main()
+if __name__ == "__main__":
+    main()
