@@ -1,14 +1,13 @@
 from typing import List
-from warnings import warn
 
 
-from . import getGridSize, quda, enum_quda
+from . import warnRoot, getGridSize, quda, enum_quda
 from .field import LatticeFermion, LatticeGauge, LatticeInfo, LatticePropagator, Nc, Nd, Ns
 from .dirac import Dirac
 
 
 def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
-    warn("Use GaugeField::smearSTOUT instead", DeprecationWarning)
+    warnRoot("Use GaugeField::smearSTOUT instead", DeprecationWarning)
     from core import getDslash
 
     smear_param = quda.QudaGaugeSmearParam()
@@ -27,7 +26,7 @@ def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
 
 
 def smear4(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
-    warn("Use GaugeField::smearSTOUT instead", DeprecationWarning)
+    warnRoot("Use GaugeField::smearSTOUT instead", DeprecationWarning)
     from core import getDslash
 
     smear_param = quda.QudaGaugeSmearParam()
@@ -47,7 +46,7 @@ def smear4(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
 
 
 def invert12(b12: LatticePropagator, dslash: Dirac):
-    warn("Use core.invert instead", DeprecationWarning)
+    warnRoot("Use core.invert instead", DeprecationWarning)
     latt_info = b12.latt_info
     Vol = latt_info.volume
 
@@ -77,7 +76,7 @@ def getDslash(
     anti_periodic_t: bool = True,
     multigrid: List[List[int]] = None,
 ):
-    warn("Use getDirac instead", DeprecationWarning)
+    warnRoot("Use getDirac instead", DeprecationWarning)
     Gx, Gy, Gz, Gt = getGridSize()
     Lx, Ly, Lz, Lt = latt_size
     Lx, Ly, Lz, Lt = Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt
@@ -122,7 +121,7 @@ def getStaggeredDslash(
     naik_epsilon: float = 0.0,
     anti_periodic_t: bool = True,
 ):
-    warn("Use getStaggeredDirac instead", DeprecationWarning)
+    warnRoot("Use getStaggeredDirac instead", DeprecationWarning)
     Gx, Gy, Gz, Gt = getGridSize()
     Lx, Ly, Lz, Lt = latt_size
     Lx, Ly, Lz, Lt = Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt

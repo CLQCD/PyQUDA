@@ -48,9 +48,9 @@ def fromMultiSCIDACBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo, sta
     Lx, Ly, Lz, Lt = latt_info.size
 
     if not staggered:
-        from warnings import warn
+        from ... import warnRoot
 
-        warn("PYQUDA: NOT sure about MILC QIO format for propagator!!!")
+        warnRoot("WARNING: NOT sure about MILC QIO format for propagator!!!")
         propagator_raw = (
             numpy.frombuffer(buffer, dtype)
             .reshape(Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Nc)[

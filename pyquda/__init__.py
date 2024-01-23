@@ -1,5 +1,9 @@
-from typing import List, Literal, NamedTuple
+from __future__ import annotations
+from typing import TYPE_CHECKING, Any, List, Literal, NamedTuple
 from warnings import warn
+
+if TYPE_CHECKING:
+    from _typeshed import SupportsWrite
 
 from mpi4py import MPI
 
@@ -30,6 +34,22 @@ def getRankFromCoord(coord: List[int], grid: List[int]) -> int:
 def getCoordFromRank(rank: int, grid: List[int]) -> List[int]:
     x, y, z, t = grid
     return [rank // t // z // y, rank // t // z % y, rank // t % z, rank % t]
+
+
+def warnRoot(message: str, category: type[Warning] | None = None, stacklevel: int = 1, source: Any | None = None):
+    if _MPI_RANK == 0:
+        warn(message, category, stacklevel, source)
+
+
+def printRoot(
+    *values: object,
+    sep: str | None = " ",
+    end: str | None = "\n",
+    file: SupportsWrite[str] | None = None,
+    flush: bool = False,
+):
+    if _MPI_RANK == 0:
+        print(*values, sep=sep, end=end, file=file, flush=flush)
 
 
 def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy", resource_path: str = None):
@@ -79,9 +99,7 @@ def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy"
             if "QUDA_ENABLE_MPS" in environ and environ["QUDA_ENABLE_MPS"] == "1":
                 gpuid %= device_count
 
-        gpuid += _GPUID
         _GPUID = gpuid
-
         _CUDA_BACKEND = backend
 
         if backend == "cupy":
@@ -95,13 +113,22 @@ def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy"
             cc = cuda.get_device_capability(gpuid)
             _COMPUTE_CAPABILITY = _ComputeCapability(cc[0], cc[1])
 
-        if "QUDA_RESOURCE_PATH" not in environ and resource_path is not None:
-            environ["QUDA_RESOURCE_PATH"] = resource_path
+        if "QUDA_RESOURCE_PATH" in environ:
+            if resource_path is not None:
+                warnRoot("WARNING: Both QUDA_RESOURCE_PATH and init(resource_path) are set", RuntimeWarning)
+        else:
+            if resource_path is None:
+                warnRoot("WARNING: Neither QUDA_RESOURCE_PATH nor init(resource_path) is set", RuntimeWarning)
+            else:
+                environ["QUDA_RESOURCE_PATH"] = resource_path
+        if "QUDA_RESOURCE_PATH" in environ:
+            printRoot(f"INFO: Using QUDA_RESOURCE_PATH={environ['QUDA_RESOURCE_PATH']}")
+
         quda.initCommsGridQuda(4, [Gx, Gy, Gz, Gt])
         quda.initQuda(gpuid)
         atexit.register(quda.endQuda)
     else:
-        warn("PyQuda is already initialized", RuntimeWarning)
+        warnRoot("WARNING: PyQuda is already initialized", RuntimeWarning)
 
 
 def getMPIComm():
@@ -122,11 +149,6 @@ def getGridSize():
 
 def getGridCoord():
     return _GRID_COORD
-
-
-def setGPUID(gpuid: int):
-    global _GPUID
-    _GPUID = gpuid
 
 
 def getGPUID():
