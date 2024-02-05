@@ -2856,6 +2856,22 @@ cdef class QudaGaugeSmearParam:
         self.param.smear_type = value
 
     @property
+    def restart(self):
+        return self.param.restart
+
+    @restart.setter
+    def restart(self, value):
+        self.param.restart = value
+
+    @property
+    def t0(self):
+        return self.param.t0
+
+    @t0.setter
+    def t0(self, value):
+        self.param.t0 = value
+
+    @property
     def dir_ignore(self):
         return self.param.dir_ignore
 

@@ -449,6 +449,8 @@ class QudaGaugeSmearParam:
     alpha3: double
     meas_interval: int
     smear_type: QudaGaugeSmearType
+    restart: QudaBoolean
+    t0: double
     dir_ignore: int
 
 class QudaBLASParam:
