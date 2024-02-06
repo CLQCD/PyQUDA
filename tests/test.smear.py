@@ -4,10 +4,8 @@ from check_pyquda import weak_field
 
 from pyquda import init
 from pyquda.utils import io
-from pyquda.field import LatticeInfo
 
 init(resource_path=".cache")
-latt_info = LatticeInfo([4, 4, 4, 8])
 
 gauge = io.readQIOGauge(weak_field)
 gauge_ape = gauge.copy()
