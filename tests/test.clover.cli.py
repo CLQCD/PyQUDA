@@ -1,11 +1,9 @@
 import cupy as cp
 
-from check_pyquda import weak_field
+from tests.check_pyquda import weak_field
 
-from pyquda import core, init
+from pyquda import core
 from pyquda.utils import io
-
-init(resource_path=".cache")
 
 xi_0, nu = 2.464, 0.95
 kappa = 0.115

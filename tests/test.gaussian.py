@@ -1,17 +1,12 @@
-import os
-import sys
 import cupy as cp
 
+from check_pyquda import weak_field
 
-test_dir = os.path.dirname(os.path.abspath(__file__))
-# sys.path.insert(1, os.path.join(test_dir, ".."))
 from pyquda import core, init
 from pyquda.utils import source, io
 from pyquda.field import LatticeInfo
 
-os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-
-init()
+init(resource_path=".cache")
 latt_info = LatticeInfo([4, 4, 4, 8])
 
 rho = 2.0
@@ -24,7 +19,7 @@ nu = xi_0 / xi
 u_s = 0.780268
 dslash = core.getDslash(latt_info.size, 0, 0, 0, xi_0, nu / u_s, anti_periodic_t=False)
 # dslash = core.getDslash(latt_info.size, 0, 0, 0, anti_periodic_t=False)  #* This is used for isotropic lattice
-gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
+gauge = io.readQIOGauge(weak_field)
 dslash.loadGauge(gauge)
 
 shell_source = source.source12(latt_info.size, "gaussian", [0, 0, 0, 0], rho=2.0, nsteps=5, xi=xi * u_s)

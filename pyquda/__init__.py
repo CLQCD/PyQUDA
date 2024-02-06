@@ -1,9 +1,13 @@
-from typing import List, Literal, NamedTuple
+from __future__ import annotations
+from typing import TYPE_CHECKING, List, Literal, NamedTuple
 from warnings import warn
+
+if TYPE_CHECKING:
+    from _typeshed import SupportsWrite
 
 from mpi4py import MPI
 
-__version__ = "0.5.0"
+__version__ = "0.5.3"
 from . import pyquda as quda
 
 
@@ -32,7 +36,18 @@ def getCoordFromRank(rank: int, grid: List[int]) -> List[int]:
     return [rank // t // z // y, rank // t // z % y, rank // t % z, rank % t]
 
 
-def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy"):
+def printRoot(
+    *values: object,
+    sep: str | None = " ",
+    end: str | None = "\n",
+    file: SupportsWrite[str] | None = None,
+    flush: bool = False,
+):
+    if _MPI_RANK == 0:
+        print(*values, sep=sep, end=end, file=file, flush=flush)
+
+
+def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy", resource_path: str = None):
     """
     Initialize MPI along with the QUDA library.
 
@@ -41,7 +56,7 @@ def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy"
     global _MPI_COMM, _MPI_SIZE, _MPI_RANK, _GRID_SIZE, _GRID_COORD
     if _MPI_COMM is None:
         import atexit
-        from os import getenv
+        from os import environ
         from platform import node as gethostname
 
         assert backend in ["cupy", "torch"], f"Unsupported backend {backend}"
@@ -76,13 +91,10 @@ def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy"
         elif backend == "torch":
             device_count = cuda.device_count()
         if gpuid >= device_count:
-            enable_mps_env = getenv("QUDA_ENABLE_MPS")
-            if enable_mps_env is not None and enable_mps_env == "1":
+            if "QUDA_ENABLE_MPS" in environ and environ["QUDA_ENABLE_MPS"] == "1":
                 gpuid %= device_count
 
-        gpuid += _GPUID
         _GPUID = gpuid
-
         _CUDA_BACKEND = backend
 
         if backend == "cupy":
@@ -96,11 +108,22 @@ def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy"
             cc = cuda.get_device_capability(gpuid)
             _COMPUTE_CAPABILITY = _ComputeCapability(cc[0], cc[1])
 
+        if "QUDA_RESOURCE_PATH" in environ:
+            if resource_path is not None:
+                warn("WARNING: Both QUDA_RESOURCE_PATH and init(resource_path) are set", RuntimeWarning)
+        else:
+            if resource_path is None:
+                warn("WARNING: Neither QUDA_RESOURCE_PATH nor init(resource_path) is set", RuntimeWarning)
+            else:
+                environ["QUDA_RESOURCE_PATH"] = resource_path
+        if "QUDA_RESOURCE_PATH" in environ:
+            printRoot(f"INFO: Using QUDA_RESOURCE_PATH={environ['QUDA_RESOURCE_PATH']}")
+
         quda.initCommsGridQuda(4, [Gx, Gy, Gz, Gt])
         quda.initQuda(gpuid)
         atexit.register(quda.endQuda)
     else:
-        warn("PyQuda is already initialized", RuntimeWarning)
+        warn("WARNING: PyQuda is already initialized", RuntimeWarning)
 
 
 def getMPIComm():
@@ -123,11 +146,6 @@ def getGridCoord():
     return _GRID_COORD
 
 
-def setGPUID(gpuid: int):
-    global _GPUID
-    _GPUID = gpuid
-
-
 def getGPUID():
     return _GPUID
 
@@ -138,51 +156,3 @@ def getCUDABackend():
 
 def getCUDAComputeCapability():
     return _COMPUTE_CAPABILITY
-
-
-def gather(data, axes: List[int] = [-1, -1, -1, -1], mode: str = None, root: int = 0):
-    import numpy
-
-    dtype = data.dtype
-    Lt, Lz, Ly, Lx = [data.shape[axis] if axis != -1 else 1 for axis in axes]
-    Gx, Gy, Gz, Gt = _GRID_SIZE
-    collect = tuple([axis for axis in axes if axis != -1])
-    if collect == ():
-        collect = (0, -1)
-    process = tuple([collect[0] + d for d in range(4) if axes[d] == -1])
-    prefix = data.shape[: collect[0]]
-    suffix = data.shape[collect[-1] + 1 :]
-    Nroots = Lx * Ly * Lz * Lt
-    Nprefix = int(numpy.prod(prefix))
-    Nsuffix = int(numpy.prod(suffix))
-    sendbuf = data.reshape(Nprefix * Nroots * Nsuffix).get()
-    if _MPI_RANK == root:
-        recvbuf = numpy.zeros((_MPI_SIZE, Nprefix * Nroots * Nsuffix), dtype)
-    else:
-        recvbuf = None
-    if _MPI_COMM is not None:
-        _MPI_COMM.Gatherv(sendbuf, recvbuf, root)
-    else:
-        recvbuf[0] = sendbuf
-    if _MPI_RANK == root:
-        data = numpy.zeros((Nprefix, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nsuffix), dtype)
-        for i in range(_MPI_SIZE):
-            gt = i % Gt
-            gz = i // Gt % Gz
-            gy = i // Gt // Gz % Gy
-            gx = i // Gt // Gz // Gy
-            data[
-                :, gt * Lt : (gt + 1) * Lt, gz * Lz : (gz + 1) * Lz, gy * Ly : (gy + 1) * Ly, gx * Lx : (gx + 1) * Lx
-            ] = recvbuf[i].reshape(Nprefix, Lt, Lz, Ly, Lx, Nsuffix)
-        data = data.reshape(*prefix, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, *suffix)
-
-        mode = "sum" if mode is None else mode
-        if mode.lower() == "sum":
-            data = data.sum(process)
-        elif mode.lower() == "mean":
-            data = data.mean(process)
-        else:
-            raise NotImplementedError(f"{mode} mode in mpi.gather not implemented yet.")
-        return data
-    else:
-        return None

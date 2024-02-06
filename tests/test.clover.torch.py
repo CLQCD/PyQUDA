@@ -1,28 +1,22 @@
-import os
-import sys
 import torch as cp
 
-test_dir = os.path.dirname(os.path.abspath(__file__))
-# sys.path.insert(1, os.path.join(test_dir, ".."))
+from check_pyquda import weak_field
+
 from pyquda import core, init
 from pyquda.utils import io
-from pyquda.field import LatticeInfo
 
-os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-
-init(backend="torch")
-latt_info = LatticeInfo([4, 4, 4, 8])
+init(backend="torch", resource_path=".cache")
 
 xi_0, nu = 2.464, 0.95
 kappa = 0.115
+mass = 1 / (2 * kappa) - 4
 coeff = 1.17
 coeff_r, coeff_t = 0.91, 1.07
 
-mass = 1 / (2 * kappa) - 4
+core.setDefaultLattice([4, 4, 4, 8], -1, xi_0 / nu)
 
-dslash = core.getDslash(latt_info.size, mass, 1e-12, 1000, xi_0, nu, coeff_t, coeff_r, multigrid=False)
-gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
-
+dslash = core.getDiracDefault(mass, 1e-12, 1000, xi_0, coeff_t, coeff_r, multigrid=False)
+gauge = io.readQIOGauge(weak_field)
 
 dslash.loadGauge(gauge)
 

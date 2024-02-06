@@ -13,27 +13,31 @@ class LatticeInfo:
     def __init__(
         self,
         latt_size: List[int],
-        t_boundary: Literal[1, -1] = -1,
+        t_boundary: Literal[1, -1] = 1,
         anisotropy: float = 1.0,
     ) -> None:
-        from . import getMPIComm, getGridSize, getGridCoord
+        from . import getMPIComm, getMPISize, getMPIRank, getGridSize, getGridCoord
 
         if getMPIComm() is None:
             raise RuntimeError("pyquda.init() must be called before contructing LatticeInfo")
 
-        Gx, Gy, Gz, Gt = getGridSize()
-        gx, gy, gz, gt = getGridCoord()
+        self.mpi_size = getMPISize()
+        self.mpi_rank = getMPIRank()
+        self.grid_size = getGridSize()
+        self.grid_coord = getGridCoord()
+
+        Gx, Gy, Gz, Gt = self.grid_size
+        gx, gy, gz, gt = self.grid_coord
         Lx, Ly, Lz, Lt = latt_size
 
+        assert (
+            Lx % (2 * Gx) == 0 and Ly % (2 * Gy) == 0 and Lz % (2 * Gz) == 0 and Lt % (2 * Gt) == 0
+        ), "Necessary for consistant even-odd preconditioning"
         self.Gx, self.Gy, self.Gz, self.Gt = Gx, Gy, Gz, Gt
         self.gx, self.gy, self.gz, self.gt = gx, gy, gz, gt
-        self.grid_size = [Gx, Gy, Gz, Gt]
-        self.grid_coord = [gx, gy, gz, gt]
         self.global_size = [Lx, Ly, Lz, Lt]
         self.global_volume = Lx * Ly * Lz * Lt
-        assert Lx % Gx == 0 and Ly % Gy == 0 and Lz % Gz == 0 and Lt % Gt == 0
         Lx, Ly, Lz, Lt = Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt
-        assert Lx % 2 == 0 and Ly % 2 == 0 and Lz % 2 == 0 and Lt % 2 == 0
         self.Lx, self.Ly, self.Lz, self.Lt = Lx, Ly, Lz, Lt
         self.size = [Lx, Ly, Lz, Lt]
         self.volume = Lx * Ly * Lz * Lt
@@ -114,6 +118,8 @@ def newLatticeFieldData(latt_info: LatticeInfo, dtype: str):
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
         elif dtype == "StaggeredPropagator":
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
+        elif dtype == "Clover":
+            return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), "<f8")
         else:
             raise ValueError(f"Unsupported lattice field type {dtype}")
     elif backend == "torch":
@@ -133,6 +139,8 @@ def newLatticeFieldData(latt_info: LatticeInfo, dtype: str):
             return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128, device="cuda")
         elif dtype == "StaggeredPropagator":
             return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128, device="cuda")
+        elif dtype == "Clover":
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), dtype=torch.float64, device="cuda")
         else:
             raise ValueError(f"Unsupported lattice field type {dtype}")
     else:
@@ -229,11 +237,15 @@ class LatticeGauge(LatticeField):
     def lexico(self):
         return lexico(self.getHost(), [1, 2, 3, 4, 5])
 
-    def initPureGuage(self):
+    def initPureGauge(self):
         if self.pure_gauge is None:
             from .dirac.pure_gauge import PureGauge
 
             self.pure_gauge = PureGauge(self.latt_info)
+
+    def projectSU3(self, tol: float):
+        self.initPureGauge()
+        self.pure_gauge.projectSU3(self, tol)
 
     def smearAPE(self, n_steps: int, alpha: float, dir_ignore: int):
         self.initPureGuage()
@@ -254,20 +266,127 @@ class LatticeGauge(LatticeField):
         self.pure_gauge.saveSmearedGauge(self)
 
     def plaquette(self):
-        self.initPureGuage()
+        self.initPureGauge()
+        self.pure_gauge.loadGauge(self)
         return self.pure_gauge.plaquette()
 
     def polyakovLoop(self):
-        self.initPureGuage()
+        self.initPureGauge()
+        self.pure_gauge.loadGauge(self)
         return self.pure_gauge.polyakovLoop()
 
     def energy(self):
-        self.initPureGuage()
+        self.initPureGauge()
+        self.pure_gauge.loadGauge(self)
         return self.pure_gauge.energy()
 
     def qcharge(self):
-        self.initPureGuage()
+        self.initPureGauge()
+        self.pure_gauge.loadGauge(self)
         return self.pure_gauge.qcharge()
+
+    def gauss(self, seed: int, sigma: float):
+        """
+        Generate Gaussian distributed fields and store in the
+        resident gauge field.  We create a Gaussian-distributed su(n)
+        field and exponentiate it, e.g., U = exp(sigma * H), where H is
+        the distributed su(n) field and sigma is the width of the
+        distribution (sigma = 0 results in a free field, and sigma = 1 has
+        maximum disorder).
+
+        seed: int
+            The seed used for the RNG
+        sigma: float
+            Width of Gaussian distrubution
+        """
+        self.initPureGauge()
+        self.pure_gauge.loadGauge(self)
+        self.pure_gauge.gauss(seed, sigma)
+        self.pure_gauge.saveGauge(self)
+
+    def fixingOVR(
+        self,
+        gauge_dir: Literal[3, 4],
+        Nsteps: int,
+        verbose_interval: int,
+        relax_boost: float,
+        tolerance: float,
+        reunit_interval: int,
+        stopWtheta: int,
+    ):
+        """
+        Gauge fixing with overrelaxation with support for single and multi GPU.
+
+        Parameters
+        ----------
+        gauge_dir: {3, 4}
+            3 for Coulomb gauge fixing, 4 for Landau gauge fixing
+        Nsteps: int
+            maximum number of steps to perform gauge fixing
+        verbose_interval: int
+            print gauge fixing info when iteration count is a multiple of this
+        relax_boost: float
+            gauge fixing parameter of the overrelaxation method, most common value is 1.5 or 1.7.
+        tolerance: float
+            torelance value to stop the method, if this value is zero then the method stops when
+            iteration reachs the maximum number of steps defined by Nsteps
+        reunit_interval: int
+            reunitarize gauge field when iteration count is a multiple of this
+        stopWtheta: int
+            0 for MILC criterion and 1 to use the theta value
+        """
+        self.initPureGauge()
+        self.pure_gauge.fixingOVR(
+            self, gauge_dir, Nsteps, verbose_interval, relax_boost, tolerance, reunit_interval, stopWtheta
+        )
+
+    def fixingFFT(
+        self,
+        gauge_dir: Literal[3, 4],
+        Nsteps: int,
+        verbose_interval: int,
+        alpha: float,
+        autotune: int,
+        tolerance: float,
+        stopWtheta: int,
+    ):
+        """
+        Gauge fixing with Steepest descent method with FFTs with support for single GPU only.
+
+        Parameters
+        ----------
+        gauge_dir: {3, 4}
+            3 for Coulomb gauge fixing, 4 for Landau gauge fixing
+        Nsteps: int
+            maximum number of steps to perform gauge fixing
+        verbose_interval: int
+            print gauge fixing info when iteration count is a multiple of this
+        alpha: float
+            gauge fixing parameter of the method, most common value is 0.08
+        autotune: int
+            1 to autotune the method, i.e., if the Fg inverts its tendency we decrease the alpha value
+        tolerance: float
+            torelance value to stop the method, if this value is zero then the method stops when
+            iteration reachs the maximum number of steps defined by Nsteps
+        stopWtheta: int
+            0 for MILC criterion and 1 to use the theta value
+        """
+        self.initPureGauge()
+        self.pure_gauge.fixingFFT(self, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta)
+
+
+class LatticeClover(LatticeField):
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info)
+        Lx, Ly, Lz, Lt = latt_info.size
+        if value is None:
+            self.data = newLatticeFieldData(latt_info, "Clover")
+        else:
+            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2)
+
+    @property
+    def data_ptr(self):
+        return ndarrayDataPointer(self.data.reshape(-1), True)
 
 
 class LatticeFermion(LatticeField):

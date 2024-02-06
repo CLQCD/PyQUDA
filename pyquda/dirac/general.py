@@ -1,8 +1,6 @@
 from typing import List
-
 import numpy as np
 
-from .. import getMPIRank
 from ..pointer import Pointer, Pointers, ndarrayDataPointer
 from ..pyquda import (
     QudaGaugeParam,
@@ -12,11 +10,13 @@ from ..pyquda import (
     loadCloverQuda,
     loadGaugeQuda,
     invertQuda,
+    MatQuda,
+    MatDagMatQuda,
     dslashQuda,
     cloverQuda,
     staggeredPhaseQuda,
 )
-from ..field import LatticeInfo, LatticeGauge, LatticeFermion, LatticeStaggeredFermion
+from ..field import LatticeInfo, LatticeGauge, LatticeClover, LatticeFermion, LatticeStaggeredFermion
 from ..enum_quda import (  # noqa: F401
     QudaMemoryType,
     QudaLinkType,
@@ -160,7 +160,7 @@ def newQudaMultigridParam(
     mg_inv_param.solve_type = QudaSolveType.QUDA_DIRECT_SOLVE
     mg_inv_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
     mg_inv_param.dagger = QudaDagType.QUDA_DAG_NO
-    mg_inv_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
+    mg_inv_param.mass_normalization = QudaMassNormalization.QUDA_ASYMMETRIC_MASS_NORMALIZATION
     mg_inv_param.gcrNkrylov = 12
     mg_inv_param.tol = 1e-10
     mg_inv_param.maxiter = 10000
@@ -277,7 +277,7 @@ def newQudaInvertParam(
     invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE
     invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
     invert_param.dagger = QudaDagType.QUDA_DAG_NO
-    invert_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
+    invert_param.mass_normalization = QudaMassNormalization.QUDA_ASYMMETRIC_MASS_NORMALIZATION
     invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
     invert_param.pipeline = 0
     invert_param.Nsteps = 2
@@ -312,11 +312,13 @@ def newQudaInvertParam(
         invert_param.clover_cuda_prec_precondition = cuda_prec_precondition
         invert_param.clover_cuda_prec_eigensolver = cuda_prec_eigensolver
         invert_param.clover_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
-        invert_param.clover_order = QudaCloverFieldOrder.QUDA_FLOAT2_CLOVER_ORDER
+        invert_param.clover_order = QudaCloverFieldOrder.QUDA_PACKED_CLOVER_ORDER
         invert_param.clover_csw = clover_anisotropy  # to save clover_anisotropy, not real csw
         invert_param.clover_coeff = clover_coeff
         invert_param.compute_clover = 1
         invert_param.compute_clover_inverse = 1
+        invert_param.return_clover = 0
+        invert_param.return_clover_inverse = 0
 
     if False:
         invert_param.num_offset = 1
@@ -341,7 +343,45 @@ def newQudaInvertParam(
     return invert_param
 
 
-def loadClover(gauge: LatticeGauge, gauge_param: QudaGaugeParam, invert_param: QudaInvertParam):
+def loadClover(
+    clover: LatticeClover,
+    clover_inv: LatticeClover,
+    gauge: LatticeGauge,
+    gauge_param: QudaGaugeParam,
+    invert_param: QudaInvertParam,
+):
+    if clover is None or clover_inv is None:
+        clover_anisotropy = invert_param.clover_csw
+        anisotropy = gauge_param.anisotropy
+        reconstruct = gauge_param.reconstruct
+
+        gauge_data_bak = gauge.backup()
+        if clover_anisotropy != 1.0:
+            gauge.setAnisotropy(clover_anisotropy)
+        gauge_param.anisotropy = 1.0
+        gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
+        gauge_param.use_resident_gauge = 0
+        loadGaugeQuda(gauge.data_ptrs, gauge_param)
+        gauge_param.use_resident_gauge = 1
+        loadCloverQuda(nullptr, nullptr, invert_param)
+        gauge_param.anisotropy = anisotropy
+        gauge_param.reconstruct = reconstruct
+        gauge.data = gauge_data_bak
+    else:
+        invert_param.compute_clover = 0
+        invert_param.compute_clover_inverse = 0
+        loadCloverQuda(clover.data_ptr, clover_inv.data_ptr, invert_param)
+        invert_param.compute_clover = 1
+        invert_param.compute_clover_inverse = 1
+
+
+def saveClover(
+    clover: LatticeClover,
+    clover_inv: LatticeClover,
+    gauge: LatticeGauge,
+    gauge_param: QudaGaugeParam,
+    invert_param: QudaInvertParam,
+):
     clover_anisotropy = invert_param.clover_csw
     anisotropy = gauge_param.anisotropy
     reconstruct = gauge_param.reconstruct
@@ -354,7 +394,11 @@ def loadClover(gauge: LatticeGauge, gauge_param: QudaGaugeParam, invert_param: Q
     gauge_param.use_resident_gauge = 0
     loadGaugeQuda(gauge.data_ptrs, gauge_param)
     gauge_param.use_resident_gauge = 1
-    loadCloverQuda(nullptr, nullptr, invert_param)
+    invert_param.return_clover = 1
+    invert_param.return_clover_inverse = 1
+    loadCloverQuda(clover.data_ptr, clover_inv.data_ptr, invert_param)
+    invert_param.return_clover = 0
+    invert_param.return_clover_inverse = 0
     gauge_param.anisotropy = anisotropy
     gauge_param.reconstruct = reconstruct
     gauge.data = gauge_data_bak
@@ -457,64 +501,108 @@ def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     gauge_param.use_resident_gauge = 1
 
 
-def invert(b: LatticeFermion, invert_param: QudaInvertParam):
-    kappa = invert_param.kappa
+def performance(invert_param: QudaInvertParam):
+    if invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
+        print(
+            "PyQuda: "
+            f"Time = {invert_param.secs:.3f} secs, "
+            f"Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
+        )
 
-    x = LatticeFermion(b.latt_info)
+
+def invert(b: LatticeFermion, invert_param: QudaInvertParam):
+    latt_info = b.latt_info
+    x = LatticeFermion(latt_info)
 
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    if getMPIRank() == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
-        print(
-            f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
-        )
-    x.data *= 2 * kappa
+    if latt_info.mpi_rank == 0:
+        performance(invert_param)
 
     return x
 
 
 def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
-    mass = invert_param.mass
-
-    x = LatticeStaggeredFermion(b.latt_info)
+    latt_info = b.latt_info
+    x = LatticeStaggeredFermion(latt_info)
 
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    if getMPIRank() == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
-        print(
-            f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
-        )
-    x.data /= 2 * mass
+    if latt_info.mpi_rank == 0:
+        performance(invert_param)
 
     return x
 
 
+def mat(x: LatticeFermion, invert_param: QudaInvertParam):
+    latt_info = x.latt_info
+    b = LatticeFermion(latt_info)
+
+    MatQuda(b.data_ptr, x.data_ptr, invert_param)
+
+
+def matStaggered(x: LatticeStaggeredFermion, invert_param: QudaInvertParam):
+    latt_info = x.latt_info
+    b = LatticeStaggeredFermion(latt_info)
+
+    MatQuda(b.data_ptr, x.data_ptr, invert_param)
+
+
+def matDagMat(x: LatticeFermion, invert_param: QudaInvertParam):
+    latt_info = x.latt_info
+    b = LatticeFermion(latt_info)
+
+    MatDagMatQuda(b.data_ptr, x.data_ptr, invert_param)
+
+
+def matDagMatStaggered(x: LatticeStaggeredFermion, invert_param: QudaInvertParam):
+    latt_info = x.latt_info
+    b = LatticeStaggeredFermion(latt_info)
+
+    MatDagMatQuda(b.data_ptr, x.data_ptr, invert_param)
+
+
 def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
+    kappa = invert_param.kappa
     invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
 
-    kappa = invert_param.kappa
+    latt_info = b.latt_info
+    x = LatticeFermion(latt_info)
+    tmp = LatticeFermion(latt_info)
 
-    x = LatticeFermion(b.latt_info)
-    tmp = LatticeFermion(b.latt_info)
-
-    # tmp.data = 2 * kappa * b.data
-    # dslashQuda(x.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
-    # tmp.odd = tmp.odd + kappa * x.odd
-    # invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
+    # dslashQuda(x.odd_ptr, b.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
+    # x.even = b.odd + kappa * x.odd
+    # invertQuda(x.odd_ptr, x.even_ptr, invert_param)
     # dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
-    # x.even = tmp.even + kappa * x.even
+    # x.even = kappa * (2 * b.even + x.even)
 
     cloverQuda(tmp.even_ptr, b.even_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY, 1)
     cloverQuda(tmp.odd_ptr, b.odd_ptr, invert_param, QudaParity.QUDA_ODD_PARITY, 1)
     dslashQuda(x.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
-    tmp.odd = tmp.odd + kappa * x.odd
-    invertQuda(x.odd_ptr, tmp.odd_ptr, invert_param)
-    if getMPIRank() == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
-        print(
-            f"Time = {invert_param.secs:.3f} secs, Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
-        )
+    x.even = tmp.odd + kappa * x.odd
+    # * QUDA_ASYMMETRIC_MASS_NORMALIZATION makes the even part 1 / (2 * kappa) instead of 1
+    invertQuda(x.odd_ptr, x.even_ptr, invert_param)
+    if latt_info.mpi_rank == 0:
+        performance(invert_param)
     dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
-    x.even = tmp.even + kappa * x.even
-    x.data *= 2 * kappa
+    x.even = kappa * (2 * tmp.even + x.even)
 
     tmp = None
+
+    return x
+
+
+def invertStaggeredPC(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
+    mass = invert_param.mass
+    invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
+
+    latt_info = b.latt_info
+    x = LatticeStaggeredFermion(latt_info)
+
+    dslashQuda(x.odd_ptr, b.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
+    x.even = (2 * mass) * b.odd + x.odd
+    invertQuda(x.odd_ptr, x.even_ptr, invert_param)
+    if latt_info.mpi_rank == 0:
+        performance(invert_param)
+    dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
+    x.even = (0.5 / mass) * (b.even + x.even)
 
     return x

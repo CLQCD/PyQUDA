@@ -1,20 +1,15 @@
-import os
-import sys
 import cupy as cp
 
+from check_pyquda import weak_field
 
-test_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(1, os.path.join(test_dir, ".."))
 from pyquda import init
 from pyquda.utils import io
 from pyquda.field import LatticeInfo
 
-os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-
-init()
+init(resource_path=".cache")
 latt_info = LatticeInfo([4, 4, 4, 8])
 
-gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
+gauge = io.readQIOGauge(weak_field)
 gauge_ape = gauge.copy()
 gauge_ape.smearAPE(1, 2.5, 4)
 gauge_stout = gauge.copy()

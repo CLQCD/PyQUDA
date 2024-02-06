@@ -1,22 +1,18 @@
-import os
-import sys
 import cupy as cp
 
-test_dir = os.path.dirname(os.path.abspath(__file__))
-# sys.path.insert(1, os.path.join(test_dir, ".."))
+from check_pyquda import weak_field
+
 from pyquda import core, init
 from pyquda.utils import io
-from pyquda.field import LatticeInfo
 
-os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-
-init()
-latt_info = LatticeInfo([4, 4, 4, 8])
+init(resource_path=".cache")
 
 mass = 0.0102
 
-dslash = core.getStaggeredDslash(latt_info.size, mass, 1e-12, 1000, 1.0, 0.0, False)
-gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
+core.setDefaultLattice([4, 4, 4, 8], 1, 1.0)
+
+dslash = core.getStaggeredDiracDefault(mass, 1e-12, 1000, 1.0, 0.0)
+gauge = io.readQIOGauge(weak_field)
 
 dslash.loadGauge(gauge)
 

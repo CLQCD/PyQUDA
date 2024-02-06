@@ -5,7 +5,7 @@ from check_pyquda import weak_field
 from pyquda import core, init
 from pyquda.utils import io
 
-init(resource_path=".cache")
+init([1, 1, 1, 2], resource_path=".cache")
 
 xi_0, nu = 2.464, 0.95
 kappa = 0.115

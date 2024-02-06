@@ -1,6 +1,6 @@
 import cupy as cp
 
-from check_pyquda import weak_field
+from check_pyquda import weak_field, chroma
 
 from pyquda import core, init
 from pyquda.utils import io
@@ -24,6 +24,7 @@ propagator = core.invert(dslash, "point", [0, 0, 0, 0])
 
 dslash.destroy()
 
+assert chroma("test.clover.ini.xml") == 0
 propagator_chroma = io.readQIOPropagator("pt_prop_1")
 propagator_chroma.toDevice()
 print(cp.linalg.norm(propagator.data - propagator_chroma.data))

@@ -3213,7 +3213,6 @@ def computeGaugeLoopTraceQuda(Pointer traces, Pointers input_path_buf, Pointer p
     assert loop_coeff.dtype == "double"
     quda.computeGaugeLoopTraceQuda(<double complex *>traces.ptr, <int **>input_path_buf.ptr, <int *>path_length.ptr, <double *>loop_coeff.ptr, num_paths, max_length, factor)
 
-
 def updateGaugeFieldQuda(Pointers gauge, Pointers momentum, double dt, int conj_mom, int exact, QudaGaugeParam param):
     assert gauge.dtype == "void"
     assert momentum.dtype == "void"

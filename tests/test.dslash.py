@@ -1,45 +1,29 @@
-import os
-import sys
 import numpy as np
 import cupy as cp
 
-test_dir = os.path.dirname(os.path.abspath(__file__))
-# sys.path.insert(1, os.path.join(test_dir, ".."))
+from check_pyquda import weak_field
+
 from pyquda import init, core, quda
-from pyquda.field import Ns, Nc, LatticeInfo, LatticeGauge, LatticeFermion
+from pyquda.field import Ns, Nc
 from pyquda.enum_quda import QudaParity
 
-os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-
-init()
-latt_info = LatticeInfo([16, 16, 16, 32])
-Lx, Ly, Lz, Lt = latt_info.size
-
-
-def gaussGauge(latt_info: LatticeInfo, seed: int):
-    gauge = LatticeGauge(latt_info, None)
-
-    dslash = core.getDslash(latt_info.size, 0, 0, 0, anti_periodic_t=False)
-    dslash.gauge_param.use_resident_gauge = 0
-    quda.loadGaugeQuda(gauge.data_ptrs, dslash.gauge_param)
-    dslash.gauge_param.use_resident_gauge = 1
-    quda.gaussGaugeQuda(seed, 1.0)
-    quda.saveGaugeQuda(gauge.data_ptrs, dslash.gauge_param)
-
-    return gauge
+init(resource_path=".cache")
+core.setDefaultLattice([16, 16, 16, 32], 1, 1.0)
+Lx, Ly, Lz, Lt = core.getDefaultLattice().size
 
 
 def applyDslash(Mp, p, U_seed):
     # Set parameters in Dslash and use m=-3.5 to make kappa=1
-    dslash = core.getDslash(latt_info.size, -3.5, 0, 0, anti_periodic_t=False)
+    dslash = core.getDiracDefault(-3.5, 0, 0)
 
     # Generate gauge and then load it
-    U = gaussGauge(latt_info, U_seed)
+    U = core.LatticeGaugeDefault()
+    U.gauss(U_seed, 1.0)
     dslash.loadGauge(U)
 
     # Load a from p and allocate b
-    a = LatticeFermion(latt_info, cp.asarray(core.cb2(p, [0, 1, 2, 3])))
-    b = LatticeFermion(latt_info)
+    a = core.LatticeFermionDefault(cp.asarray(core.cb2(p, [0, 1, 2, 3])))
+    b = core.LatticeFermionDefault()
 
     # Dslash a = b
     quda.dslashQuda(b.even_ptr, a.odd_ptr, dslash.invert_param, QudaParity.QUDA_EVEN_PARITY)

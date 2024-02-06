@@ -1,15 +1,11 @@
-import os
-import sys
 import numpy as np
 import cupy as cp
 
-test_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(1, os.path.join(test_dir, ".."))
+from check_pyquda import test_dir
+
 from pyquda import init
 from pyquda.hmc import HMC
 from pyquda.field import Ns, Nc, LatticeInfo, LatticeFermion, LatticeGauge
-
-os.environ["QUDA_RESOURCE_PATH"] = ".cache"
 
 ensembles = {
     "A1": ([16, 16, 16, 16], 5.789),
@@ -20,8 +16,8 @@ ensembles = {
 
 tag = "A1"
 
-init()
-latt_info = LatticeInfo(ensembles[tag][0], -1)
+init(resource_path=".cache")
+latt_info = LatticeInfo(ensembles[tag][0], -1, 1.0)
 beta = ensembles[tag][1]
 Lx, Ly, Lz, Lt = latt_info.size
 
