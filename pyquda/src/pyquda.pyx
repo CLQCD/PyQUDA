@@ -519,20 +519,20 @@ cdef class QudaInvertParam:
         self.param.mq3 = value
 
     @property
-    def tm_rho(self):
-        return self.param.tm_rho
-
-    @tm_rho.setter
-    def tm_rho(self, value):
-        self.param.tm_rho = value
-
-    @property
     def mu(self):
         return self.param.mu
 
     @mu.setter
     def mu(self, value):
         self.param.mu = value
+
+    @property
+    def tm_rho(self):
+        return self.param.tm_rho
+
+    @tm_rho.setter
+    def tm_rho(self, value):
+        self.param.tm_rho = value
 
     @property
     def epsilon(self):
@@ -1607,10 +1607,10 @@ cdef class QudaMultigridParam:
 
     @property
     def geo_block_size(self):
-        size = []
+        value = []
         for i in range(self.n_level):
-            size.append(self.param.geo_block_size[i])
-        return size
+            value.append(self.param.geo_block_size[i])
+        return value
 
     @geo_block_size.setter
     def geo_block_size(self, value):
@@ -2035,11 +2035,15 @@ cdef class QudaMultigridParam:
 
     @property
     def vec_infile(self):
-        return self.param.vec_infile
+        value = []
+        for i in range(self.n_level):
+            value.append(self.param.vec_infile[i])
+        return value
 
     @vec_infile.setter
     def vec_infile(self, value):
-        self.param.vec_infile = value
+        for i in range(self.n_level):
+            self.param.vec_infile[i] = value[i]
 
     @property
     def vec_store(self):
@@ -2051,11 +2055,15 @@ cdef class QudaMultigridParam:
 
     @property
     def vec_outfile(self):
-        return self.param.vec_outfile
+        value = []
+        for i in range(self.n_level):
+            value.append(self.param.vec_outfile[i])
+        return value
 
     @vec_outfile.setter
     def vec_outfile(self, value):
-        self.param.vec_outfile = value
+        for i in range(self.n_level):
+            self.param.vec_outfile[i] = value[i]
 
     @property
     def mg_vec_partfile(self):
@@ -3070,7 +3078,6 @@ cdef class QudaBLASParam:
     def data_order(self, value):
         self.param.data_order = value
 
-
 def setVerbosityQuda(quda.QudaVerbosity verbosity, const char prefix[]):
     quda.setVerbosityQuda(verbosity, prefix, stdout)
 
@@ -3325,7 +3332,6 @@ cdef class QudaQuarkSmearParam:
 
     cdef set_inv_param(self, QudaInvertParam value):
         self.param.inv_param = &value.param
-
 
     @property
     def n_steps(self):
