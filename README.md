@@ -4,7 +4,7 @@ Python wrapper for [QUDA](https://github.com/lattice/quda) written in Cython.
 
 This project aims to benifit from the optimized linear algebra library [CuPy](https://github.com/cupy/cupy) in Python based on CUDA. CuPy and QUDA will allow us to do most operation in lattice QCD research with high performance.
 
-This project is based on the latest QUDA release v1.1.0.
+This project is based on the latest QUDA develop branch.
 
 You need to build `libquda.so` as the prerequisite.
 
@@ -41,9 +41,10 @@ python3 -m pip install .
 ```
 
 Chroma is needed here for generating the reference files used by test scripts.
-A precompiled Chroma is included in the repository, and you need to fetch it with git-lfs.
+A precompiled Chroma is included in the repository, and you need to fetch it with `git-lfs`. Notice that `git<2` seems not work well with `git-lfs`.
 
 ```bash
+git lfs install
 git lfs pull
 ```
 
@@ -58,6 +59,12 @@ Or just run the Python script that automatically calls Chroma.
 
 ```bash
 python3 tests/test.clover.chroma.py
+```
+
+You may also want to initialize `pyquda` with cli arguments instead of hardcoding them in scripts, you can use
+
+```bash
+python3 -m pyquda tests/test.clover.cli.py --grid 1 1 1 1 --backend cupy
 ```
 
 ## Development

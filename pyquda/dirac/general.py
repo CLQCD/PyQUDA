@@ -84,6 +84,36 @@ from ..enum_quda import QUDA_MAX_DIM, QUDA_MAX_MULTI_SHIFT, QUDA_MAX_MG_LEVEL
 nullptr = Pointer("void")
 nullptrs = Pointers("void", 0)
 
+
+class Precision:
+    def __init__(
+        self,
+        cuda: QudaPrecision = QudaPrecision.QUDA_DOUBLE_PRECISION,
+        sloppy: QudaPrecision = QudaPrecision.QUDA_HALF_PRECISION,
+        precondition: QudaPrecision = QudaPrecision.QUDA_HALF_PRECISION,
+        eigensolver: QudaPrecision = QudaPrecision.QUDA_SINGLE_PRECISION,
+    ):
+        self.cpu = QudaPrecision.QUDA_DOUBLE_PRECISION
+        self.cuda = cuda
+        self.sloppy = sloppy
+        self.precondition = precondition
+        self.eigensolver = eigensolver
+
+
+class Reconstruct:
+    def __init__(
+        self,
+        cuda: QudaReconstructType = QudaReconstructType.QUDA_RECONSTRUCT_12,
+        sloppy: QudaReconstructType = QudaReconstructType.QUDA_RECONSTRUCT_12,
+        precondition: QudaReconstructType = QudaReconstructType.QUDA_RECONSTRUCT_12,
+        eigensolver: QudaReconstructType = QudaReconstructType.QUDA_RECONSTRUCT_12,
+    ):
+        self.cuda = cuda
+        self.sloppy = sloppy
+        self.precondition = precondition
+        self.eigensolver = eigensolver
+
+
 cpu_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
 cuda_prec = QudaPrecision.QUDA_DOUBLE_PRECISION
 cuda_prec_sloppy = QudaPrecision.QUDA_HALF_PRECISION
@@ -186,7 +216,7 @@ def newQudaMultigridParam(
     mg_inv_param.input_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
     mg_inv_param.output_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
 
-    mg_inv_param.tune = QudaBoolean.QUDA_BOOLEAN_TRUE
+    mg_inv_param.tune = QudaTune.QUDA_TUNE_YES
     mg_inv_param.verbosity = QudaVerbosity.QUDA_SUMMARIZE
     mg_inv_param.verbosity_precondition = QudaVerbosity.QUDA_SILENT
 
@@ -273,8 +303,10 @@ def newQudaInvertParam(
     invert_param.Ls = 1
 
     invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
+    # invert_param.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
     invert_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
     invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE
+    # invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE
     invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
     invert_param.dagger = QudaDagType.QUDA_DAG_NO
     invert_param.mass_normalization = QudaMassNormalization.QUDA_ASYMMETRIC_MASS_NORMALIZATION

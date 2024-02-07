@@ -844,6 +844,7 @@ cdef extern from "quda.h":
         QudaBoolean restart           # Used to restart the smearing from existing gaugeSmeared
         double t0                     # Starting flow time for Wilson flow
         int dir_ignore                # The direction to be ignored by the smearing algorithm
+                                      # A negative value means 3D for APE/STOUT and 4D for OVRIMP_STOUT/HYP
 
     ctypedef struct QudaBLASParam:
         size_t struct_size  # Size of this struct in bytes.  Used to ensure that the host application and QUDA see the same struct
