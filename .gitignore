@@ -2,6 +2,8 @@
 .vscode
 pyquda/src/*.c
 pyquda/src/*.cpp
+pyquda/pyquda.pyi
+pyquda/src/pyquda.pyx
 *.so
 .cache
 __pycache__
@@ -13,3 +15,7 @@ script
 *.sh
 logs
 DATA
+
+# pycparser
+yacctab.py
+lextab.py

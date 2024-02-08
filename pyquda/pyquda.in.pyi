@@ -89,394 +89,59 @@ from .enum_quda import (  # noqa: F401
 from .pointer import Pointer, Pointers
 
 class QudaGaugeParam:
+    """
+    Parameters having to do with the gauge field or the
+    interpretation of the gauge field by various Dirac operators
+    """
+
     def __init__(self) -> None: ...
     def __repr__(self) -> str: ...
 
-    struct_size: size_t
-    location: QudaFieldLocation
-    X: List[int, 4]
-    anisotropy: double
-    tadpole_coeff: double
-    scale: double
-    type: QudaLinkType
-    gauge_order: QudaGaugeFieldOrder
-    t_boundary: QudaTboundary
-    cpu_prec: QudaPrecision
-    cuda_prec: QudaPrecision
-    reconstruct: QudaReconstructType
-    cuda_prec_sloppy: QudaPrecision
-    reconstruct_sloppy: QudaReconstructType
-    cuda_prec_refinement_sloppy: QudaPrecision
-    reconstruct_refinement_sloppy: QudaReconstructType
-    cuda_prec_precondition: QudaPrecision
-    reconstruct_precondition: QudaReconstructType
-    cuda_prec_eigensolver: QudaPrecision
-    reconstruct_eigensolver: QudaReconstructType
-    gauge_fix: QudaGaugeFixed
-    ga_pad: int
-    site_ga_pad: int
-    staple_pad: int
-    llfat_ga_pad: int
-    mom_ga_pad: int
-    staggered_phase_type: QudaStaggeredPhase
-    staggered_phase_applied: int
-    i_mu: double
-    overlap: int
-    overwrite_gauge: int
-    overwrite_mom: int
-    use_resident_gauge: int
-    use_resident_mom: int
-    make_resident_gauge: int
-    make_resident_mom: int
-    return_result_gauge: int
-    return_result_mom: int
-    gauge_offset: size_t
-    mom_offset: size_t
-    site_size: size_t
+##%%!! QudaGaugeParam
 
 class QudaInvertParam:
+    """
+    Parameters relating to the solver and the choice of Dirac operator.
+    """
+
     def __init__(self) -> None: ...
     def __repr__(self) -> str: ...
 
-    struct_size: size_t
-    input_location: QudaFieldLocation
-    output_location: QudaFieldLocation
-    dslash_type: QudaDslashType
-    inv_type: QudaInverterType
-    mass: double
-    kappa: double
-    m5: double
-    Ls: int
-    b_5: List[double_complex, QUDA_MAX_DWF_LS]
-    c_5: List[double_complex, QUDA_MAX_DWF_LS]
-    eofa_shift: double
-    eofa_pm: int
-    mq1: double
-    mq2: double
-    mq3: double
-    mu: double
-    tm_rho: double
-    epsilon: double
-    twist_flavor: QudaTwistFlavorType
-    laplace3D: int
-    tol: double
-    tol_restart: double
-    tol_hq: double
-    compute_true_res: int
-    true_res: double
-    true_res_hq: double
-    maxiter: int
-    reliable_delta: double
-    reliable_delta_refinement: double
-    use_alternative_reliable: int
-    use_sloppy_partial_accumulator: int
-    solution_accumulator_pipeline: int
-    max_res_increase: int
-    max_res_increase_total: int
-    max_hq_res_increase: int
-    max_hq_res_restart_total: int
-    heavy_quark_check: int
-    pipeline: int
-    num_offset: int
-    num_src: int
-    num_src_per_sub_partition: int
-    split_grid: List[int, QUDA_MAX_DIM]
-    overlap: int
-    offset: List[double, QUDA_MAX_MULTI_SHIFT]
-    tol_offset: List[double, QUDA_MAX_MULTI_SHIFT]
-    tol_hq_offset: List[double, QUDA_MAX_MULTI_SHIFT]
-    true_res_offset: List[double, QUDA_MAX_MULTI_SHIFT]
-    iter_res_offset: List[double, QUDA_MAX_MULTI_SHIFT]
-    true_res_hq_offset: List[double, QUDA_MAX_MULTI_SHIFT]
-    residue: List[double, QUDA_MAX_MULTI_SHIFT]
-    compute_action: int
-    action: List[double, 2]
-    solution_type: QudaSolutionType
-    solve_type: QudaSolveType
-    matpc_type: QudaMatPCType
-    dagger: QudaDagType
-    mass_normalization: QudaMassNormalization
-    solver_normalization: QudaSolverNormalization
-    preserve_source: QudaPreserveSource
-    cpu_prec: QudaPrecision
-    cuda_prec: QudaPrecision
-    cuda_prec_sloppy: QudaPrecision
-    cuda_prec_refinement_sloppy: QudaPrecision
-    cuda_prec_precondition: QudaPrecision
-    cuda_prec_eigensolver: QudaPrecision
-    dirac_order: QudaDiracFieldOrder
-    gamma_basis: QudaGammaBasis
-    clover_location: QudaFieldLocation
-    clover_cpu_prec: QudaPrecision
-    clover_cuda_prec: QudaPrecision
-    clover_cuda_prec_sloppy: QudaPrecision
-    clover_cuda_prec_refinement_sloppy: QudaPrecision
-    clover_cuda_prec_precondition: QudaPrecision
-    clover_cuda_prec_eigensolver: QudaPrecision
-    clover_order: QudaCloverFieldOrder
-    use_init_guess: QudaUseInitGuess
-    clover_csw: double
-    clover_coeff: double
-    clover_rho: double
-    compute_clover_trlog: int
-    trlogA: List[double, 2]
-    compute_clover: int
-    compute_clover_inverse: int
-    return_clover: int
-    return_clover_inverse: int
-    verbosity: QudaVerbosity
-    iter: int
-    gflops: double
-    secs: double
-    tune: QudaTune
-    Nsteps: int
-    gcrNkrylov: int
-    inv_type_precondition: QudaInverterType
-    preconditioner: Pointer
-    deflation_op: Pointer
-    eig_param: Pointer
-    deflate: QudaBoolean
-    dslash_type_precondition: QudaDslashType
-    verbosity_precondition: QudaVerbosity
-    tol_precondition: double
-    maxiter_precondition: int
-    omega: double
-    ca_basis: QudaCABasis
-    ca_lambda_min: double
-    ca_lambda_max: double
-    ca_basis_precondition: QudaCABasis
-    ca_lambda_min_precondition: double
-    ca_lambda_max_precondition: double
-    precondition_cycle: int
-    schwarz_type: QudaSchwarzType
-    accelerator_type_precondition: QudaAcceleratorType
-    madwf_diagonal_suppressor: double
-    madwf_ls: int
-    madwf_null_miniter: int
-    madwf_null_tol: double
-    madwf_train_maxiter: int
-    madwf_param_load: QudaBoolean
-    madwf_param_save: QudaBoolean
-    madwf_param_infile: bytes[256]
-    madwf_param_outfile: bytes[256]
-    residual_type: QudaResidualType
-    cuda_prec_ritz: QudaPrecision
-    n_ev: int
-    max_search_dim: int
-    rhs_idx: int
-    deflation_grid: int
-    eigenval_tol: double
-    eigcg_max_restarts: int
-    max_restart_num: int
-    inc_tol: double
-    make_resident_solution: int
-    use_resident_solution: int
-    chrono_make_resident: int
-    chrono_replace_last: int
-    chrono_use_resident: int
-    chrono_max_dim: int
-    chrono_index: int
-    chrono_precision: QudaPrecision
-    extlib_type: QudaExtLibType
-    native_blas_lapack: QudaBoolean
-    use_mobius_fused_kernel: QudaBoolean
+##%%!! QudaInvertParam
 
 class QudaEigParam:
+    """
+    Parameter set for solving eigenvalue problems.
+    """
+
     def __init__(self) -> None: ...
     def __repr__(self) -> str: ...
 
-    struct_size: size_t
-    invert_param: QudaInvertParam
-    eig_type: QudaEigType
-    use_poly_acc: QudaBoolean
-    poly_deg: int
-    a_min: double
-    a_max: double
-    preserve_deflation: QudaBoolean
-    preserve_deflation_space: Pointer
-    preserve_evals: QudaBoolean
-    use_dagger: QudaBoolean
-    use_norm_op: QudaBoolean
-    use_eigen_qr: QudaBoolean
-    use_pc: QudaBoolean
-    compute_svd: QudaBoolean
-    compute_gamma5: QudaBoolean
-    require_convergence: QudaBoolean
-    spectrum: QudaEigSpectrumType
-    n_ev: int
-    n_kr: int
-    nLockedMax: int
-    n_conv: int
-    n_ev_deflate: int
-    tol: double
-    qr_tol: double
-    check_interval: int
-    max_restarts: int
-    batched_rotate: int
-    block_size: int
-    max_ortho_attempts: int
-    ortho_block_size: int
-    arpack_check: QudaBoolean
-    arpack_logfile: bytes[512]
-    QUDA_logfile: bytes[512]
-    nk: int
-    np: int
-    import_vectors: QudaBoolean
-    cuda_prec_ritz: QudaPrecision
-    mem_type_ritz: QudaMemoryType
-    location: QudaFieldLocation
-    run_verify: QudaBoolean
-    vec_infile: bytes[256]
-    vec_outfile: bytes[256]
-    save_prec: QudaPrecision
-    io_parity_inflate: QudaBoolean
-    partfile: QudaBoolean
-    gflops: double
-    secs: double
-    extlib_type: QudaExtLibType
+##%%!! QudaEigParam
 
 class QudaMultigridParam:
     def __init__(self) -> None: ...
     def __repr__(self) -> str: ...
 
-    struct_size: size_t
-    invert_param: QudaInvertParam
-    eig_param: List[QudaEigParam, QUDA_MAX_MG_LEVEL]
-    n_level: int
-    geo_block_size: List[List[int, QUDA_MAX_DIM], QUDA_MAX_MG_LEVEL]
-    spin_block_size: List[int, QUDA_MAX_MG_LEVEL]
-    n_vec: List[int, QUDA_MAX_MG_LEVEL]
-    precision_null: List[QudaPrecision, QUDA_MAX_MG_LEVEL]
-    n_block_ortho: List[int, QUDA_MAX_MG_LEVEL]
-    block_ortho_two_pass: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
-    verbosity: List[QudaVerbosity, QUDA_MAX_MG_LEVEL]
-    setup_use_mma: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
-    dslash_use_mma: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
-    setup_inv_type: List[QudaInverterType, QUDA_MAX_MG_LEVEL]
-    num_setup_iter: List[int, QUDA_MAX_MG_LEVEL]
-    setup_tol: List[double, QUDA_MAX_MG_LEVEL]
-    setup_maxiter: List[int, QUDA_MAX_MG_LEVEL]
-    setup_maxiter_refresh: List[int, QUDA_MAX_MG_LEVEL]
-    setup_ca_basis: List[QudaCABasis, QUDA_MAX_MG_LEVEL]
-    setup_ca_basis_size: List[int, QUDA_MAX_MG_LEVEL]
-    setup_ca_lambda_min: List[double, QUDA_MAX_MG_LEVEL]
-    setup_ca_lambda_max: List[double, QUDA_MAX_MG_LEVEL]
-    setup_type: QudaSetupType
-    pre_orthonormalize: QudaBoolean
-    post_orthonormalize: QudaBoolean
-    coarse_solver: List[QudaInverterType, QUDA_MAX_MG_LEVEL]
-    coarse_solver_tol: List[double, QUDA_MAX_MG_LEVEL]
-    coarse_solver_maxiter: List[int, QUDA_MAX_MG_LEVEL]
-    coarse_solver_ca_basis: List[QudaCABasis, QUDA_MAX_MG_LEVEL]
-    coarse_solver_ca_basis_size: List[int, QUDA_MAX_MG_LEVEL]
-    coarse_solver_ca_lambda_min: List[double, QUDA_MAX_MG_LEVEL]
-    coarse_solver_ca_lambda_max: List[double, QUDA_MAX_MG_LEVEL]
-    smoother: List[QudaInverterType, QUDA_MAX_MG_LEVEL]
-    smoother_tol: List[double, QUDA_MAX_MG_LEVEL]
-    nu_pre: List[int, QUDA_MAX_MG_LEVEL]
-    nu_post: List[int, QUDA_MAX_MG_LEVEL]
-    smoother_solver_ca_basis: List[QudaCABasis, QUDA_MAX_MG_LEVEL]
-    smoother_solver_ca_lambda_min: List[double, QUDA_MAX_MG_LEVEL]
-    smoother_solver_ca_lambda_max: List[double, QUDA_MAX_MG_LEVEL]
-    omega: List[double, QUDA_MAX_MG_LEVEL]
-    smoother_halo_precision: List[QudaPrecision, QUDA_MAX_MG_LEVEL]
-    smoother_schwarz_type: List[QudaSchwarzType, QUDA_MAX_MG_LEVEL]
-    smoother_schwarz_cycle: List[int, QUDA_MAX_MG_LEVEL]
-    coarse_grid_solution_type: List[QudaSolutionType, QUDA_MAX_MG_LEVEL]
-    smoother_solve_type: List[QudaSolveType, QUDA_MAX_MG_LEVEL]
-    cycle_type: List[QudaMultigridCycleType, QUDA_MAX_MG_LEVEL]
-    global_reduction: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
-    location: List[QudaFieldLocation, QUDA_MAX_MG_LEVEL]
-    setup_location: List[QudaFieldLocation, QUDA_MAX_MG_LEVEL]
-    use_eig_solver: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
-    setup_minimize_memory: QudaBoolean
-    compute_null_vector: QudaComputeNullVector
-    generate_all_levels: QudaBoolean
-    run_verify: QudaBoolean
-    run_low_mode_check: QudaBoolean
-    run_oblique_proj_check: QudaBoolean
-    vec_load: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
-    vec_infile: List[bytes[256], QUDA_MAX_MG_LEVEL]
-    vec_store: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
-    vec_outfile: List[bytes[256], QUDA_MAX_MG_LEVEL]
-    mg_vec_partfile: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
-    coarse_guess: QudaBoolean
-    preserve_deflation: QudaBoolean
-    gflops: double
-    secs: double
-    mu_factor: List[double, QUDA_MAX_MG_LEVEL]
-    transfer_type: List[QudaTransferType, QUDA_MAX_MG_LEVEL]
-    allow_truncation: QudaBoolean
-    staggered_kd_dagger_approximation: QudaBoolean
-    thin_update_only: QudaBoolean
+##%%!! QudaMultigridParam
 
 class QudaGaugeObservableParam:
     def __init__(self) -> None: ...
     def __repr__(self) -> str: ...
 
-    struct_size: size_t
-    su_project: QudaBoolean
-    compute_plaquette: QudaBoolean
-    plaquette: List[double, 3]
-    compute_polyakov_loop: QudaBoolean
-    ploop: List[double, 2]
-    compute_gauge_loop_trace: QudaBoolean
-    traces: Pointer
-    input_path_buff: Pointers
-    path_length: Pointer
-    loop_coeff: Pointer
-    num_paths: int
-    max_length: int
-    factor: double
-    compute_qcharge: QudaBoolean
-    qcharge: double
-    energy: List[double, 3]
-    compute_qcharge_density: QudaBoolean
-    qcharge_density: Pointer
-    remove_staggered_phase: QudaBoolean
+##%%!! QudaGaugeObservableParam
 
 class QudaGaugeSmearParam:
     def __init__(self) -> None: ...
     # def __repr__(self) -> str: ...
 
-    struct_size: size_t
-    n_steps: int
-    epsilon: double
-    alpha: double
-    rho: double
-    alpha1: double
-    alpha2: double
-    alpha3: double
-    meas_interval: int
-    smear_type: QudaGaugeSmearType
-    restart: QudaBoolean
-    t0: double
-    dir_ignore: int
+##%%!! QudaGaugeSmearParam
 
 class QudaBLASParam:
     def __init__(self) -> None: ...
     def __repr__(self) -> str: ...
 
-    struct_size: size_t
-    trans_a: QudaBLASOperation
-    trans_b: QudaBLASOperation
-    m: int
-    n: int
-    k: int
-    lda: int
-    ldb: int
-    ldc: int
-    a_offset: int
-    b_offset: int
-    c_offset: int
-    a_stride: int
-    b_stride: int
-    c_stride: int
-    alpha: double_complex
-    beta: double_complex
-    batch_count: int
-    data_type: QudaBLASDataType
-    data_order: QudaBLASDataOrder
+##%%!! QudaBLASParam
 
 def setVerbosityQuda(verbosity: QudaVerbosity, prefix: bytes) -> None:
     """
@@ -504,7 +169,7 @@ def setVerbosityQuda(verbosity: QudaVerbosity, prefix: bytes) -> None:
     """
     ...
 
-def initCommsGridQuda(nDim: int, dims: List[int, 4]):
+def initCommsGridQuda(nDim: int, dims: List[int, 4]) -> None:
     """
     Declare the grid mapping ("logical topology" in QMP parlance)
     used for communications in a multi-GPU grid.  This function
@@ -679,7 +344,7 @@ def newMultigridQuda(param: QudaMultigridParam) -> Pointer:
     """
     ...
 
-def destroyMultigridQuda(mg_instance: Pointer):
+def destroyMultigridQuda(mg_instance: Pointer) -> None:
     """
     Free resources allocated by the multigrid solver
 
@@ -691,7 +356,7 @@ def destroyMultigridQuda(mg_instance: Pointer):
     """
     ...
 
-def updateMultigridQuda(mg_instance: Pointer, param: QudaMultigridParam):
+def updateMultigridQuda(mg_instance: Pointer, param: QudaMultigridParam) -> None:
     """
     Updates the multigrid preconditioner for the new gauge / clover field
 
@@ -704,7 +369,7 @@ def updateMultigridQuda(mg_instance: Pointer, param: QudaMultigridParam):
     """
     ...
 
-def dumpMultigridQuda(mg_instance: Pointer, param: QudaMultigridParam):
+def dumpMultigridQuda(mg_instance: Pointer, param: QudaMultigridParam) -> None:
     """
     Dump the null-space vectors to disk
 
@@ -946,7 +611,7 @@ def staggeredPhaseQuda(gauge_h: Pointers, param: QudaGaugeParam) -> None:
     """
     ...
 
-def projectSU3Quda(gauge_h: Pointers, tol: double, param: QudaGaugeParam):
+def projectSU3Quda(gauge_h: Pointers, tol: double, param: QudaGaugeParam) -> None:
     """
     Project the input field on the SU(3) group.  If the target
     tolerance is not met, this routine will give a runtime error.
@@ -987,16 +652,14 @@ def computeCloverForceQuda(
     mom: Pointers,
     dt: double,
     x: Pointers,
-    p: Pointers,
     coeff: Pointer,
     kappa2: double,
     ck: double,
     nvector: int,
     multiplicity: double,
-    gauge: Pointers,
     gauge_param: QudaGaugeParam,
     inv_param: QudaInvertParam,
-):
+) -> None:
     """
     Compute the clover force contributions from a set of partial
     fractions stemming from a rational approximation suitable for use
@@ -1008,8 +671,6 @@ def computeCloverForceQuda(
         Integrating step size
     @param x:
         Array of solution vectors
-    @param[deprecated] p:
-        Array of intermediate vectors
     @param coeff:
         Array of residues for each contribution (multiplied by stepsize)
     @param kappa2:
@@ -1020,8 +681,6 @@ def computeCloverForceQuda(
         Number of vectors
     @param multiplicity:
         Number fermions this bilinear reresents
-    @param[deprecated] gauge:
-        Gauge Field
     @param gauge_param:
         Gauge field meta data
     @param inv_param:
@@ -1081,7 +740,7 @@ def polyakovLoopQuda(dir: int) -> List[double, 2]:
     """
     ...
 
-def performWuppertalnStep(h_out: Pointer, h_in: Pointer, param: QudaInvertParam, n_steps: int, alpha: double):
+def performWuppertalnStep(h_out: Pointer, h_in: Pointer, param: QudaInvertParam, n_steps: int, alpha: double) -> None:
     """
     Performs Wuppertal smearing on a given spinor using the gauge field
     gaugeSmeared, if it exist, or gaugePrecise if no smeared field is present.
@@ -1124,7 +783,7 @@ def performWFlowQuda(smear_param: QudaGaugeSmearParam, obs_param: QudaGaugeObser
     """
     ...
 
-def gaugeObservablesQuda(param: QudaGaugeObservableParam):
+def gaugeObservablesQuda(param: QudaGaugeObservableParam) -> None:
     """
     Calculates a variety of gauge-field observables.  If a
     smeared gauge field is presently loaded (in gaugeSmeared) the
@@ -1134,6 +793,27 @@ def gaugeObservablesQuda(param: QudaGaugeObservableParam):
     @param[in,out] param:
         Parameter struct that defines which
         observables we are making and the resulting observables.
+    """
+    ...
+
+def contractQuda(
+    x: Pointer, y: Pointer, result: Pointer, cType: QudaContractType, param: QudaInvertParam, X: Pointer
+) -> None:
+    """
+    Public function to perform color contractions of the host spinors x and y.
+
+    @param[in] x:
+        pointer to host data
+    @param[in] y:
+        pointer to host data
+    @param[out] result:
+        pointer to the 16 spin projections per lattice site
+    @param[in] cType:
+        Which type of contraction (open, degrand-rossi, etc)
+    @param[in] param:
+        meta data for construction of ColorSpinorFields.
+    @param[in] X:
+        spacetime data for construction of ColorSpinorFields.
     """
     ...
 
@@ -1209,15 +889,76 @@ def computeGaugeFixingFFTQuda(
     """
     ...
 
+def blasGEMMQuda(arrayA: Pointer, arrayB: Pointer, arrayC: Pointer, native: QudaBoolean, param: QudaBLASParam) -> None:
+    """
+    Strided Batched GEMM
+
+    @param[in] arrayA:
+        The array containing the A matrix data
+    @param[in] arrayB:
+        The array containing the B matrix data
+    @param[in] arrayC:
+        The array containing the C matrix data
+    @param[in] native:
+        Boolean to use either the native or generic version
+    @param[in] param:
+        The data defining the problem execution.
+    """
+    ...
+
+def blasLUInvQuda(Ainv: Pointer, A: Pointer, use_native: QudaBoolean, param: QudaBLASParam) -> None:
+    """
+    Strided Batched in-place matrix inversion via LU
+
+    @param[in] Ainv:
+        The array containing the A inverse matrix data
+    @param[in] A:
+        The array containing the A matrix data
+    @param[in] use_native:
+        Boolean to use either the native or generic version
+    @param[in] param:
+        The data defining the problem execution.
+    """
+    ...
+
+def flushChronoQuda(index: int) -> None:
+    """
+    Flush the chronological history for the given index
+
+    @param[in] index:
+        Index for which we are flushing
+    """
+    ...
+
+def newDeflationQuda(param: QudaEigParam) -> Pointer:
+    """
+    Create deflation solver resources.
+    """
+    ...
+
+def destroyDeflationQuda(df_instance: Pointer) -> None:
+    """
+    Free resources allocated by the deflated solver
+    """
+    ...
+
 class QudaQuarkSmearParam:
+    """
+    Parameter set for quark smearing operations
+    """
+
     def __init__(self) -> None: ...
     # def __repr__(self) -> str: ...
 
-    inv_param: QudaInvertParam
-    n_steps: int
-    width: double
-    compute_2link: int
-    delete_2link: int
-    t0: int
-    secs: double
-    gflops: double
+##%%!! QudaQuarkSmearParam
+
+def performTwoLinkGaussianSmearNStep(h_in: Pointer, smear_param: QudaQuarkSmearParam) -> None:
+    """
+    Performs two-link Gaussian smearing on a given spinor (for staggered fermions).
+
+    @param[in,out] h_in:
+        Input spinor field to smear
+    @param[in] smear_param:
+        Contains all metadata the operator which will be applied to the spinor
+    """
+    ...

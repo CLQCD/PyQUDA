@@ -108,13 +108,11 @@ class HMC:
             nullptr,
             dt,
             ndarrayDataPointer(x.even.reshape(1, -1), True),
-            nullptr,
             ndarrayDataPointer(numpy.array([1.0], "<f8")),
             kappa2,
             ck,
             1,
             2,
-            nullptr,
             self.gauge_param,
             self.invert_param,
         )
