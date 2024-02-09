@@ -8,7 +8,7 @@ from pyquda.utils import io
 init(resource_path=".cache")
 
 xi_0, nu = 2.464, 0.95
-kappa = 0.135
+kappa = 0.125
 mass = 1 / (2 * kappa) - 4
 
 core.setDefaultLattice([4, 4, 4, 8], -1, xi_0 / nu)

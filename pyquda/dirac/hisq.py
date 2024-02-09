@@ -2,7 +2,7 @@ from typing import List
 
 from ..pyquda import newMultigridQuda, destroyMultigridQuda
 from ..field import LatticeInfo, LatticeGauge
-from ..enum_quda import QudaDslashType, QudaInverterType, QudaReconstructType, QudaSolveType, QudaPrecision
+from ..enum_quda import QudaDslashType, QudaInverterType, QudaReconstructType, QudaPrecision
 
 from . import StaggeredDirac, general
 
@@ -71,9 +71,8 @@ class HISQ(StaggeredDirac):
         invert_param.dslash_type = QudaDslashType.QUDA_ASQTAD_DSLASH
         if self.mg_param is not None:
             invert_param.inv_type = QudaInverterType.QUDA_GCR_INVERTER
-            invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE
         else:
-            invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE
+            invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
         self.invert_param = invert_param
 
     def loadGauge(self, gauge: LatticeGauge):

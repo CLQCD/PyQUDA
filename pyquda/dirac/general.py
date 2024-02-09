@@ -227,7 +227,7 @@ def newQudaMultigridParam(
         geo_block_size[i] = geo_block_size[i] + [1] * (QUDA_MAX_DIM - len(geo_block_size[i]))
     mg_param.n_level = n_level
     mg_param.geo_block_size = geo_block_size
-    mg_param.setup_inv_type = [QudaInverterType.QUDA_CG_INVERTER] * QUDA_MAX_MG_LEVEL
+    mg_param.setup_inv_type = [QudaInverterType.QUDA_BICGSTAB_INVERTER] * QUDA_MAX_MG_LEVEL
     mg_param.num_setup_iter = [1] * QUDA_MAX_MG_LEVEL
     mg_param.setup_tol = [setup_tol] * QUDA_MAX_MG_LEVEL
     mg_param.setup_maxiter = [setup_maxiter] * QUDA_MAX_MG_LEVEL
@@ -302,11 +302,9 @@ def newQudaInvertParam(
 
     invert_param.Ls = 1
 
-    invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
-    # invert_param.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
+    invert_param.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
     invert_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
-    invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE
-    # invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE
+    invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE
     invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
     invert_param.dagger = QudaDagType.QUDA_DAG_NO
     invert_param.mass_normalization = QudaMassNormalization.QUDA_ASYMMETRIC_MASS_NORMALIZATION

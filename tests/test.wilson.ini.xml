@@ -43,7 +43,7 @@
           <numRetries>1</numRetries>
           <FermionAction>
             <FermAct>WILSON</FermAct>
-            <Kappa>0.135</Kappa>
+            <Kappa>0.125</Kappa>
             <AnisoParam>
               <anisoP>true</anisoP>
               <t_dir>3</t_dir>

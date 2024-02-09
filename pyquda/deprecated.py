@@ -9,7 +9,7 @@ from .dirac import Dirac
 
 def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
     warn("Use GaugeField::smearSTOUT instead", DeprecationWarning)
-    from core import getDslash
+    from .core import getDslash
 
     smear_param = quda.QudaGaugeSmearParam()
     smear_param.n_steps = nstep
@@ -28,7 +28,7 @@ def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
 
 def smear4(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
     warn("Use GaugeField::smearSTOUT instead", DeprecationWarning)
-    from core import getDslash
+    from .core import getDslash
 
     smear_param = quda.QudaGaugeSmearParam()
     smear_param.n_steps = nstep

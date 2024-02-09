@@ -2,7 +2,7 @@ from typing import List
 
 from ..pyquda import newMultigridQuda, destroyMultigridQuda, updateMultigridQuda
 from ..field import LatticeInfo, LatticeGauge, LatticeClover
-from ..enum_quda import QudaBoolean, QudaDslashType, QudaInverterType, QudaSolveType, QudaPrecision
+from ..enum_quda import QudaBoolean, QudaDslashType, QudaInverterType, QudaPrecision
 
 from . import Dirac, general
 
@@ -68,7 +68,6 @@ class CloverWilson(Dirac):
         invert_param.dslash_type = QudaDslashType.QUDA_CLOVER_WILSON_DSLASH
         if self.mg_param is not None:
             invert_param.inv_type = QudaInverterType.QUDA_GCR_INVERTER
-            invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE
         self.invert_param = invert_param
 
     def saveClover(self, gauge: LatticeGauge):
