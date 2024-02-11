@@ -182,26 +182,33 @@ def newQudaMultigridParam(
     mg_param = QudaMultigridParam()
     mg_inv_param = QudaInvertParam()
 
-    mg_inv_param.inv_type = QudaInverterType.QUDA_GCR_INVERTER
+    # mg_inv_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
     mg_inv_param.mass = mass
     mg_inv_param.kappa = kappa
+    mg_inv_param.m5 = 0.0
     mg_inv_param.Ls = 1
+
+    mg_inv_param.inv_type = QudaInverterType.QUDA_GCR_INVERTER
     mg_inv_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
     mg_inv_param.solve_type = QudaSolveType.QUDA_DIRECT_SOLVE
     mg_inv_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
     mg_inv_param.dagger = QudaDagType.QUDA_DAG_NO
     mg_inv_param.mass_normalization = QudaMassNormalization.QUDA_ASYMMETRIC_MASS_NORMALIZATION
-    mg_inv_param.gcrNkrylov = 8
+    mg_inv_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
+    mg_inv_param.preserve_source = QudaPreserveSource.QUDA_PRESERVE_SOURCE_NO
+
     mg_inv_param.tol = 0
     mg_inv_param.maxiter = 0
-    mg_inv_param.reliable_delta = 0
+    mg_inv_param.reliable_delta = 1e-5
+    mg_inv_param.gcrNkrylov = 8
+    mg_inv_param.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
 
     mg_inv_param.cpu_prec = cpu_prec
     mg_inv_param.cuda_prec = cuda_prec
     mg_inv_param.cuda_prec_sloppy = cuda_prec_sloppy
     mg_inv_param.cuda_prec_precondition = cuda_prec_precondition
-    mg_inv_param.preserve_source = QudaPreserveSource.QUDA_PRESERVE_SOURCE_NO
-    mg_inv_param.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
+    mg_inv_param.input_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
+    mg_inv_param.output_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
     mg_inv_param.dirac_order = QudaDiracFieldOrder.QUDA_DIRAC_ORDER
     mg_inv_param.gamma_basis = QudaGammaBasis.QUDA_DEGRAND_ROSSI_GAMMA_BASIS
 
@@ -212,9 +219,6 @@ def newQudaMultigridParam(
     mg_inv_param.clover_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
     mg_inv_param.clover_order = QudaCloverFieldOrder.QUDA_PACKED_CLOVER_ORDER
     mg_inv_param.clover_coeff = 1.0
-
-    mg_inv_param.input_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
-    mg_inv_param.output_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
 
     mg_inv_param.tune = QudaTune.QUDA_TUNE_YES
     mg_inv_param.verbosity = QudaVerbosity.QUDA_SUMMARIZE
@@ -227,54 +231,47 @@ def newQudaMultigridParam(
         geo_block_size[i] = geo_block_size[i] + [1] * (QUDA_MAX_DIM - len(geo_block_size[i]))
     mg_param.n_level = n_level
     mg_param.geo_block_size = geo_block_size
+    mg_param.spin_block_size = [2] + [1] * (QUDA_MAX_MG_LEVEL - 1)
+    mg_param.n_vec = [24] * QUDA_MAX_MG_LEVEL
+    mg_param.precision_null = [cuda_prec_precondition] * QUDA_MAX_MG_LEVEL
+    mg_param.n_block_ortho = [1] * QUDA_MAX_MG_LEVEL
 
     mg_param.setup_inv_type = [QudaInverterType.QUDA_CGNR_INVERTER] * QUDA_MAX_MG_LEVEL
     mg_param.num_setup_iter = [1] * QUDA_MAX_MG_LEVEL
     mg_param.setup_tol = [setup_tol] * QUDA_MAX_MG_LEVEL
     mg_param.setup_maxiter = [setup_maxiter] * QUDA_MAX_MG_LEVEL
     mg_param.setup_maxiter_refresh = [setup_maxiter // 10] * QUDA_MAX_MG_LEVEL
-
-    mg_param.spin_block_size = [2] + [1] * (QUDA_MAX_MG_LEVEL - 1)
-    mg_param.n_vec = [24] * QUDA_MAX_MG_LEVEL
-    mg_param.n_block_ortho = [1] * QUDA_MAX_MG_LEVEL
-    mg_param.precision_null = [cuda_prec_precondition] * QUDA_MAX_MG_LEVEL
-    mg_param.nu_pre = [nu_pre] * QUDA_MAX_MG_LEVEL
-    mg_param.nu_post = [nu_post] * QUDA_MAX_MG_LEVEL
-    mg_param.mu_factor = [1.0] * QUDA_MAX_MG_LEVEL
-
-    mg_param.cycle_type = [QudaMultigridCycleType.QUDA_MG_CYCLE_RECURSIVE] * QUDA_MAX_MG_LEVEL
-    mg_param.transfer_type = [QudaTransferType.QUDA_TRANSFER_AGGREGATE] * QUDA_MAX_MG_LEVEL
+    mg_param.setup_type = QudaSetupType.QUDA_NULL_VECTOR_SETUP
+    mg_param.pre_orthonormalize = QudaBoolean.QUDA_BOOLEAN_FALSE
+    mg_param.post_orthonormalize = QudaBoolean.QUDA_BOOLEAN_TRUE
 
     mg_param.coarse_solver = [QudaInverterType.QUDA_GCR_INVERTER] * (n_level - 1) + [
         QudaInverterType.QUDA_CA_GCR_INVERTER
     ] * (QUDA_MAX_MG_LEVEL - n_level + 1)
     mg_param.coarse_solver_tol = [coarse_tol] * QUDA_MAX_MG_LEVEL
     mg_param.coarse_solver_maxiter = [coarse_maxiter] * QUDA_MAX_MG_LEVEL
-    mg_param.coarse_grid_solution_type = [QudaSolutionType.QUDA_MATPC_SOLUTION] * QUDA_MAX_MG_LEVEL
+    mg_param.transfer_type = [QudaTransferType.QUDA_TRANSFER_AGGREGATE] * QUDA_MAX_MG_LEVEL
 
     mg_param.smoother = [QudaInverterType.QUDA_CA_GCR_INVERTER] * QUDA_MAX_MG_LEVEL
     mg_param.smoother_tol = [0.25] * QUDA_MAX_MG_LEVEL
-    mg_param.smoother_solve_type = [QudaSolveType.QUDA_DIRECT_PC_SOLVE] * QUDA_MAX_MG_LEVEL
+    mg_param.nu_pre = [nu_pre] * QUDA_MAX_MG_LEVEL
+    mg_param.nu_post = [nu_post] * QUDA_MAX_MG_LEVEL
+    mg_param.omega = [1.0] * QUDA_MAX_MG_LEVEL
     mg_param.smoother_schwarz_type = [QudaSchwarzType.QUDA_INVALID_SCHWARZ] * QUDA_MAX_MG_LEVEL
     mg_param.smoother_schwarz_cycle = [1] * QUDA_MAX_MG_LEVEL
+
+    mg_param.coarse_grid_solution_type = [QudaSolutionType.QUDA_MATPC_SOLUTION] * QUDA_MAX_MG_LEVEL
+    mg_param.smoother_solve_type = [QudaSolveType.QUDA_DIRECT_PC_SOLVE] * QUDA_MAX_MG_LEVEL
+    mg_param.cycle_type = [QudaMultigridCycleType.QUDA_MG_CYCLE_RECURSIVE] * QUDA_MAX_MG_LEVEL
     mg_param.global_reduction = [QudaBoolean.QUDA_BOOLEAN_TRUE] * QUDA_MAX_MG_LEVEL
 
-    mg_param.omega = [1.0] * QUDA_MAX_MG_LEVEL
+    mg_param.mu_factor = [1.0] * QUDA_MAX_MG_LEVEL
 
     mg_param.location = [QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION] * QUDA_MAX_MG_LEVEL
     mg_param.setup_location = [QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION] * QUDA_MAX_MG_LEVEL
-
-    mg_param.verbosity = [QudaVerbosity.QUDA_SILENT] * QUDA_MAX_MG_LEVEL
-
     mg_param.setup_minimize_memory = QudaBoolean.QUDA_BOOLEAN_FALSE
-
-    mg_param.setup_type = QudaSetupType.QUDA_NULL_VECTOR_SETUP
-    mg_param.pre_orthonormalize = QudaBoolean.QUDA_BOOLEAN_FALSE
-    mg_param.post_orthonormalize = QudaBoolean.QUDA_BOOLEAN_TRUE
-
     mg_param.compute_null_vector = QudaComputeNullVector.QUDA_COMPUTE_NULL_VECTOR_YES
     mg_param.generate_all_levels = QudaBoolean.QUDA_BOOLEAN_TRUE
-
     mg_param.run_verify = QudaBoolean.QUDA_BOOLEAN_TRUE
     mg_param.run_low_mode_check = QudaBoolean.QUDA_BOOLEAN_FALSE
     mg_param.run_oblique_proj_check = QudaBoolean.QUDA_BOOLEAN_FALSE
@@ -282,6 +279,8 @@ def newQudaMultigridParam(
     use_mma = QudaBoolean.QUDA_BOOLEAN_TRUE if getCUDAComputeCapability().major >= 7 else QudaBoolean.QUDA_BOOLEAN_FALSE
     mg_param.setup_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
     mg_param.dslash_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
+
+    mg_param.verbosity = [QudaVerbosity.QUDA_SILENT] * QUDA_MAX_MG_LEVEL
 
     return mg_param, mg_inv_param
 
@@ -297,13 +296,12 @@ def newQudaInvertParam(
 ):
     invert_param = QudaInvertParam()
 
-    # invert_param.dslash_type = QudaDslashType.QUDA_CLOVER_WILSON_DSLASH
+    # invert_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
     invert_param.mass = mass
     invert_param.kappa = kappa
-
-    invert_param.laplace3D = 3
-
+    invert_param.m5 = 0.0
     invert_param.Ls = 1
+    invert_param.laplace3D = 3
 
     invert_param.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
     invert_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
@@ -312,9 +310,8 @@ def newQudaInvertParam(
     invert_param.dagger = QudaDagType.QUDA_DAG_NO
     invert_param.mass_normalization = QudaMassNormalization.QUDA_ASYMMETRIC_MASS_NORMALIZATION
     invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
-    invert_param.pipeline = 0
-    invert_param.Nsteps = 2
-    invert_param.gcrNkrylov = 8
+    invert_param.preserve_source = QudaPreserveSource.QUDA_PRESERVE_SOURCE_NO
+
     invert_param.tol = tol
     invert_param.tol_restart = 5e3 * tol
     invert_param.tol_hq = tol
@@ -325,6 +322,10 @@ def newQudaInvertParam(
     # invert_param.use_sloppy_partial_accumulator = 0
     # invert_param.solution_accumulator_pipeline = 0
     # invert_param.max_res_increase = 1
+    invert_param.pipeline = 0
+    invert_param.Nsteps = 2
+    invert_param.gcrNkrylov = 8
+    invert_param.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
 
     invert_param.cpu_prec = cpu_prec
     invert_param.cuda_prec = cuda_prec
@@ -332,8 +333,8 @@ def newQudaInvertParam(
     invert_param.cuda_prec_refinement_sloppy = cuda_prec_sloppy
     invert_param.cuda_prec_precondition = cuda_prec_precondition
     invert_param.cuda_prec_eigensolver = cuda_prec_eigensolver
-    invert_param.preserve_source = QudaPreserveSource.QUDA_PRESERVE_SOURCE_NO
-    invert_param.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
+    invert_param.input_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
+    invert_param.output_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
     invert_param.dirac_order = QudaDiracFieldOrder.QUDA_DIRAC_ORDER
     invert_param.gamma_basis = QudaGammaBasis.QUDA_DEGRAND_ROSSI_GAMMA_BASIS
 
@@ -360,15 +361,12 @@ def newQudaInvertParam(
 
     if mg_param is not None:
         invert_param.inv_type_precondition = QudaInverterType.QUDA_MG_INVERTER
-        invert_param.schwarz_type = QudaSchwarzType.QUDA_ADDITIVE_SCHWARZ
-        invert_param.precondition_cycle = 1
         invert_param.tol_precondition = mg_param.coarse_solver_tol[0]
         invert_param.maxiter_precondition = mg_param.coarse_solver_maxiter[0]
         invert_param.verbosity_precondition = mg_param.verbosity[0]
+        invert_param.schwarz_type = QudaSchwarzType.QUDA_ADDITIVE_SCHWARZ
+        invert_param.precondition_cycle = 1
         invert_param.omega = 1.0
-
-    invert_param.input_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
-    invert_param.output_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
 
     invert_param.tune = QudaTune.QUDA_TUNE_YES
     invert_param.verbosity = QudaVerbosity.QUDA_SUMMARIZE

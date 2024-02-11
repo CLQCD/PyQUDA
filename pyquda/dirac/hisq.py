@@ -32,7 +32,7 @@ class HISQ(StaggeredDirac):
             general.link_recon_sloppy = recon_no
         self.mg_instance = None
         self.newQudaGaugeParam(tadpole_coeff, naik_epsilon)
-        self.newQudaMultigridParam(geo_block_size, mass, kappa, 1e-1, 12, 5e-6, 1000, 0, 8)
+        self.newQudaMultigridParam(geo_block_size, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
         self.newQudaInvertParam(mass, kappa, tol, maxiter)
         if geo_block_size is not None and cuda_prec_sloppy < single_prec:
             general.cuda_prec_sloppy = cuda_prec_sloppy
