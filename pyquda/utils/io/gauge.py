@@ -174,8 +174,11 @@ def readMILC(filename: str):
     filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
         magic = f.read(4)
-        assert struct.unpack("<i", magic)[0] == 20103 or struct.unpack(">i", magic)[0] == 20103
-        endian = "<" if struct.unpack("<i", magic)[0] == 20103 else ">"
+        for endian in ["<", ">"]:
+            if struct.unpack(f"{endian}i", magic)[0] == 20103:
+                break
+        else:
+            raise ValueError(f"Broken magic {magic} in MILC gauge")
         latt_size = struct.unpack(f"{endian}iiii", f.read(16))
         time_stamp = f.read(64).decode()
         assert struct.unpack(f"{endian}i", f.read(4))[0] == 0

@@ -191,10 +191,10 @@ def newQudaMultigridParam(
     mg_inv_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
     mg_inv_param.dagger = QudaDagType.QUDA_DAG_NO
     mg_inv_param.mass_normalization = QudaMassNormalization.QUDA_ASYMMETRIC_MASS_NORMALIZATION
-    mg_inv_param.gcrNkrylov = 12
-    mg_inv_param.tol = 1e-10
-    mg_inv_param.maxiter = 10000
-    mg_inv_param.reliable_delta = 1e-10
+    mg_inv_param.gcrNkrylov = 8
+    mg_inv_param.tol = 0
+    mg_inv_param.maxiter = 0
+    mg_inv_param.reliable_delta = 0
 
     mg_inv_param.cpu_prec = cpu_prec
     mg_inv_param.cuda_prec = cuda_prec
@@ -210,7 +210,7 @@ def newQudaMultigridParam(
     mg_inv_param.clover_cuda_prec_sloppy = cuda_prec_sloppy
     mg_inv_param.clover_cuda_prec_precondition = cuda_prec_precondition
     mg_inv_param.clover_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
-    mg_inv_param.clover_order = QudaCloverFieldOrder.QUDA_FLOAT2_CLOVER_ORDER
+    mg_inv_param.clover_order = QudaCloverFieldOrder.QUDA_PACKED_CLOVER_ORDER
     mg_inv_param.clover_coeff = 1.0
 
     mg_inv_param.input_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
@@ -227,11 +227,12 @@ def newQudaMultigridParam(
         geo_block_size[i] = geo_block_size[i] + [1] * (QUDA_MAX_DIM - len(geo_block_size[i]))
     mg_param.n_level = n_level
     mg_param.geo_block_size = geo_block_size
-    mg_param.setup_inv_type = [QudaInverterType.QUDA_BICGSTAB_INVERTER] * QUDA_MAX_MG_LEVEL
+
+    mg_param.setup_inv_type = [QudaInverterType.QUDA_CGNR_INVERTER] * QUDA_MAX_MG_LEVEL
     mg_param.num_setup_iter = [1] * QUDA_MAX_MG_LEVEL
     mg_param.setup_tol = [setup_tol] * QUDA_MAX_MG_LEVEL
     mg_param.setup_maxiter = [setup_maxiter] * QUDA_MAX_MG_LEVEL
-    mg_param.setup_maxiter_refresh = [setup_maxiter // 5] * QUDA_MAX_MG_LEVEL
+    mg_param.setup_maxiter_refresh = [setup_maxiter // 10] * QUDA_MAX_MG_LEVEL
 
     mg_param.spin_block_size = [2] + [1] * (QUDA_MAX_MG_LEVEL - 1)
     mg_param.n_vec = [24] * QUDA_MAX_MG_LEVEL
@@ -244,17 +245,19 @@ def newQudaMultigridParam(
     mg_param.cycle_type = [QudaMultigridCycleType.QUDA_MG_CYCLE_RECURSIVE] * QUDA_MAX_MG_LEVEL
     mg_param.transfer_type = [QudaTransferType.QUDA_TRANSFER_AGGREGATE] * QUDA_MAX_MG_LEVEL
 
-    mg_param.coarse_solver = [QudaInverterType.QUDA_GCR_INVERTER] * QUDA_MAX_MG_LEVEL
+    mg_param.coarse_solver = [QudaInverterType.QUDA_GCR_INVERTER] * (n_level - 1) + [
+        QudaInverterType.QUDA_CA_GCR_INVERTER
+    ] * (QUDA_MAX_MG_LEVEL - n_level + 1)
     mg_param.coarse_solver_tol = [coarse_tol] * QUDA_MAX_MG_LEVEL
     mg_param.coarse_solver_maxiter = [coarse_maxiter] * QUDA_MAX_MG_LEVEL
     mg_param.coarse_grid_solution_type = [QudaSolutionType.QUDA_MATPC_SOLUTION] * QUDA_MAX_MG_LEVEL
 
-    mg_param.smoother = [QudaInverterType.QUDA_MR_INVERTER] * QUDA_MAX_MG_LEVEL
+    mg_param.smoother = [QudaInverterType.QUDA_CA_GCR_INVERTER] * QUDA_MAX_MG_LEVEL
     mg_param.smoother_tol = [0.25] * QUDA_MAX_MG_LEVEL
     mg_param.smoother_solve_type = [QudaSolveType.QUDA_DIRECT_PC_SOLVE] * QUDA_MAX_MG_LEVEL
     mg_param.smoother_schwarz_type = [QudaSchwarzType.QUDA_INVALID_SCHWARZ] * QUDA_MAX_MG_LEVEL
-    mg_param.global_reduction = [QudaBoolean.QUDA_BOOLEAN_TRUE] * QUDA_MAX_MG_LEVEL
     mg_param.smoother_schwarz_cycle = [1] * QUDA_MAX_MG_LEVEL
+    mg_param.global_reduction = [QudaBoolean.QUDA_BOOLEAN_TRUE] * QUDA_MAX_MG_LEVEL
 
     mg_param.omega = [1.0] * QUDA_MAX_MG_LEVEL
 
@@ -311,13 +314,13 @@ def newQudaInvertParam(
     invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
     invert_param.pipeline = 0
     invert_param.Nsteps = 2
-    invert_param.gcrNkrylov = 10
+    invert_param.gcrNkrylov = 8
     invert_param.tol = tol
     invert_param.tol_restart = 5e3 * tol
     invert_param.tol_hq = tol
     invert_param.residual_type = QudaResidualType.QUDA_L2_RELATIVE_RESIDUAL
     invert_param.maxiter = maxiter
-    invert_param.reliable_delta = 0.1
+    invert_param.reliable_delta = 1e-1 if mg_param is None else 1e-5
     # invert_param.use_alternative_reliable = 0
     # invert_param.use_sloppy_partial_accumulator = 0
     # invert_param.solution_accumulator_pipeline = 0
