@@ -32,27 +32,27 @@ def getDefaultLattice():
     return _DEFAULT_LATTICE
 
 
-class LatticeGaugeDefault(LatticeGauge):
+class DefaultLatticeGauge(LatticeGauge):
     def __init__(self, value=None) -> None:
         super().__init__(_DEFAULT_LATTICE, value)
 
 
-class LatticeFermionDefault(LatticeFermion):
+class DefaultLatticeFermion(LatticeFermion):
     def __init__(self, value=None) -> None:
         super().__init__(_DEFAULT_LATTICE, value)
 
 
-class LatticePropagatorDefault(LatticePropagator):
+class DefaultLatticePropagator(LatticePropagator):
     def __init__(self, value=None) -> None:
         super().__init__(_DEFAULT_LATTICE, value)
 
 
-class LatticeStaggeredFermionDefault(LatticeStaggeredFermion):
+class DefaultLatticeStaggeredFermion(LatticeStaggeredFermion):
     def __init__(self, value=None) -> None:
         super().__init__(_DEFAULT_LATTICE, value)
 
 
-class LatticeStaggeredPropagatorDefault(LatticeStaggeredPropagator):
+class DefaultLatticeStaggeredPropagator(LatticeStaggeredPropagator):
     def __init__(self, value=None) -> None:
         super().__init__(_DEFAULT_LATTICE, value)
 
@@ -225,7 +225,7 @@ def getStaggeredDirac(
     return HISQ(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, None)
 
 
-def getDiracDefault(
+def getDefaultDirac(
     mass: float,
     tol: float,
     maxiter: int,
@@ -238,7 +238,7 @@ def getDiracDefault(
     return getDirac(_DEFAULT_LATTICE, mass, tol, maxiter, xi_0, clover_coeff_t, clover_coeff_r, multigrid)
 
 
-def getStaggeredDiracDefault(
+def getDefaultStaggeredDirac(
     mass: float,
     tol: float,
     maxiter: int,

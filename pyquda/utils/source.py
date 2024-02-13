@@ -1,4 +1,5 @@
 from typing import List, Literal, Union
+from warnings import warn
 
 from ..field import (
     Ns,
@@ -168,7 +169,7 @@ def colorvector(latt_info: LatticeInfo, t_srce: int, spin: int, phase):
 
 
 def source(
-    latt_size: List[int],
+    latt_info: Union[LatticeInfo, List[int]],
     source_type: str,
     t_srce: Union[int, List[int]],
     spin: int,
@@ -178,12 +179,18 @@ def source(
     nsteps: int = 0,
     xi: float = 1.0,
 ):
-    from .. import getGridSize
+    if isinstance(latt_info, LatticeInfo):
+        pass
+    else:
+        warn(
+            "source(latt_size: List[int]) is deprecated, use source(latt_info: LatticeInfo) instead", DeprecationWarning
+        )
+        from .. import getGridSize
 
-    Gx, Gy, Gz, Gt = getGridSize()
-    Lx, Ly, Lz, Lt = latt_size
-    Lx, Ly, Lz, Lt = Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt
-    latt_info = LatticeInfo([Lx, Ly, Lz, Lt])
+        Gx, Gy, Gz, Gt = getGridSize()
+        Lx, Ly, Lz, Lt = latt_info
+        Lx, Ly, Lz, Lt = Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt
+        latt_info = LatticeInfo([Lx, Ly, Lz, Lt])
 
     if source_type.lower() == "point":
         return point(latt_info, t_srce, spin, color)
@@ -202,7 +209,7 @@ def source(
 
 
 def source12(
-    latt_size: List[int],
+    latt_info: Union[LatticeInfo, List[int]],
     source_type: Literal["point", "wall", "momentum", "gaussian", "smearedgaussian", "colorvector"],
     t_srce: Union[int, List[int]],
     source_phase=None,
@@ -210,37 +217,44 @@ def source12(
     nsteps: int = 0,
     xi: float = 1.0,
 ):
-    from .. import getGridSize
+    if isinstance(latt_info, LatticeInfo):
+        pass
+    else:
+        warn(
+            "source12(latt_size: List[int]) is deprecated, use source12(latt_info: LatticeInfo) instead",
+            DeprecationWarning,
+        )
+        from .. import getGridSize
 
-    Gx, Gy, Gz, Gt = getGridSize()
-    Lx, Ly, Lz, Lt = latt_size
-    Lx, Ly, Lz, Lt = Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt
-    latt_info = LatticeInfo([Lx, Ly, Lz, Lt])
+        Gx, Gy, Gz, Gt = getGridSize()
+        Lx, Ly, Lz, Lt = latt_info
+        Lx, Ly, Lz, Lt = Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt
+        latt_info = LatticeInfo([Lx, Ly, Lz, Lt])
     volume = latt_info.volume
 
     b12 = LatticePropagator(latt_info)
     data = b12.data.reshape(volume, Ns, Ns, Nc, Nc)
     if source_type.lower() in ["colorvector"]:
-        b = source(latt_size, source_type, t_srce, None, None, source_phase)
+        b = source(latt_info, source_type, t_srce, None, None, source_phase)
         for color in range(Nc):
             for spin in range(Ns):
                 data[:, spin, spin, :, color] = b.data.reshape(volume, Nc)
     elif source_type.lower() in ["gaussian", "smearedgaussian"]:
         for color in range(Nc):
-            b = source(latt_size, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
+            b = source(latt_info, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
             for spin in range(Ns):
                 data[:, spin, spin, :, color] = b.data.reshape(volume, Nc)
     else:
         for color in range(Nc):
             for spin in range(Ns):
-                b = source(latt_size, source_type, t_srce, spin, color, source_phase)
+                b = source(latt_info, source_type, t_srce, spin, color, source_phase)
                 data[:, :, spin, :, color] = b.data.reshape(volume, Ns, Nc)
 
     return b12
 
 
 def source3(
-    latt_size: List[int],
+    latt_info: Union[LatticeInfo, List[int]],
     source_type: Literal["point", "wall", "momentum", "gaussian", "smearedgaussian", "colorvector"],
     t_srce: Union[int, List[int]],
     source_phase=None,
@@ -248,19 +262,26 @@ def source3(
     nsteps: int = 0,
     xi: float = 1.0,
 ):
-    from .. import getGridSize
+    if isinstance(latt_info, LatticeInfo):
+        pass
+    else:
+        warn(
+            "source3(latt_size: List[int]) is deprecated, use source3(latt_info: LatticeInfo) instead",
+            DeprecationWarning,
+        )
+        from .. import getGridSize
 
-    Gx, Gy, Gz, Gt = getGridSize()
-    Lx, Ly, Lz, Lt = latt_size
-    Lx, Ly, Lz, Lt = Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt
-    latt_info = LatticeInfo([Lx, Ly, Lz, Lt])
+        Gx, Gy, Gz, Gt = getGridSize()
+        Lx, Ly, Lz, Lt = latt_info
+        Lx, Ly, Lz, Lt = Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt
+        latt_info = LatticeInfo([Lx, Ly, Lz, Lt])
     volume = latt_info.volume
 
     b3 = LatticeStaggeredPropagator(latt_info)
     data = b3.data.reshape(volume, Nc, Nc)
 
     for color in range(Nc):
-        b = source(latt_size, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
+        b = source(latt_info, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
         data[:, :, color] = b.data.reshape(volume, Nc)
 
     return b3

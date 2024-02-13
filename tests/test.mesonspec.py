@@ -33,7 +33,7 @@ mom_num = len(mom_list)
 mom_phase = phase.Phase(latt_info.size)
 phase_list = mom_phase.cache(mom_list)
 
-dslash = core.getDiracDefault(mass, 1e-12, 1000, xi_0, coeff_t, coeff_r, multigrid=True)
+dslash = core.getDefaultDirac(mass, 1e-12, 1000, xi_0, coeff_t, coeff_r, multigrid=True)
 twopt = np.zeros((Lt, Lt, len(gamma_insertion), mom_num), "<c16")
 
 

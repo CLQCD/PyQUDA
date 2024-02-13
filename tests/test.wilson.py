@@ -13,7 +13,7 @@ mass = 1 / (2 * kappa) - 4
 
 core.setDefaultLattice([4, 4, 4, 8], -1, xi_0 / nu)
 
-dslash = core.getDiracDefault(mass, 1e-12, 1000, xi_0, multigrid=False)
+dslash = core.getDefaultDirac(mass, 1e-12, 1000, xi_0, multigrid=False)
 gauge = io.readQIOGauge(weak_field)
 
 dslash.loadGauge(gauge)

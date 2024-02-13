@@ -14,16 +14,16 @@ Lx, Ly, Lz, Lt = core.getDefaultLattice().size
 
 def applyDslash(Mp, p, U_seed):
     # Set parameters in Dslash and use m=-3.5 to make kappa=1
-    dslash = core.getDiracDefault(-3.5, 0, 0)
+    dslash = core.getDefaultDirac(-3.5, 0, 0)
 
     # Generate gauge and then load it
-    U = core.LatticeGaugeDefault()
+    U = core.DefaultLatticeGauge()
     U.gauss(U_seed, 1.0)
     dslash.loadGauge(U)
 
     # Load a from p and allocate b
-    a = core.LatticeFermionDefault(cp.asarray(core.cb2(p, [0, 1, 2, 3])))
-    b = core.LatticeFermionDefault()
+    a = core.DefaultLatticeFermion(cp.asarray(core.cb2(p, [0, 1, 2, 3])))
+    b = core.DefaultLatticeFermion()
 
     # Dslash a = b
     quda.dslashQuda(b.even_ptr, a.odd_ptr, dslash.invert_param, QudaParity.QUDA_EVEN_PARITY)

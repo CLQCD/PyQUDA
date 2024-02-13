@@ -11,7 +11,7 @@ mass = 0.0102
 
 core.setDefaultLattice([4, 4, 4, 8], 1, 1.0)
 
-dslash = core.getStaggeredDiracDefault(mass, 1e-12, 1000, 1.0, 0.0)
+dslash = core.getDefaultStaggeredDirac(mass, 1e-12, 1000, 1.0, 0.0)
 gauge = io.readQIOGauge(weak_field)
 
 dslash.loadGauge(gauge)
