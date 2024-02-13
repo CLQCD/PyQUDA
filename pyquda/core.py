@@ -73,7 +73,7 @@ def invert(
     data = prop.data.reshape(Vol, Ns, Ns, Nc, Nc)
     for spin in range(Ns):
         for color in range(Nc):
-            b = source(latt_info.size, source_type, t_srce, spin, color, source_phase, rho, nsteps, xi)
+            b = source(latt_info, source_type, t_srce, spin, color, source_phase, rho, nsteps, xi)
             x = dslash.invert(b)
             data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
 
@@ -95,7 +95,7 @@ def invertStaggered(
     prop = LatticeStaggeredPropagator(latt_info)
     data = prop.data.reshape(Vol, Nc, Nc)
     for color in range(Nc):
-        b = source(latt_info.size, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
+        b = source(latt_info, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
         x = dslash.invert(b)
         data[:, :, color] = x.data.reshape(Vol, Nc)
 

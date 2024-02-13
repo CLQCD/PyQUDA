@@ -183,7 +183,8 @@ def source(
         pass
     else:
         warn(
-            "source(latt_size: List[int]) is deprecated, use source(latt_info: LatticeInfo) instead", DeprecationWarning
+            "source(latt_size: List[int]) is deprecated, use source(latt_info: LatticeInfo) instead",
+            DeprecationWarning,
         )
         from .. import getGridSize
 

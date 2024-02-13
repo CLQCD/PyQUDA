@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, List, Literal, NamedTuple
-from warnings import warn
+from warnings import warn, filterwarnings
 
 if TYPE_CHECKING:
     from _typeshed import SupportsWrite
@@ -53,6 +53,7 @@ def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy"
 
     If grid_size is None, MPI will not applied.
     """
+    filterwarnings("default", "", DeprecationWarning)
     global _MPI_COMM, _MPI_SIZE, _MPI_RANK, _GRID_SIZE, _GRID_COORD
     if _MPI_COMM is None:
         import atexit
