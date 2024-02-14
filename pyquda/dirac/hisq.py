@@ -76,7 +76,8 @@ class HISQ(StaggeredDirac):
         self.invert_param = invert_param
 
     def loadGauge(self, gauge: LatticeGauge):
-        general.loadFatAndLong(gauge, self.gauge_param)
+        fatlink, longlink = general.computeFatAndLong(gauge, self.gauge_param)
+        general.loadFatLongGauge(fatlink, longlink, self.gauge_param)
         if self.mg_param is not None:
             if self.mg_instance is not None:
                 self.destroy()

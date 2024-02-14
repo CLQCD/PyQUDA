@@ -17,6 +17,7 @@ from ..pyquda import (
     staggeredPhaseQuda,
 )
 from ..field import LatticeInfo, LatticeGauge, LatticeClover, LatticeFermion, LatticeStaggeredFermion
+from ..enum_quda import QUDA_MAX_DIM, QUDA_MAX_MULTI_SHIFT, QUDA_MAX_MG_LEVEL
 from ..enum_quda import (  # noqa: F401
     QudaMemoryType,
     QudaLinkType,
@@ -79,7 +80,6 @@ from ..enum_quda import (  # noqa: F401
     QudaContractGamma,
     QudaExtLibType,
 )
-from ..enum_quda import QUDA_MAX_DIM, QUDA_MAX_MULTI_SHIFT, QUDA_MAX_MG_LEVEL
 
 nullptr = Pointer("void")
 nullptrs = Pointers("void", 0)
@@ -447,7 +447,20 @@ def loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     gauge.data = gauge_data_bak
 
 
-def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
+def loadFatLongGauge(fatlink: LatticeGauge, longlink: LatticeGauge, gauge_param: QudaGaugeParam):
+    gauge_param.use_resident_gauge = 0
+    gauge_param.type = QudaLinkType.QUDA_ASQTAD_FAT_LINKS
+    loadGaugeQuda(fatlink.data_ptrs, gauge_param)
+    gauge_param.type = QudaLinkType.QUDA_ASQTAD_LONG_LINKS
+    gauge_param.ga_pad = gauge_param.ga_pad * 3
+    gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_NO
+    loadGaugeQuda(longlink.data_ptrs, gauge_param)
+    gauge_param.ga_pad = gauge_param.ga_pad / 3
+    gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_CHROMA
+    gauge_param.use_resident_gauge = 1
+
+
+def computeFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     u1 = 1.0 / gauge_param.tadpole_coeff
     u2 = u1 * u1
     u4 = u2 * u2
@@ -495,8 +508,10 @@ def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     # t boundary will be applied by the staggered phase.
     gauge_param.return_result_gauge = 1
     staggeredPhaseQuda(inlink.data_ptrs, gauge_param)
-    gauge_param.return_result_gauge = 0
     gauge_param.staggered_phase_applied = 1
+    gauge_param.return_result_gauge = 0
+
+    gauge_param.use_resident_gauge = 1
 
     # Chroma uses periodic boundary condition to do the SU(3) projection.
     # But I think it's wrong.
@@ -518,18 +533,7 @@ def loadFatAndLong(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
         gauge_param,
     )
 
-    gauge_param.type = QudaLinkType.QUDA_ASQTAD_FAT_LINKS
-    loadGaugeQuda(fatlink.data_ptrs, gauge_param)
-    gauge_param.type = QudaLinkType.QUDA_ASQTAD_LONG_LINKS
-    gauge_param.ga_pad = gauge_param.ga_pad * 3
-    # gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_NO
-    loadGaugeQuda(longlink.data_ptrs, gauge_param)
-    gauge_param.ga_pad = gauge_param.ga_pad / 3
-
-    # These field created by QUDA's allocator will not be freed automatically
-    ulink = fatlink = longlink = None
-
-    gauge_param.use_resident_gauge = 1
+    return fatlink, longlink
 
 
 def performance(invert_param: QudaInvertParam):
