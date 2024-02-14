@@ -237,51 +237,55 @@ class LatticeGauge(LatticeField):
     def lexico(self):
         return lexico(self.getHost(), [1, 2, 3, 4, 5])
 
-    def initPureGauge(self):
+    def ensurePureGauge(self):
         if self.pure_gauge is None:
             from .dirac.pure_gauge import PureGauge
 
             self.pure_gauge = PureGauge(self.latt_info)
 
+    def staggeredPhase(self):
+        self.ensurePureGauge()
+        self.pure_gauge.staggeredPhase(self)
+
     def projectSU3(self, tol: float):
-        self.initPureGauge()
+        self.ensurePureGauge()
         self.pure_gauge.projectSU3(self, tol)
 
     def smearAPE(self, n_steps: int, alpha: float, dir_ignore: int):
-        self.initPureGauge()
+        self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
         self.pure_gauge.smearAPE(n_steps, alpha, dir_ignore)
         self.pure_gauge.saveSmearedGauge(self)
 
     def smearSTOUT(self, n_steps: int, rho: float, dir_ignore: int):
-        self.initPureGauge()
+        self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
         self.pure_gauge.smearSTOUT(n_steps, rho, dir_ignore)
         self.pure_gauge.saveSmearedGauge(self)
 
     def smearHYP(self, n_steps: int, alpha1: float, alpha2: float, alpha3: float, dir_ignore: int):
-        self.initPureGauge()
+        self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
         self.pure_gauge.smearHYP(n_steps, alpha1, alpha2, alpha3, dir_ignore)
         self.pure_gauge.saveSmearedGauge(self)
 
     def plaquette(self):
-        self.initPureGauge()
+        self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
         return self.pure_gauge.plaquette()
 
     def polyakovLoop(self):
-        self.initPureGauge()
+        self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
         return self.pure_gauge.polyakovLoop()
 
     def energy(self):
-        self.initPureGauge()
+        self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
         return self.pure_gauge.energy()
 
     def qcharge(self):
-        self.initPureGauge()
+        self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
         return self.pure_gauge.qcharge()
 
@@ -299,7 +303,7 @@ class LatticeGauge(LatticeField):
         sigma: float
             Width of Gaussian distrubution
         """
-        self.initPureGauge()
+        self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
         self.pure_gauge.gauss(seed, sigma)
         self.pure_gauge.saveGauge(self)
@@ -335,7 +339,7 @@ class LatticeGauge(LatticeField):
         stopWtheta: int
             0 for MILC criterion and 1 to use the theta value
         """
-        self.initPureGauge()
+        self.ensurePureGauge()
         self.pure_gauge.fixingOVR(
             self, gauge_dir, Nsteps, verbose_interval, relax_boost, tolerance, reunit_interval, stopWtheta
         )
@@ -371,7 +375,7 @@ class LatticeGauge(LatticeField):
         stopWtheta: int
             0 for MILC criterion and 1 to use the theta value
         """
-        self.initPureGauge()
+        self.ensurePureGauge()
         self.pure_gauge.fixingFFT(self, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta)
 
 

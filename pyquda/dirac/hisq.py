@@ -1,10 +1,15 @@
 from typing import List
 
-from ..pyquda import newMultigridQuda, destroyMultigridQuda
+import numpy
+
+from ..pointer import ndarrayDataPointer, Pointers
+from ..pyquda import newMultigridQuda, destroyMultigridQuda, computeKSLinkQuda
 from ..field import LatticeInfo, LatticeGauge
 from ..enum_quda import QudaDslashType, QudaInverterType, QudaReconstructType, QudaPrecision
 
 from . import StaggeredDirac, general
+
+nullptr = Pointers("void", 0)
 
 
 class HISQ(StaggeredDirac):
@@ -75,8 +80,79 @@ class HISQ(StaggeredDirac):
             invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
         self.invert_param = invert_param
 
+    def computeFatLong(self, gauge: LatticeGauge):
+        u1 = 1.0 / self.gauge_param.tadpole_coeff
+        u2 = u1 * u1
+        u4 = u2 * u2
+        u6 = u4 * u2
+        act_path_coeff = numpy.asarray(
+            [
+                [  # First path: create V, W links
+                    (1.0 / 8.0),  # one link
+                    u2 * (0.0),  # Naik
+                    u2 * (-1.0 / 8.0) * 0.5,  # simple staple
+                    u4 * (1.0 / 8.0) * 0.25 * 0.5,  # displace link in two directions
+                    u6 * (-1.0 / 8.0) * 0.125 * (1.0 / 6.0),  # displace link in three directions
+                    u4 * (0.0),  # Lepage term
+                ],
+                [  # Second path: create X, long links
+                    ((1.0 / 8.0) + (2.0 * 6.0 / 16.0) + (1.0 / 8.0)),  # one link
+                    # One link is 1/8 as in fat7 + 2*3/8 for Lepage + 1/8 for Naik
+                    (-1.0 / 24.0),  # Naik
+                    (-1.0 / 8.0) * 0.5,  # simple staple
+                    (1.0 / 8.0) * 0.25 * 0.5,  # displace link in two directions
+                    (-1.0 / 8.0) * 0.125 * (1.0 / 6.0),  # displace link in three directions
+                    (-2.0 / 16.0),  # Lepage term, correct O(a^2) 2x ASQTAD
+                ],
+                [  # Paths for epsilon corrections. Not used if n_naiks = 1.
+                    (1.0 / 8.0),  # one link b/c of Naik
+                    (-1.0 / 24.0),  # Naik
+                    0.0,  # simple staple
+                    0.0,  # displace link in two directions
+                    0.0,  # displace link in three directions
+                    0.0,  # Lepage term
+                ],
+            ],
+            "<f8",
+        )
+
+        inlink = gauge.copy()
+        ulink = LatticeGauge(gauge.latt_info)
+        fatlink = LatticeGauge(gauge.latt_info)
+        longlink = LatticeGauge(gauge.latt_info)
+
+        # gauge_param.use_resident_gauge = 0
+        # loadGaugeQuda(inlink.data_ptrs, gauge_param)  # Save the original gauge for the smeared source.
+        # gauge_param.use_resident_gauge = 1
+
+        # t boundary will be applied by the staggered phase.
+        inlink.staggeredPhase()
+        self.gauge_param.staggered_phase_applied = 1
+
+        # Chroma uses periodic boundary condition to do the SU(3) projection.
+        # But I think it's wrong.
+        # gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
+        computeKSLinkQuda(
+            nullptr,
+            nullptr,
+            ulink.data_ptrs,
+            inlink.data_ptrs,
+            ndarrayDataPointer(act_path_coeff[0]),
+            self.gauge_param,
+        )
+        computeKSLinkQuda(
+            fatlink.data_ptrs,
+            longlink.data_ptrs,
+            nullptr,
+            ulink.data_ptrs,
+            ndarrayDataPointer(act_path_coeff[1]),
+            self.gauge_param,
+        )
+
+        return fatlink, longlink
+
     def loadGauge(self, gauge: LatticeGauge):
-        fatlink, longlink = general.computeFatAndLong(gauge, self.gauge_param)
+        fatlink, longlink = self.computeFatLong(gauge)
         general.loadFatLongGauge(fatlink, longlink, self.gauge_param)
         if self.mg_param is not None:
             if self.mg_instance is not None:
