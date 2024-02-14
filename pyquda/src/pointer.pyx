@@ -63,16 +63,8 @@ def ndarrayDataPointer(ndarray, as_void=False):
         gpu = "cupy"
         dtype = ndarray.dtype.str
     elif ndarray_type == "torch.Tensor":
-        import torch
         gpu = "torch"
-        if ndarray.dtype == torch.int32:
-            dtype = "<i4"
-        elif ndarray.dtype == torch.float64:
-            dtype = "<f8"
-        elif ndarray.dtype == torch.complex128:
-            dtype = "<c16"
-        else:
-            dtype = ndarray.dtype
+        dtype = f"<{'c' if ndarray.dtype.is_complex else 'f' if ndarray.dtype.is_floating_point else 'i' if ndarray.dtype.is_signed else 'u'}{ndarray.dtype.itemsize}"
     else:
         raise TypeError(f"ndarrayDataPointer: ndarray has unsupported type={type(ndarray)}")
 
