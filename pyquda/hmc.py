@@ -32,6 +32,7 @@ from .enum_quda import (
     QudaLinkType,
     QudaMatPCType,
     QudaSolutionType,
+    QudaSolveType,
     QudaVerbosity,
     QudaTboundary,
     QudaReconstructType,
@@ -65,6 +66,7 @@ class HMC:
 
         self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION
+        self.invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE  # This is set to compute action
         self.invert_param.verbosity = QudaVerbosity.QUDA_SILENT
         self.invert_param.compute_action = 1
         self.invert_param.compute_clover_trlog = 1
