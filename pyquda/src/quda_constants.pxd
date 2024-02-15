@@ -43,7 +43,7 @@ cdef extern from "quda_constants.h":
         # @brief Maximum array length used in QudaInvertParam arrays
         #
         # QUDA_MAX_ARRAY_SIZE = QUDA_MAX_MULTI_SHIFT if QUDA_MAX_MULTI_SHIFT > QUDA_MAX_BLOCK_SRC else QUDA_MAX_BLOCK_SRC
-        QUDA_MAX_ARRAY_SIZE  # Cython 3.0 deprecated conditional compilation
+        QUDA_MAX_ARRAY_SIZE = QUDA_MAX_BLOCK_SRC  # Cython 3.0 deprecated conditional compilation
 
         #
         # @def   QUDA_MAX_DWF_LS
