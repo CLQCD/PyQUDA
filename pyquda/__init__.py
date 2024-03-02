@@ -1,9 +1,16 @@
-from __future__ import annotations
+from __future__ import annotations  # TYPE_CHECKING
 from typing import TYPE_CHECKING, List, Literal, NamedTuple
 from warnings import warn, filterwarnings
 
 if TYPE_CHECKING:
-    from _typeshed import SupportsWrite
+    from typing import Protocol, TypeVar
+    from _typeshed import SupportsFlush, SupportsWrite
+
+    _T_contra = TypeVar("_T_contra", contravariant=True)
+
+    class SupportsWriteAndFlush(SupportsWrite[_T_contra], SupportsFlush, Protocol[_T_contra]):
+        pass
+
 
 from mpi4py import MPI
 
@@ -40,7 +47,7 @@ def printRoot(
     *values: object,
     sep: str | None = " ",
     end: str | None = "\n",
-    file: SupportsWrite[str] | None = None,
+    file: SupportsWriteAndFlush[str] | None = None,
     flush: bool = False,
 ):
     if _MPI_RANK == 0:
@@ -109,14 +116,14 @@ def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy"
             cc = cuda.get_device_capability(gpuid)
             _COMPUTE_CAPABILITY = _ComputeCapability(cc[0], cc[1])
 
-        if "QUDA_RESOURCE_PATH" in environ:
-            if resource_path is not None:
+        if resource_path is not None:
+            if "QUDA_RESOURCE_PATH" in environ:
                 warn("WARNING: Both QUDA_RESOURCE_PATH and init(resource_path) are set", RuntimeWarning)
+            environ["QUDA_RESOURCE_PATH"] = resource_path
         else:
-            if resource_path is None:
+            if "QUDA_RESOURCE_PATH" not in environ:
                 warn("WARNING: Neither QUDA_RESOURCE_PATH nor init(resource_path) is set", RuntimeWarning)
-            else:
-                environ["QUDA_RESOURCE_PATH"] = resource_path
+
         if "QUDA_RESOURCE_PATH" in environ:
             printRoot(f"INFO: Using QUDA_RESOURCE_PATH={environ['QUDA_RESOURCE_PATH']}")
 

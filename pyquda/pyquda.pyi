@@ -86,7 +86,7 @@ from .enum_quda import (  # noqa: F401
     QudaExtLibType,
 )
 
-from .pointer import Pointer, Pointers
+from .pointer import Pointer, Pointers, Pointerss
 
 class QudaGaugeParam:
     """
@@ -1048,13 +1048,13 @@ class QudaGaugeObservableParam:
     """Real and imaginary part of temporal Polyakov loop"""
     compute_gauge_loop_trace: QudaBoolean
     """Whether to compute gauge loop traces"""
-    traces: Pointer
+    traces: Pointer[double_complex]
     """Individual complex traces of each loop"""
-    input_path_buff: Pointers
+    input_path_buff: Pointers[int]
     """Array of paths"""
-    path_length: Pointer
+    path_length: Pointer[int]
     """Length of each path"""
-    loop_coeff: Pointer
+    loop_coeff: Pointer[double]
     """Multiplicative factor for each loop"""
     num_paths: int
     """Total number of paths"""
@@ -1475,7 +1475,12 @@ def MatDagMatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> 
     ...
 
 def computeKSLinkQuda(
-    fatlink: Pointers, longlink: Pointers, ulink: Pointers, inlink: Pointers, path_coeff: Pointer, param: QudaGaugeParam
+    fatlink: Pointers,
+    longlink: Pointers,
+    ulink: Pointers,
+    inlink: Pointers,
+    path_coeff: Pointer[double],
+    param: QudaGaugeParam,
 ) -> None:
     """ """
     ...
@@ -1509,9 +1514,9 @@ def momResidentQuda(mom: Pointer, param: QudaGaugeParam) -> None:
 def computeGaugeForceQuda(
     mom: Pointers,
     sitelink: Pointers,
-    input_path_buf: Pointer,
-    path_length: Pointer,
-    loop_coeff: Pointer,
+    input_path_buf: Pointerss[int],
+    path_length: Pointer[int],
+    loop_coeff: Pointer[double],
     num_paths: int,
     max_length: int,
     dt: double,
@@ -1544,9 +1549,9 @@ def computeGaugeForceQuda(
 def computeGaugePathQuda(
     out: Pointers,
     sitelink: Pointers,
-    input_path_buf: Pointer,
-    path_length: Pointer,
-    loop_coeff: Pointer,
+    input_path_buf: Pointerss[int],
+    path_length: Pointer[int],
+    loop_coeff: Pointer[double],
     num_paths: int,
     max_length: int,
     dt: double,
@@ -1577,10 +1582,10 @@ def computeGaugePathQuda(
     ...
 
 def computeGaugeLoopTraceQuda(
-    traces: Pointer,
-    input_path_buf: Pointers,
-    path_length: Pointer,
-    loop_coeff: Pointer,
+    traces: Pointer[double_complex],
+    input_path_buf: Pointers[int],
+    path_length: Pointer[int],
+    loop_coeff: Pointer[double],
     num_paths: int,
     max_length: int,
     factor: double,
@@ -1682,7 +1687,7 @@ def computeCloverForceQuda(
     mom: Pointers,
     dt: double,
     x: Pointers,
-    coeff: Pointer,
+    coeff: Pointer[double],
     kappa2: double,
     ck: double,
     nvector: int,
@@ -1827,7 +1832,7 @@ def gaugeObservablesQuda(param: QudaGaugeObservableParam) -> None:
     ...
 
 def contractQuda(
-    x: Pointer, y: Pointer, result: Pointer, cType: QudaContractType, param: QudaInvertParam, X: Pointer
+    x: Pointer, y: Pointer, result: Pointer, cType: QudaContractType, param: QudaInvertParam, X: Pointer[int]
 ) -> None:
     """
     Public function to perform color contractions of the host spinors x and y.
