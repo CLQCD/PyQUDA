@@ -238,7 +238,7 @@ class QudaInvertParam:
 
     # The following specifies the EOFA parameters. Notation follows arXiv:1706.05843
     eofa_shift: double
-    r"""the "\beta" in the paper"""
+    R"""the "\beta" in the paper"""
     eofa_pm: int
     """plus or minus for the EOFA operator"""
     mq1: double
@@ -378,7 +378,7 @@ class QudaInvertParam:
     """Whether we should evaluate the action after the linear solver"""
 
     action: List[double, 2]
-    r"""
+    R"""
     Computed value of the bilinear action (complex-valued)
     invert: \phi^\dagger A^{-1} \phi
     multishift: \phi^\dagger r(x) \phi = \phi^\dagger (sum_k residue[k] * (A + offset[k])^{-1} ) \phi
@@ -717,7 +717,7 @@ class QudaEigParam:
     """Performs an MdagM solve, then constructs the left and right SVD."""
 
     compute_gamma5: QudaBoolean
-    r"""
+    R"""
     Performs the \gamma_5 OP solve by Post multipling the eignvectors with
     \gamma_5 before computing the eigenvalues
     """
@@ -1461,7 +1461,7 @@ def MatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> None:
     ...
 
 def MatDagMatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> None:
-    r"""
+    R"""
     Apply M^{\dag}M, possibly even/odd preconditioned.
 
     @param h_out:

@@ -27,41 +27,27 @@ cdef extern from "quda.h":
     ctypedef struct QudaGaugeParam:
         pass
 
-##%%!! QudaGaugeParam
-
     #
     # Parameters relating to the solver and the choice of Dirac operator.
     #
     ctypedef struct QudaInvertParam:
         pass
 
-##%%!! QudaInvertParam
-
     # Parameter set for solving eigenvalue problems.
     ctypedef struct QudaEigParam:
         pass
 
-##%%!! QudaEigParam
-
     ctypedef struct QudaMultigridParam:
         pass
-
-##%%!! QudaMultigridParam
 
     ctypedef struct QudaGaugeObservableParam:
         pass
 
-##%%!! QudaGaugeObservableParam
-
     ctypedef struct QudaGaugeSmearParam:
         pass
 
-##%%!! QudaGaugeSmearParam
-
     ctypedef struct QudaBLASParam:
         pass
-
-##%%!! QudaBLASParam
 
     #
     # Interface functions, found in interface_quda.cpp
@@ -943,8 +929,6 @@ cdef extern from "quda.h":
     # Parameter set for quark smearing operations
     ctypedef struct QudaQuarkSmearParam:
         pass
-
-##%%!! QudaQuarkSmearParam
 
     #
     # Performs two-link Gaussian smearing on a given spinor (for staggered fermions).
