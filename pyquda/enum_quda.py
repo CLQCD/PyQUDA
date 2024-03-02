@@ -191,9 +191,12 @@ class QudaEigType(IntEnum):
     QUDA_EIG_INVALID = QUDA_INVALID_ENUM
 
 
-# S=smallest L=largest
-# R=real M=modulus I=imaniary
 class QudaEigSpectrumType(IntEnum):
+    """
+    S=smallest L=largest\n
+    R=real M=modulus I=imaniary
+    """
+
     QUDA_SPECTRUM_LM_EIG = 0
     QUDA_SPECTRUM_SM_EIG = 1
     QUDA_SPECTRUM_LR_EIG = 2
@@ -251,22 +254,26 @@ class QudaResidualType(IntEnum):
     QUDA_INVALID_RESIDUAL = QUDA_INVALID_ENUM
 
 
-# Which basis to use for CA algorithms
 class QudaCABasis(IntEnum):
+    """Which basis to use for CA algorithms"""
+
     QUDA_POWER_BASIS = 0
     QUDA_CHEBYSHEV_BASIS = 1
     QUDA_INVALID_BASIS = QUDA_INVALID_ENUM
 
 
-# Whether the preconditioned matrix is (1-k^2 Deo Doe) or (1-k^2 Doe Deo)
-#
-# For the clover-improved Wilson Dirac operator, QUDA_MATPC_EVEN_EVEN
-# defaults to the "symmetric" form, (1 - k^2 A_ee^-1 D_eo A_oo^-1 D_oe)
-# and likewise for QUDA_MATPC_ODD_ODD.
-#
-# For the "asymmetric" form, (A_ee - k^2 D_eo A_oo^-1 D_oe), select
-# QUDA_MATPC_EVEN_EVEN_ASYMMETRIC.
 class QudaMatPCType(IntEnum):
+    """
+    Whether the preconditioned matrix is (1-k^2 Deo Doe) or (1-k^2 Doe Deo)
+
+    For the clover-improved Wilson Dirac operator, QUDA_MATPC_EVEN_EVEN
+    defaults to the "symmetric" form, (1 - k^2 A_ee^-1 D_eo A_oo^-1 D_oe)
+    and likewise for QUDA_MATPC_ODD_ODD.
+
+    For the "asymmetric" form, (A_ee - k^2 D_eo A_oo^-1 D_oe), select
+    QUDA_MATPC_EVEN_EVEN_ASYMMETRIC.
+    """
+
     QUDA_MATPC_EVEN_EVEN = 0
     QUDA_MATPC_ODD_ODD = 1
     QUDA_MATPC_EVEN_EVEN_ASYMMETRIC = 2
@@ -340,12 +347,9 @@ class QudaPreserveDirac(IntEnum):
     QUDA_PRESERVE_DIRAC_INVALID = QUDA_INVALID_ENUM
 
 
-#
-# Type used for "parity" argument to dslashQuda()
-#
-
-
 class QudaParity(IntEnum):
+    """Type used for "parity" argument to dslashQuda()"""
+
     QUDA_EVEN_PARITY = 0
     QUDA_ODD_PARITY = 1
     QUDA_INVALID_PARITY = QUDA_INVALID_ENUM
@@ -389,30 +393,34 @@ class QudaDiracType(IntEnum):
     QUDA_INVALID_DIRAC = QUDA_INVALID_ENUM
 
 
-# Where the field is stored
 class QudaFieldLocation(IntEnum):
+    """Where the field is stored"""
+
     QUDA_CPU_FIELD_LOCATION = 1
     QUDA_CUDA_FIELD_LOCATION = 2
     QUDA_INVALID_FIELD_LOCATION = QUDA_INVALID_ENUM
 
 
-# Which sites are included
 class QudaSiteSubset(IntEnum):
+    """Which sites are included"""
+
     QUDA_PARITY_SITE_SUBSET = 1
     QUDA_FULL_SITE_SUBSET = 2
     QUDA_INVALID_SITE_SUBSET = QUDA_INVALID_ENUM
 
 
-# Site ordering (always t-z-y-x, with rightmost varying fastest)
 class QudaSiteOrder(IntEnum):
+    """Site ordering (always t-z-y-x, with rightmost varying fastest)"""
+
     QUDA_LEXICOGRAPHIC_SITE_ORDER = 0  # lexicographic ordering
     QUDA_EVEN_ODD_SITE_ORDER = 1  # QUDA and QDP use this
     QUDA_ODD_EVEN_SITE_ORDER = 2  # CPS uses this
     QUDA_INVALID_SITE_ORDER = QUDA_INVALID_ENUM
 
 
-# Degree of freedom ordering
 class QudaFieldOrder(IntEnum):
+    """Degree of freedom ordering"""
+
     QUDA_FLOAT_FIELD_ORDER = 1  # spin-color-complex-space
     QUDA_FLOAT2_FIELD_ORDER = 2  # (spin-color-complex)/2-space-(spin-color-complex)%2
     QUDA_FLOAT4_FIELD_ORDER = 4  # (spin-color-complex)/4-space-(spin-color-complex)%4
@@ -465,15 +473,17 @@ class QudaDilutionType(IntEnum):
     QUDA_DILUTION_INVALID = QUDA_INVALID_ENUM
 
 
-# used to select projection method for deflated solvers
 class QudaProjectionType(IntEnum):
+    """used to select projection method for deflated solvers"""
+
     QUDA_MINRES_PROJECTION = 0
     QUDA_GALERKIN_PROJECTION = 1
     QUDA_INVALID_PROJECTION = QUDA_INVALID_ENUM
 
 
-# used to select checkerboard preconditioning method
 class QudaPCType(IntEnum):
+    """used to select checkerboard preconditioning method"""
+
     QUDA_4D_PC = 4
     QUDA_5D_PC = 5
     QUDA_PC_INVALID = QUDA_INVALID_ENUM
@@ -545,9 +555,10 @@ class QudaBoolean(IntEnum):
     QUDA_BOOLEAN_INVALID = QUDA_INVALID_ENUM
 
 
-# define these for backwards compatibility
 QUDA_BOOLEAN_NO = QudaBoolean.QUDA_BOOLEAN_FALSE
+"""define these for backwards compatibility"""
 QUDA_BOOLEAN_YES = QudaBoolean.QUDA_BOOLEAN_TRUE
+"""define these for backwards compatibility"""
 
 
 class QudaBLASType(IntEnum):
@@ -656,8 +667,9 @@ class QudaFermionSmearType(IntEnum):
     QUDA_FERMION_SMEAR_TYPE_INVALID = QUDA_INVALID_ENUM
 
 
-# Allows to choose an appropriate external library
 class QudaExtLibType(IntEnum):
+    """Allows to choose an appropriate external library"""
+
     QUDA_CUSOLVE_EXTLIB = 0
     QUDA_EIGEN_EXTLIB = 1
     QUDA_EXTLIB_INVALID = QUDA_INVALID_ENUM
