@@ -234,8 +234,8 @@ def build_pyquda_pyx(pyquda_root, quda_path):
         f.write(quda_pxd)
     with open(os.path.join(pyquda_root, "pyquda", "src", "pyquda.pyx"), "w") as f:
         f.write(pyquda_pyx)
-    with open(os.path.join(pyquda_root, "pyquda", "pyquda.pyi"), "w") as f:
-        f.write(pyquda_pyi)
+    # with open(os.path.join(pyquda_root, "pyquda", "pyquda.pyi"), "w") as f:
+    #     f.write(pyquda_pyi)
 
     os.remove(os.path.join(pyquda_root, "yacctab.py"))
     os.remove(os.path.join(pyquda_root, "lextab.py"))
