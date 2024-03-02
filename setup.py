@@ -28,7 +28,7 @@ extensions = cythonize(
             include_dirs=[os.path.join(quda_path, "include")],
             library_dirs=[os.path.join(quda_path, "lib")],
             libraries=["quda"],
-            extra_link_args=[f"-Wl,-rpath={os.path.join(quda_path, 'lib')}" if not _STATIC else ""],
+            extra_link_args=[f"-Wl,-rpath={os.path.join(quda_path, 'lib')}"] if not _STATIC else None,
             language="c",
         ),
         Extension(
@@ -37,7 +37,7 @@ extensions = cythonize(
             include_dirs=[os.path.join(quda_path, "include")],
             library_dirs=[os.path.join(quda_path, "lib")],
             libraries=["quda"],
-            extra_link_args=[f"-Wl,-rpath={os.path.join(quda_path, 'lib')}" if not _STATIC else ""],
+            extra_link_args=[f"-Wl,-rpath={os.path.join(quda_path, 'lib')}"] if not _STATIC else None,
             language="c++",
         ),
     ],

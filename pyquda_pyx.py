@@ -121,7 +121,7 @@ ptrptr = """
 
 
 def build_pyquda_pyx(pyquda_root, quda_path):
-    print(f"Building pyquda/src/pointer.pyx from {os.path.join(quda_path, 'include', 'quda.h')}")
+    print(f"Building pyquda wrapper from {os.path.join(quda_path, 'include', 'quda.h')}")
     pycparser_root = os.path.join(pyquda_root, "pycparser")
     sys.path.insert(1, pycparser_root)
     from pycparser import parse_file, c_ast
@@ -173,15 +173,20 @@ def build_pyquda_pyx(pyquda_root, quda_path):
                 else:
                     raise ValueError(f"Unexpected node {node}")
 
+    with open(os.path.join(pyquda_root, "pyquda", "src", "quda.in.pxd"), "r") as f:
+        quda_pxd = f.read()
     with open(os.path.join(pyquda_root, "pyquda", "src", "pyquda.in.pyx"), "r") as f:
         pyquda_pyx = f.read()
     with open(os.path.join(pyquda_root, "pyquda", "pyquda.in.pyi"), "r") as f:
         pyquda_pyi = f.read()
 
     for key, val in meta.items():
+        pxd = ""
         pyx = ""
         pyi = ""
         for item in val:
+            item_array = "" if len(item.array) == 0 else f"[{']['.join(item.array)}]"
+            pxd += f"        {item.type} {item.ptr}{item.name}{item_array}\n"
             if len(item.array) > 0 and item.type.startswith("Quda") and item.type.endswith("Param"):
                 pyx += multigrid_param.replace("%name%", item.name).replace("%type%", item.type)
                 pyi += f"    {item.name}: List[{item.type}, {item.array[0]}]\n"
@@ -212,6 +217,10 @@ def build_pyquda_pyx(pyquda_root, quda_path):
             else:
                 pyx += normal.replace("%name%", item.name)
                 pyi += f"    {item.name}: {item.type}\n"
+        quda_pxd = quda_pxd.replace(
+            f"        pass\n\n##%%!! {key}\n",
+            pxd.replace("double _Complex", "double_complex"),
+        )
         pyquda_pyx = pyquda_pyx.replace(
             f"\n##%%!! {key}\n",
             pyx.replace("double _Complex", "double_complex"),
@@ -221,6 +230,8 @@ def build_pyquda_pyx(pyquda_root, quda_path):
             pyi.replace("double _Complex", "double_complex").replace("unsigned int", "int"),
         )
 
+    with open(os.path.join(pyquda_root, "pyquda", "src", "quda.pxd"), "w") as f:
+        f.write(quda_pxd)
     with open(os.path.join(pyquda_root, "pyquda", "src", "pyquda.pyx"), "w") as f:
         f.write(pyquda_pyx)
     with open(os.path.join(pyquda_root, "pyquda", "pyquda.pyi"), "w") as f:

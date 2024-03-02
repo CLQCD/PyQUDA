@@ -29,7 +29,6 @@ cdef extern from "quda.h":
 
 ##%%!! QudaGaugeParam
 
-
     #
     # Parameters relating to the solver and the choice of Dirac operator.
     #
@@ -38,37 +37,31 @@ cdef extern from "quda.h":
 
 ##%%!! QudaInvertParam
 
-
     # Parameter set for solving eigenvalue problems.
     ctypedef struct QudaEigParam:
         pass
 
 ##%%!! QudaEigParam
 
-
     ctypedef struct QudaMultigridParam:
         pass
 
 ##%%!! QudaMultigridParam
-
 
     ctypedef struct QudaGaugeObservableParam:
         pass
 
 ##%%!! QudaGaugeObservableParam
 
-
     ctypedef struct QudaGaugeSmearParam:
         pass
 
 ##%%!! QudaGaugeSmearParam
 
-
     ctypedef struct QudaBLASParam:
         pass
 
 ##%%!! QudaBLASParam
-
 
     #
     # Interface functions, found in interface_quda.cpp
@@ -720,6 +713,23 @@ cdef extern from "quda.h":
                                 QudaGaugeParam *gauge_param, QudaInvertParam *inv_param)
 
     #
+    # Compute the force from a clover or twisted clover determinant or
+    # a set of partial fractions stemming from a rational approximation
+    # suitable for use from within tmLQCD.
+    #
+    # @param h_mom Host force matrix
+    # @param h_x Array of solution vectors x_i = ( Q^2 + s_i )^{-1} b
+    # @param h_x0 Array of source vector necessary to compute the force of a ratio of determinant
+    # @param coeff Array of coefficients for the rational approximation or {1.0} for the determinant.
+    # @param nvector Number of solution vectors and coefficients
+    # @param gauge_param Gauge field meta data
+    # @param inv_param Dirac and solver meta data
+    # @param detratio if 0 compute the force of a determinant otherwise compute the force from a ratio of determinants
+    #
+    void computeTMCloverForceQuda(void *h_mom, void **h_x, void **h_x0, double *coeff, int nvector,
+                                  QudaGaugeParam *gauge_param, QudaInvertParam *inv_param, int detratio)
+
+    #
     # Compute the naive staggered force.  All fields must be in the same precision.
     #
     # @param mom Momentum field
@@ -932,24 +942,9 @@ cdef extern from "quda.h":
 
     # Parameter set for quark smearing operations
     ctypedef struct QudaQuarkSmearParam:
-        #-------------------------------------------------
-        # Used to store information pertinent to the operator
-        QudaInvertParam *inv_param
+        pass
 
-        # Number of steps to apply
-        int  n_steps
-        # The width of the Gaussian
-        double  width
-        # if nonzero then compute two-link, otherwise reuse gaugeSmeared
-        int compute_2link
-        # if nonzero then delete two-link, otherwise keep two-link for future use
-        int delete_2link
-        # Set if the input spinor is on a time slice
-        int t0
-        # Time taken for the smearing operations
-        double secs
-        # Flops count for the smearing operations
-        double gflops
+##%%!! QudaQuarkSmearParam
 
     #
     # Performs two-link Gaussian smearing on a given spinor (for staggered fermions).
