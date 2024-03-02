@@ -177,8 +177,8 @@ def build_pyquda_pyx(pyquda_root, quda_path):
         quda_pxd = f.read()
     with open(os.path.join(pyquda_root, "pyquda", "src", "pyquda.in.pyx"), "r") as f:
         pyquda_pyx = f.read()
-    with open(os.path.join(pyquda_root, "pyquda", "pyquda.in.pyi"), "r") as f:
-        pyquda_pyi = f.read()
+    # with open(os.path.join(pyquda_root, "pyquda", "pyquda.in.pyi"), "r") as f:
+    #     pyquda_pyi = f.read()
 
     for key, val in meta.items():
         pxd = ""
@@ -225,10 +225,10 @@ def build_pyquda_pyx(pyquda_root, quda_path):
             f"\n##%%!! {key}\n",
             pyx.replace("double _Complex", "double_complex"),
         )
-        pyquda_pyi = pyquda_pyi.replace(
-            f"##%%!! {key}\n",
-            pyi.replace("double _Complex", "double_complex").replace("unsigned int", "int"),
-        )
+        # pyquda_pyi = pyquda_pyi.replace(
+        #     f"##%%!! {key}\n",
+        #     pyi.replace("double _Complex", "double_complex").replace("unsigned int", "int"),
+        # )
 
     with open(os.path.join(pyquda_root, "pyquda", "src", "quda.pxd"), "w") as f:
         f.write(quda_pxd)
