@@ -442,8 +442,8 @@ cdef extern from "enum_quda.h":
         QUDA_BOOLEAN_INVALID = QUDA_INVALID_ENUM
 
     # define these for backwards compatibility
-    int QUDA_BOOLEAN_NO = QUDA_BOOLEAN_FALSE
-    int QUDA_BOOLEAN_YES = QUDA_BOOLEAN_TRUE
+    int QUDA_BOOLEAN_NO = QudaBoolean.QUDA_BOOLEAN_FALSE
+    int QUDA_BOOLEAN_YES = QudaBoolean.QUDA_BOOLEAN_TRUE
 
     ctypedef enum QudaBLASType:
         QUDA_BLAS_GEMM = 0
