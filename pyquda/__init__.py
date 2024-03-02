@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 from mpi4py import MPI
 
-__version__ = "0.5.5"
+__version__ = "0.5.6"
 from . import pyquda as quda
 
 

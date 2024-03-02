@@ -1,7 +1,5 @@
 from enum import IntEnum
 
-QUDA_INVALID_ENUM = -0x7FFFFFFF - 1
-
 QUDA_VERSION_MAJOR = 1
 QUDA_VERSION_MINOR = 1
 QUDA_VERSION_SUBMINOR = 0
@@ -49,6 +47,9 @@ QUDA_MAX_MG_LEVEL = 5
 Maximum number of multi-grid levels.  This number may be
 increased if needed.
 """
+
+
+QUDA_INVALID_ENUM = -0x7FFFFFFF - 1
 
 
 class qudaError_t(IntEnum):
