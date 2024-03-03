@@ -1322,6 +1322,21 @@ def freeCloverQuda() -> None:
     """
     ...
 
+def eigensolveQuda(h_evecs: Pointers, h_evals: Pointer[double_complex], param: QudaEigParam):
+    """
+    Perform the eigensolve. The problem matrix is defined by the invert param, the
+    mode of solution is specified by the eig param. It is assumed that the gauge
+    field has already been loaded via  loadGaugeQuda().
+
+    @param h_evecs:
+        Array of pointers to application eigenvectors
+    @param h_evals:
+        Host side eigenvalues
+    @param param:
+        Contains all metadata regarding the type of solve.
+    """
+    ...
+
 def invertQuda(h_x: Pointer, h_b: Pointer, param: QudaInvertParam) -> None:
     """
     Perform the solve, according to the parameters set in param.  It

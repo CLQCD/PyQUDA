@@ -496,12 +496,16 @@ def mat(x: LatticeFermion, invert_param: QudaInvertParam):
 
     MatQuda(b.data_ptr, x.data_ptr, invert_param)
 
+    return b
+
 
 def matStaggered(x: LatticeStaggeredFermion, invert_param: QudaInvertParam):
     latt_info = x.latt_info
     b = LatticeStaggeredFermion(latt_info)
 
     MatQuda(b.data_ptr, x.data_ptr, invert_param)
+
+    return b
 
 
 def matDagMat(x: LatticeFermion, invert_param: QudaInvertParam):
@@ -510,12 +514,16 @@ def matDagMat(x: LatticeFermion, invert_param: QudaInvertParam):
 
     MatDagMatQuda(b.data_ptr, x.data_ptr, invert_param)
 
+    return b
+
 
 def matDagMatStaggered(x: LatticeStaggeredFermion, invert_param: QudaInvertParam):
     latt_info = x.latt_info
     b = LatticeStaggeredFermion(latt_info)
 
     MatDagMatQuda(b.data_ptr, x.data_ptr, invert_param)
+
+    return b
 
 
 def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):

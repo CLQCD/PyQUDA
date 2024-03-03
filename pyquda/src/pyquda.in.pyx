@@ -201,8 +201,13 @@ def loadCloverQuda(Pointer h_clover, Pointer h_clovinv, QudaInvertParam inv_para
 def freeCloverQuda():
     quda.freeCloverQuda()
 
-# def lanczosQuda(int k0, int m, Pointer hp_Apsi, Pointer hp_r, Pointer hp_V, Pointer hp_alpha, Pointer hp_beta, QudaEigParam eig_param)
-# def eigensolveQuda(Pointers h_evecs, Pointer<double_complex> h_evals, QudaEigParam param)
+# QUDA only declares lanczosQuda
+# def lanczosQuda(int k0, int m, Pointer hp_Apsi, Pointer hp_r, Pointer hp_V, Pointer hp_alpha, Pointer hp_beta, QudaEigParam eig_param):
+
+def eigensolveQuda(Pointers h_evecs, Pointer h_evals, QudaEigParam param):
+    assert h_evecs.dtype == "void"
+    assert h_evals.dtype == "double_complex"
+    quda.eigensolveQuda(h_evecs.ptrs, <double_complex *>h_evals.ptr, &param.param)
 
 def invertQuda(Pointer h_x, Pointer h_b, QudaInvertParam param):
     assert h_x.dtype == "void"

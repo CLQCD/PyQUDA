@@ -225,6 +225,13 @@ def getStaggeredDirac(
     return HISQ(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, None)
 
 
+def getLaplace(latt_info: LatticeInfo, laplace3D: int):
+    assert latt_info.anisotropy == 1.0
+    from .dirac.laplace import Laplace
+
+    return Laplace(latt_info, laplace3D)
+
+
 def getDefaultDirac(
     mass: float,
     tol: float,

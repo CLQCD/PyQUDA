@@ -31,7 +31,7 @@ class LatticeInfo:
         Lx, Ly, Lz, Lt = latt_size
 
         assert (
-            Lx % (2 * Gx) == 0 and Ly % (2 * Gy) == 0 and Lz % (2 * Gz) == 0 and Lt % (2 * Gt) == 0
+            Lx % (2 * Gx) == 0 and Ly % (2 * Gy) == 0 and Lz % (2 * Gz) == 0 and Lt % Gt == 0
         ), "Necessary for consistant even-odd preconditioning"
         self.Gx, self.Gy, self.Gz, self.Gt = Gx, Gy, Gz, Gt
         self.gx, self.gy, self.gz, self.gt = gx, gy, gz, gt

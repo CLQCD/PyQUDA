@@ -32,6 +32,16 @@ normal = """
         self.param.%name% = value
 """
 
+cstring = """
+    @property
+    def %name%(self):
+        return self.param.%name%
+
+    @%name%.setter
+    def %name%(self, const char value[]):
+        self.param.%name% = value
+"""
+
 param = """
     @property
     def %name%(self):
@@ -257,10 +267,11 @@ def build_pyquda_pyx(pyquda_root, quda_path):
                 pyquda_pyx_block += param.replace("%name%", item.name).replace("%type%", item.type)
                 pyquda_pyi_block += f"    {item.name}: {item.type}\n"
             elif len(item.array) == 1:
-                pyquda_pyx_block += normal.replace("%name%", item.name)
                 if item.type == "char":
+                    pyquda_pyx_block += cstring.replace("%name%", item.name)
                     pyquda_pyi_block += f"    {item.name}: bytes[{item.array[0]}]\n"
                 else:
+                    pyquda_pyx_block += normal.replace("%name%", item.name)
                     pyquda_pyi_block += f"    {item.name}: List[{item.type}, {item.array[0]}]\n"
             elif len(item.array) == 2:
                 pyquda_pyx_block += multigrid.replace("%name%", item.name)
