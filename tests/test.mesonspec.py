@@ -7,14 +7,13 @@ from check_pyquda import weak_field
 from pyquda import core, init
 from pyquda.utils import gamma, phase, io
 
-init(resource_path=".cache")
-
 xi_0, nu = 4.8965, 0.86679
 mass = 0.09253
 kappa = 0.5 / (mass + 1 + 3 / (xi_0 / nu))
 coeff_r, coeff_t = 2.32582045, 0.8549165664
 
-core.setDefaultLattice([4, 4, 4, 8], -1, xi_0 / nu)
+init([1, 1, 1, 1], [4, 4, 4, 8], -1, xi_0 / nu, resource_path=".cache")
+
 latt_info = core.getDefaultLattice()
 Lx, Ly, Lz, Lt = latt_info.size
 Vol = latt_info.volume

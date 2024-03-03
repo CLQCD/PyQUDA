@@ -1,5 +1,4 @@
 import os
-import sys
 from typing import Dict, List, NamedTuple, Union
 
 
@@ -142,7 +141,6 @@ ptrptr = """
 def build_pyquda_pyx(pyquda_root, quda_path):
     print(f"Building pyquda wrapper from {os.path.join(quda_path, 'include', 'quda.h')}")
     pycparser_root = os.path.join(pyquda_root, "pycparser")
-    # sys.path.insert(1, pycparser_root)
     from pycparser.pycparser import parse_file, c_ast
 
     def evaluate(node):

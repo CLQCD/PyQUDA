@@ -79,10 +79,16 @@ Or just run the Python script that automatically calls Chroma.
 python3 tests/test.clover.chroma.py
 ```
 
-You may also want to initialize `pyquda` with cli arguments instead of hardcoding them in scripts, you can use
+You may also want to initialize `pyquda` with cli arguments instead of hardcoding them in scripts:
 
 ```bash
-python3 -m pyquda tests/test.clover.cli.py --grid 1 1 1 1 --backend cupy
+python3 -m pyquda tests/test.clover.cli.py --latt 4 4 4 8 --t-boundary -1 --anisotropy 2.593684210526316 --backend cupy
+```
+
+or just run the script as arguments are written in the shebang line:
+
+```bash
+./tests/test.clover.cli.py
 ```
 
 ## Development

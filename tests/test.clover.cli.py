@@ -1,8 +1,9 @@
+#!/usr/bin/env -S python3 -m pyquda -l 4 4 4 8 -t -1 -a 2.593684210526316 -p .cache
 import cupy as cp
 
 from tests.check_pyquda import weak_field
 
-from pyquda import core
+from pyquda import core  # , setDefaultLattice
 from pyquda.utils import io
 
 xi_0, nu = 2.464, 0.95
@@ -11,7 +12,7 @@ mass = 1 / (2 * kappa) - 4
 coeff = 1.17
 coeff_r, coeff_t = 0.91, 1.07
 
-core.setDefaultLattice([4, 4, 4, 8], -1, xi_0 / nu)
+# setDefaultLattice([4, 4, 4, 8], -1, xi_0 / nu)
 
 dslash = core.getDefaultDirac(mass, 1e-12, 1000, xi_0, coeff_t, coeff_r)
 gauge = io.readQIOGauge(weak_field)

@@ -5,11 +5,9 @@ from check_pyquda import weak_field
 from pyquda import core, init
 from pyquda.utils import io
 
-init(resource_path=".cache")
+init([1, 1, 1, 1], [4, 4, 4, 8], 1, 1.0, resource_path=".cache")
 
 mass = 0.0102
-
-core.setDefaultLattice([4, 4, 4, 8], 1, 1.0)
 
 dslash = core.getDefaultStaggeredDirac(mass, 1e-12, 1000, 1.0, 0.0)
 gauge = io.readQIOGauge(weak_field)

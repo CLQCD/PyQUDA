@@ -2,7 +2,16 @@ from typing import List, Literal, Union
 
 import numpy
 
-from . import pyquda as quda, enum_quda, getMPIComm, getMPISize, getMPIRank, getGridSize, getCoordFromRank
+from . import (
+    pyquda as quda,
+    enum_quda,
+    getMPIComm,
+    getMPISize,
+    getMPIRank,
+    getGridSize,
+    getCoordFromRank,
+    getDefaultLattice,
+)
 from .field import (
     Ns,
     Nc,
@@ -20,41 +29,30 @@ from .dirac import Dirac, StaggeredDirac
 from .utils.source import source
 from .deprecated import smear, smear4, invert12, getDslash, getStaggeredDslash
 
-_DEFAULT_LATTICE: LatticeInfo = None
-
-
-def setDefaultLattice(latt_size: List[int], t_boundary: Literal[1, -1], anisotropy: float):
-    global _DEFAULT_LATTICE
-    _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
-
-
-def getDefaultLattice():
-    return _DEFAULT_LATTICE
-
 
 class DefaultLatticeGauge(LatticeGauge):
     def __init__(self, value=None) -> None:
-        super().__init__(_DEFAULT_LATTICE, value)
+        super().__init__(getDefaultLattice(), value)
 
 
 class DefaultLatticeFermion(LatticeFermion):
     def __init__(self, value=None) -> None:
-        super().__init__(_DEFAULT_LATTICE, value)
+        super().__init__(getDefaultLattice(), value)
 
 
 class DefaultLatticePropagator(LatticePropagator):
     def __init__(self, value=None) -> None:
-        super().__init__(_DEFAULT_LATTICE, value)
+        super().__init__(getDefaultLattice(), value)
 
 
 class DefaultLatticeStaggeredFermion(LatticeStaggeredFermion):
     def __init__(self, value=None) -> None:
-        super().__init__(_DEFAULT_LATTICE, value)
+        super().__init__(getDefaultLattice(), value)
 
 
 class DefaultLatticeStaggeredPropagator(LatticeStaggeredPropagator):
     def __init__(self, value=None) -> None:
-        super().__init__(_DEFAULT_LATTICE, value)
+        super().__init__(getDefaultLattice(), value)
 
 
 def invert(
@@ -225,8 +223,83 @@ def getStaggeredDirac(
     return HISQ(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, None)
 
 
-def getLaplace(latt_info: LatticeInfo, laplace3D: int):
+def getWilson(
+    latt_info: LatticeInfo,
+    mass: float,
+    tol: float,
+    maxiter: int,
+    multigrid: List[List[int]] = None,
+):
+    xi = latt_info.anisotropy
+    kappa = 1 / (2 * (mass + 1 + (Nd - 1) / xi))
+    if not multigrid:
+        geo_block_size = None
+    else:
+        if not isinstance(multigrid, list):
+            geo_block_size = [[2, 2, 2, 2], [4, 4, 4, 4]]
+        else:
+            geo_block_size = multigrid
+
+    from .dirac.wilson import Wilson
+
+    return Wilson(latt_info, mass, kappa, tol, maxiter, geo_block_size)
+
+
+def getClover(
+    latt_info: LatticeInfo,
+    mass: float,
+    tol: float,
+    maxiter: int,
+    xi_0: float = 1.0,
+    clover_coeff_t: float = 0.0,
+    clover_coeff_r: float = 1.0,
+    multigrid: List[List[int]] = None,
+):
+    assert clover_coeff_t != 0.0
+    xi = latt_info.anisotropy
+    kappa = 1 / (2 * (mass + 1 + (Nd - 1) / xi))
+    if xi != 1.0:
+        clover_coeff = xi_0 * clover_coeff_t**2 / clover_coeff_r
+        clover_xi = (xi_0 * clover_coeff_t / clover_coeff_r) ** 0.5
+    else:
+        clover_coeff = clover_coeff_t
+        clover_xi = 1.0
+    if not multigrid:
+        geo_block_size = None
+    else:
+        if not isinstance(multigrid, list):
+            geo_block_size = [[2, 2, 2, 2], [4, 4, 4, 4]]
+        else:
+            geo_block_size = multigrid
+
+    from .dirac.clover_wilson import CloverWilson
+
+    return CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_coeff, clover_xi, geo_block_size)
+
+
+def getHISQ(
+    latt_info: LatticeInfo,
+    mass: float,
+    tol: float,
+    maxiter: int,
+    tadpole_coeff: float = 1.0,
+    naik_epsilon: float = 0.0,
+):
     assert latt_info.anisotropy == 1.0
+    kappa = 1 / 2  # to be compatible with mass normalization
+
+    from .dirac.hisq import HISQ
+
+    return HISQ(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, None)
+
+
+def getLaplace(
+    latt_info: LatticeInfo,
+    laplace3D: int,
+):
+    assert latt_info.t_boundary == 1
+    assert latt_info.anisotropy == 1.0
+
     from .dirac.laplace import Laplace
 
     return Laplace(latt_info, laplace3D)
@@ -241,8 +314,7 @@ def getDefaultDirac(
     clover_coeff_r: float = 1.0,
     multigrid: List[List[int]] = None,
 ):
-    assert _DEFAULT_LATTICE is not None
-    return getDirac(_DEFAULT_LATTICE, mass, tol, maxiter, xi_0, clover_coeff_t, clover_coeff_r, multigrid)
+    return getDirac(getDefaultLattice(), mass, tol, maxiter, xi_0, clover_coeff_t, clover_coeff_r, multigrid)
 
 
 def getDefaultStaggeredDirac(
@@ -252,5 +324,4 @@ def getDefaultStaggeredDirac(
     tadpole_coeff: float = 1.0,
     naik_epsilon: float = 0.0,
 ):
-    assert _DEFAULT_LATTICE is not None
-    return getStaggeredDirac(_DEFAULT_LATTICE, mass, tol, maxiter, tadpole_coeff, naik_epsilon)
+    return getStaggeredDirac(getDefaultLattice(), mass, tol, maxiter, tadpole_coeff, naik_epsilon)

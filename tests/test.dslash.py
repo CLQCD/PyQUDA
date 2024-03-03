@@ -7,8 +7,7 @@ from pyquda import init, core, quda
 from pyquda.field import Ns, Nc
 from pyquda.enum_quda import QudaParity
 
-init(resource_path=".cache")
-core.setDefaultLattice([16, 16, 16, 32], 1, 1.0)
+init([1, 1, 1, 1], [16, 16, 16, 32], 1, 1.0, resource_path=".cache")
 Lx, Ly, Lz, Lt = core.getDefaultLattice().size
 
 

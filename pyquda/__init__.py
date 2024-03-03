@@ -1,4 +1,5 @@
 from __future__ import annotations  # TYPE_CHECKING
+from os import environ
 from typing import TYPE_CHECKING, List, Literal, NamedTuple
 from warnings import warn, filterwarnings
 
@@ -16,6 +17,7 @@ from mpi4py import MPI
 
 __version__ = "0.5.6"
 from . import pyquda as quda
+from .field import LatticeInfo
 
 
 class _ComputeCapability(NamedTuple):
@@ -28,8 +30,9 @@ _MPI_SIZE: int = 1
 _MPI_RANK: int = 0
 _GRID_SIZE: List[int] = [1, 1, 1, 1]
 _GRID_COORD: List[int] = [0, 0, 0, 0]
-_GPUID: int = 0
+_DEFAULT_LATTICE: LatticeInfo = None
 _CUDA_BACKEND: Literal["cupy", "torch"] = "cupy"
+_GPUID: int = 0
 _COMPUTE_CAPABILITY: _ComputeCapability = _ComputeCapability(0, 0)
 
 
@@ -54,18 +57,72 @@ def printRoot(
         print(*values, sep=sep, end=end, file=file, flush=flush)
 
 
-def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy", resource_path: str = None):
+def _initEnviron(**kwargs):
+    def _setEnviron(env, key, value):
+        if value is not None:
+            if env in environ:
+                warn(f"WARNING: Both {env} and init({key}) are set", RuntimeWarning)
+            environ[env] = value
+        if env in environ:
+            printRoot(f"INFO: Using {env}={environ[env]}")
+
+    for key in kwargs.keys():
+        _setEnviron(f"QUDA_{key.upper()}", key, kwargs[key])
+
+
+def _initEnvironWarn(**kwargs):
+    def _setEnviron(env, key, value):
+        if value is not None:
+            if env in environ:
+                warn(f"WARNING: Both {env} and init({key}) are set", RuntimeWarning)
+            environ[env] = value
+        else:
+            if env not in environ:
+                warn(f"WARNING: Neither {env} nor init({key}) is set", RuntimeWarning)
+        if env in environ:
+            printRoot(f"INFO: Using {env}={environ[env]}")
+
+    for key in kwargs.keys():
+        _setEnviron(f"QUDA_{key.upper()}", key, kwargs[key])
+
+
+def init(
+    grid_size: List[int] = None,
+    latt_size: List[int] = None,
+    t_boundary: Literal[1, -1] = None,
+    anisotropy: float = None,
+    *,
+    backend: Literal["cupy", "torch"] = "cupy",
+    resource_path: str = None,
+    enable_mps: str = None,
+):
     """
     Initialize MPI along with the QUDA library.
-
-    If grid_size is None, MPI will not applied.
     """
     filterwarnings("default", "", DeprecationWarning)
-    global _MPI_COMM, _MPI_SIZE, _MPI_RANK, _GRID_SIZE, _GRID_COORD
+    global _MPI_COMM, _MPI_SIZE, _MPI_RANK, _GRID_SIZE, _GRID_COORD, _DEFAULT_LATTICE
     if _MPI_COMM is None:
         import atexit
-        from os import environ
         from platform import node as gethostname
+
+        Gx, Gy, Gz, Gt = grid_size if grid_size is not None else [1, 1, 1, 1]
+        _MPI_COMM = MPI.COMM_WORLD
+        _MPI_SIZE = _MPI_COMM.Get_size()
+        _MPI_RANK = _MPI_COMM.Get_rank()
+        _GRID_SIZE = [Gx, Gy, Gz, Gt]
+        _GRID_COORD = getCoordFromRank(_MPI_RANK, _GRID_SIZE)
+        assert _MPI_SIZE == Gx * Gy * Gz * Gt
+        printRoot(f"INFO: Using gird {_GRID_SIZE}")
+
+        if latt_size is not None:
+            assert t_boundary is not None and anisotropy is not None
+            _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
+            printRoot(f"INFO: Using default LatticeInfo({latt_size}, {t_boundary}, {anisotropy})")
+
+        _initEnvironWarn(resource_path=resource_path)
+        _initEnviron(enable_mps=enable_mps)
+
+        global _CUDA_BACKEND, _GPUID, _COMPUTE_CAPABILITY
 
         assert backend in ["cupy", "torch"], f"Unsupported backend {backend}"
         if backend == "cupy":
@@ -74,20 +131,10 @@ def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy"
         elif backend == "torch":
             from torch import cuda
         else:
-            raise ImportError("CuPy or PyTorch is needed to handle field data")
+            raise ImportError("Either CuPy or PyTorch is needed to handle the field data")
+        _CUDA_BACKEND = backend
 
         gpuid = 0
-        Gx, Gy, Gz, Gt = grid_size if grid_size is not None else [1, 1, 1, 1]
-
-        _MPI_COMM = MPI.COMM_WORLD
-        _MPI_SIZE = _MPI_COMM.Get_size()
-        _MPI_RANK = _MPI_COMM.Get_rank()
-        _GRID_SIZE = [Gx, Gy, Gz, Gt]
-        _GRID_COORD = getCoordFromRank(_MPI_RANK, _GRID_SIZE)
-        assert _MPI_SIZE == Gx * Gy * Gz * Gt
-
-        global _GPUID, _CUDA_BACKEND, _COMPUTE_CAPABILITY
-
         hostname = gethostname()
         hostname_recv_buf = _MPI_COMM.allgather(hostname)
         for i in range(_MPI_RANK):
@@ -101,9 +148,7 @@ def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy"
         if gpuid >= device_count:
             if "QUDA_ENABLE_MPS" in environ and environ["QUDA_ENABLE_MPS"] == "1":
                 gpuid %= device_count
-
         _GPUID = gpuid
-        _CUDA_BACKEND = backend
 
         if backend == "cupy":
             cuda.Device(gpuid).use()
@@ -116,19 +161,8 @@ def init(grid_size: List[int] = None, backend: Literal["cupy", "torch"] = "cupy"
             cc = cuda.get_device_capability(gpuid)
             _COMPUTE_CAPABILITY = _ComputeCapability(cc[0], cc[1])
 
-        if resource_path is not None:
-            if "QUDA_RESOURCE_PATH" in environ:
-                warn("WARNING: Both QUDA_RESOURCE_PATH and init(resource_path) are set", RuntimeWarning)
-            environ["QUDA_RESOURCE_PATH"] = resource_path
-        else:
-            if "QUDA_RESOURCE_PATH" not in environ:
-                warn("WARNING: Neither QUDA_RESOURCE_PATH nor init(resource_path) is set", RuntimeWarning)
-
-        if "QUDA_RESOURCE_PATH" in environ:
-            printRoot(f"INFO: Using QUDA_RESOURCE_PATH={environ['QUDA_RESOURCE_PATH']}")
-
-        quda.initCommsGridQuda(4, [Gx, Gy, Gz, Gt])
-        quda.initQuda(gpuid)
+        quda.initCommsGridQuda(4, _GRID_SIZE)
+        quda.initQuda(_GPUID)
         atexit.register(quda.endQuda)
     else:
         warn("WARNING: PyQuda is already initialized", RuntimeWarning)
@@ -152,6 +186,16 @@ def getGridSize():
 
 def getGridCoord():
     return _GRID_COORD
+
+
+def setDefaultLattice(latt_size: List[int], t_boundary: Literal[1, -1], anisotropy: float):
+    global _DEFAULT_LATTICE
+    _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
+
+
+def getDefaultLattice():
+    assert _DEFAULT_LATTICE is not None
+    return _DEFAULT_LATTICE
 
 
 def getGPUID():
