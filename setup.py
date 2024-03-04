@@ -3,17 +3,15 @@ from distutils.core import Extension, setup
 from Cython.Build import cythonize
 from pyquda_pyx import build_pyquda_pyx
 
-_STATIC = False
 assert "QUDA_PATH" in os.environ, "QUDA_PATH environment is needed to link against libquda"
 quda_path = os.path.realpath(os.environ["QUDA_PATH"])
+build_pyquda_pyx(os.path.dirname(__file__), quda_path)
 if os.path.exists(os.path.join(quda_path, "lib", "libquda.so")):
-    pass
+    _STATIC = False
 elif os.path.exists(os.path.join(quda_path, "lib", "libquda.a")):
     _STATIC = True
 else:
-    raise RuntimeError("Cannot find libquda.so or libquda.a in QUDA_PATH/lib")
-
-build_pyquda_pyx(os.path.dirname(__file__), quda_path)
+    raise RuntimeError(f"Cannot find libquda.so or libquda.a in {os.path.join(quda_path, 'lib')}")
 
 extensions = cythonize(
     [

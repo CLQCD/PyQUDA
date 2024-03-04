@@ -32,7 +32,7 @@ _GRID_SIZE: List[int] = [1, 1, 1, 1]
 _GRID_COORD: List[int] = [0, 0, 0, 0]
 _DEFAULT_LATTICE: LatticeInfo = None
 _CUDA_BACKEND: Literal["cupy", "torch"] = "cupy"
-_GPUID: int = 0
+_GPUID: int = -1
 _COMPUTE_CAPABILITY: _ComputeCapability = _ComputeCapability(0, 0)
 
 
@@ -91,16 +91,39 @@ def init(
     latt_size: List[int] = None,
     t_boundary: Literal[1, -1] = None,
     anisotropy: float = None,
-    *,
     backend: Literal["cupy", "torch"] = "cupy",
+    *,
     resource_path: str = None,
+    enable_tuning: str = None,
+    enable_tuning_shared: str = None,
+    tune_version_check: str = None,
+    tuning_rank: str = None,
+    profile_output_base: str = None,
+    enable_target_profile: str = None,
+    do_not_profile: str = None,
+    enable_trace: str = None,
     enable_mps: str = None,
+    rank_verbosity: str = None,
+    enable_managed_memory: str = None,
+    enable_managed_prefetch: str = None,
+    enable_device_memory_pool: str = None,
+    enable_pinned_memory_pool: str = None,
+    enable_p2p: str = None,
+    enable_p2p_max_access_rank: str = None,
+    enable_gdr: str = None,
+    enable_gdr_blacklist: str = None,
+    enable_nvshmem: str = None,
+    deterministic_reduce: str = None,
+    allow_jit: str = None,
+    device_reset: str = None,
+    reorder_location: str = None,
+    enable_force_monitor: str = None,
 ):
     """
     Initialize MPI along with the QUDA library.
     """
     filterwarnings("default", "", DeprecationWarning)
-    global _MPI_COMM, _MPI_SIZE, _MPI_RANK, _GRID_SIZE, _GRID_COORD, _DEFAULT_LATTICE
+    global _MPI_COMM, _MPI_SIZE, _MPI_RANK, _GRID_SIZE, _GRID_COORD
     if _MPI_COMM is None:
         import atexit
         from platform import node as gethostname
@@ -114,51 +137,84 @@ def init(
         assert _MPI_SIZE == Gx * Gy * Gz * Gt
         printRoot(f"INFO: Using gird {_GRID_SIZE}")
 
+        _initEnvironWarn(resource_path=resource_path)
+        _initEnviron(
+            resource_path=resource_path,
+            enable_tuning=enable_tuning,
+            enable_tuning_shared=enable_tuning_shared,
+            tune_version_check=tune_version_check,
+            tuning_rank=tuning_rank,
+            profile_output_base=profile_output_base,
+            enable_target_profile=enable_target_profile,
+            do_not_profile=do_not_profile,
+            enable_trace=enable_trace,
+            enable_mps=enable_mps,
+            rank_verbosity=rank_verbosity,
+            enable_managed_memory=enable_managed_memory,
+            enable_managed_prefetch=enable_managed_prefetch,
+            enable_device_memory_pool=enable_device_memory_pool,
+            enable_pinned_memory_pool=enable_pinned_memory_pool,
+            enable_p2p=enable_p2p,
+            enable_p2p_max_access_rank=enable_p2p_max_access_rank,
+            enable_gdr=enable_gdr,
+            enable_gdr_blacklist=enable_gdr_blacklist,
+            enable_nvshmem=enable_nvshmem,
+            deterministic_reduce=deterministic_reduce,
+            allow_jit=allow_jit,
+            device_reset=device_reset,
+            reorder_location=reorder_location,
+            enable_force_monitor=enable_force_monitor,
+        )
+
+        global _DEFAULT_LATTICE, _CUDA_BACKEND, _GPUID, _COMPUTE_CAPABILITY
+
         if latt_size is not None:
             assert t_boundary is not None and anisotropy is not None
             _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
             printRoot(f"INFO: Using default LatticeInfo({latt_size}, {t_boundary}, {anisotropy})")
 
-        _initEnvironWarn(resource_path=resource_path)
-        _initEnviron(enable_mps=enable_mps)
-
-        global _CUDA_BACKEND, _GPUID, _COMPUTE_CAPABILITY
-
-        assert backend in ["cupy", "torch"], f"Unsupported backend {backend}"
         if backend == "cupy":
             from cupy import cuda
             from . import malloc_pyquda
         elif backend == "torch":
             from torch import cuda
         else:
-            raise ImportError("Either CuPy or PyTorch is needed to handle the field data")
+            raise ValueError(f"Unsupported CUDA backend {backend}")
         _CUDA_BACKEND = backend
 
-        gpuid = 0
+        # determine which GPU this rank will use @quda/include/communicator_quda.h
         hostname = gethostname()
         hostname_recv_buf = _MPI_COMM.allgather(hostname)
-        for i in range(_MPI_RANK):
-            if hostname == hostname_recv_buf[i]:
-                gpuid += 1
 
-        if backend == "cupy":
-            device_count = cuda.runtime.getDeviceCount()
-        elif backend == "torch":
-            device_count = cuda.device_count()
-        if gpuid >= device_count:
-            if "QUDA_ENABLE_MPS" in environ and environ["QUDA_ENABLE_MPS"] == "1":
-                gpuid %= device_count
-        _GPUID = gpuid
+        if _GPUID < 0:
+            if _CUDA_BACKEND == "cupy":
+                device_count = cuda.runtime.getDeviceCount()
+            elif _CUDA_BACKEND == "torch":
+                device_count = cuda.device_count()
+            if device_count == 0:
+                raise RuntimeError("No devices found")
 
-        if backend == "cupy":
-            cuda.Device(gpuid).use()
-            cc = cuda.Device(gpuid).compute_capability
+            _GPUID = 0
+            for i in range(_MPI_RANK):
+                if hostname == hostname_recv_buf[i]:
+                    _GPUID += 1
+
+            if _GPUID >= device_count:
+                if "QUDA_ENABLE_MPS" in environ and environ["QUDA_ENABLE_MPS"] == "1":
+                    _GPUID %= device_count
+                    print(f"INFO: MPS enabled, rank={_MPI_RANK} -> gpu={_GPUID}")
+                else:
+                    raise RuntimeError(f"Too few GPUs available on {hostname}")
+
+        if _CUDA_BACKEND == "cupy":
+            cuda.Device(_GPUID).use()
+            cc = cuda.Device(_GPUID).compute_capability
             _COMPUTE_CAPABILITY = _ComputeCapability(int(cc[:-1]), int(cc[-1]))
             allocator = cuda.PythonFunctionAllocator(malloc_pyquda.pyquda_cupy_malloc, malloc_pyquda.pyquda_cupy_free)
             cuda.set_allocator(allocator.malloc)
-        elif backend == "torch":
-            cuda.set_device(gpuid)
-            cc = cuda.get_device_capability(gpuid)
+        elif _CUDA_BACKEND == "torch":
+            cuda.set_device(_GPUID)
+            cc = cuda.get_device_capability(_GPUID)
             _COMPUTE_CAPABILITY = _ComputeCapability(cc[0], cc[1])
 
         quda.initCommsGridQuda(4, _GRID_SIZE)
@@ -196,6 +252,13 @@ def setDefaultLattice(latt_size: List[int], t_boundary: Literal[1, -1], anisotro
 def getDefaultLattice():
     assert _DEFAULT_LATTICE is not None
     return _DEFAULT_LATTICE
+
+
+def setGPUID(gpuid: int):
+    global _MPI_COMM, _GPUID
+    assert _MPI_COMM is None, "setGPUID() should be called before init()"
+    assert gpuid >= 0
+    _GPUID = gpuid
 
 
 def getGPUID():

@@ -3,8 +3,6 @@ from typing import List, Literal, Union
 import numpy
 
 from . import (
-    pyquda as quda,
-    enum_quda,
     getMPIComm,
     getMPISize,
     getMPIRank,

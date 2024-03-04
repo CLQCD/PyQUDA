@@ -50,20 +50,14 @@ def main():
         help="(default: QUDA_RESOURCE_PATH)",
         metavar="QUDA_RESOURCE_PATH",
     )
-    parser.add_argument(
-        "--enable-mps",
-        help="(default: QUDA_ENABLE_MPS)",
-        metavar="QUDA_ENABLE_MPS",
-    )
     args = parser.parse_args()
     init(
         args.grid,
         args.latt,
         args.t_boundary,
         args.anisotropy,
-        backend=args.backend,
+        args.backend,
         resource_path=args.resource_path,
-        enable_mps=args.enable_mps,
     )
     exec(open(args.script).read())
 

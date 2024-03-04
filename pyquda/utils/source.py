@@ -61,14 +61,14 @@ def momentum(latt_info: LatticeInfo, t_srce: int, spin: int, color: int, phase):
 
 
 def gaussian3(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, nsteps: int):
-    from .. import core
+    from .. import core, quda
     from ..enum_quda import QudaDslashType
 
     _b = point(latt_info, t_srce, None, color)
     dslash = core.getDslash(latt_info.size, 0, 0, 0, anti_periodic_t=False)
     dslash.invert_param.dslash_type = QudaDslashType.QUDA_LAPLACE_DSLASH
     alpha = 1 / (4 * nsteps / rho**2 - 6)
-    core.quda.performWuppertalnStep(_b.data_ptr, _b.data_ptr, dslash.invert_param, nsteps, alpha)
+    quda.performWuppertalnStep(_b.data_ptr, _b.data_ptr, dslash.invert_param, nsteps, alpha)
 
     if spin is not None:
         b = LatticeFermion(latt_info)
@@ -80,12 +80,12 @@ def gaussian3(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, 
 
 
 def gaussian2(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, nsteps: int, xi: float):
-    from .. import core
+    from .. import core, quda
     from ..enum_quda import QudaDslashType
 
     def _Laplacian(src, aux, sigma, invert_param):
         # aux = -kappa * Laplace * src + src
-        core.quda.MatQuda(aux.data_ptr, src.data_ptr, invert_param)
+        quda.MatQuda(aux.data_ptr, src.data_ptr, invert_param)
         src.data = -6 * sigma * src.data + aux.data
 
     _b = point(latt_info, t_srce, None, color)
@@ -111,13 +111,13 @@ def gaussian2(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, 
 
 
 def gaussian(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, nsteps: int, xi: float):
-    from .. import core
+    from .. import core, quda
     from ..enum_quda import QudaDslashType, QudaParity
 
     def _Laplacian(src, aux, sigma, xi, invert_param):
         aux.data[:] = 0
-        core.quda.dslashQuda(aux.even_ptr, src.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
-        core.quda.dslashQuda(aux.odd_ptr, src.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
+        quda.dslashQuda(aux.even_ptr, src.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
+        quda.dslashQuda(aux.odd_ptr, src.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
         aux.even -= src.odd
         aux.odd -= src.even
         aux.data *= xi
