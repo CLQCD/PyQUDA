@@ -126,21 +126,21 @@ def newLatticeFieldData(latt_info: LatticeInfo, dtype: str):
         import torch
 
         if dtype == "Gauge":
-            ret = torch.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128, device="cuda")
-            ret[:] = torch.eye(Nc, device="cuda")
+            ret = torch.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128)
+            ret[:] = torch.eye(Nc)
             return ret
         elif dtype == "Colorvector":
-            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128, device="cuda")
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128)
         elif dtype == "Fermion":
-            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=torch.complex128, device="cuda")
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=torch.complex128)
         elif dtype == "Propagator":
-            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), dtype=torch.complex128, device="cuda")
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), dtype=torch.complex128)
         elif dtype == "StaggeredFermion":
-            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128, device="cuda")
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128)
         elif dtype == "StaggeredPropagator":
-            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128, device="cuda")
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128)
         elif dtype == "Clover":
-            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), dtype=torch.float64, device="cuda")
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), dtype=torch.float64)
         else:
             raise ValueError(f"Unsupported lattice field type {dtype}")
     else:
@@ -175,7 +175,7 @@ class LatticeField:
         elif backend == "torch":
             import torch
 
-            self.data = torch.as_tensor(self.data, device="cuda")
+            self.data = torch.as_tensor(self.data)
         else:
             raise ValueError(f"Unsupported CUDA backend {backend}")
 

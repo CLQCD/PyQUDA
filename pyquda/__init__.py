@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 from mpi4py import MPI
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"
 from . import pyquda as quda
 from .field import LatticeInfo
 
@@ -178,7 +178,7 @@ def init(
             from cupy import cuda
             from . import malloc_pyquda
         elif backend == "torch":
-            from torch import cuda
+            from torch import cuda, set_default_device
         else:
             raise ValueError(f"Unsupported CUDA backend {backend}")
         _CUDA_BACKEND = backend
@@ -214,7 +214,7 @@ def init(
             allocator = cuda.PythonFunctionAllocator(malloc_pyquda.pyquda_cupy_malloc, malloc_pyquda.pyquda_cupy_free)
             cuda.set_allocator(allocator.malloc)
         elif _CUDA_BACKEND == "torch":
-            cuda.set_device(_GPUID)
+            set_default_device(f"cuda:{_GPUID}")
             cc = cuda.get_device_capability(_GPUID)
             _COMPUTE_CAPABILITY = _ComputeCapability(cc[0], cc[1])
 

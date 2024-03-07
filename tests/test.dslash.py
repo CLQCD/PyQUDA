@@ -35,9 +35,9 @@ def applyDslash(Mp, p, U_seed):
     return U.lexico()
 
 
-p = np.zeros((Lt, Lz, Ly, Lx, Ns, Nc), np.complex128)
+p = np.zeros((Lt, Lz, Ly, Lx, Ns, Nc), "<c16")
 p[0, 0, 0, 0, 0, 0] = 1
-Mp = np.zeros((Lt, Lz, Ly, Lx, Ns, Nc), np.complex128)
+Mp = np.zeros((Lt, Lz, Ly, Lx, Ns, Nc), "<c16")
 
 U = applyDslash(Mp, p, 0)
 print(Mp[0, 0, 0, 1])

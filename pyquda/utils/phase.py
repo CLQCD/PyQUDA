@@ -82,9 +82,9 @@ class Phase:
         elif backend == "torch":
             import torch
 
-            self.x = torch.as_tensor(x_cb2, device="cuda")
-            self.y = torch.as_tensor(y_cb2, device="cuda")
-            self.z = torch.as_tensor(z_cb2, device="cuda")
+            self.x = torch.as_tensor(x_cb2)
+            self.y = torch.as_tensor(y_cb2)
+            self.z = torch.as_tensor(z_cb2)
 
     def __getitem__(self, momentum: List[int]):
         npx, npy, npz = momentum
@@ -107,7 +107,7 @@ class Phase:
         elif backend == "torch":
             import torch
 
-            ret = torch.zeros((len(mom_list), *self.x.shape), dtype=backend.complex128, device="cuda")
+            ret = torch.zeros((len(mom_list), *self.x.shape), dtype=torch.complex128)
         for idx, mom in enumerate(mom_list):
             ret[idx] = self.__getitem__(mom)
         return ret

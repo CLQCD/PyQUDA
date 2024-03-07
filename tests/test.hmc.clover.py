@@ -144,14 +144,14 @@ for i in range(100):
     hmc.gaussMom(i)
 
     cp.random.seed(i)
-    phi = 2 * cp.pi * cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
-    r = cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
-    noise = LatticeFermion(latt_info, cp.sqrt(-cp.log(r)) * (cp.cos(phi) + 1j * cp.sin(phi)))
+    phi = 2 * cp.pi * cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<f8")
+    r = cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<f8")
 
     # cp.random.manual_seed(i)
-    # phi = 2 * cp.pi * cp.rand((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), device="cuda", dtype=cp.float64)
-    # r = cp.rand((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), device="cuda",  dtype=cp.float64)
-    # noise = LatticeFermion(latt_info, cp.sqrt(-cp.log(r)) * (cp.cos(phi) + 1j * cp.sin(phi)))
+    # phi = 2 * cp.pi * cp.rand((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=cp.float64)
+    # r = cp.rand((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=cp.float64)
+
+    noise = LatticeFermion(latt_info, cp.sqrt(-cp.log(r)) * (cp.cos(phi) + 1j * cp.sin(phi)))
 
     hmc.initNoise(noise, i)
 

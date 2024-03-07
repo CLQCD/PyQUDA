@@ -157,7 +157,7 @@ def gamma(n: int):
     elif backend == "torch":
         import torch
 
-        return torch.as_tensor(GammaMatrix.matrix(n), device="cuda")
+        return torch.as_tensor(GammaMatrix.matrix(n))
 
 
 def bilateral_apply(data, out, axis, gamma_left, gamma_right, conj):
