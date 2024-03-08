@@ -145,7 +145,7 @@ def build_pyquda_pyx(pyquda_root, quda_path):
     print(f"Building pyquda wrapper from {os.path.join(quda_include, 'quda.h')}")
     try:
         from pycparser import parse_file, c_ast
-    except ModuleNotFoundError:
+    except ImportError or ModuleNotFoundError:
         from pycparser.pycparser import parse_file, c_ast
 
     def evaluate(node):
@@ -316,5 +316,7 @@ def build_pyquda_pyx(pyquda_root, quda_path):
     # with open(os.path.join(pyquda_root, "pyquda", "pyquda.pyi"), "w") as f:
     #     f.write(pyquda_pyi)
 
-    os.remove(os.path.join(pyquda_root, "yacctab.py"))
-    os.remove(os.path.join(pyquda_root, "lextab.py"))
+    if os.path.exists(os.path.join(pyquda_root, "yacctab.py")):
+        os.remove(os.path.join(pyquda_root, "yacctab.py"))
+    if os.path.exists(os.path.join(pyquda_root, "lextab.py")):
+        os.remove(os.path.join(pyquda_root, "lextab.py"))

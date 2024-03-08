@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 from mpi4py import MPI
 
-__version__ = "0.6.2"
+from .version import __version__  # noqa: F401
 from . import pyquda as quda
 from .field import LatticeInfo
 
