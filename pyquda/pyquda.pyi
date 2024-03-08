@@ -1536,7 +1536,7 @@ def computeGaugeForceQuda(
     max_length: int,
     dt: double,
     qudaGaugeParam: QudaGaugeParam,
-) -> None:
+) -> int:
     """
     Compute the gauge force and update the momentum field
 
@@ -1571,7 +1571,7 @@ def computeGaugePathQuda(
     max_length: int,
     dt: double,
     qudaGaugeParam: QudaGaugeParam,
-) -> None:
+) -> int:
     """
     Compute the product of gauge links along a path and add to/overwrite the output field
 

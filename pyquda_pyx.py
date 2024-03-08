@@ -139,9 +139,14 @@ ptrptr = """
 
 
 def build_pyquda_pyx(pyquda_root, quda_path):
-    print(f"Building pyquda wrapper from {os.path.join(quda_path, 'include', 'quda.h')}")
-    pycparser_root = os.path.join(pyquda_root, "pycparser")
-    from pycparser.pycparser import parse_file, c_ast
+    fake_libc_include = os.path.join(pyquda_root, "pycparser", "utils", "fake_libc_include")
+    quda_include = os.path.join(quda_path, "include")
+    assert os.path.exists(fake_libc_include), f"{fake_libc_include} not found"
+    print(f"Building pyquda wrapper from {os.path.join(quda_include, 'quda.h')}")
+    try:
+        from pycparser import parse_file, c_ast
+    except ModuleNotFoundError:
+        from pycparser.pycparser import parse_file, c_ast
 
     def evaluate(node):
         if node is None:
@@ -166,13 +171,13 @@ def build_pyquda_pyx(pyquda_root, quda_path):
     quda_enum_meta: Dict[str, List[QudaParamsMeta]] = {}
     quda_params_meta: Dict[str, List[QudaParamsMeta]] = {}
     ast = parse_file(
-        os.path.join(quda_path, "include", "quda.h"),
+        os.path.join(quda_include, "quda.h"),
         use_cpp=True,
         cpp_path="cc",
         cpp_args=[
             "-E",
-            Rf"-I{os.path.join(pycparser_root, 'utils', 'fake_libc_include')}",
-            Rf"-I{os.path.join(quda_path, 'include')}",
+            Rf"-I{fake_libc_include}",
+            Rf"-I{quda_include}",
         ],
     )
     for node in ast:
@@ -228,7 +233,7 @@ def build_pyquda_pyx(pyquda_root, quda_path):
                 else:
                     raise ValueError(f"Unexpected node {node}")
 
-    with open(os.path.join(quda_path, "include", "enum_quda.h"), "r") as f:
+    with open(os.path.join(quda_include, "enum_quda.h"), "r") as f:
         enum_quda_h = f.read()
     with open(os.path.join(pyquda_root, "pyquda", "enum_quda.in.py"), "r") as f:
         enum_quda_py = f.read()
