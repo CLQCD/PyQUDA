@@ -1,6 +1,6 @@
 from typing import List
 
-from ..pointer import Pointer, Pointers, ndarrayDataPointer
+from ..pointer import Pointer, Pointers
 from ..pyquda import (
     QudaGaugeParam,
     QudaInvertParam,

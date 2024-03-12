@@ -2,7 +2,7 @@ from typing import List, Literal
 
 import numpy
 
-from .pointer import ndarrayDataPointer
+from .pointer import ndarrayPointer, Pointer, Pointers
 
 
 class LatticeInfo:
@@ -227,12 +227,12 @@ class LatticeGauge(LatticeField):
         self.data[: Nd - 1] /= anisotropy
 
     @property
-    def data_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(-1), True)
+    def data_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(-1), True)
 
     @property
-    def data_ptrs(self):
-        return ndarrayDataPointer(self.data.reshape(4, -1), True)
+    def data_ptrs(self) -> Pointers:
+        return ndarrayPointer(self.data.reshape(4, -1), True)
 
     def lexico(self):
         return lexico(self.getHost(), [1, 2, 3, 4, 5])
@@ -389,8 +389,8 @@ class LatticeClover(LatticeField):
             self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2)
 
     @property
-    def data_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(-1), True)
+    def data_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(-1), True)
 
 
 class LatticeFermion(LatticeField):
@@ -419,16 +419,16 @@ class LatticeFermion(LatticeField):
         self.data[1] = value
 
     @property
-    def data_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(-1), True)
+    def data_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(-1), True)
 
     @property
-    def even_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(2, -1)[0], True)
+    def even_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(2, -1)[0], True)
 
     @property
-    def odd_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(2, -1)[1], True)
+    def odd_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(2, -1)[1], True)
 
     def lexico(self):
         return lexico(self.getHost(), [0, 1, 2, 3, 4])
@@ -476,16 +476,16 @@ class LatticeStaggeredFermion(LatticeField):
         self.data[1] = value
 
     @property
-    def data_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(-1), True)
+    def data_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(-1), True)
 
     @property
-    def even_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(2, -1)[0], True)
+    def even_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(2, -1)[0], True)
 
     @property
-    def odd_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(2, -1)[1], True)
+    def odd_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(2, -1)[1], True)
 
     def lexico(self):
         return lexico(self.getHost(), [0, 1, 2, 3, 4])

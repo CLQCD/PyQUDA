@@ -2,7 +2,7 @@ from typing import Literal
 
 import numpy
 
-from .pointer import Pointers, ndarrayDataPointer
+from .pointer import Pointers, ndarrayPointer
 from .pyquda import (
     QudaGaugeObservableParam,
     QudaGaugeParam,
@@ -109,8 +109,8 @@ class HMC:
         computeCloverForceQuda(
             nullptr,
             dt,
-            ndarrayDataPointer(x.even.reshape(1, -1), True),
-            ndarrayDataPointer(numpy.array([1.0], "<f8")),
+            ndarrayPointer(x.even.reshape(1, -1), True),
+            ndarrayPointer(numpy.array([1.0], "<f8")),
             kappa2,
             ck,
             1,
@@ -124,9 +124,9 @@ class HMC:
         computeGaugeForceQuda(
             nullptr,
             nullptr,
-            ndarrayDataPointer(force),
-            ndarrayDataPointer(lengths),
-            ndarrayDataPointer(coeffs),
+            ndarrayPointer(force),
+            ndarrayPointer(lengths),
+            ndarrayPointer(coeffs),
             num_paths,
             max_length,
             dt,
@@ -165,10 +165,10 @@ class HMC:
     def actionGauge(self, path, lengths, coeffs, num_paths, max_length) -> float:
         traces = numpy.zeros((num_paths), "<c16")
         computeGaugeLoopTraceQuda(
-            ndarrayDataPointer(traces),
-            ndarrayDataPointer(path),
-            ndarrayDataPointer(lengths),
-            ndarrayDataPointer(coeffs),
+            ndarrayPointer(traces),
+            ndarrayPointer(path),
+            ndarrayPointer(lengths),
+            ndarrayPointer(coeffs),
             num_paths,
             max_length,
             1,

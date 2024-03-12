@@ -54,7 +54,7 @@ cdef class Pointerss(Pointer):
                 self.ptrss[i][j] = ptrss[i][j]
         self.ptr = <void *>self.ptrss
 
-def ndarrayDataPointer(ndarray, as_void=False):
+def ndarrayPointer(ndarray, as_void=False):
     ndarray_type = ".".join([type(ndarray).__module__, type(ndarray).__name__])
     if ndarray_type == "numpy.ndarray":
         gpu = None
@@ -66,7 +66,7 @@ def ndarrayDataPointer(ndarray, as_void=False):
         gpu = "torch"
         dtype = f"<{'c' if ndarray.dtype.is_complex else 'f' if ndarray.dtype.is_floating_point else 'i' if ndarray.dtype.is_signed else 'u'}{ndarray.dtype.itemsize}"
     else:
-        raise TypeError(f"ndarrayDataPointer: ndarray has unsupported type={type(ndarray)}")
+        raise TypeError(f"ndarrayPointer: ndarray has unsupported type={type(ndarray)}")
 
     if not as_void:
         if dtype == "<i4":
@@ -76,7 +76,7 @@ def ndarrayDataPointer(ndarray, as_void=False):
         elif dtype == "<c16":
             dtype = "double_complex"
         else:
-            raise TypeError(f"ndarrayDataPointer: ndarray has unsupported dtype={dtype}.")
+            raise TypeError(f"ndarrayPointer: ndarray has unsupported dtype={dtype}.")
     else:
         dtype = "void"
 
@@ -140,3 +140,5 @@ def ndarrayDataPointer(ndarray, as_void=False):
         return ptr3
     else:
         raise NotImplementedError("ndarray.ndim > 3 not implemented yet.")
+
+ndarrayDataPointer = ndarrayPointer
