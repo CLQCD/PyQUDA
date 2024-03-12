@@ -6,7 +6,7 @@ on:
       tag:
         description: Which tag to create and release?
         required: true
-        default: v0.0.0
+        default: 0.0.0
 
 jobs:
   build:
@@ -32,6 +32,6 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag != ''
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.event.inputs.tag }}
+          tag_name: v${{ github.event.inputs.tag }}
           files: dist/PyQuda-${{ github.event.inputs.tag }}.tar.gz
           fail_on_unmatched_files: true
