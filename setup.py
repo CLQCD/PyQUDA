@@ -14,8 +14,8 @@ if "QUDA_PATH" in os.environ:
     else:
         raise FileNotFoundError(f"Cannot find libquda.so or libquda.a in {os.path.join(quda_path, 'lib')}")
 elif "sdist" in sys.argv:
-    quda_path = ""
-    _STATIC = False
+    setup()
+    exit(0)
 else:
     raise EnvironmentError("QUDA_PATH environment is needed to link against libquda")
 
