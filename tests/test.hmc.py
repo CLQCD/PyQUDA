@@ -3,7 +3,7 @@ import numpy as np
 from check_pyquda import test_dir
 
 from pyquda import init
-from pyquda.hmc import HMC
+from pyquda.hmc_gauge import HMC
 from pyquda.field import Nc, LatticeInfo, LatticeGauge
 
 ensembles = {
@@ -22,7 +22,7 @@ beta = ensembles[tag][1]
 
 gauge = LatticeGauge(latt_info, None)
 
-hmc = HMC(latt_info, 0, 0, 0)
+hmc = HMC(latt_info)
 hmc.loadGauge(gauge)
 hmc.loadMom(gauge)
 

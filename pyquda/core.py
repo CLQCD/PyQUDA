@@ -221,6 +221,14 @@ def getStaggeredDirac(
     return HISQ(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, None)
 
 
+def getPureGauge(
+    latt_info: LatticeInfo,
+):
+    from .dirac.pure_gauge import PureGauge
+
+    return PureGauge(latt_info)
+
+
 def getWilson(
     latt_info: LatticeInfo,
     mass: float,

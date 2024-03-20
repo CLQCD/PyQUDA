@@ -1,15 +1,10 @@
-from typing import Literal
-
 import numpy
 
 from .pointer import Pointers, ndarrayPointer
 from .pyquda import (
-    QudaGaugeObservableParam,
     QudaGaugeParam,
     QudaInvertParam,
-    QudaGaugeSmearParam,
     loadCloverQuda,
-    freeCloverQuda,
     loadGaugeQuda,
     saveGaugeQuda,
     updateGaugeFieldQuda,
@@ -23,13 +18,8 @@ from .pyquda import (
     computeCloverForceQuda,
     computeGaugeForceQuda,
     computeGaugeLoopTraceQuda,
-    performGaugeSmearQuda,
 )
-from .field import Ns, Nc, LatticeInfo, LatticeGauge, LatticeFermion
 from .enum_quda import (
-    QudaBoolean,
-    QudaGaugeSmearType,
-    QudaLinkType,
     QudaMatPCType,
     QudaSolutionType,
     QudaSolveType,
@@ -38,7 +28,8 @@ from .enum_quda import (
     QudaReconstructType,
     QudaDagType,
 )
-from .core import getDirac
+from .field import Ns, Nc, LatticeInfo, LatticeGauge, LatticeFermion
+from .core import getClover
 
 nullptr = Pointers("void", 0)
 
@@ -51,18 +42,14 @@ class HMC:
         tol: float,
         maxiter: int,
         clover_coeff: float = 0.0,
-        stout_nstep: int = 0,
-        stout_rho: float = 0.0,
-        stout_ndim: Literal[3, 4] = 4,
     ) -> None:
-        self.dirac = getDirac(latt_info, mass, tol, maxiter, clover_coeff_t=clover_coeff)
+        assert latt_info.anisotropy == 1.0
+        self.dirac = getClover(latt_info, mass, tol, maxiter, 1.0, clover_coeff, 1.0)
 
         self.latt_info = latt_info
         self.updated_clover = False
         self.gauge_param: QudaGaugeParam = self.dirac.gauge_param
         self.invert_param: QudaInvertParam = self.dirac.invert_param
-        self.smear_param = QudaGaugeSmearParam()
-        self.obs_param = QudaGaugeObservableParam()
 
         self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION
@@ -70,17 +57,6 @@ class HMC:
         self.invert_param.verbosity = QudaVerbosity.QUDA_SILENT
         self.invert_param.compute_action = 1
         self.invert_param.compute_clover_trlog = 1
-
-        self.smear_param.n_steps = stout_nstep
-        self.smear_param.rho = stout_rho
-        self.smear_param.meas_interval = stout_nstep + 1
-        if stout_ndim == 3:
-            self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_STOUT
-        elif stout_ndim == 4:
-            self.smear_param.epsilon = 1.0
-            self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_OVRIMP_STOUT
-
-        self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_TRUE
 
     def loadGauge(self, gauge: LatticeGauge):
         gauge_in = gauge.copy()
@@ -194,22 +170,3 @@ class HMC:
         self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
         MatQuda(x.odd_ptr, x.even_ptr, self.invert_param)
         self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
-
-    def smearGauge(self):
-        t_boundary = self.gauge_param.t_boundary
-        reconstruct = self.gauge_param.reconstruct
-        _type = self.gauge_param.type
-        gauge = LatticeGauge(self.latt_info, None)
-        smeared_gauge = LatticeGauge(self.latt_info, None)
-        self.saveGauge(gauge)
-        self.gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
-        self.gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
-        self.loadGauge(gauge)
-        performGaugeSmearQuda(self.smear_param, self.obs_param)
-        self.gauge_param.type = QudaLinkType.QUDA_SMEARED_LINKS
-        self.saveGauge(smeared_gauge)
-        self.gauge_param.type = _type
-        self.gauge_param.t_boundary = t_boundary
-        self.gauge_param.reconstruct = reconstruct
-        self.loadGauge(smeared_gauge)
-        return gauge

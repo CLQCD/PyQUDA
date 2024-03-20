@@ -4,7 +4,7 @@ import cupy as cp
 from check_pyquda import test_dir
 
 from pyquda import init
-from pyquda.hmc import HMC
+from pyquda.hmc_clover import HMC
 from pyquda.field import Ns, Nc, LatticeInfo, LatticeFermion, LatticeGauge
 
 ensembles = {
@@ -26,7 +26,7 @@ gauge = LatticeGauge(latt_info, None)
 mass = 4
 kappa = 1 / (2 * (mass + 4))
 csw = 1.0
-hmc = HMC(latt_info, mass, 1e-9, 1000, csw, True)
+hmc = HMC(latt_info, mass, 1e-9, 1000, csw)
 hmc.loadGauge(gauge)
 hmc.loadMom(gauge)
 
