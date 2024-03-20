@@ -4,7 +4,7 @@ from . import init
 
 
 def main():
-    parser = ArgumentParser(prog="pyquda", description="PyQuda initializer", epilog="Text at the bottom of help")
+    parser = ArgumentParser(prog="pyquda", description="PyQUDA initializer", epilog="Text at the bottom of help")
     parser.add_argument("script")
     parser.add_argument(
         "-g",
@@ -42,7 +42,7 @@ def main():
         "--backend",
         default="cupy",
         choices=("cupy", "torch"),
-        help="CUDA backend of PyQuda (default: cupy)",
+        help="CUDA backend of PyQUDA (default: cupy)",
     )
     parser.add_argument(
         "-p",

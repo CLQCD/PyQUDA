@@ -222,7 +222,7 @@ def init(
         quda.initQuda(_GPUID)
         atexit.register(quda.endQuda)
     else:
-        warn("WARNING: PyQuda is already initialized", RuntimeWarning)
+        warn("WARNING: PyQUDA is already initialized", RuntimeWarning)
 
 
 def getMPIComm():

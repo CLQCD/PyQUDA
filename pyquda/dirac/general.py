@@ -462,7 +462,7 @@ def loadFatLongGauge(fatlink: LatticeGauge, longlink: LatticeGauge, gauge_param:
 def performance(invert_param: QudaInvertParam):
     if invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
         print(
-            "PyQuda: "
+            "PyQUDA: "
             f"Time = {invert_param.secs:.3f} secs, "
             f"Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
         )

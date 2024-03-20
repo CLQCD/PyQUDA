@@ -33,5 +33,5 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ github.event.inputs.tag }}
-          files: dist/PyQuda-${{ github.event.inputs.tag }}.tar.gz
+          files: dist/PyQUDA-${{ github.event.inputs.tag }}.tar.gz
           fail_on_unmatched_files: true
