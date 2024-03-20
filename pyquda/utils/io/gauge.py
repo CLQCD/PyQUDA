@@ -11,7 +11,7 @@ from ...field import Ns, Nc, Nd, LatticeInfo, LatticeGauge, cb2
 _precision_map = {"D": 8, "S": 4}
 
 
-def gatherGaugeFieldRaw(gauge_send: numpy.ndarray, latt_info: LatticeInfo):
+def gatherGaugeRaw(gauge_send: numpy.ndarray, latt_info: LatticeInfo):
     from ... import getMPIComm, getCoordFromRank
 
     Gx, Gy, Gz, Gt = latt_info.grid_size
@@ -96,7 +96,7 @@ def toKYUBuffer(gauge_lexico: numpy.ndarray, latt_info: LatticeInfo):
     Gx, Gy, Gz, Gt = latt_info.grid_size
     Lx, Ly, Lz, Lt = latt_info.size
 
-    gauge_raw = gatherGaugeFieldRaw(gauge_lexico, latt_info)
+    gauge_raw = gatherGaugeRaw(gauge_lexico, latt_info)
     if latt_info.mpi_rank == 0:
         buffer = (
             gauge_raw.view("<f8")
