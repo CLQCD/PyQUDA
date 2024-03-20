@@ -10,7 +10,9 @@ from .propagator import (
     readChromaQIO as readQIOPropagator,
     readChromaQIO as readChromaQIOPropagator,
     readMILCQIO as readMILCQIOPropagator,
-    readKYU as readKYUPropagator,
-    writeKYU as writeKYUPropagator,
+)
+from .fermion import (
+    readKYU as readKYUFermion,
+    writeKYU as writeKYUFermion,
 )
 from .eigen import readTimeSlice as readTimeSliceEivenvector
