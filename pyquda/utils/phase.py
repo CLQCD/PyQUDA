@@ -73,7 +73,11 @@ class Phase:
                         z_cb2[1, it, iz, iy] = z[iz, iy, 0::2]
                         z_cb2[0, it, iz, iy] = z[iz, iy, 1::2]
         backend = getCUDABackend()
-        if backend == "cupy":
+        if backend == "numpy":
+            self.x = x_cb2
+            self.y = y_cb2
+            self.z = z_cb2
+        elif backend == "cupy":
             import cupy
 
             self.x = cupy.asarray(x_cb2)
@@ -89,7 +93,9 @@ class Phase:
     def __getitem__(self, momentum: List[int]):
         npx, npy, npz = momentum
         backend = getCUDABackend()
-        if backend == "cupy":
+        if backend == "numpy":
+            return numpy.exp(npx * self.x + npy * self.y + npz * self.z)
+        elif backend == "cupy":
             import cupy
 
             return cupy.exp(npx * self.x + npy * self.y + npz * self.z)
@@ -100,7 +106,9 @@ class Phase:
 
     def cache(self, mom_list: List[List[int]]):
         backend = getCUDABackend()
-        if backend == "cupy":
+        if backend == "numpy":
+            ret = numpy.zeros((len(mom_list), *self.x.shape), "<c16")
+        elif backend == "cupy":
             import cupy
 
             ret = cupy.zeros((len(mom_list), *self.x.shape), "<c16")

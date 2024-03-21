@@ -150,7 +150,9 @@ class Gamma:
 def gamma(n: int):
     assert isinstance(n, int) and n >= 0 and n <= 15
     backend = getCUDABackend()
-    if backend == "cupy":
+    if backend == "numpy":
+        return GammaMatrix.matrix(n)
+    elif backend == "cupy":
         import cupy
 
         return cupy.asarray(GammaMatrix.matrix(n))
@@ -162,8 +164,8 @@ def gamma(n: int):
 
 def bilateral_apply(data, out, axis, gamma_left, gamma_right, conj):
     backend = getCUDABackend()
-    if backend == "torch":
-        raise ValueError("`bilateral_apply` doesn't support torch backend yet.")
+    if backend != "cupy":
+        raise ValueError(f"`bilateral_apply` doesn't support {backend} backend yet.")
     import cupy
 
     gamma_left = cupy.sparse.csr_matrix(gamma_left)

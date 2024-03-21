@@ -101,7 +101,26 @@ def newLatticeFieldData(latt_info: LatticeInfo, dtype: str):
 
     backend = getCUDABackend()
     Lx, Ly, Lz, Lt = latt_info.size
-    if backend == "cupy":
+    if backend == "numpy":
+        if dtype == "Gauge":
+            ret = numpy.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
+            ret[:] = numpy.identity(Nc)
+            return ret
+        elif dtype == "Colorvector":
+            return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
+        elif dtype == "Fermion":
+            return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
+        elif dtype == "Propagator":
+            return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), "<c16")
+        elif dtype == "StaggeredFermion":
+            return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
+        elif dtype == "StaggeredPropagator":
+            return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
+        elif dtype == "Clover":
+            return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), "<f8")
+        else:
+            raise ValueError(f"Unsupported lattice field type {dtype}")
+    elif backend == "cupy":
         import cupy
 
         if dtype == "Gauge":
@@ -155,7 +174,7 @@ class LatticeField:
         from . import getCUDABackend
 
         backend = getCUDABackend()
-        if isinstance(self.data, numpy.ndarray):
+        if isinstance(self.data, numpy.ndarray) or backend == "numpy":
             return self.data.copy()
         elif backend == "cupy":
             return self.data.copy()
@@ -168,7 +187,9 @@ class LatticeField:
         from . import getCUDABackend
 
         backend = getCUDABackend()
-        if backend == "cupy":
+        if backend == "numpy":
+            pass
+        elif backend == "cupy":
             import cupy
 
             self.data = cupy.asarray(self.data)
@@ -183,7 +204,7 @@ class LatticeField:
         from . import getCUDABackend
 
         backend = getCUDABackend()
-        if isinstance(self.data, numpy.ndarray):
+        if isinstance(self.data, numpy.ndarray) or backend == "numpy":
             pass
         elif backend == "cupy":
             self.data = self.data.get()
@@ -196,7 +217,7 @@ class LatticeField:
         from . import getCUDABackend
 
         backend = getCUDABackend()
-        if isinstance(self.data, numpy.ndarray):
+        if isinstance(self.data, numpy.ndarray) or backend == "numpy":
             return self.data.copy()
         elif backend == "cupy":
             return self.data.get()

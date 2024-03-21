@@ -31,7 +31,7 @@ _MPI_RANK: int = 0
 _GRID_SIZE: List[int] = [1, 1, 1, 1]
 _GRID_COORD: List[int] = [0, 0, 0, 0]
 _DEFAULT_LATTICE: LatticeInfo = None
-_CUDA_BACKEND: Literal["cupy", "torch"] = "cupy"
+_CUDA_BACKEND: Literal["numpy", "cupy", "torch"] = "cupy"
 _GPUID: int = -1
 _COMPUTE_CAPABILITY: _ComputeCapability = _ComputeCapability(0, 0)
 
@@ -70,7 +70,7 @@ def _initEnviron(**kwargs):
         _setEnviron(f"QUDA_{key.upper()}", key, kwargs[key])
 
 
-def _initEnvironPath(**kwargs):
+def _initEnvironWarn(**kwargs):
     def _setEnviron(env, key, value):
         if value is not None:
             if env in environ:
@@ -91,7 +91,7 @@ def init(
     latt_size: List[int] = None,
     t_boundary: Literal[1, -1] = None,
     anisotropy: float = None,
-    backend: Literal["cupy", "torch"] = "cupy",
+    backend: Literal["numpy", "cupy", "torch"] = "cupy",
     *,
     resource_path: str = "",
     rank_verbosity: List[int] = [0],
@@ -137,7 +137,7 @@ def init(
         assert _MPI_SIZE == Gx * Gy * Gz * Gt
         printRoot(f"INFO: Using gird {_GRID_SIZE}")
 
-        _initEnvironPath(resource_path=resource_path if resource_path != "" else None)
+        _initEnvironWarn(resource_path=resource_path if resource_path != "" else None)
         _initEnviron(
             rank_verbosity=",".join(rank_verbosity) if rank_verbosity != [0] else None,
             enable_mps="1" if enable_mps else None,
@@ -174,7 +174,9 @@ def init(
             _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
             printRoot(f"INFO: Using default LatticeInfo({latt_size}, {t_boundary}, {anisotropy})")
 
-        if backend == "cupy":
+        if backend == "numpy":
+            pass
+        elif backend == "cupy":
             from cupy import cuda
             from . import malloc_pyquda
         elif backend == "torch":
@@ -188,7 +190,9 @@ def init(
         hostname_recv_buf = _MPI_COMM.allgather(hostname)
 
         if _GPUID < 0:
-            if _CUDA_BACKEND == "cupy":
+            if _CUDA_BACKEND == "numpy":
+                device_count = 0x7FFFFFFF
+            elif _CUDA_BACKEND == "cupy":
                 device_count = cuda.runtime.getDeviceCount()
             elif _CUDA_BACKEND == "torch":
                 device_count = cuda.device_count()
@@ -207,7 +211,9 @@ def init(
                 else:
                     raise RuntimeError(f"Too few GPUs available on {hostname}")
 
-        if _CUDA_BACKEND == "cupy":
+        if _CUDA_BACKEND == "numpy":
+            pass
+        elif _CUDA_BACKEND == "cupy":
             cuda.Device(_GPUID).use()
             cc = cuda.Device(_GPUID).compute_capability
             _COMPUTE_CAPABILITY = _ComputeCapability(int(cc[:-1]), int(cc[-1]))
@@ -268,6 +274,11 @@ def getGPUID():
 
 def getCUDABackend():
     return _CUDA_BACKEND
+
+
+def setCUDAComputeCapability(major: int, minor: int):
+    global _COMPUTE_CAPABILITY
+    _COMPUTE_CAPABILITY = _ComputeCapability(major, minor)
 
 
 def getCUDAComputeCapability():

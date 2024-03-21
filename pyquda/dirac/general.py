@@ -84,6 +84,24 @@ nullptr = Pointer("void")
 nullptrs = Pointers("void", 0)
 
 
+def _fieldLocation():
+    from .. import getCUDABackend
+
+    if getCUDABackend() == "numpy":
+        return QudaFieldLocation.QUDA_CPU_FIELD_LOCATION
+    else:
+        return QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
+
+
+def _useMMA():
+    from .. import getCUDAComputeCapability
+
+    if getCUDAComputeCapability().major >= 7:
+        return QudaBoolean.QUDA_BOOLEAN_TRUE
+    else:
+        return QudaBoolean.QUDA_BOOLEAN_FALSE
+
+
 class Precision:
     def __init__(
         self,
@@ -176,8 +194,6 @@ def newQudaMultigridParam(
     nu_pre: int,
     nu_post: int,
 ):
-    from .. import getCUDAComputeCapability
-
     mg_param = QudaMultigridParam()
     mg_inv_param = QudaInvertParam()
 
@@ -202,12 +218,13 @@ def newQudaMultigridParam(
     mg_inv_param.gcrNkrylov = 8
     mg_inv_param.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
 
+    location = _fieldLocation()
     mg_inv_param.cpu_prec = cpu_prec
     mg_inv_param.cuda_prec = cuda_prec
     mg_inv_param.cuda_prec_sloppy = cuda_prec_sloppy
     mg_inv_param.cuda_prec_precondition = cuda_prec_precondition
-    mg_inv_param.input_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
-    mg_inv_param.output_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
+    mg_inv_param.input_location = location
+    mg_inv_param.output_location = location
     mg_inv_param.dirac_order = QudaDiracFieldOrder.QUDA_DIRAC_ORDER
     mg_inv_param.gamma_basis = QudaGammaBasis.QUDA_DEGRAND_ROSSI_GAMMA_BASIS
 
@@ -215,7 +232,7 @@ def newQudaMultigridParam(
     mg_inv_param.clover_cuda_prec = cuda_prec
     mg_inv_param.clover_cuda_prec_sloppy = cuda_prec_sloppy
     mg_inv_param.clover_cuda_prec_precondition = cuda_prec_precondition
-    mg_inv_param.clover_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
+    mg_inv_param.clover_location = location
     mg_inv_param.clover_order = QudaCloverFieldOrder.QUDA_PACKED_CLOVER_ORDER
     mg_inv_param.clover_coeff = 1.0
 
@@ -275,7 +292,7 @@ def newQudaMultigridParam(
     mg_param.run_low_mode_check = QudaBoolean.QUDA_BOOLEAN_FALSE
     mg_param.run_oblique_proj_check = QudaBoolean.QUDA_BOOLEAN_FALSE
 
-    use_mma = QudaBoolean.QUDA_BOOLEAN_TRUE if getCUDAComputeCapability().major >= 7 else QudaBoolean.QUDA_BOOLEAN_FALSE
+    use_mma = _useMMA()
     mg_param.setup_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
     mg_param.dslash_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
 
@@ -326,14 +343,15 @@ def newQudaInvertParam(
     invert_param.gcrNkrylov = 8
     invert_param.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
 
+    location = _fieldLocation()
     invert_param.cpu_prec = cpu_prec
     invert_param.cuda_prec = cuda_prec
     invert_param.cuda_prec_sloppy = cuda_prec_sloppy
     invert_param.cuda_prec_refinement_sloppy = cuda_prec_sloppy
     invert_param.cuda_prec_precondition = cuda_prec_precondition
     invert_param.cuda_prec_eigensolver = cuda_prec_eigensolver
-    invert_param.input_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
-    invert_param.output_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
+    invert_param.input_location = location
+    invert_param.output_location = location
     invert_param.dirac_order = QudaDiracFieldOrder.QUDA_DIRAC_ORDER
     invert_param.gamma_basis = QudaGammaBasis.QUDA_DEGRAND_ROSSI_GAMMA_BASIS
 
@@ -344,7 +362,7 @@ def newQudaInvertParam(
         invert_param.clover_cuda_prec_refinement_sloppy = cuda_prec_sloppy
         invert_param.clover_cuda_prec_precondition = cuda_prec_precondition
         invert_param.clover_cuda_prec_eigensolver = cuda_prec_eigensolver
-        invert_param.clover_location = QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
+        invert_param.clover_location = location
         invert_param.clover_order = QudaCloverFieldOrder.QUDA_PACKED_CLOVER_ORDER
         invert_param.clover_csw = clover_anisotropy  # to save clover_anisotropy, not real csw
         invert_param.clover_coeff = clover_coeff

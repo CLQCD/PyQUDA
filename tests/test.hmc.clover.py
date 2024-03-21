@@ -143,6 +143,10 @@ warm = 20
 for i in range(100):
     hmc.gaussMom(i)
 
+    # np.random.seed(i)
+    # phi = 2 * np.pi * np.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
+    # r = np.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
+
     cp.random.seed(i)
     phi = 2 * cp.pi * cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<f8")
     r = cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<f8")
