@@ -1,18 +1,17 @@
-from .gauge import (
-    readChromaQIO as readQIOGauge,
-    readChromaQIO as readChromaQIOGauge,
-    readMILC as readMILCGauge,
-    readILDGBin as readILDGBinGauge,
-    readKYU as readKYUGauge,
-    writeKYU as writeKYUGauge,
+from .chroma import (
+    readQIOGauge,
+    readQIOGauge as readChromaQIOGauge,
+    readQIOPropagator,
+    readQIOPropagator as readChromaQIOPropagator,
 )
-from .propagator import (
-    readChromaQIO as readQIOPropagator,
-    readChromaQIO as readChromaQIOPropagator,
-    readMILCQIO as readMILCQIOPropagator,
+from .milc import (
+    readGauge as readMILCGauge,
+    readQIOPropagator as readMILCQIOPropagator,
 )
-from .fermion import (
-    readKYU as readKYUFermion,
-    writeKYU as writeKYUFermion,
+from .kyu import (
+    readGauge as readKYUGauge,
+    writeGauge as writeKYUGauge,
+    readPropagator as readKYUPropagator,
+    writePropagator as writeKYUPropagator,
 )
 from .eigen import readTimeSlice as readTimeSliceEivenvector
