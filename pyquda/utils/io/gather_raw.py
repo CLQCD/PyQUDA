@@ -6,7 +6,7 @@ from ...field import Nd, Ns, Nc, LatticeInfo
 
 def _reorderGauge(gauge_raw: numpy.ndarray, gauge_recv: numpy.ndarray, latt_info: LatticeInfo):
     Gx, Gy, Gz, Gt = latt_info.grid_size
-    Lt, Lz, Ly, Lx = latt_info.size
+    Lx, Ly, Lz, Lt = latt_info.size
 
     for rank in range(latt_info.mpi_size):
         gx, gy, gz, gt = getCoordFromRank(rank, [Gx, Gy, Gz, Gt])
@@ -21,7 +21,7 @@ def _reorderGauge(gauge_raw: numpy.ndarray, gauge_recv: numpy.ndarray, latt_info
 
 def _reorder(data_raw: numpy.ndarray, data_recv: numpy.ndarray, latt_info: LatticeInfo):
     Gx, Gy, Gz, Gt = latt_info.grid_size
-    Lt, Lz, Ly, Lx = latt_info.size
+    Lx, Ly, Lz, Lt = latt_info.size
     for rank in range(latt_info.mpi_size):
         gx, gy, gz, gt = getCoordFromRank(rank, [Gx, Gy, Gz, Gt])
         data_raw[
@@ -34,7 +34,7 @@ def _reorder(data_raw: numpy.ndarray, data_recv: numpy.ndarray, latt_info: Latti
 
 def gatherGaugeRaw(gauge_send: numpy.ndarray, latt_info: LatticeInfo):
     Gx, Gy, Gz, Gt = latt_info.grid_size
-    Lt, Lz, Ly, Lx = latt_info.size
+    Lx, Ly, Lz, Lt = latt_info.size
     dtype = gauge_send.dtype
 
     if latt_info.mpi_rank == 0:
@@ -52,7 +52,7 @@ def gatherGaugeRaw(gauge_send: numpy.ndarray, latt_info: LatticeInfo):
 
 def gatherPropagatorRaw(propagator_send: numpy.ndarray, latt_info: LatticeInfo):
     Gx, Gy, Gz, Gt = latt_info.grid_size
-    Lt, Lz, Ly, Lx = latt_info.size
+    Lx, Ly, Lz, Lt = latt_info.size
     dtype = propagator_send.dtype
 
     if latt_info.mpi_rank == 0:
@@ -70,7 +70,7 @@ def gatherPropagatorRaw(propagator_send: numpy.ndarray, latt_info: LatticeInfo):
 
 def gatherStaggeredPropagatorRaw(propagator_send: numpy.ndarray, latt_info: LatticeInfo):
     Gx, Gy, Gz, Gt = latt_info.grid_size
-    Lt, Lz, Ly, Lx = latt_info.size
+    Lx, Ly, Lz, Lt = latt_info.size
     dtype = propagator_send.dtype
 
     if latt_info.mpi_rank == 0:
@@ -88,7 +88,7 @@ def gatherStaggeredPropagatorRaw(propagator_send: numpy.ndarray, latt_info: Latt
 
 def gatherFermionRaw(fermion_send: numpy.ndarray, latt_info: LatticeInfo):
     Gx, Gy, Gz, Gt = latt_info.grid_size
-    Lt, Lz, Ly, Lx = latt_info.size
+    Lx, Ly, Lz, Lt = latt_info.size
     dtype = fermion_send.dtype
 
     if latt_info.mpi_rank == 0:
@@ -106,7 +106,7 @@ def gatherFermionRaw(fermion_send: numpy.ndarray, latt_info: LatticeInfo):
 
 def gatherStaggeredFermionRaw(fermion_send: numpy.ndarray, latt_info: LatticeInfo):
     Gx, Gy, Gz, Gt = latt_info.grid_size
-    Lt, Lz, Ly, Lx = latt_info.size
+    Lx, Ly, Lz, Lt = latt_info.size
     dtype = fermion_send.dtype
 
     if latt_info.mpi_rank == 0:

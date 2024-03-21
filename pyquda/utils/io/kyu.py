@@ -31,7 +31,7 @@ def fromGaugeBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
     return gauge_raw
 
 
-def toGaugeBuffer(gauge_lexico: numpy.ndarray, latt_info: LatticeInfo):
+def toGaugeBuffer(gauge_lexico: numpy.ndarray, dtype: str, latt_info: LatticeInfo):
     from .gather_raw import gatherGaugeRaw
 
     Gx, Gy, Gz, Gt = latt_info.grid_size
@@ -43,7 +43,7 @@ def toGaugeBuffer(gauge_lexico: numpy.ndarray, latt_info: LatticeInfo):
             gauge_raw.view("<f8")
             .reshape(Nd, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nc, Nc, 2)
             .transpose(0, 6, 5, 7, 1, 2, 3, 4)
-            .astype(">f8")
+            .astype(dtype)
             .tobytes()
         )
     else:
@@ -65,7 +65,7 @@ def readGauge(filename: str, latt_info: LatticeInfo):
 def writeGauge(filename: str, gauge: LatticeGauge):
     filename = path.expanduser(path.expandvars(filename))
     latt_info = gauge.latt_info
-    kyu_binary_data = toGaugeBuffer(gauge.lexico(), latt_info)
+    kyu_binary_data = toGaugeBuffer(gauge.lexico(), ">f8", latt_info)
     if latt_info.mpi_rank == 0:
         with open(filename, "wb") as f:
             f.write(kyu_binary_data)
