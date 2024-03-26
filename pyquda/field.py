@@ -169,6 +169,22 @@ def newLatticeFieldData(latt_info: LatticeInfo, dtype: str):
 class LatticeField:
     def __init__(self, latt_info: LatticeInfo) -> None:
         self.latt_info = latt_info
+        self.data = None
+
+    def setData(self, data):
+        from . import getCUDABackend
+
+        backend = getCUDABackend()
+        if isinstance(data, numpy.ndarray) or backend == "numpy":
+            self.data = numpy.ascontiguousarray(data)
+        elif backend == "cupy":
+            import cupy
+
+            self.data = cupy.ascontiguousarray(data)
+        elif backend == "torch":
+            self.data = data.contiguous()
+        else:
+            raise ValueError(f"Unsupported CUDA backend {backend}")
 
     def backup(self):
         from . import getCUDABackend
@@ -232,9 +248,9 @@ class LatticeGauge(LatticeField):
         super().__init__(latt_info)
         Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.data = newLatticeFieldData(latt_info, "Gauge")
+            self.setData(newLatticeFieldData(latt_info, "Gauge"))
         else:
-            self.data = value.reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc)
+            self.setData(value.reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc))
         self.pure_gauge = None
 
     def copy(self):
@@ -405,9 +421,9 @@ class LatticeClover(LatticeField):
         super().__init__(latt_info)
         Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.data = newLatticeFieldData(latt_info, "Clover")
+            self.setData(newLatticeFieldData(latt_info, "Clover"))
         else:
-            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2)
+            self.setData(value.reshape(2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2))
 
     @property
     def data_ptr(self) -> Pointer:
@@ -419,9 +435,9 @@ class LatticeFermion(LatticeField):
         super().__init__(latt_info)
         Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.data = newLatticeFieldData(latt_info, "Fermion")
+            self.setData(newLatticeFieldData(latt_info, "Fermion"))
         else:
-            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
+            self.setData(value.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
 
     @property
     def even(self):
@@ -460,9 +476,9 @@ class LatticePropagator(LatticeField):
         super().__init__(latt_info)
         Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.data = newLatticeFieldData(latt_info, "Propagator")
+            self.setData(newLatticeFieldData(latt_info, "Propagator"))
         else:
-            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc)
+            self.setData(value.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc))
 
     def lexico(self):
         return lexico(self.getHost(), [0, 1, 2, 3, 4])
@@ -476,9 +492,9 @@ class LatticeStaggeredFermion(LatticeField):
         super().__init__(latt_info)
         Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.data = newLatticeFieldData(latt_info, "StaggeredFermion")
+            self.setData(newLatticeFieldData(latt_info, "StaggeredFermion"))
         else:
-            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc)
+            self.setData(value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc))
 
     @property
     def even(self):
@@ -517,9 +533,9 @@ class LatticeStaggeredPropagator(LatticeField):
         super().__init__(latt_info)
         Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.data = newLatticeFieldData(latt_info, "StaggeredPropagator")
+            self.setData(newLatticeFieldData(latt_info, "StaggeredPropagator"))
         else:
-            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc, Nc)
+            self.setData(value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc, Nc))
 
     def lexico(self):
         return lexico(self.getHost(), [0, 1, 2, 3, 4])

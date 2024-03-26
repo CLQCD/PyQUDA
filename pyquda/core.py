@@ -139,7 +139,7 @@ def gatherLattice(data: numpy.ndarray, axes: List[int], reduce_op: Literal["sum"
     suffix_size = int(numpy.prod(suffix))
 
     if getMPIRank() == root:
-        sendbuf = data.reshape(-1)
+        sendbuf = numpy.ascontiguousarray(data.reshape(-1))
         recvbuf = numpy.zeros((getMPISize(), data.size), data.dtype)
         getMPIComm().Gatherv(sendbuf, recvbuf, root)
 
@@ -163,7 +163,7 @@ def gatherLattice(data: numpy.ndarray, axes: List[int], reduce_op: Literal["sum"
         else:
             raise NotImplementedError(f"core.gather doesn't support reduce operator reduce_op={reduce_op}")
     else:
-        sendbuf = data.reshape(-1)
+        sendbuf = numpy.ascontiguousarray(data.reshape(-1))
         recvbuf = None
         getMPIComm().Gatherv(sendbuf, recvbuf, root)
         return None
