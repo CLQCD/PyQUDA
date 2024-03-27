@@ -14,7 +14,8 @@ from .pyquda import (
     gaussMomQuda,
     momActionQuda,
     plaqQuda,
-    computeCloverForceQuda,
+    computeKSLinkQuda,
+    computeHISQForceQuda,
     computeGaugeForceQuda,
     computeGaugeLoopTraceQuda,
 )
@@ -29,7 +30,7 @@ from .enum_quda import (
     QudaReconstructType,
     QudaDagType,
 )
-from .field import Ns, Nc, LatticeInfo, LatticeGauge, LatticeStaggeredFermion
+from .field import Nc, LatticeInfo, LatticeGauge, LatticeStaggeredFermion
 from .core import getHISQ
 
 nullptr = Pointers("void", 0)
@@ -53,9 +54,10 @@ class HMC:
         self.gauge_param: QudaGaugeParam = self.dirac.gauge_param
         self.invert_param: QudaInvertParam = self.dirac.invert_param
 
-        self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
+        self.gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_MILC
+        self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION
-        self.invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE  # This is set to compute action
+        self.invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE  # This is set to compute action
         self.invert_param.verbosity = QudaVerbosity.QUDA_SILENT
         self.invert_param.compute_action = 1
 
@@ -78,24 +80,48 @@ class HMC:
         loadGaugeQuda(nullptr, self.gauge_param)
         self.updated_fat_long = False
 
+    def computeUVW(self):
+        gauge = LatticeGauge(self.latt_info)
+        self.saveGauge(gauge)
+
+        ulink = LatticeGauge(gauge.latt_info)
+        vlink = LatticeGauge(gauge.latt_info)
+        wlink = LatticeGauge(gauge.latt_info)
+
+        ulink.staggeredPhase()
+        self.gauge_param.staggered_phase_applied = 1
+        computeKSLinkQuda(
+            vlink.data_ptrs,
+            nullptr,
+            wlink.data_ptrs,
+            ulink.data_ptrs,
+            ndarrayPointer(self.dirac.fat7_coeff),
+            self.gauge_param,
+        )
+
+        self.loadGauge(gauge)
+
+        return ulink, vlink, wlink
+
     def computeHISQForce(self, dt, x: LatticeStaggeredFermion, kappa2, ck):
         self.updateFatLong()
         invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
-        # Some conventions force the dagger to be YES here
-        self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
-        computeCloverForceQuda(
+        u, v, w = self.computeUVW()
+        computeHISQForceQuda(
             nullptr,
             dt,
+            ndarrayPointer(self.dirac.level2_coeff),
+            ndarrayPointer(self.dirac.fat7_coeff),
+            w.data_ptrs,
+            v.data_ptrs,
+            u.data_ptrs,
             ndarrayPointer(x.even.reshape(1, -1), True),
-            ndarrayPointer(numpy.array([1.0], "<f8")),
-            kappa2,
-            ck,
             1,
-            2,
+            1,
+            ndarrayPointer(numpy.array([[1.0], [1.0]], "<f8")),
             self.gauge_param,
-            self.invert_param,
         )
-        self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
+        self.gauge_param.staggered_phase_applied = 0
 
     def computeGaugeForce(self, dt, force, lengths, coeffs, num_paths, max_length):
         computeGaugeForceQuda(
@@ -149,7 +175,7 @@ class HMC:
     def actionFermion(self, x: LatticeStaggeredFermion) -> float:
         self.updateFatLong()
         invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
-        return self.invert_param.action[0] - self.latt_info.volume_cb2 * Ns * Nc - 2 * self.invert_param.trlogA[1]
+        return self.invert_param.action[0] - self.latt_info.volume_cb2 * Nc - 2 * self.invert_param.trlogA[1]
 
     def plaquette(self):
         return plaqQuda()[0]
@@ -160,14 +186,17 @@ class HMC:
             self.saveGauge(gauge)
             fatlink, longlink = self.dirac.computeFatLong(gauge)
             self.gauge_param.use_resident_gauge = 0
+            self.gauge_param.staggered_phase_applied = 1
             self.gauge_param.type = QudaLinkType.QUDA_ASQTAD_FAT_LINKS
             loadGaugeQuda(fatlink.data_ptrs, self.gauge_param)
             self.gauge_param.type = QudaLinkType.QUDA_ASQTAD_LONG_LINKS
             self.gauge_param.ga_pad = self.gauge_param.ga_pad * 3
             self.gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_NO
             loadGaugeQuda(longlink.data_ptrs, self.gauge_param)
+            self.gauge_param.type = QudaLinkType.QUDA_WILSON_LINKS
             self.gauge_param.ga_pad = self.gauge_param.ga_pad / 3
-            self.gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_CHROMA
+            self.gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_MILC
+            self.gauge_param.staggered_phase_applied = 0
             self.gauge_param.use_resident_gauge = 1
             self.updated_fat_long = True
 

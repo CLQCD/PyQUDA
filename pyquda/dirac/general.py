@@ -472,6 +472,7 @@ def loadFatLongGauge(fatlink: LatticeGauge, longlink: LatticeGauge, gauge_param:
     gauge_param.ga_pad = gauge_param.ga_pad * 3
     gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_NO
     loadGaugeQuda(longlink.data_ptrs, gauge_param)
+    gauge_param.type = QudaLinkType.QUDA_WILSON_LINKS
     gauge_param.ga_pad = gauge_param.ga_pad / 3
     gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_CHROMA
     gauge_param.use_resident_gauge = 1

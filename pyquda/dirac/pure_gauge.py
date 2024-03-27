@@ -69,17 +69,21 @@ class PureGauge:
 
     def staggeredPhase(self, gauge: LatticeGauge):
         self.gauge_param.use_resident_gauge = 0
+        self.gauge_param.make_resident_gauge = 0
         self.gauge_param.return_result_gauge = 1
         staggeredPhaseQuda(gauge.data_ptrs, self.gauge_param)
         self.gauge_param.staggered_phase_applied = 1 - self.gauge_param.staggered_phase_applied
         self.gauge_param.use_resident_gauge = 1
+        self.gauge_param.make_resident_gauge = 1
         self.gauge_param.return_result_gauge = 0
 
     def projectSU3(self, gauge: LatticeGauge, tol: float):
         self.gauge_param.use_resident_gauge = 0
+        self.gauge_param.make_resident_gauge = 0
         self.gauge_param.return_result_gauge = 1
         projectSU3Quda(gauge.data_ptrs, tol, self.gauge_param)
         self.gauge_param.use_resident_gauge = 1
+        self.gauge_param.make_resident_gauge = 1
         self.gauge_param.return_result_gauge = 0
 
     def smearAPE(self, n_steps: int, alpha: float, dir_ignore: int):

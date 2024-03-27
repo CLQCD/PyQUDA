@@ -36,6 +36,7 @@ class HISQ(StaggeredDirac):
             general.link_recon = recon_no
             general.link_recon_sloppy = recon_no
         self.mg_instance = None
+        self.newCoeff(tadpole_coeff)
         self.newQudaGaugeParam(tadpole_coeff, naik_epsilon)
         self.newQudaMultigridParam(geo_block_size, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
         self.newQudaInvertParam(mass, kappa, tol, maxiter)
@@ -44,6 +45,46 @@ class HISQ(StaggeredDirac):
         if link_recon < recon_no or link_recon_sloppy < recon_no:
             general.link_recon = link_recon
             general.link_recon_sloppy = link_recon_sloppy
+
+    def newCoeff(self, tadpole_coeff: float):
+        u1 = 1.0 / tadpole_coeff
+        u2 = u1 * u1
+        u4 = u2 * u2
+        u6 = u4 * u2
+        self.fat7_coeff = numpy.asarray(
+            [  # First path: create V, W links
+                (1.0 / 8.0),  # one link
+                u2 * (0.0),  # Naik
+                u2 * (-1.0 / 8.0) * 0.5,  # simple staple
+                u4 * (1.0 / 8.0) * 0.25 * 0.5,  # displace link in two directions
+                u6 * (-1.0 / 8.0) * 0.125 * (1.0 / 6.0),  # displace link in three directions
+                u4 * (0.0),  # Lepage term
+            ],
+            "<f8",
+        )
+        self.level2_coeff = numpy.asarray(
+            [  # Second path: create X, long links
+                ((1.0 / 8.0) + (2.0 * 6.0 / 16.0) + (1.0 / 8.0)),  # one link
+                # One link is 1/8 as in fat7 + 2*3/8 for Lepage + 1/8 for Naik
+                (-1.0 / 24.0),  # Naik
+                (-1.0 / 8.0) * 0.5,  # simple staple
+                (1.0 / 8.0) * 0.25 * 0.5,  # displace link in two directions
+                (-1.0 / 8.0) * 0.125 * (1.0 / 6.0),  # displace link in three directions
+                (-2.0 / 16.0),  # Lepage term, correct O(a^2) 2x ASQTAD
+            ],
+            "<f8",
+        )
+        self.level3_coeff = numpy.asarray(
+            [  # Paths for epsilon corrections. Not used if n_naiks = 1.
+                (1.0 / 8.0),  # one link b/c of Naik
+                (-1.0 / 24.0),  # Naik
+                0.0,  # simple staple
+                0.0,  # displace link in two directions
+                0.0,  # displace link in three directions
+                0.0,  # Lepage term
+            ],
+            "<f8",
+        )
 
     def newQudaGaugeParam(self, tadpole_coeff: float, naik_epsilon: float):
         gauge_param = general.newQudaGaugeParam(self.latt_info, tadpole_coeff, naik_epsilon)
@@ -81,41 +122,6 @@ class HISQ(StaggeredDirac):
         self.invert_param = invert_param
 
     def computeFatLong(self, gauge: LatticeGauge):
-        u1 = 1.0 / self.gauge_param.tadpole_coeff
-        u2 = u1 * u1
-        u4 = u2 * u2
-        u6 = u4 * u2
-        act_path_coeff = numpy.asarray(
-            [
-                [  # First path: create V, W links
-                    (1.0 / 8.0),  # one link
-                    u2 * (0.0),  # Naik
-                    u2 * (-1.0 / 8.0) * 0.5,  # simple staple
-                    u4 * (1.0 / 8.0) * 0.25 * 0.5,  # displace link in two directions
-                    u6 * (-1.0 / 8.0) * 0.125 * (1.0 / 6.0),  # displace link in three directions
-                    u4 * (0.0),  # Lepage term
-                ],
-                [  # Second path: create X, long links
-                    ((1.0 / 8.0) + (2.0 * 6.0 / 16.0) + (1.0 / 8.0)),  # one link
-                    # One link is 1/8 as in fat7 + 2*3/8 for Lepage + 1/8 for Naik
-                    (-1.0 / 24.0),  # Naik
-                    (-1.0 / 8.0) * 0.5,  # simple staple
-                    (1.0 / 8.0) * 0.25 * 0.5,  # displace link in two directions
-                    (-1.0 / 8.0) * 0.125 * (1.0 / 6.0),  # displace link in three directions
-                    (-2.0 / 16.0),  # Lepage term, correct O(a^2) 2x ASQTAD
-                ],
-                [  # Paths for epsilon corrections. Not used if n_naiks = 1.
-                    (1.0 / 8.0),  # one link b/c of Naik
-                    (-1.0 / 24.0),  # Naik
-                    0.0,  # simple staple
-                    0.0,  # displace link in two directions
-                    0.0,  # displace link in three directions
-                    0.0,  # Lepage term
-                ],
-            ],
-            "<f8",
-        )
-
         inlink = gauge.copy()
         ulink = LatticeGauge(gauge.latt_info)
         fatlink = LatticeGauge(gauge.latt_info)
@@ -137,7 +143,7 @@ class HISQ(StaggeredDirac):
             nullptr,
             ulink.data_ptrs,
             inlink.data_ptrs,
-            ndarrayPointer(act_path_coeff[0]),
+            ndarrayPointer(self.fat7_coeff),
             self.gauge_param,
         )
         computeKSLinkQuda(
@@ -145,7 +151,7 @@ class HISQ(StaggeredDirac):
             longlink.data_ptrs,
             nullptr,
             ulink.data_ptrs,
-            ndarrayPointer(act_path_coeff[1]),
+            ndarrayPointer(self.level2_coeff),
             self.gauge_param,
         )
 

@@ -288,7 +288,7 @@ def computeGaugeForceQuda(Pointers mom, Pointers sitelink, Pointerss input_path_
     assert input_path_buf.dtype == "int"
     assert path_length.dtype == "int"
     assert loop_coeff.dtype == "double"
-    return quda.computeGaugeForceQuda(mom.ptr, sitelink.ptr, <int ***>input_path_buf.ptr, <int *>path_length.ptr, <double *>loop_coeff.ptr, num_paths, max_length, dt, &qudaGaugeParam.param)
+    return quda.computeGaugeForceQuda(mom.ptr, sitelink.ptr, <int ***>input_path_buf.ptrss, <int *>path_length.ptr, <double *>loop_coeff.ptr, num_paths, max_length, dt, &qudaGaugeParam.param)
 
 def computeGaugePathQuda(Pointers out, Pointers sitelink, Pointerss input_path_buf, Pointer path_length, Pointer loop_coeff, int num_paths, int max_length, double dt, QudaGaugeParam qudaGaugeParam):
     assert out.dtype == "void"
@@ -296,14 +296,14 @@ def computeGaugePathQuda(Pointers out, Pointers sitelink, Pointerss input_path_b
     assert input_path_buf.dtype == "int"
     assert path_length.dtype == "int"
     assert loop_coeff.dtype == "double"
-    return quda.computeGaugePathQuda(out.ptr, sitelink.ptr, <int ***>input_path_buf.ptr, <int *>path_length.ptr, <double *>loop_coeff.ptr, num_paths, max_length, dt, &qudaGaugeParam.param)
+    return quda.computeGaugePathQuda(out.ptr, sitelink.ptr, <int ***>input_path_buf.ptrss, <int *>path_length.ptr, <double *>loop_coeff.ptr, num_paths, max_length, dt, &qudaGaugeParam.param)
 
 def computeGaugeLoopTraceQuda(Pointer traces, Pointers input_path_buf, Pointer path_length, Pointer loop_coeff, int num_paths, int max_length, double factor):
     assert traces.dtype == "double_complex"
     assert input_path_buf.dtype == "int"
     assert path_length.dtype == "int"
     assert loop_coeff.dtype == "double"
-    quda.computeGaugeLoopTraceQuda(<double_complex *>traces.ptr, <int **>input_path_buf.ptr, <int *>path_length.ptr, <double *>loop_coeff.ptr, num_paths, max_length, factor)
+    quda.computeGaugeLoopTraceQuda(<double_complex *>traces.ptr, <int **>input_path_buf.ptrs, <int *>path_length.ptr, <double *>loop_coeff.ptr, num_paths, max_length, factor)
 
 def updateGaugeFieldQuda(Pointers gauge, Pointers momentum, double dt, int conj_mom, int exact, QudaGaugeParam param):
     assert gauge.dtype == "void"
@@ -336,7 +336,17 @@ def computeCloverForceQuda(Pointers mom, double dt, Pointers x, Pointer coeff, d
     quda.computeCloverForceQuda(mom.ptr, dt, x.ptrs, NULL, <double *>coeff.ptr, kappa2, ck, nvector, multiplicity, NULL, &gauge_param.param, &inv_param.param)
 
 # void computeStaggeredForceQuda(void *mom, double dt, double delta, void *gauge, void **x, QudaGaugeParam *gauge_param, QudaInvertParam *invert_param)
-# void computeHISQForceQuda(void* momentum, double dt, const double level2_coeff[6], const double fat7_coeff[6], const void* const w_link, const void* const v_link, const void* const u_link, void** quark, int num, int num_naik, double** coeff, QudaGaugeParam* param)
+
+def computeHISQForceQuda(Pointers momentum, double dt, Pointer level2_coeff, Pointer fat7_coeff, Pointers w_link, Pointers v_link, Pointer u_link, Pointers quark, int num, int num_naik, Pointers coeff, QudaGaugeParam param):
+    assert momentum.dtype == "void"
+    assert level2_coeff.dtype == "double"
+    assert fat7_coeff.dtype == "double"
+    assert w_link.dtype == "void"
+    assert v_link.dtype == "void"
+    assert u_link.dtype == "void"
+    assert quark.dtype == "void"
+    assert coeff.dtype == "double"
+    quda.computeHISQForceQuda(momentum.ptr, dt, <double *>level2_coeff.ptr, <double *>fat7_coeff.ptr, w_link.ptr, v_link.ptr, u_link.ptr, quark.ptrs, num, num_naik, <double **>coeff.ptrs, &param.param)
 
 def gaussGaugeQuda(unsigned long long seed, double sigma):
     quda.gaussGaugeQuda(seed, sigma)

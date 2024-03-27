@@ -1738,6 +1738,50 @@ def computeCloverForceQuda(
     """
     ...
 
+def computeHISQForceQuda(
+    momentum: Pointers,
+    dt: double,
+    level2_coeff: List[double, 6],
+    fat7_coeff: List[double, 6],
+    w_link: Pointers,
+    v_link: Pointers,
+    u_link: Pointer,
+    quark: Pointers,
+    num: int,
+    num_naik: int,
+    coeff: Pointers[double],
+    param: QudaGaugeParam,
+):
+    """
+    Compute the fermion force for the HISQ quark action and integrate the momentum.
+
+    @param momentum:
+        The momentum field we are integrating
+    @param dt:
+        The stepsize used to integrate the momentum
+    @param level2_coeff:
+        The coefficients for the second level of smearing in the quark action.
+    @param fat7_coeff:
+        The coefficients for the first level of smearing (fat7) in the quark action.
+    @param w_link:
+        Unitarized link variables obtained by applying fat7 smearing and unitarization to the original links.
+    @param v_link:
+        Fat7 link variables.
+    @param u_link:
+        SU(3) think link variables.
+    @param quark:
+        The input fermion field.
+    @param num:
+        The number of quark fields
+    @param num_naik:
+        The number of naik contributions
+    @param coeff:
+        The coefficient multiplying the fermion fields in the outer product
+    @param param:
+        The field parameters.
+    """
+    ...
+
 def gaussGaugeQuda(seed: int, sigma: double) -> None:
     """
     Generate Gaussian distributed fields and store in the
