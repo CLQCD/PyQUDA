@@ -1,28 +1,23 @@
-import os
-import sys
-from time import time
+from time import perf_counter
 import numpy as np
 import cupy as cp
 
-test_dir = os.path.dirname(os.path.abspath(__file__))
-# sys.path.insert(0, os.path.join(test_dir, ".."))
-from pyquda import core, mpi
+from check_pyquda import weak_field
+
+from pyquda import core, init
 from pyquda.utils import gamma, phase, io
-
-os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-mpi.init()
-
-Nc, Ns, Nd = 3, 4, 4
 
 xi_0, nu = 4.8965, 0.86679
 mass = 0.09253
+kappa = 0.5 / (mass + 1 + 3 / (xi_0 / nu))
 coeff_r, coeff_t = 2.32582045, 0.8549165664
 
-kappa = 0.5 / (mass + 1 + 3 / (xi_0 / nu))
+init([1, 1, 1, 1], [4, 4, 4, 8], -1, xi_0 / nu, resource_path=".cache")
 
-latt_size = [4, 4, 4, 8]
-Lx, Ly, Lz, Lt = latt_size
-Vol = Lx * Ly * Lz * Lt
+latt_info = core.getDefaultLattice()
+Lx, Ly, Lz, Lt = latt_info.size
+Vol = latt_info.volume
+Nc, Ns, Nd = 3, 4, 4
 
 gamma1 = gamma.gamma(1)
 gamma2 = gamma.gamma(2)
@@ -34,24 +29,24 @@ gamma_insertion = [(gamma5, gamma5), (gamma4 @ gamma5, gamma4 @ gamma5)]
 
 mom_list = phase.getMomList(9)
 mom_num = len(mom_list)
-mom_phase = phase.Phase(latt_size)
+mom_phase = phase.Phase(latt_info.size)
 phase_list = mom_phase.cache(mom_list)
 
-dslash = core.getDslash(latt_size, mass, 1e-9, 1000, xi_0, nu, coeff_t, coeff_r, multigrid=True)
+dslash = core.getDefaultDirac(mass, 1e-12, 1000, xi_0, coeff_t, coeff_r, multigrid=True)
 twopt = np.zeros((Lt, Lt, len(gamma_insertion), mom_num), "<c16")
 
 
-s = time()
-gauge = io.readQIOGauge(os.path.join(test_dir, "weak_field.lime"))
+s = perf_counter()
+gauge = io.readQIOGauge(weak_field)
 dslash.loadGauge(gauge)
-print(f"Read and load gauge configuration: {time()-s:.2f}sec.")
+print(f"Read and load gauge configuration: {perf_counter()-s:.2f}sec.")
 
 for t in range(Lt):
-    s = time()
+    s = perf_counter()
     propagator = core.invert(dslash, "wall", t)
-    print(f"Invertion for wall source at t={t}: {time()-s:.2f}sec.")
+    print(f"Invertion for wall source at t={t}: {perf_counter()-s:.2f}sec.")
 
-    s = time()
+    s = perf_counter()
     gamma_idx = 0
     for gamma_src, gamma_snk in gamma_insertion:
         tmp = cp.einsum(
@@ -72,4 +67,4 @@ for t in range(Lt):
             res = cp.roll(res, -t)
             twopt[t, :, gamma_idx, p] = res.get()
         gamma_idx += 1
-    print(f"Contraction for {len(gamma_insertion)} gamma insertions: {time()-s:.2f}sec.")
+    print(f"Contraction for {len(gamma_insertion)} gamma insertions: {perf_counter()-s:.2f}sec.")

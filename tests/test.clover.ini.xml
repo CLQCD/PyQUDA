@@ -87,7 +87,7 @@
           </InvertParam> -->
           <InvertParam>
             <invType>CG_INVERTER</invType>
-            <RsdCG>1.0e-9</RsdCG>
+            <RsdCG>1.0e-12</RsdCG>
             <MaxCG>1000</MaxCG>
           </InvertParam>
         </Param>
@@ -99,7 +99,7 @@
       </elem>
 
       <elem>
-        <Name>SZIN_WRITE_NAMED_OBJECT</Name>
+        <Name>QIO_WRITE_NAMED_OBJECT</Name>
         <Frequency>1</Frequency>
         <NamedObject>
           <object_id>pt_prop_0</object_id>

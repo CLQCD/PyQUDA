@@ -1,38 +1,28 @@
-import os
-import sys
-
-# test_dir = os.path.dirname(os.path.abspath(__file__))
-# sys.path.insert(0, os.path.join(test_dir, ".."))
-
 import numpy as np
+import cupy as cp
 
-from pyquda import init
+from check_pyquda import weak_field
 
-os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-init()
+from pyquda import init, core, quda
+from pyquda.field import Ns, Nc
+from pyquda.enum_quda import QudaParity
 
-Lx, Ly, Lz, Lt = 16, 16, 16, 32
-Nd, Ns, Nc = 4, 4, 3
-latt_size = [Lx, Ly, Lz, Lt]
+init([1, 1, 1, 1], [16, 16, 16, 32], 1, 1.0, resource_path=".cache")
+Lx, Ly, Lz, Lt = core.getDefaultLattice().size
 
 
 def applyDslash(Mp, p, U_seed):
-    import cupy as cp
-    from pyquda import core, quda
-    from pyquda.enum_quda import QudaParity
-    from pyquda.field import LatticeFermion
-    from pyquda.utils import gauge_utils
-
     # Set parameters in Dslash and use m=-3.5 to make kappa=1
-    dslash = core.getDslash(latt_size, -3.5, 0, 0, anti_periodic_t=False)
+    dslash = core.getDefaultDirac(-3.5, 0, 0)
 
     # Generate gauge and then load it
-    U = gauge_utils.gaussGauge(latt_size, U_seed)
+    U = core.DefaultLatticeGauge()
+    U.gauss(U_seed, 1.0)
     dslash.loadGauge(U)
 
     # Load a from p and allocate b
-    a = LatticeFermion(latt_size, cp.asarray(core.cb2(p, [0, 1, 2, 3])))
-    b = LatticeFermion(latt_size)
+    a = core.DefaultLatticeFermion(cp.asarray(core.cb2(p, [0, 1, 2, 3])))
+    b = core.DefaultLatticeFermion()
 
     # Dslash a = b
     quda.dslashQuda(b.even_ptr, a.odd_ptr, dslash.invert_param, QudaParity.QUDA_EVEN_PARITY)
@@ -45,9 +35,9 @@ def applyDslash(Mp, p, U_seed):
     return U.lexico()
 
 
-p = np.zeros((Lt, Lz, Ly, Lx, Ns, Nc), np.complex128)
+p = np.zeros((Lt, Lz, Ly, Lx, Ns, Nc), "<c16")
 p[0, 0, 0, 0, 0, 0] = 1
-Mp = np.zeros((Lt, Lz, Ly, Lx, Ns, Nc), np.complex128)
+Mp = np.zeros((Lt, Lz, Ly, Lx, Ns, Nc), "<c16")
 
 U = applyDslash(Mp, p, 0)
 print(Mp[0, 0, 0, 1])

@@ -1,12 +1,12 @@
 import io
+from os import path
 import struct
 from typing import Dict, Tuple
 from xml.etree import ElementTree as ET
 
 import numpy
 
-from ... import mpi
-from ...field import Nc, cb2
+from ...field import Nc, LatticeInfo, cb2
 
 
 def _readStr(f: io.BufferedReader) -> str:
@@ -30,6 +30,7 @@ def _readVersion(f: io.BufferedReader) -> int:
 
 
 def readTimeSlice(filename: str, Ne: int = None):
+    filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
         offsets: Dict[Tuple[int], int] = {}
         assert _readStr(f) == "XXXXQDPLazyDiskMapObjFileXXXX"
@@ -45,14 +46,13 @@ def readTimeSlice(filename: str, Ne: int = None):
     binary_dtype = f">c{2*precision//8}"
     ndarray_dtype = f"<c{2*precision//8}"
     latt_size = [int(x) for x in format.find("lattSize").text.split()]
-    Lx, Ly, Lz, Lt = latt_size
     if Ne is None:
         Ne = int(format.find("num_vecs").text)
 
-    Gx, Gy, Gz, Gt = mpi.grid
-    gx, gy, gz, gt = mpi.coord
-    latt_size = [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
-    Lx, Ly, Lz, Lt = latt_size
+    latt_info = LatticeInfo(latt_size)
+    Gx, Gy, Gz, Gt = latt_info.grid_size
+    gx, gy, gz, gt = latt_info.grid_coord
+    Lx, Ly, Lz, Lt = latt_info.size
 
     eigen_raw = numpy.zeros((Ne, Lt, Lz, Ly, Lx, Nc), ndarray_dtype)
     for e in range(Ne):
@@ -62,7 +62,9 @@ def readTimeSlice(filename: str, Ne: int = None):
                     filename, binary_dtype, count=Gz * Lz * Gy * Ly * Gx * Lx * Nc, offset=offsets[(t + gt * Lt, e)]
                 )
                 .reshape(Gz * Lz, Gy * Ly, Gx * Lx, Nc)[
-                    gz * Lz : (gz + 1) * Lz, gy * Ly : (gy + 1) * Ly, gx * Lx : (gx + 1) * Lx, :
+                    gz * Lz : (gz + 1) * Lz,
+                    gy * Ly : (gy + 1) * Ly,
+                    gx * Lx : (gx + 1) * Lx,
                 ]
                 .astype(ndarray_dtype)
             )

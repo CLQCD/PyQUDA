@@ -1,18 +1,10 @@
-import os
-import sys
 import numpy as np
 
-test_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(test_dir, ".."))
-import pyquda
-from pyquda import field
-from pyquda.hmc import HMC
-from pyquda.field import Nc
+from check_pyquda import test_dir
 
-# field.CUDA_BACKEND = "torch"
-
-os.environ["QUDA_RESOURCE_PATH"] = ".cache"
-pyquda.init()
+from pyquda import init
+from pyquda.hmc_gauge import HMC
+from pyquda.field import Nc, LatticeInfo, LatticeGauge
 
 ensembles = {
     "A1": ([16, 16, 16, 16], 5.789),
@@ -23,19 +15,15 @@ ensembles = {
 
 tag = "A1"
 
-latt_size = ensembles[tag][0]
-Lx, Ly, Lz, Lt = latt_size
-Vol = Lx * Ly * Lz * Lt
-
+# init(resource_path=".cache")
+init(backend="torch", resource_path=".cache")
+latt_info = LatticeInfo(ensembles[tag][0], -1, 1.0)
 beta = ensembles[tag][1]
 
-gauge = field.LatticeGauge(latt_size, None)
+gauge = LatticeGauge(latt_info, None)
 
-hmc = HMC(latt_size, 0, 0, 0)
+hmc = HMC(latt_info)
 hmc.loadGauge(gauge)
-
-gauge_param = hmc.gauge_param
-
 hmc.loadMom(gauge)
 
 
@@ -95,18 +83,18 @@ input_path = [
     [1, 2, 6, 5],
     [1, 3, 6, 4],
     [2, 3, 5, 4],
-    [0, 1, 1, 7, 6, 6],
-    [0, 2, 2, 7, 5, 5],
-    [0, 3, 3, 7, 4, 4],
-    [1, 0, 0, 6, 7, 7],
-    [1, 2, 2, 6, 5, 5],
-    [1, 3, 3, 6, 4, 4],
-    [2, 0, 0, 5, 7, 7],
-    [2, 1, 1, 5, 6, 6],
-    [2, 3, 3, 5, 4, 4],
-    [3, 0, 0, 4, 7, 7],
-    [3, 1, 1, 4, 6, 6],
-    [3, 2, 2, 4, 5, 5],
+    [0, 0, 1, 7, 7, 6],
+    [0, 0, 2, 7, 7, 5],
+    [0, 0, 3, 7, 7, 4],
+    [1, 1, 0, 6, 6, 7],
+    [1, 1, 2, 6, 6, 5],
+    [1, 1, 3, 6, 6, 4],
+    [2, 2, 0, 5, 5, 7],
+    [2, 2, 1, 5, 5, 6],
+    [2, 2, 3, 5, 5, 4],
+    [3, 3, 0, 4, 4, 7],
+    [3, 3, 1, 4, 4, 6],
+    [3, 3, 2, 4, 4, 5],
 ]
 input_coeffs = [
     -5 / 3,
@@ -157,7 +145,7 @@ theta_ = -0.03230286765269967
 vartheta_ = 0.08398315262876693
 lambda_ = 0.6822365335719091
 
-plaquette = pyquda.plaq()
+plaquette = hmc.plaquette()
 print(f"\nplaquette = {plaquette}\n")
 
 t = 1.0
@@ -199,7 +187,7 @@ for i in range(100):
     else:
         hmc.loadGauge(gauge)
 
-    plaquette = pyquda.plaq()
+    plaquette = hmc.plaquette()
 
     print(
         f"Step {i}:\n"

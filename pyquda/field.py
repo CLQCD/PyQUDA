@@ -1,22 +1,55 @@
 from typing import List, Literal
-from enum import IntEnum
 
 import numpy
 
-CUDA_BACKEND: Literal["cupy", "torch"] = "cupy"
-
-from .pointer import ndarrayDataPointer
+from .pointer import ndarrayPointer, Pointer, Pointers
 
 
-class LatticeConstant(IntEnum):
-    Nc = 3
-    Nd = 4
-    Ns = 4
+class LatticeInfo:
+    Ns: int = 4
+    Nc: int = 3
+    Nd: int = 4
+
+    def __init__(
+        self,
+        latt_size: List[int],
+        t_boundary: Literal[1, -1] = 1,
+        anisotropy: float = 1.0,
+    ) -> None:
+        from . import getMPIComm, getMPISize, getMPIRank, getGridSize, getGridCoord
+
+        if getMPIComm() is None:
+            raise RuntimeError("pyquda.init() must be called before contructing LatticeInfo")
+
+        self.mpi_size = getMPISize()
+        self.mpi_rank = getMPIRank()
+        self.grid_size = getGridSize()
+        self.grid_coord = getGridCoord()
+
+        Gx, Gy, Gz, Gt = self.grid_size
+        gx, gy, gz, gt = self.grid_coord
+        Lx, Ly, Lz, Lt = latt_size
+
+        assert (
+            Lx % (2 * Gx) == 0 and Ly % (2 * Gy) == 0 and Lz % (2 * Gz) == 0 and Lt % Gt == 0
+        ), "Necessary for consistant even-odd preconditioning"
+        self.Gx, self.Gy, self.Gz, self.Gt = Gx, Gy, Gz, Gt
+        self.gx, self.gy, self.gz, self.gt = gx, gy, gz, gt
+        self.global_size = [Lx, Ly, Lz, Lt]
+        self.global_volume = Lx * Ly * Lz * Lt
+        Lx, Ly, Lz, Lt = Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt
+        self.Lx, self.Ly, self.Lz, self.Lt = Lx, Ly, Lz, Lt
+        self.size = [Lx, Ly, Lz, Lt]
+        self.volume = Lx * Ly * Lz * Lt
+        self.size_cb2 = [Lx // 2, Ly, Lz, Lt]
+        self.volume_cb2 = Lx * Ly * Lz * Lt // 2
+        self.ga_pad = Lx * Ly * Lz * Lt // min(Lx, Ly, Lz, Lt) // 2
+
+        self.t_boundary = t_boundary
+        self.anisotropy = anisotropy
 
 
-Nc = LatticeConstant.Nc
-Nd = LatticeConstant.Nd
-Ns = LatticeConstant.Ns
+Ns, Nc, Nd = LatticeInfo.Ns, LatticeInfo.Nc, LatticeInfo.Nd
 
 
 def lexico(data: numpy.ndarray, axes: List[int], dtype=None):
@@ -63,9 +96,31 @@ def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
     return data_cb2.reshape(*shape[: axes[0]], 2, Lt, Lz, Ly, Lx // 2, *shape[axes[-1] + 1 :])
 
 
-def newLatticeFieldData(latt_size: List[int], dtype: str):
-    Lx, Ly, Lz, Lt = latt_size
-    if CUDA_BACKEND == "cupy":
+def newLatticeFieldData(latt_info: LatticeInfo, dtype: str):
+    from . import getCUDABackend
+
+    backend = getCUDABackend()
+    Lx, Ly, Lz, Lt = latt_info.size
+    if backend == "numpy":
+        if dtype == "Gauge":
+            ret = numpy.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
+            ret[:] = numpy.identity(Nc)
+            return ret
+        elif dtype == "Colorvector":
+            return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
+        elif dtype == "Fermion":
+            return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
+        elif dtype == "Propagator":
+            return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), "<c16")
+        elif dtype == "StaggeredFermion":
+            return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
+        elif dtype == "StaggeredPropagator":
+            return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
+        elif dtype == "Clover":
+            return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), "<f8")
+        else:
+            raise ValueError(f"Unsupported lattice field type {dtype}")
+    elif backend == "cupy":
         import cupy
 
         if dtype == "Gauge":
@@ -82,125 +137,307 @@ def newLatticeFieldData(latt_size: List[int], dtype: str):
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
         elif dtype == "StaggeredPropagator":
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
+        elif dtype == "Clover":
+            return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), "<f8")
         else:
             raise ValueError(f"Unsupported lattice field type {dtype}")
-    elif CUDA_BACKEND == "torch":
+    elif backend == "torch":
         import torch
 
         if dtype == "Gauge":
-            ret = torch.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128, device="cuda")
+            ret = torch.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128)
             ret[:] = torch.eye(Nc)
             return ret
         elif dtype == "Colorvector":
-            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128, device="cuda")
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128)
         elif dtype == "Fermion":
-            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=torch.complex128, device="cuda")
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=torch.complex128)
         elif dtype == "Propagator":
-            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), dtype=torch.complex128, device="cuda")
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), dtype=torch.complex128)
         elif dtype == "StaggeredFermion":
-            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128, device="cuda")
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128)
         elif dtype == "StaggeredPropagator":
-            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128, device="cuda")
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128)
+        elif dtype == "Clover":
+            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), dtype=torch.float64)
         else:
             raise ValueError(f"Unsupported lattice field type {dtype}")
     else:
-        raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
+        raise ValueError(f"Unsupported CUDA backend {backend}")
 
 
 class LatticeField:
-    def __init__(self) -> None:
-        pass
+    def __init__(self, latt_info: LatticeInfo) -> None:
+        self.latt_info = latt_info
+        self.data = None
+
+    def setData(self, data):
+        from . import getCUDABackend
+
+        backend = getCUDABackend()
+        if isinstance(data, numpy.ndarray) or backend == "numpy":
+            self.data = numpy.ascontiguousarray(data)
+        elif backend == "cupy":
+            import cupy
+
+            self.data = cupy.ascontiguousarray(data)
+        elif backend == "torch":
+            self.data = data.contiguous()
+        else:
+            raise ValueError(f"Unsupported CUDA backend {backend}")
 
     def backup(self):
-        if isinstance(self.data, numpy.ndarray):
+        from . import getCUDABackend
+
+        backend = getCUDABackend()
+        if isinstance(self.data, numpy.ndarray) or backend == "numpy":
             return self.data.copy()
-        elif CUDA_BACKEND == "cupy":
+        elif backend == "cupy":
             return self.data.copy()
-        elif CUDA_BACKEND == "torch":
+        elif backend == "torch":
             return self.data.clone()
         else:
-            raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
+            raise ValueError(f"Unsupported CUDA backend {backend}")
 
     def toDevice(self):
-        if CUDA_BACKEND == "cupy":
+        from . import getCUDABackend
+
+        backend = getCUDABackend()
+        if backend == "numpy":
+            pass
+        elif backend == "cupy":
             import cupy
 
             self.data = cupy.asarray(self.data)
-        elif CUDA_BACKEND == "torch":
+        elif backend == "torch":
             import torch
 
-            self.data = torch.asarray(self.data)
+            self.data = torch.as_tensor(self.data)
         else:
-            raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
+            raise ValueError(f"Unsupported CUDA backend {backend}")
 
     def toHost(self):
-        if isinstance(self.data, numpy.ndarray):
+        from . import getCUDABackend
+
+        backend = getCUDABackend()
+        if isinstance(self.data, numpy.ndarray) or backend == "numpy":
             pass
-        elif CUDA_BACKEND == "cupy":
+        elif backend == "cupy":
             self.data = self.data.get()
-        elif CUDA_BACKEND == "torch":
+        elif backend == "torch":
             self.data = self.data.cpu().numpy()
         else:
-            raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
+            raise ValueError(f"Unsupported CUDA backend {backend}")
 
     def getHost(self):
-        if isinstance(self.data, numpy.ndarray):
+        from . import getCUDABackend
+
+        backend = getCUDABackend()
+        if isinstance(self.data, numpy.ndarray) or backend == "numpy":
             return self.data.copy()
-        elif CUDA_BACKEND == "cupy":
+        elif backend == "cupy":
             return self.data.get()
-        elif CUDA_BACKEND == "torch":
+        elif backend == "torch":
             return self.data.cpu().numpy()
         else:
-            raise ValueError(f"Unsupported CUDA backend {CUDA_BACKEND}")
+            raise ValueError(f"Unsupported CUDA backend {backend}")
 
 
 class LatticeGauge(LatticeField):
-    def __init__(self, latt_size: List[int], value=None) -> None:
-        from .mpi import grid, coord
-
-        Lx, Ly, Lz, Lt = latt_size
-        self.latt_size = latt_size
-        Gx, Gy, Gz, Gt = grid
-        gx, gy, gz, gt = coord
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info)
+        Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.data = newLatticeFieldData(latt_size, "Gauge")
+            self.setData(newLatticeFieldData(latt_info, "Gauge"))
         else:
-            self.data = value.reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc)
-        self.t_boundary = gt == Gt - 1
+            self.setData(value.reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc))
+        self.pure_gauge = None
 
     def copy(self):
-        return LatticeGauge(self.latt_size, self.backup())
+        return LatticeGauge(self.latt_info, self.backup())
 
     def setAntiPeroidicT(self):
-        if self.t_boundary:
-            Lt = self.latt_size[Nd - 1]
-            data = self.data.reshape(Nd, 2, Lt, -1)
-            data[Nd - 1, :, Lt - 1] *= -1
+        if self.latt_info.gt == self.latt_info.Gt - 1:
+            self.data[Nd - 1, :, self.latt_info.Lt - 1] *= -1
 
     def setAnisotropy(self, anisotropy: float):
-        data = self.data.reshape(Nd, -1)
-        data[: Nd - 1] /= anisotropy
+        self.data[: Nd - 1] /= anisotropy
 
     @property
-    def data_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(-1), True)
+    def data_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(-1), True)
 
     @property
-    def data_ptrs(self):
-        return ndarrayDataPointer(self.data.reshape(4, -1), True)
+    def data_ptrs(self) -> Pointers:
+        return ndarrayPointer(self.data.reshape(4, -1), True)
 
     def lexico(self):
         return lexico(self.getHost(), [1, 2, 3, 4, 5])
 
+    def ensurePureGauge(self):
+        if self.pure_gauge is None:
+            from .dirac.pure_gauge import PureGauge
+
+            self.pure_gauge = PureGauge(self.latt_info)
+
+    def staggeredPhase(self):
+        self.ensurePureGauge()
+        self.pure_gauge.staggeredPhase(self)
+
+    def projectSU3(self, tol: float):
+        self.ensurePureGauge()
+        self.pure_gauge.projectSU3(self, tol)
+
+    def smearAPE(self, n_steps: int, alpha: float, dir_ignore: int):
+        self.ensurePureGauge()
+        self.pure_gauge.loadGauge(self)
+        self.pure_gauge.smearAPE(n_steps, alpha, dir_ignore)
+        self.pure_gauge.saveSmearedGauge(self)
+
+    def smearSTOUT(self, n_steps: int, rho: float, dir_ignore: int):
+        self.ensurePureGauge()
+        self.pure_gauge.loadGauge(self)
+        self.pure_gauge.smearSTOUT(n_steps, rho, dir_ignore)
+        self.pure_gauge.saveSmearedGauge(self)
+
+    def smearHYP(self, n_steps: int, alpha1: float, alpha2: float, alpha3: float, dir_ignore: int):
+        self.ensurePureGauge()
+        self.pure_gauge.loadGauge(self)
+        self.pure_gauge.smearHYP(n_steps, alpha1, alpha2, alpha3, dir_ignore)
+        self.pure_gauge.saveSmearedGauge(self)
+
+    def plaquette(self):
+        self.ensurePureGauge()
+        self.pure_gauge.loadGauge(self)
+        return self.pure_gauge.plaquette()
+
+    def polyakovLoop(self):
+        self.ensurePureGauge()
+        self.pure_gauge.loadGauge(self)
+        return self.pure_gauge.polyakovLoop()
+
+    def energy(self):
+        self.ensurePureGauge()
+        self.pure_gauge.loadGauge(self)
+        return self.pure_gauge.energy()
+
+    def qcharge(self):
+        self.ensurePureGauge()
+        self.pure_gauge.loadGauge(self)
+        return self.pure_gauge.qcharge()
+
+    def gauss(self, seed: int, sigma: float):
+        """
+        Generate Gaussian distributed fields and store in the
+        resident gauge field.  We create a Gaussian-distributed su(n)
+        field and exponentiate it, e.g., U = exp(sigma * H), where H is
+        the distributed su(n) field and sigma is the width of the
+        distribution (sigma = 0 results in a free field, and sigma = 1 has
+        maximum disorder).
+
+        seed: int
+            The seed used for the RNG
+        sigma: float
+            Width of Gaussian distrubution
+        """
+        self.ensurePureGauge()
+        self.pure_gauge.loadGauge(self)
+        self.pure_gauge.gauss(seed, sigma)
+        self.pure_gauge.saveGauge(self)
+
+    def fixingOVR(
+        self,
+        gauge_dir: Literal[3, 4],
+        Nsteps: int,
+        verbose_interval: int,
+        relax_boost: float,
+        tolerance: float,
+        reunit_interval: int,
+        stopWtheta: int,
+    ):
+        """
+        Gauge fixing with overrelaxation with support for single and multi GPU.
+
+        Parameters
+        ----------
+        gauge_dir: {3, 4}
+            3 for Coulomb gauge fixing, 4 for Landau gauge fixing
+        Nsteps: int
+            maximum number of steps to perform gauge fixing
+        verbose_interval: int
+            print gauge fixing info when iteration count is a multiple of this
+        relax_boost: float
+            gauge fixing parameter of the overrelaxation method, most common value is 1.5 or 1.7.
+        tolerance: float
+            torelance value to stop the method, if this value is zero then the method stops when
+            iteration reachs the maximum number of steps defined by Nsteps
+        reunit_interval: int
+            reunitarize gauge field when iteration count is a multiple of this
+        stopWtheta: int
+            0 for MILC criterion and 1 to use the theta value
+        """
+        self.ensurePureGauge()
+        self.pure_gauge.fixingOVR(
+            self, gauge_dir, Nsteps, verbose_interval, relax_boost, tolerance, reunit_interval, stopWtheta
+        )
+
+    def fixingFFT(
+        self,
+        gauge_dir: Literal[3, 4],
+        Nsteps: int,
+        verbose_interval: int,
+        alpha: float,
+        autotune: int,
+        tolerance: float,
+        stopWtheta: int,
+    ):
+        """
+        Gauge fixing with Steepest descent method with FFTs with support for single GPU only.
+
+        Parameters
+        ----------
+        gauge_dir: {3, 4}
+            3 for Coulomb gauge fixing, 4 for Landau gauge fixing
+        Nsteps: int
+            maximum number of steps to perform gauge fixing
+        verbose_interval: int
+            print gauge fixing info when iteration count is a multiple of this
+        alpha: float
+            gauge fixing parameter of the method, most common value is 0.08
+        autotune: int
+            1 to autotune the method, i.e., if the Fg inverts its tendency we decrease the alpha value
+        tolerance: float
+            torelance value to stop the method, if this value is zero then the method stops when
+            iteration reachs the maximum number of steps defined by Nsteps
+        stopWtheta: int
+            0 for MILC criterion and 1 to use the theta value
+        """
+        self.ensurePureGauge()
+        self.pure_gauge.fixingFFT(self, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta)
+
+
+class LatticeClover(LatticeField):
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info)
+        Lx, Ly, Lz, Lt = latt_info.size
+        if value is None:
+            self.setData(newLatticeFieldData(latt_info, "Clover"))
+        else:
+            self.setData(value.reshape(2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2))
+
+    @property
+    def data_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(-1), True)
+
 
 class LatticeFermion(LatticeField):
-    def __init__(self, latt_size: List[int], value=None) -> None:
-        Lx, Ly, Lz, Lt = latt_size
-        self.latt_size = latt_size
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info)
+        Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.data = newLatticeFieldData(latt_size, "Fermion")
+            self.setData(newLatticeFieldData(latt_info, "Fermion"))
         else:
-            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
+            self.setData(value.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
 
     @property
     def even(self):
@@ -219,29 +456,29 @@ class LatticeFermion(LatticeField):
         self.data[1] = value
 
     @property
-    def data_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(-1), True)
+    def data_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(-1), True)
 
     @property
-    def even_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(2, -1)[0], True)
+    def even_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(2, -1)[0], True)
 
     @property
-    def odd_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(2, -1)[1], True)
+    def odd_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(2, -1)[1], True)
 
     def lexico(self):
         return lexico(self.getHost(), [0, 1, 2, 3, 4])
 
 
 class LatticePropagator(LatticeField):
-    def __init__(self, latt_size: List[int], value=None) -> None:
-        Lx, Ly, Lz, Lt = latt_size
-        self.latt_size = latt_size
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info)
+        Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.data = newLatticeFieldData(latt_size, "Propagator")
+            self.setData(newLatticeFieldData(latt_info, "Propagator"))
         else:
-            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc)
+            self.setData(value.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc))
 
     def lexico(self):
         return lexico(self.getHost(), [0, 1, 2, 3, 4])
@@ -251,13 +488,13 @@ class LatticePropagator(LatticeField):
 
 
 class LatticeStaggeredFermion(LatticeField):
-    def __init__(self, latt_size: List[int], value=None) -> None:
-        Lx, Ly, Lz, Lt = latt_size
-        self.latt_size = latt_size
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info)
+        Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.data = newLatticeFieldData(latt_size, "StaggeredFermion")
+            self.setData(newLatticeFieldData(latt_info, "StaggeredFermion"))
         else:
-            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc)
+            self.setData(value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc))
 
     @property
     def even(self):
@@ -276,29 +513,29 @@ class LatticeStaggeredFermion(LatticeField):
         self.data[1] = value
 
     @property
-    def data_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(-1), True)
+    def data_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(-1), True)
 
     @property
-    def even_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(2, -1)[0], True)
+    def even_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(2, -1)[0], True)
 
     @property
-    def odd_ptr(self):
-        return ndarrayDataPointer(self.data.reshape(2, -1)[1], True)
+    def odd_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(2, -1)[1], True)
 
     def lexico(self):
         return lexico(self.getHost(), [0, 1, 2, 3, 4])
 
 
 class LatticeStaggeredPropagator(LatticeField):
-    def __init__(self, latt_size: List[int], value=None) -> None:
-        Lx, Ly, Lz, Lt = latt_size
-        self.latt_size = latt_size
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info)
+        Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.data = newLatticeFieldData(latt_size, "StaggeredPropagator")
+            self.setData(newLatticeFieldData(latt_info, "StaggeredPropagator"))
         else:
-            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc, Nc)
+            self.setData(value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc, Nc))
 
     def lexico(self):
         return lexico(self.getHost(), [0, 1, 2, 3, 4])

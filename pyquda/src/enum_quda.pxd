@@ -9,8 +9,11 @@ cdef extern from "enum_quda.h":
 
     ctypedef enum QudaMemoryType:
         QUDA_MEMORY_DEVICE
-        QUDA_MEMORY_PINNED
+        QUDA_MEMORY_DEVICE_PINNED
+        QUDA_MEMORY_HOST
+        QUDA_MEMORY_HOST_PINNED
         QUDA_MEMORY_MAPPED
+        QUDA_MEMORY_MANAGED
         QUDA_MEMORY_INVALID = QUDA_INVALID_ENUM
 
     #
@@ -367,6 +370,7 @@ cdef extern from "enum_quda.h":
         QUDA_DILUTION_COLOR
         QUDA_DILUTION_SPIN_COLOR
         QUDA_DILUTION_SPIN_COLOR_EVEN_ODD
+        QUDA_DILUTION_BLOCK
         QUDA_DILUTION_INVALID = QUDA_INVALID_ENUM
 
     # used to select projection method for deflated solvers
@@ -438,8 +442,8 @@ cdef extern from "enum_quda.h":
         QUDA_BOOLEAN_INVALID = QUDA_INVALID_ENUM
 
     # define these for backwards compatibility
-    int QUDA_BOOLEAN_NO = QUDA_BOOLEAN_FALSE
-    int QUDA_BOOLEAN_YES = QUDA_BOOLEAN_TRUE
+    int QUDA_BOOLEAN_NO = QudaBoolean.QUDA_BOOLEAN_FALSE
+    int QUDA_BOOLEAN_YES = QudaBoolean.QUDA_BOOLEAN_TRUE
 
     ctypedef enum QudaBLASType:
         QUDA_BLAS_GEMM = 0
@@ -524,6 +528,7 @@ cdef extern from "enum_quda.h":
         QUDA_GAUGE_SMEAR_APE
         QUDA_GAUGE_SMEAR_STOUT
         QUDA_GAUGE_SMEAR_OVRIMP_STOUT
+        QUDA_GAUGE_SMEAR_HYP
         QUDA_GAUGE_SMEAR_WILSON_FLOW
         QUDA_GAUGE_SMEAR_SYMANZIK_FLOW
         QUDA_GAUGE_SMEAR_INVALID = QUDA_INVALID_ENUM
