@@ -166,6 +166,46 @@ def newLatticeFieldData(latt_info: LatticeInfo, dtype: str):
         raise ValueError(f"Unsupported CUDA backend {backend}")
 
 
+def newMultiLatticeFieldData(latt_info: LatticeInfo, num_field: int, dtype: str):
+    from . import getCUDABackend
+
+    backend = getCUDABackend()
+    Lx, Ly, Lz, Lt = latt_info.size
+    if backend == "numpy":
+        if dtype == "Colorvector":
+            return numpy.zeros((num_field, 2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
+        elif dtype == "Fermion":
+            return numpy.zeros((num_field, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
+        elif dtype == "StaggeredFermion":
+            return numpy.zeros((num_field, 2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
+        else:
+            raise ValueError(f"Unsupported lattice field type {dtype}")
+    elif backend == "cupy":
+        import cupy
+
+        if dtype == "Colorvector":
+            return cupy.zeros((num_field, 2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
+        elif dtype == "Fermion":
+            return cupy.zeros((num_field, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
+        elif dtype == "StaggeredFermion":
+            return cupy.zeros((num_field, 2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
+        else:
+            raise ValueError(f"Unsupported lattice field type {dtype}")
+    elif backend == "torch":
+        import torch
+
+        if dtype == "Colorvector":
+            return torch.zeros((num_field, 2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128)
+        elif dtype == "Fermion":
+            return torch.zeros((num_field, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=torch.complex128)
+        elif dtype == "StaggeredFermion":
+            return torch.zeros((num_field, 2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128)
+        else:
+            raise ValueError(f"Unsupported lattice field type {dtype}")
+    else:
+        raise ValueError(f"Unsupported CUDA backend {backend}")
+
+
 class LatticeField:
     def __init__(self, latt_info: LatticeInfo) -> None:
         self.latt_info = latt_info
@@ -241,6 +281,12 @@ class LatticeField:
             return self.data.cpu().numpy()
         else:
             raise ValueError(f"Unsupported CUDA backend {backend}")
+
+
+class MultiLatticeField(LatticeField):
+    def __init__(self, latt_info: LatticeInfo, num_field: int) -> None:
+        super().__init__(latt_info)
+        self.num_field = num_field
 
 
 class LatticeGauge(LatticeField):
@@ -469,6 +515,28 @@ class LatticeFermion(LatticeField):
 
     def lexico(self):
         return lexico(self.getHost(), [0, 1, 2, 3, 4])
+
+
+class MultiLatticeFermion(MultiLatticeField):
+    def __init__(self, latt_info: LatticeInfo, L5: int, value=None) -> None:
+        super().__init__(latt_info, L5)
+        Lx, Ly, Lz, Lt = latt_info.size
+        if value is None:
+            self.setData(newMultiLatticeFieldData(latt_info, L5, "Fermion"))
+        else:
+            self.setData(value.reshape(L5, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
+
+    @property
+    def data_ptrs(self) -> Pointers:
+        return ndarrayPointer(self.data.reshape(self.num_field, -1), True)
+
+    @property
+    def even_ptrs(self) -> Pointers:
+        return ndarrayPointer(self.data.reshape(self.num_field, 2, -1)[:, 0], True)
+
+    @property
+    def odd_ptrs(self) -> Pointers:
+        return ndarrayPointer(self.data.reshape(self.num_field, 2, -1)[:, 1], True)
 
 
 class LatticePropagator(LatticeField):

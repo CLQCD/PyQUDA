@@ -5,17 +5,23 @@ from ..pyquda import (
     QudaGaugeParam,
     QudaInvertParam,
     QudaMultigridParam,
-    computeKSLinkQuda,
     loadCloverQuda,
     loadGaugeQuda,
     invertQuda,
+    invertMultiShiftQuda,
     MatQuda,
     MatDagMatQuda,
     dslashQuda,
     cloverQuda,
-    staggeredPhaseQuda,
 )
-from ..field import LatticeInfo, LatticeGauge, LatticeClover, LatticeFermion, LatticeStaggeredFermion
+from ..field import (
+    LatticeInfo,
+    LatticeGauge,
+    LatticeClover,
+    LatticeFermion,
+    LatticeStaggeredFermion,
+    MultiLatticeFermion,
+)
 from ..enum_quda import QUDA_MAX_DIM, QUDA_MAX_MULTI_SHIFT, QUDA_MAX_MG_LEVEL
 from ..enum_quda import (  # noqa: F401
     QudaMemoryType,
@@ -371,10 +377,9 @@ def newQudaInvertParam(
         invert_param.return_clover = 0
         invert_param.return_clover_inverse = 0
 
-    if False:
-        invert_param.num_offset = 1
-        invert_param.tol_offset = [invert_param.tol] * QUDA_MAX_MULTI_SHIFT
-        invert_param.tol_hq_offset = [invert_param.tol_hq] * QUDA_MAX_MULTI_SHIFT
+    # invert_param.num_offset = 1
+    invert_param.tol_offset = [invert_param.tol] * QUDA_MAX_MULTI_SHIFT
+    invert_param.tol_hq_offset = [invert_param.tol_hq] * QUDA_MAX_MULTI_SHIFT
 
     if mg_param is not None:
         invert_param.inv_type_precondition = QudaInverterType.QUDA_MG_INVERTER
@@ -496,6 +501,18 @@ def invert(b: LatticeFermion, invert_param: QudaInvertParam):
         performance(invert_param)
 
     return x
+
+
+def invertMultiShift(b: LatticeFermion, invert_param: QudaInvertParam, residue: List[float], offset: List[float]):
+    num_offset = len(offset)
+    invert_param.num_offset = num_offset
+    invert_param.offset = offset + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
+    invert_param.residue = residue + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
+
+    latt_info = b.latt_info
+    x = MultiLatticeFermion(latt_info, num_offset)
+
+    invertMultiShiftQuda(x.data_ptrs, b.data_ptr, invert_param)
 
 
 def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):

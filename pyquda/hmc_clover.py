@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy
 
 from .pointer import Pointers, ndarrayPointer
@@ -10,6 +12,7 @@ from .pyquda import (
     updateGaugeFieldQuda,
     MatQuda,
     invertQuda,
+    invertMultiShiftQuda,
     projectSU3Quda,
     momResidentQuda,
     gaussMomQuda,
@@ -20,6 +23,7 @@ from .pyquda import (
     computeGaugeLoopTraceQuda,
 )
 from .enum_quda import (
+    QUDA_MAX_MULTI_SHIFT,
     QudaMatPCType,
     QudaSolutionType,
     QudaSolveType,
@@ -28,7 +32,7 @@ from .enum_quda import (
     QudaReconstructType,
     QudaDagType,
 )
-from .field import Ns, Nc, LatticeInfo, LatticeGauge, LatticeFermion
+from .field import Ns, Nc, LatticeInfo, LatticeGauge, LatticeFermion, MultiLatticeFermion
 from .core import getClover
 
 nullptr = Pointers("void", 0)
@@ -41,10 +45,22 @@ class HMC:
         mass: float,
         tol: float,
         maxiter: int,
-        clover_coeff: float = 0.0,
+        clover_coeff: float,
+        num_flavor: int,
+        const_fourth_root: float = None,
+        residue_fourth_root: List[float] = None,
+        offset_fourth_root: List[float] = None,
+        residue_inv_square_root: List[float] = None,
+        offset_inv_square_root: List[float] = None,
     ) -> None:
         assert latt_info.anisotropy == 1.0
         self.dirac = getClover(latt_info, mass, tol, maxiter, 1.0, clover_coeff, 1.0)
+        self.num_flavor = num_flavor
+        self.const_fourth_root = const_fourth_root
+        self.residue_fourth_root = residue_fourth_root
+        self.offset_fourth_root = offset_fourth_root
+        self.residue_inv_square_root = residue_inv_square_root
+        self.offset_inv_square_root = offset_inv_square_root
 
         self.latt_info = latt_info
         self.updated_clover = False
@@ -55,8 +71,6 @@ class HMC:
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION
         self.invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE  # This is set to compute action
         self.invert_param.verbosity = QudaVerbosity.QUDA_SILENT
-        self.invert_param.compute_action = 1
-        self.invert_param.compute_clover_trlog = 1
 
     def loadGauge(self, gauge: LatticeGauge):
         gauge_in = gauge.copy()
@@ -79,22 +93,45 @@ class HMC:
 
     def computeCloverForce(self, dt, x: LatticeFermion, kappa2, ck):
         self.updateClover()
-        invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
-        # Some conventions force the dagger to be YES here
-        self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
-        computeCloverForceQuda(
-            nullptr,
-            dt,
-            ndarrayPointer(x.even.reshape(1, -1), True),
-            ndarrayPointer(numpy.array([1.0], "<f8")),
-            kappa2,
-            ck,
-            1,
-            2,
-            self.gauge_param,
-            self.invert_param,
-        )
-        self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
+        if self.offset_inv_square_root is None:
+            invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
+            # Some conventions force the dagger to be YES here
+            self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
+            computeCloverForceQuda(
+                nullptr,
+                dt,
+                ndarrayPointer(x.even.reshape(1, -1), True),
+                ndarrayPointer(numpy.array([1.0], "<f8")),
+                kappa2,
+                ck,
+                1,
+                self.num_flavor,
+                self.gauge_param,
+                self.invert_param,
+            )
+            self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
+        else:
+            num_offset = len(self.offset_inv_square_root)
+            self.invert_param.num_offset = num_offset
+            self.invert_param.offset = self.offset_inv_square_root + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
+            self.invert_param.residue = self.residue_inv_square_root + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
+            xx = MultiLatticeFermion(x.latt_info, num_offset)
+            invertMultiShiftQuda(xx.even_ptrs, x.odd_ptr, self.invert_param)
+            # Some conventions force the dagger to be YES here
+            self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
+            computeCloverForceQuda(
+                nullptr,
+                dt,
+                xx.even_ptrs,
+                ndarrayPointer(numpy.array(self.residue_inv_square_root, "<f8")),
+                kappa2,
+                ck,
+                num_offset,
+                self.num_flavor,
+                self.gauge_param,
+                self.invert_param,
+            )
+            self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
 
     def computeGaugeForce(self, dt, force, lengths, coeffs, num_paths, max_length):
         computeGaugeForceQuda(
@@ -152,9 +189,25 @@ class HMC:
         return traces.real.sum()
 
     def actionFermion(self, x: LatticeFermion) -> float:
+        self.invert_param.compute_clover_trlog = 1
         self.updateClover()
-        invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
-        return self.invert_param.action[0] - self.latt_info.volume_cb2 * Ns * Nc - 2 * self.invert_param.trlogA[1]
+        self.invert_param.compute_clover_trlog = 0
+        self.invert_param.compute_action = 1
+        if self.offset_inv_square_root is None:
+            invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
+        else:
+            num_offset = len(self.offset_inv_square_root)
+            self.invert_param.num_offset = num_offset
+            self.invert_param.offset = self.offset_inv_square_root + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
+            self.invert_param.residue = self.residue_inv_square_root + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
+            xx = MultiLatticeFermion(x.latt_info, num_offset)
+            invertMultiShiftQuda(xx.even_ptrs, x.odd_ptr, self.invert_param)
+        self.invert_param.compute_action = 0
+        return (
+            self.invert_param.action[0]
+            - self.latt_info.volume_cb2 * Ns * Nc
+            - self.num_flavor * self.invert_param.trlogA[1]
+        )
 
     def plaquette(self):
         return plaqQuda()[0]
@@ -167,6 +220,17 @@ class HMC:
 
     def initNoise(self, x: LatticeFermion, seed: int):
         self.updateClover()
-        self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
-        MatQuda(x.odd_ptr, x.even_ptr, self.invert_param)
-        self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
+        if self.offset_fourth_root is None:
+            self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
+            MatQuda(x.odd_ptr, x.even_ptr, self.invert_param)
+            self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
+        else:
+            num_offset = len(self.offset_fourth_root)
+            self.invert_param.num_offset = num_offset
+            self.invert_param.offset = self.offset_fourth_root + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
+            self.invert_param.residue = self.residue_fourth_root + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
+            xx = MultiLatticeFermion(x.latt_info, num_offset)
+            invertMultiShiftQuda(xx.even_ptrs, x.even_ptr, self.invert_param)
+            x.data[1] = self.const_fourth_root * x.data[0]
+            for i in range(num_offset):
+                x.data[1] += self.residue_fourth_root[i] * xx.data[i, 0]

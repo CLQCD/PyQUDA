@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import List
 
 from ..pointer import Pointer
 from ..pyquda import QudaGaugeParam, QudaInvertParam, QudaMultigridParam
@@ -28,6 +29,9 @@ class Dirac(ABC):
 
     def invert(self, b: LatticeFermion):
         return general.invert(b, self.invert_param)
+
+    def invertMultiShift(self, b: LatticeFermion, residue: List[float], offset: List[float]):
+        return general.invertMultiShift(b, self.invert_param, residue, offset)
 
     def mat(self, x: LatticeFermion):
         return general.mat(x, self.invert_param)
