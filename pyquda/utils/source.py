@@ -168,6 +168,18 @@ def colorvector(latt_info: LatticeInfo, t_srce: int, spin: int, phase):
     return b
 
 
+def sequential(latt_info: LatticeInfo, t_srce: int, fermion: Union[LatticeFermion, LatticeStaggeredFermion]):
+    Lt = latt_info.Lt
+    gt = latt_info.gt
+    t = t_srce
+    staggered = isinstance(fermion, LatticeStaggeredFermion)
+    b = LatticeFermion(latt_info) if not staggered else LatticeStaggeredFermion(latt_info)
+    if gt * Lt <= t < (gt + 1) * Lt:
+        b.data[:, t - gt * Lt, :, :, :] = fermion.data[:, t - gt * Lt, :, :, :]
+
+    return b
+
+
 def source(
     latt_info: Union[LatticeInfo, List[int]],
     source_type: str,

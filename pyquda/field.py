@@ -486,6 +486,12 @@ class LatticePropagator(LatticeField):
     def transpose(self):
         return self.data.transpose(0, 1, 2, 3, 4, 6, 5, 8, 7).copy()
 
+    def setFermion(self, fermion: LatticeFermion, spin: int, color: int):
+        self.data[:, :, :, :, :, :, spin, :, color] = fermion.data
+
+    def getFermion(self, spin: int, color: int):
+        return LatticeFermion(self.latt_info, self.data[:, :, :, :, :, :, spin, :, color])
+
 
 class LatticeStaggeredFermion(LatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
@@ -542,3 +548,9 @@ class LatticeStaggeredPropagator(LatticeField):
 
     def transpose(self):
         return self.data.transpose(0, 1, 2, 3, 4, 6, 5).copy()
+
+    def setFermion(self, fermion: LatticeStaggeredFermion, color: int):
+        self.data[:, :, :, :, :, :, color] = fermion.data
+
+    def getFermion(self, color: int):
+        return LatticeStaggeredFermion(self.latt_info, self.data[:, :, :, :, :, :, color])
