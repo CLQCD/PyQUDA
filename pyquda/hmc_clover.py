@@ -93,7 +93,7 @@ class HMC:
 
     def computeCloverForce(self, dt, x: LatticeFermion, kappa2, ck):
         self.updateClover()
-        if self.offset_inv_square_root is None:
+        if self.num_flavor == 2:
             invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
             # Some conventions force the dagger to be YES here
             self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
@@ -193,7 +193,7 @@ class HMC:
         self.updateClover()
         self.invert_param.compute_clover_trlog = 0
         self.invert_param.compute_action = 1
-        if self.offset_inv_square_root is None:
+        if self.num_flavor == 2:
             invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
         else:
             num_offset = len(self.offset_inv_square_root)
@@ -220,7 +220,7 @@ class HMC:
 
     def initNoise(self, x: LatticeFermion, seed: int):
         self.updateClover()
-        if self.offset_fourth_root is None:
+        if self.num_flavor == 2:
             self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
             MatQuda(x.odd_ptr, x.even_ptr, self.invert_param)
             self.invert_param.dagger = QudaDagType.QUDA_DAG_NO

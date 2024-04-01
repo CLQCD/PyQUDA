@@ -1,4 +1,5 @@
 import os
+import sys
 from typing import Dict, List, NamedTuple, Union
 
 
@@ -143,10 +144,12 @@ def build_pyquda_pyx(pyquda_root, quda_path):
     quda_include = os.path.join(quda_path, "include")
     assert os.path.exists(fake_libc_include), f"{fake_libc_include} not found"
     print(f"Building pyquda wrapper from {os.path.join(quda_include, 'quda.h')}")
+    sys.path.insert(1, os.path.join(pyquda_root, "pycparser"))
     try:
         from pycparser import parse_file, c_ast
     except ImportError or ModuleNotFoundError:
-        from pycparser.pycparser import parse_file, c_ast
+        from pycparser.pycparser import parse_file, c_ast  # This is for the language server
+    sys.path.remove(os.path.join(pyquda_root, "pycparser"))
 
     def evaluate(node):
         if node is None:

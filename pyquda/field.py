@@ -96,112 +96,100 @@ def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
     return data_cb2.reshape(*shape[: axes[0]], 2, Lt, Lz, Ly, Lx // 2, *shape[axes[-1] + 1 :])
 
 
-def newLatticeFieldData(latt_info: LatticeInfo, dtype: str):
+def newLatticeFieldData(latt_info: LatticeInfo, field: str):
     from . import getCUDABackend
 
     backend = getCUDABackend()
     Lx, Ly, Lz, Lt = latt_info.size
     if backend == "numpy":
-        if dtype == "Gauge":
+        if field == "Gauge":
             ret = numpy.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
             ret[:] = numpy.identity(Nc)
             return ret
-        elif dtype == "Colorvector":
-            return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
-        elif dtype == "Fermion":
+        elif field == "Fermion":
             return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
-        elif dtype == "Propagator":
+        elif field == "Propagator":
             return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), "<c16")
-        elif dtype == "StaggeredFermion":
+        elif field == "StaggeredFermion":
             return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
-        elif dtype == "StaggeredPropagator":
+        elif field == "StaggeredPropagator":
             return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
-        elif dtype == "Clover":
+        elif field == "Clover":
             return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), "<f8")
         else:
-            raise ValueError(f"Unsupported lattice field type {dtype}")
+            raise ValueError(f"Unsupported lattice field type {field}")
     elif backend == "cupy":
         import cupy
 
-        if dtype == "Gauge":
+        if field == "Gauge":
             ret = cupy.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
             ret[:] = cupy.identity(Nc)
             return ret
-        elif dtype == "Colorvector":
-            return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
-        elif dtype == "Fermion":
+        elif field == "Fermion":
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
-        elif dtype == "Propagator":
+        elif field == "Propagator":
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), "<c16")
-        elif dtype == "StaggeredFermion":
+        elif field == "StaggeredFermion":
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
-        elif dtype == "StaggeredPropagator":
+        elif field == "StaggeredPropagator":
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
-        elif dtype == "Clover":
+        elif field == "Clover":
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), "<f8")
         else:
-            raise ValueError(f"Unsupported lattice field type {dtype}")
+            raise ValueError(f"Unsupported lattice field type {field}")
     elif backend == "torch":
         import torch
 
-        if dtype == "Gauge":
+        if field == "Gauge":
             ret = torch.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128)
             ret[:] = torch.eye(Nc)
             return ret
-        elif dtype == "Colorvector":
-            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128)
-        elif dtype == "Fermion":
+        elif field == "Fermion":
             return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=torch.complex128)
-        elif dtype == "Propagator":
+        elif field == "Propagator":
             return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), dtype=torch.complex128)
-        elif dtype == "StaggeredFermion":
+        elif field == "StaggeredFermion":
             return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128)
-        elif dtype == "StaggeredPropagator":
+        elif field == "StaggeredPropagator":
             return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128)
-        elif dtype == "Clover":
+        elif field == "Clover":
             return torch.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), dtype=torch.float64)
         else:
-            raise ValueError(f"Unsupported lattice field type {dtype}")
+            raise ValueError(f"Unsupported lattice field type {field}")
     else:
         raise ValueError(f"Unsupported CUDA backend {backend}")
 
 
-def newMultiLatticeFieldData(latt_info: LatticeInfo, num_field: int, dtype: str):
+def newMultiLatticeFieldData(latt_info: LatticeInfo, L5: int, field: str):
     from . import getCUDABackend
 
     backend = getCUDABackend()
     Lx, Ly, Lz, Lt = latt_info.size
     if backend == "numpy":
-        if dtype == "Colorvector":
-            return numpy.zeros((num_field, 2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
-        elif dtype == "Fermion":
-            return numpy.zeros((num_field, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
-        elif dtype == "StaggeredFermion":
-            return numpy.zeros((num_field, 2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
+        if field == "Fermion":
+            return numpy.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
+        elif field == "StaggeredFermion":
+            return numpy.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
         else:
-            raise ValueError(f"Unsupported lattice field type {dtype}")
+            raise ValueError(f"Unsupported lattice field type {field}")
     elif backend == "cupy":
         import cupy
 
-        if dtype == "Colorvector":
-            return cupy.zeros((num_field, 2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
-        elif dtype == "Fermion":
-            return cupy.zeros((num_field, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
-        elif dtype == "StaggeredFermion":
-            return cupy.zeros((num_field, 2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
+        if field == "Fermion":
+            return cupy.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
+        elif field == "StaggeredFermion":
+            return cupy.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
         else:
-            raise ValueError(f"Unsupported lattice field type {dtype}")
+            raise ValueError(f"Unsupported lattice field type {field}")
     elif backend == "torch":
         import torch
 
-        if dtype == "Colorvector":
-            return torch.zeros((num_field, 2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128)
-        elif dtype == "Fermion":
-            return torch.zeros((num_field, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=torch.complex128)
-        elif dtype == "StaggeredFermion":
-            return torch.zeros((num_field, 2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128)
+        if field == "Fermion":
+            return torch.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=torch.complex128)
+        elif field == "StaggeredFermion":
+            return torch.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128)
         else:
-            raise ValueError(f"Unsupported lattice field type {dtype}")
+            raise ValueError(f"Unsupported lattice field type {field}")
     else:
         raise ValueError(f"Unsupported CUDA backend {backend}")
 
@@ -284,9 +272,9 @@ class LatticeField:
 
 
 class MultiLatticeField(LatticeField):
-    def __init__(self, latt_info: LatticeInfo, num_field: int) -> None:
+    def __init__(self, latt_info: LatticeInfo, L5: int) -> None:
         super().__init__(latt_info)
-        self.num_field = num_field
+        self.L5 = L5
 
 
 class LatticeGauge(LatticeField):
@@ -528,15 +516,15 @@ class MultiLatticeFermion(MultiLatticeField):
 
     @property
     def data_ptrs(self) -> Pointers:
-        return ndarrayPointer(self.data.reshape(self.num_field, -1), True)
+        return ndarrayPointer(self.data.reshape(self.L5, -1), True)
 
     @property
     def even_ptrs(self) -> Pointers:
-        return ndarrayPointer(self.data.reshape(self.num_field, 2, -1)[:, 0], True)
+        return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[:, 0], True)
 
     @property
     def odd_ptrs(self) -> Pointers:
-        return ndarrayPointer(self.data.reshape(self.num_field, 2, -1)[:, 1], True)
+        return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[:, 1], True)
 
 
 class LatticePropagator(LatticeField):
