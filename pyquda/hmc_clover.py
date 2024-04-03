@@ -24,6 +24,7 @@ from .pyquda import (
 )
 from .enum_quda import (
     QUDA_MAX_MULTI_SHIFT,
+    QudaMassNormalization,
     QudaMatPCType,
     QudaSolutionType,
     QudaSolveType,
@@ -67,6 +68,7 @@ class HMC:
         self.gauge_param: QudaGaugeParam = self.dirac.gauge_param
         self.invert_param: QudaInvertParam = self.dirac.invert_param
 
+        self.invert_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
         self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION
         self.invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE  # This is set to compute action

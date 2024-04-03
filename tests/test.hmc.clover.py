@@ -1,31 +1,26 @@
+from time import perf_counter
+
 import numpy as np
 import cupy as cp
 
 from check_pyquda import test_dir
 
-from pyquda import init
+from pyquda import init, setGPUID
 from pyquda.hmc_clover import HMC
 from pyquda.field import Ns, Nc, LatticeInfo, LatticeFermion, LatticeGauge
 
-ensembles = {
-    "A1": ([16, 16, 16, 16], 5.789),
-    "B0": ([24, 24, 24, 24], 6),
-    "C2": ([32, 32, 32, 32], 6.179),
-    "D1": ([48, 48, 48, 48], 6.475),
-}
-
-tag = "A1"
-
+setGPUID(2)
 init(resource_path=".cache")
-latt_info = LatticeInfo(ensembles[tag][0], -1, 1.0)
-beta = ensembles[tag][1]
+beta = 6.2
+u_0 = 0.855453
+mass = -0.2400
+kappa = 1 / (2 * (mass + 4))
+csw = 1.160920226
+latt_info = LatticeInfo([16, 16, 16, 32], -1, 1.0)
 Lx, Ly, Lz, Lt = latt_info.size
 
 gauge = LatticeGauge(latt_info, None)
 
-mass = 4
-kappa = 1 / (2 * (mass + 4))
-csw = 1.0
 const_fourth_root = 6.10610118771501
 residue_fourth_root = [
     -5.90262826538435e-06,
@@ -178,24 +173,24 @@ input_path = [
     [3, 3, 2, 4, 4, 5],
 ]
 input_coeffs = [
-    -5 / 3,
-    -5 / 3,
-    -5 / 3,
-    -5 / 3,
-    -5 / 3,
-    -5 / 3,
-    1 / 12,
-    1 / 12,
-    1 / 12,
-    1 / 12,
-    1 / 12,
-    1 / 12,
-    1 / 12,
-    1 / 12,
-    1 / 12,
-    1 / 12,
-    1 / 12,
-    1 / 12,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
 ]
 
 num_paths, max_length, path, lengths, coeffs, force, num_fpaths, flengths, fcoeffs = path_force(
@@ -213,11 +208,12 @@ plaquette = hmc.plaquette()
 print(f"\nplaquette = {plaquette}\n")
 
 t = 1.0
-dt = 0.2
-steps = round(t / dt)
+steps = 10
 dt = t / steps
-warm = 20
-for i in range(100):
+warm = 500
+for i in range(2000):
+    s = perf_counter()
+
     hmc.gaussMom(i)
 
     # np.random.seed(i)
@@ -286,4 +282,5 @@ for i in range(100):
         f"accept rate = {min(1, np.exp(energy - energy1))*100:.2f}%\n"
         f"accept? {accept or not not warm}\n"
         f"plaquette = {plaquette}\n"
+        f"HMC time = {perf_counter() - s:.3f} secs\n"
     )

@@ -1,24 +1,19 @@
+from time import perf_counter
+
 import numpy as np
 
 from check_pyquda import test_dir
 
-from pyquda import init
+from pyquda import init, setGPUID
 from pyquda.hmc_gauge import HMC
 from pyquda.field import Nc, LatticeInfo, LatticeGauge
 
-ensembles = {
-    "A1": ([16, 16, 16, 16], 5.789),
-    "B0": ([24, 24, 24, 24], 6),
-    "C2": ([32, 32, 32, 32], 6.179),
-    "D1": ([48, 48, 48, 48], 6.475),
-}
-
-tag = "A1"
-
-# init(resource_path=".cache")
-init(backend="torch", resource_path=".cache")
-latt_info = LatticeInfo(ensembles[tag][0], -1, 1.0)
-beta = ensembles[tag][1]
+setGPUID(2)
+init(resource_path=".cache")
+beta = 6.2
+u_0 = 0.855453
+latt_info = LatticeInfo([16, 16, 16, 32], 1, 1.0)
+Lx, Ly, Lz, Lt = latt_info.size
 
 gauge = LatticeGauge(latt_info, None)
 
@@ -97,24 +92,24 @@ input_path = [
     [3, 3, 2, 4, 4, 5],
 ]
 input_coeffs = [
-    -5 / 3,
-    -5 / 3,
-    -5 / 3,
-    -5 / 3,
-    -5 / 3,
-    -5 / 3,
-    1 / 12,
-    1 / 12,
-    1 / 12,
-    1 / 12,
-    1 / 12,
-    1 / 12,
-    1 / 12,
-    1 / 12,
-    1 / 12,
-    1 / 12,
-    1 / 12,
-    1 / 12,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
+    1 / 20 / u_0**2,
 ]
 
 # input_path = [
@@ -149,11 +144,12 @@ plaquette = hmc.plaquette()
 print(f"\nplaquette = {plaquette}\n")
 
 t = 1.0
-dt = 0.1
-steps = round(t / dt)
+steps = 10
 dt = t / steps
-warm = 20
-for i in range(100):
+warm = 500
+for i in range(2000):
+    s = perf_counter()
+
     hmc.gaussMom(i)
 
     kinetic = hmc.actionMom()
@@ -198,4 +194,5 @@ for i in range(100):
         f"accept rate = {min(1, np.exp(energy - energy1))*100:.2f}%\n"
         f"accept? {accept or not not warm}\n"
         f"plaquette = {plaquette}\n"
+        f"HMC time = {perf_counter() - s:.3f} secs\n"
     )
