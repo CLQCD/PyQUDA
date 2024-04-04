@@ -146,7 +146,10 @@ def readQIOPropagator(filename: str):
         scidac_binary_data = f.read(meta["scidac-binary-data"][1])
     precision = _precision_map[scidac_private_record_xml.find("precision").text]
     assert int(scidac_private_record_xml.find("colors").text) == Nc
-    assert int(scidac_private_record_xml.find("spins").text) == Ns
+    assert (
+        int(scidac_private_record_xml.find("spins").text) == Ns
+        or int(scidac_private_record_xml.find("spins").text) == 1
+    )
     typesize = int(scidac_private_record_xml.find("typesize").text)
     if typesize == Nc * Nc * 2 * precision:
         staggered = True
