@@ -20,19 +20,16 @@ class CloverWilson(Dirac):
         geo_block_size: List[List[int]] = None,
     ) -> None:
         super().__init__(latt_info)
-        cuda_prec_sloppy = general.cuda_prec_sloppy
-        single_prec = QudaPrecision.QUDA_SINGLE_PRECISION
-        if geo_block_size is not None and cuda_prec_sloppy < single_prec:
-            general.cuda_prec_sloppy = single_prec  # Using half with multigrid doesn't work
+        # Using half with multigrid doesn't work
+        if geo_block_size is not None:
+            self.precision.sloppy = max(self.precision.sloppy, QudaPrecision.QUDA_SINGLE_PRECISION)
         self.mg_instance = None
         self.newQudaGaugeParam()
         self.newQudaMultigridParam(geo_block_size, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
         self.newQudaInvertParam(mass, kappa, tol, maxiter, clover_coeff, clover_xi)
-        if geo_block_size is not None and cuda_prec_sloppy < single_prec:
-            general.cuda_prec_sloppy = cuda_prec_sloppy
 
     def newQudaGaugeParam(self):
-        gauge_param = general.newQudaGaugeParam(self.latt_info, 1.0, 0.0)
+        gauge_param = general.newQudaGaugeParam(self.latt_info, 1.0, 0.0, self.precision, self.reconstruct)
         self.gauge_param = gauge_param
 
     def newQudaMultigridParam(
@@ -49,7 +46,16 @@ class CloverWilson(Dirac):
     ):
         if geo_block_size is not None:
             mg_param, mg_inv_param = general.newQudaMultigridParam(
-                mass, kappa, geo_block_size, coarse_tol, coarse_maxiter, setup_tol, setup_maxiter, nu_pre, nu_post
+                mass,
+                kappa,
+                geo_block_size,
+                coarse_tol,
+                coarse_maxiter,
+                setup_tol,
+                setup_maxiter,
+                nu_pre,
+                nu_post,
+                self.precision,
             )
             mg_inv_param.dslash_type = QudaDslashType.QUDA_CLOVER_WILSON_DSLASH
         else:
@@ -63,7 +69,7 @@ class CloverWilson(Dirac):
         self, mass: float, kappa: float, tol: float, maxiter: int, clover_coeff: float, clover_xi: float
     ):
         invert_param = general.newQudaInvertParam(
-            mass, kappa, tol, maxiter, kappa * clover_coeff, clover_xi, self.mg_param
+            mass, kappa, tol, maxiter, kappa * clover_coeff, clover_xi, self.mg_param, self.precision
         )
         invert_param.dslash_type = QudaDslashType.QUDA_CLOVER_WILSON_DSLASH
         if self.mg_param is not None:

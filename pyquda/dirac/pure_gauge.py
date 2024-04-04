@@ -1,7 +1,6 @@
 from typing import Literal
 
 from ..pyquda import (
-    QudaGaugeParam,
     QudaGaugeSmearParam,
     QudaGaugeObservableParam,
     gaussGaugeQuda,
@@ -17,33 +16,24 @@ from ..pyquda import (
 from ..field import LatticeInfo, LatticeGauge
 from ..enum_quda import QudaBoolean, QudaGaugeSmearType, QudaLinkType, QudaReconstructType
 
-from . import general
+from . import Gauge, general
 
 
-class PureGauge:
-    latt_info: LatticeInfo
-    gauge_param: QudaGaugeParam
-    smear_param: QudaGaugeSmearParam
-    obs_param: QudaGaugeObservableParam
-
+class PureGauge(Gauge):
     def __init__(self, latt_info: LatticeInfo) -> None:
-        self.latt_info = LatticeInfo(latt_info.global_size)
-        link_recon = general.link_recon
-        link_recon_sloppy = general.link_recon_sloppy
+        super().__init__(latt_info)
         # Use QUDA_RECONSTRUCT_NO to ensure slight deviations from SU(3) can be preserved
-        recon_no = QudaReconstructType.QUDA_RECONSTRUCT_NO
-        if link_recon < recon_no or link_recon_sloppy < recon_no:
-            general.link_recon = recon_no
-            general.link_recon_sloppy = recon_no
+        if True:
+            self.reconstruct.cuda = max(self.reconstruct.cuda, QudaReconstructType.QUDA_RECONSTRUCT_NO)
+            self.reconstruct.sloppy = max(self.reconstruct.sloppy, QudaReconstructType.QUDA_RECONSTRUCT_NO)
+            self.reconstruct.precondition = max(self.reconstruct.precondition, QudaReconstructType.QUDA_RECONSTRUCT_NO)
+            self.reconstruct.eigensolver = max(self.reconstruct.eigensolver, QudaReconstructType.QUDA_RECONSTRUCT_NO)
         self.newQudaGaugeParam()
         self.newQudaGaugeSmearParam()
         self.newQudaGaugeObservableParam()
-        if link_recon < recon_no or link_recon_sloppy < recon_no:
-            general.link_recon = link_recon
-            general.link_recon_sloppy = link_recon_sloppy
 
     def newQudaGaugeParam(self):
-        gauge_param = general.newQudaGaugeParam(self.latt_info, 1.0, 0.0)
+        gauge_param = general.newQudaGaugeParam(self.latt_info, 1.0, 0.0, self.precision, self.reconstruct)
         self.gauge_param = gauge_param
 
     def newQudaGaugeSmearParam(self):

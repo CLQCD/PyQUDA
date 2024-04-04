@@ -17,7 +17,7 @@ class Laplace(StaggeredDirac):
         self.newQudaInvertParam(laplace3D)
 
     def newQudaGaugeParam(self):
-        gauge_param = general.newQudaGaugeParam(self.latt_info, 1.0, 0.0)
+        gauge_param = general.newQudaGaugeParam(self.latt_info, 1.0, 0.0, self.precision, self.reconstruct)
         self.gauge_param = gauge_param
 
     def newQudaMultigridParam(self):
@@ -25,7 +25,7 @@ class Laplace(StaggeredDirac):
         self.mg_inv_param = None
 
     def newQudaInvertParam(self, laplace3D: int):
-        invert_param = general.newQudaInvertParam(0, 0.125, 0, 0, 0.0, 1.0, None)
+        invert_param = general.newQudaInvertParam(0, 0.125, 0, 0, 0.0, 1.0, None, self.precision)
         invert_param.dslash_type = QudaDslashType.QUDA_LAPLACE_DSLASH
         invert_param.laplace3D = laplace3D
         self.invert_param = invert_param
