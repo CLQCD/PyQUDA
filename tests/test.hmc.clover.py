@@ -211,6 +211,7 @@ t = 1.0
 steps = 10
 dt = t / steps
 warm = 500
+save = 5
 for i in range(2000):
     s = perf_counter()
 
@@ -239,22 +240,22 @@ for i in range(2000):
 
     for step in range(steps):
         hmc.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeCloverForce(vartheta_ * dt, noise, -(kappa**2), -kappa * csw / 8)
+        hmc.computeFermionForce(vartheta_ * dt, noise, -(kappa**2), -kappa * csw / 8)
         hmc.updateGaugeField(rho_ * dt)
         hmc.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeCloverForce(lambda_ * dt, noise, -(kappa**2), -kappa * csw / 8)
+        hmc.computeFermionForce(lambda_ * dt, noise, -(kappa**2), -kappa * csw / 8)
         hmc.updateGaugeField(theta_ * dt)
         hmc.computeGaugeForce((0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeCloverForce((0.5 - (lambda_ + vartheta_)) * dt, noise, -(kappa**2), -kappa * csw / 8)
+        hmc.computeFermionForce((0.5 - (lambda_ + vartheta_)) * dt, noise, -(kappa**2), -kappa * csw / 8)
         hmc.updateGaugeField((1.0 - 2 * (theta_ + rho_)) * dt)
         hmc.computeGaugeForce((0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeCloverForce((0.5 - (lambda_ + vartheta_)) * dt, noise, -(kappa**2), -kappa * csw / 8)
+        hmc.computeFermionForce((0.5 - (lambda_ + vartheta_)) * dt, noise, -(kappa**2), -kappa * csw / 8)
         hmc.updateGaugeField(theta_ * dt)
         hmc.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeCloverForce(lambda_ * dt, noise, -(kappa**2), -kappa * csw / 8)
+        hmc.computeFermionForce(lambda_ * dt, noise, -(kappa**2), -kappa * csw / 8)
         hmc.updateGaugeField(rho_ * dt)
         hmc.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeCloverForce(vartheta_ * dt, noise, -(kappa**2), -kappa * csw / 8)
+        hmc.computeFermionForce(vartheta_ * dt, noise, -(kappa**2), -kappa * csw / 8)
 
     hmc.reunitGaugeField(1e-15)
 
@@ -270,6 +271,8 @@ for i in range(2000):
         hmc.saveGauge(gauge)
     else:
         hmc.loadGauge(gauge)
+    if (i + 1) % save == 0:
+        np.save(f"./DATA/cfg/cfg_{i + 1}.npy", gauge.lexico())
 
     plaquette = hmc.plaquette()
 
