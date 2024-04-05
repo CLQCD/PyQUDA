@@ -112,7 +112,7 @@ _cpu_prec: QudaPrecision = QudaPrecision.QUDA_DOUBLE_PRECISION
 _cuda_prec: QudaPrecision = QudaPrecision.QUDA_DOUBLE_PRECISION
 _cuda_prec_sloppy: QudaPrecision = QudaPrecision.QUDA_HALF_PRECISION
 _cuda_prec_precondition: QudaPrecision = QudaPrecision.QUDA_HALF_PRECISION
-_cuda_prec_eigensolver: QudaPrecision = QudaPrecision.QUDA_SINGLE_PRECISION
+_cuda_prec_eigensolver: QudaPrecision = QudaPrecision.QUDA_DOUBLE_PRECISION
 _link_recon: QudaReconstructType = QudaReconstructType.QUDA_RECONSTRUCT_12
 _link_recon_sloppy: QudaReconstructType = QudaReconstructType.QUDA_RECONSTRUCT_12
 
