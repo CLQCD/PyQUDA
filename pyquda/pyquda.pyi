@@ -259,9 +259,12 @@ class QudaInvertParam:
     """Twisted mass parameter"""
 
     twist_flavor: QudaTwistFlavorType
-    covdev_mu: int
+    """Twisted mass flavor"""
+
     laplace3D: int
     """omit this direction from laplace operator: x,y,z,t -> 0,1,2,3 (-1 is full 4D)"""
+    covdev_mu: int
+    """Apply forward/backward covariant derivative in direction mu(mu<=3)/mu-4(mu>3)"""
 
     tol: double
     """Solver tolerance in the L2 residual norm"""
