@@ -93,7 +93,7 @@ class HMC:
         loadGaugeQuda(nullptr, self.gauge_param)
         self.updated_clover = False
 
-    def computeCloverForce(self, dt, x: LatticeFermion, kappa2, ck):
+    def computeFermionForce(self, dt, x: LatticeFermion, kappa2, ck):
         self.updateClover()
         if self.num_flavor == 2:
             invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)

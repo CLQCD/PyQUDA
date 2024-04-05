@@ -103,7 +103,7 @@ class HMC:
 
         return ulink, vlink, wlink
 
-    def computeHISQForce(self, dt, x: LatticeStaggeredFermion, kappa2, ck):
+    def computeFermionForce(self, dt, x: LatticeStaggeredFermion, kappa2, ck):
         self.updateFatLong()
         invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
         u, v, w = self.computeUVW()
