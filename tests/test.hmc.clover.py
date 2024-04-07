@@ -1,14 +1,13 @@
 from time import perf_counter
 
 import numpy as np
-import cupy as cp
 
 from check_pyquda import test_dir
 
 from pyquda import init, setGPUID
 from pyquda.hmc import HMC
 from pyquda.action import one_flavor_clover, symanzik_gauge
-from pyquda.field import Ns, Nc, LatticeInfo, LatticeFermion, LatticeGauge
+from pyquda.field import LatticeInfo, LatticeGauge
 
 setGPUID(0)
 init(resource_path=".cache")
