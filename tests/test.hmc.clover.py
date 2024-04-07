@@ -18,14 +18,13 @@ mass = -0.2400
 kappa = 1 / (2 * (mass + 4))
 csw = 1.160920226
 latt_info = LatticeInfo([16, 16, 16, 32], -1, 1.0)
-Lx, Ly, Lz, Lt = latt_info.size
-
-gauge = LatticeGauge(latt_info, None)
 
 monomials = [
     symanzik_gauge.SymanzikGauge(latt_info, beta, u_0),
     one_flavor_clover.OneFlavorClover(latt_info, mass, 1e-9, 1000, csw),
 ]
+gauge = LatticeGauge(latt_info, None)
+
 hmc = HMC(latt_info, monomials)
 hmc.loadGauge(gauge)
 hmc.loadMom(gauge)
@@ -47,22 +46,7 @@ for i in range(2000):
     s = perf_counter()
 
     hmc.gaussMom(i)
-
-    # np.random.seed(i)
-    # phi = 2 * np.pi * np.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
-    # r = np.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
-
-    cp.random.seed(i)
-    phi = 2 * cp.pi * cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<f8")
-    r = cp.random.random((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<f8")
-
-    # cp.random.manual_seed(i)
-    # phi = 2 * cp.pi * cp.rand((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=cp.float64)
-    # r = cp.rand((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=cp.float64)
-
-    noise = LatticeFermion(latt_info, cp.sqrt(-cp.log(r)) * (cp.cos(phi) + 1j * cp.sin(phi)))
-
-    hmc.samplePhi(noise)
+    hmc.samplePhi(i)
 
     kinetic = hmc.actionMom()
     potential = hmc.actionGauge()

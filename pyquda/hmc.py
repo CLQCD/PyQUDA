@@ -1,6 +1,7 @@
 from typing import List, Union
 
-from .pointer import Pointers, ndarrayPointer
+from . import getCUDABackend
+from .pointer import Pointers
 from .pyquda import (
     gaussMomQuda,
     loadGaugeQuda,
@@ -12,7 +13,7 @@ from .pyquda import (
     updateGaugeFieldQuda,
 )
 from .enum_quda import QudaReconstructType, QudaTboundary
-from .field import LatticeInfo, LatticeGauge, LatticeFermion
+from .field import Nc, Ns, LatticeInfo, LatticeGauge, LatticeFermion
 from .dirac.wilson import Wilson
 from .action import FermionAction, GaugeAction
 
@@ -53,7 +54,31 @@ class HMC:
                 monomial.force(dt)
         self.new_gauge = False
 
-    def samplePhi(self, noise: LatticeFermion):
+    def samplePhi(self, seed: int):
+        backend = getCUDABackend()
+        if backend == "numpy":
+            import numpy
+
+            numpy.random.seed(seed)
+            phi = 2 * numpy.pi * numpy.random.random((self.latt_info.volume, Ns, Nc))
+            r = numpy.random.random((self.latt_info.volume, Ns, Nc))
+            noise_raw = numpy.sqrt(-numpy.log(r)) * (numpy.cos(phi) + 1j * numpy.sin(phi))
+        elif backend == "cupy":
+            import cupy
+
+            cupy.random.seed(seed)
+            phi = 2 * cupy.pi * cupy.random.random((self.latt_info.volume, Ns, Nc), "<f8")
+            r = cupy.random.random((self.latt_info.volume, Ns, Nc), "<f8")
+            noise_raw = cupy.sqrt(-cupy.log(r)) * (cupy.cos(phi) + 1j * cupy.sin(phi))
+        elif backend == "torch":
+            import torch
+
+            torch.random.manual_seed(seed)
+            phi = 2 * torch.pi * torch.rand((self.latt_info.volume, Ns, Nc), dtype=torch.float64)
+            r = torch.rand((self.latt_info.volume, Ns, Nc), dtype=torch.float64)
+            noise_raw = torch.sqrt(-torch.log(r)) * (torch.cos(phi) + 1j * torch.sin(phi))
+
+        noise = LatticeFermion(self.latt_info, noise_raw)
         for monomial in self.monomials:
             if isinstance(monomial, FermionAction):
                 monomial.sample(noise, self.new_gauge)
