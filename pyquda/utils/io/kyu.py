@@ -2,7 +2,7 @@ from os import path
 
 import numpy
 
-from ...field import Ns, Nc, Nd, LatticeInfo, LatticeGauge, LatticeFermion, cb2
+from ...field import Ns, Nc, Nd, LatticeInfo, LatticeGauge, LatticePropagator, cb2
 
 
 def fromGaugeBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
@@ -76,7 +76,7 @@ def fromPropagatorBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
     gx, gy, gz, gt = latt_info.grid_coord
     Lx, Ly, Lz, Lt = latt_info.size
 
-    fermion_raw = (
+    kyu_raw = (
         numpy.frombuffer(buffer, dtype)
         .reshape(Ns, Nc, 2, Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx)[
             :,
@@ -95,22 +95,34 @@ def fromPropagatorBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
         .view("<c16")
     )
 
-    return fermion_raw
+    propagator_raw = numpy.zeros_like(kyu_raw)
+    propagator_raw[:, :, :, :, 0] = -(2**-0.5) * kyu_raw[:, :, :, :, 1] - 2**-0.5 * kyu_raw[:, :, :, :, 3]
+    propagator_raw[:, :, :, :, 1] = +(2**-0.5) * kyu_raw[:, :, :, :, 2] + 2**-0.5 * kyu_raw[:, :, :, :, 0]
+    propagator_raw[:, :, :, :, 2] = +(2**-0.5) * kyu_raw[:, :, :, :, 3] - 2**-0.5 * kyu_raw[:, :, :, :, 1]
+    propagator_raw[:, :, :, :, 3] = +(2**-0.5) * kyu_raw[:, :, :, :, 0] - 2**-0.5 * kyu_raw[:, :, :, :, 2]
+
+    return propagator_raw
 
 
-def toPropagatorBuffer(fermion_lexico: numpy.ndarray, latt_info: LatticeInfo):
+def toPropagatorBuffer(propagator_raw: numpy.ndarray, dtype: str, latt_info: LatticeInfo):
     from .gather_raw import gatherPropagatorRaw
 
     Gx, Gy, Gz, Gt = latt_info.grid_size
     Lx, Ly, Lz, Lt = latt_info.size
 
-    fermion_raw = gatherPropagatorRaw(fermion_lexico, latt_info)
+    kyu_raw = numpy.zeros_like(propagator_raw)
+    kyu_raw[:, :, :, :, 0] = +(2**-0.5) * propagator_raw[:, :, :, :, 1] + 2**-0.5 * propagator_raw[:, :, :, :, 3]
+    kyu_raw[:, :, :, :, 1] = -(2**-0.5) * propagator_raw[:, :, :, :, 2] - 2**-0.5 * propagator_raw[:, :, :, :, 0]
+    kyu_raw[:, :, :, :, 2] = -(2**-0.5) * propagator_raw[:, :, :, :, 3] + 2**-0.5 * propagator_raw[:, :, :, :, 1]
+    kyu_raw[:, :, :, :, 3] = -(2**-0.5) * propagator_raw[:, :, :, :, 0] + 2**-0.5 * propagator_raw[:, :, :, :, 2]
+
+    kyu_gathered_raw = gatherPropagatorRaw(kyu_raw, latt_info)
     if latt_info.mpi_rank == 0:
         buffer = (
-            fermion_raw.view("<f8")
+            kyu_gathered_raw.view("<f8")
             .reshape(Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Ns, Nc, Nc, 2)
             .transpose(5, 7, 8, 4, 6, 0, 1, 2, 3)
-            .astype(">f8")
+            .astype(dtype)
             .tobytes()
         )
     else:
@@ -124,15 +136,15 @@ def readPropagator(filename: str, latt_info: LatticeInfo):
     with open(filename, "rb") as f:
         # kyu_binary_data = f.read(2 * Ns * Nc * Lt * Lz * Ly * Lx * 8)
         kyu_binary_data = f.read()
-    fermion_raw = fromPropagatorBuffer(kyu_binary_data, ">f8", latt_info)
+    propagator_raw = fromPropagatorBuffer(kyu_binary_data, ">f8", latt_info)
 
-    return LatticeFermion(latt_info, cb2(fermion_raw, [0, 1, 2, 3]))
+    return LatticePropagator(latt_info, cb2(propagator_raw, [0, 1, 2, 3]))
 
 
-def writePropagator(filename: str, fermion: LatticeFermion):
+def writePropagator(filename: str, propagator: LatticePropagator):
     filename = path.expanduser(path.expandvars(filename))
-    latt_info = fermion.latt_info
-    kyu_binary_data = toPropagatorBuffer(fermion.lexico(), latt_info)
+    latt_info = propagator.latt_info
+    kyu_binary_data = toPropagatorBuffer(propagator.lexico(), ">f8", latt_info)
     if latt_info.mpi_rank == 0:
         with open(filename, "wb") as f:
             f.write(kyu_binary_data)
