@@ -39,7 +39,7 @@ class HMC:
         return retval
 
     def updateGauge(self, dt: float):
-        updateGaugeFieldQuda(nullptr, nullptr, dt, False, False, self.gauge_param)
+        updateGaugeFieldQuda(nullptr, nullptr, dt, False, True, self.gauge_param)
         loadGaugeQuda(nullptr, self.gauge_param)
         self.new_gauge = True
 

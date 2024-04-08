@@ -189,7 +189,7 @@ def newQudaGaugeParam(
     gauge_param.gauge_fix = QudaGaugeFixed.QUDA_GAUGE_FIXED_NO
     gauge_param.ga_pad = lattice.ga_pad
 
-    gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_CHROMA
+    gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_MILC
     gauge_param.staggered_phase_applied = 0
 
     gauge_param.overwrite_gauge = 0
@@ -517,7 +517,7 @@ def loadFatLongGauge(fatlink: LatticeGauge, longlink: LatticeGauge, gauge_param:
     loadGaugeQuda(longlink.data_ptrs, gauge_param)
     gauge_param.type = QudaLinkType.QUDA_WILSON_LINKS
     gauge_param.ga_pad = gauge_param.ga_pad / 3
-    gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_CHROMA
+    gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_MILC
     gauge_param.use_resident_gauge = 1
 
 

@@ -18,6 +18,7 @@ from .pyquda import (
     computeHISQForceQuda,
     computeGaugeForceQuda,
     computeGaugeLoopTraceQuda,
+    staggeredPhaseQuda,
 )
 from .enum_quda import (
     QudaLinkType,
@@ -34,6 +35,9 @@ from .field import Nc, LatticeInfo, LatticeGauge, LatticeStaggeredFermion
 from .core import getHISQ
 
 nullptr = Pointers("void", 0)
+
+import numpy as np
+import cupy as cp
 
 
 class HMC:
@@ -55,11 +59,11 @@ class HMC:
         self.invert_param: QudaInvertParam = self.dirac.invert_param
 
         self.gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_MILC
-        self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
-        self.invert_param.solution_type = QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION
+        self.gauge_param.staggered_phase_applied = 1
+        self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
+        self.invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
         self.invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE  # This is set to compute action
         self.invert_param.verbosity = QudaVerbosity.QUDA_SILENT
-        self.invert_param.compute_action = 1
 
     def loadGauge(self, gauge: LatticeGauge):
         gauge_in = gauge.copy()
@@ -75,8 +79,19 @@ class HMC:
         if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
             gauge.setAntiPeroidicT()
 
+    def loadMom(self, mom: LatticeGauge):
+        momResidentQuda(mom.data_ptrs, self.gauge_param)
+
+    def saveMom(self, mom: LatticeGauge):
+        self.gauge_param.make_resident_mom = 0
+        self.gauge_param.return_result_mom = 1
+        momResidentQuda(mom.data_ptrs, self.gauge_param)
+        self.gauge_param.make_resident_mom = 1
+        self.gauge_param.return_result_mom = 0
+        momResidentQuda(mom.data_ptrs, self.gauge_param)
+
     def updateGaugeField(self, dt: float):
-        updateGaugeFieldQuda(nullptr, nullptr, dt, False, False, self.gauge_param)
+        updateGaugeFieldQuda(nullptr, nullptr, dt, False, True, self.gauge_param)
         loadGaugeQuda(nullptr, self.gauge_param)
         self.updated_fat_long = False
 
@@ -84,12 +99,13 @@ class HMC:
         gauge = LatticeGauge(self.latt_info)
         self.saveGauge(gauge)
 
-        ulink = LatticeGauge(gauge.latt_info)
+        ulink = gauge.copy()
         vlink = LatticeGauge(gauge.latt_info)
         wlink = LatticeGauge(gauge.latt_info)
 
         ulink.staggeredPhase()
         self.gauge_param.staggered_phase_applied = 1
+
         computeKSLinkQuda(
             vlink.data_ptrs,
             nullptr,
@@ -99,11 +115,9 @@ class HMC:
             self.gauge_param,
         )
 
-        self.loadGauge(gauge)
-
         return ulink, vlink, wlink
 
-    def computeFermionForce(self, dt, x: LatticeStaggeredFermion, kappa2, ck):
+    def computeFermionForce(self, dt, x: LatticeStaggeredFermion):
         self.updateFatLong()
         invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
         u, v, w = self.computeUVW()
@@ -118,7 +132,7 @@ class HMC:
             ndarrayPointer(x.even.reshape(1, -1), True),
             1,
             1,
-            ndarrayPointer(numpy.array([[1.0], [1.0]], "<f8")),
+            ndarrayPointer(numpy.array([[1, -1 / 24], [0, 0]], "<f8")),
             self.gauge_param,
         )
         self.gauge_param.staggered_phase_applied = 0
@@ -150,9 +164,6 @@ class HMC:
         self.gauge_param.reconstruct = reconstruct
         self.loadGauge(gauge)
 
-    def loadMom(self, mom: LatticeGauge):
-        momResidentQuda(mom.data_ptrs, self.gauge_param)
-
     def gaussMom(self, seed: int):
         gaussMomQuda(seed, 1.0)
 
@@ -174,8 +185,10 @@ class HMC:
 
     def actionFermion(self, x: LatticeStaggeredFermion) -> float:
         self.updateFatLong()
+        self.invert_param.compute_action = 1
         invertQuda(x.even_ptr, x.odd_ptr, self.invert_param)
-        return self.invert_param.action[0] - self.latt_info.volume_cb2 * Nc - 2 * self.invert_param.trlogA[1]
+        self.invert_param.compute_action = 0
+        return self.invert_param.action[0] - self.latt_info.volume_cb2 * Nc
 
     def plaquette(self):
         return plaqQuda()[0]

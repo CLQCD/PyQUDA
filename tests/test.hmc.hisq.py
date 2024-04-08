@@ -3,7 +3,7 @@ import cupy as cp
 
 from check_pyquda import test_dir
 
-from pyquda import init, quda
+from pyquda import init, setGPUID
 from pyquda.hmc_hisq import HMC
 from pyquda.field import Nc, LatticeInfo, LatticeStaggeredFermion, LatticeGauge
 
@@ -12,10 +12,12 @@ ensembles = {
     "B0": ([24, 24, 24, 24], 6),
     "C2": ([32, 32, 32, 32], 6.179),
     "D1": ([48, 48, 48, 48], 6.475),
+    "E1": ([4, 4, 4, 4], 6),
 }
 
-tag = "A1"
+tag = "E1"
 
+setGPUID(1)
 init(resource_path=".cache")
 latt_info = LatticeInfo(ensembles[tag][0], -1, 1.0)
 beta = ensembles[tag][1]
@@ -24,9 +26,7 @@ Lx, Ly, Lz, Lt = latt_info.size
 gauge = LatticeGauge(latt_info, None)
 
 mass = 4
-kappa = 1 / (2 * (mass + 4))
-csw = 1.0
-hmc = HMC(latt_info, mass, 1e-9, 1000, csw)
+hmc = HMC(latt_info, mass, 1e-9, 1000)
 hmc.loadGauge(gauge)
 hmc.loadMom(gauge)
 
@@ -158,22 +158,22 @@ for i in range(100):
 
     for step in range(steps):
         hmc.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeFermionForce(vartheta_ * dt, noise, -(kappa**2), -kappa * csw / 8)
+        hmc.computeFermionForce(vartheta_ * dt, noise)
         hmc.updateGaugeField(rho_ * dt)
         hmc.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeFermionForce(lambda_ * dt, noise, -(kappa**2), -kappa * csw / 8)
+        hmc.computeFermionForce(lambda_ * dt, noise)
         hmc.updateGaugeField(theta_ * dt)
         hmc.computeGaugeForce((0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeFermionForce((0.5 - (lambda_ + vartheta_)) * dt, noise, -(kappa**2), -kappa * csw / 8)
+        hmc.computeFermionForce((0.5 - (lambda_ + vartheta_)) * dt, noise)
         hmc.updateGaugeField((1.0 - 2 * (theta_ + rho_)) * dt)
         hmc.computeGaugeForce((0.5 - (lambda_ + vartheta_)) * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeFermionForce((0.5 - (lambda_ + vartheta_)) * dt, noise, -(kappa**2), -kappa * csw / 8)
+        hmc.computeFermionForce((0.5 - (lambda_ + vartheta_)) * dt, noise)
         hmc.updateGaugeField(theta_ * dt)
         hmc.computeGaugeForce(lambda_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeFermionForce(lambda_ * dt, noise, -(kappa**2), -kappa * csw / 8)
+        hmc.computeFermionForce(lambda_ * dt, noise)
         hmc.updateGaugeField(rho_ * dt)
         hmc.computeGaugeForce(vartheta_ * dt, force, flengths, fcoeffs, num_fpaths, max_length - 1)
-        hmc.computeFermionForce(vartheta_ * dt, noise, -(kappa**2), -kappa * csw / 8)
+        hmc.computeFermionForce(vartheta_ * dt, noise)
 
     hmc.reunitGaugeField(1e-15)
 
