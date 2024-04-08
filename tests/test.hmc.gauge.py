@@ -44,8 +44,7 @@ theta_ = -0.03230286765269967
 vartheta_ = 0.08398315262876693
 lambda_ = 0.6822365335719091
 
-plaquette = hmc.plaquette()
-print(f"\nplaquette = {plaquette}\n")
+print(f"\nplaquette = {hmc.plaquette()}\n")
 
 t = 1.0
 steps = 10
@@ -87,8 +86,6 @@ for i in range(2000):
     else:
         hmc.loadGauge(gauge)
 
-    plaquette = hmc.plaquette()
-
     print(
         f"Step {i}:\n"
         f"PE_old = {potential}, KE_old = {kinetic}\n"
@@ -97,6 +94,6 @@ for i in range(2000):
         f"Delta_E = {energy1 - energy}\n"
         f"accept rate = {min(1, np.exp(energy - energy1))*100:.2f}%\n"
         f"accept? {accept or not not warm}\n"
-        f"plaquette = {plaquette}\n"
+        f"plaquette = {hmc.plaquette()}\n"
         f"HMC time = {perf_counter() - s:.3f} secs\n"
     )

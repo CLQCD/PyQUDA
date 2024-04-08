@@ -3,16 +3,16 @@ from typing import List, Union
 from . import getCUDABackend
 from .pointer import Pointers
 from .pyquda import (
+    gaussGaugeQuda,
     gaussMomQuda,
     loadGaugeQuda,
     momActionQuda,
     momResidentQuda,
     plaqQuda,
-    projectSU3Quda,
     saveGaugeQuda,
     updateGaugeFieldQuda,
 )
-from .enum_quda import QudaReconstructType, QudaTboundary
+from .enum_quda import QudaTboundary
 from .field import Nc, Ns, LatticeInfo, LatticeGauge, LatticeFermion
 from .dirac.wilson import Wilson
 from .action import FermionAction, GaugeAction
@@ -98,25 +98,28 @@ class HMC:
         if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
             gauge.setAntiPeroidicT()
 
+    def gaussGauge(self, seed: int):
+        gaussGaugeQuda(seed, 1.0)
+
     def loadMom(self, mom: LatticeGauge):
         momResidentQuda(mom.data_ptrs, self.gauge_param)
 
-    def reunitGauge(self, tol: float):
-        gauge = LatticeGauge(self.latt_info, None)
-        t_boundary = self.gauge_param.t_boundary
-        reconstruct = self.gauge_param.reconstruct
-        self.saveGauge(gauge)
-        self.gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
-        self.gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
-        self.loadGauge(gauge)
-        projectSU3Quda(nullptr, tol, self.gauge_param)
-        self.saveGauge(gauge)
-        self.gauge_param.t_boundary = t_boundary
-        self.gauge_param.reconstruct = reconstruct
-        self.loadGauge(gauge)
+    def saveMom(self, mom: LatticeGauge):
+        self.gauge_param.make_resident_mom = 0
+        self.gauge_param.return_result_mom = 1
+        momResidentQuda(mom.data_ptrs, self.gauge_param)
+        self.gauge_param.make_resident_mom = 1
+        self.gauge_param.return_result_mom = 0
+        momResidentQuda(mom.data_ptrs, self.gauge_param)  # keep momResident
 
     def gaussMom(self, seed: int):
         gaussMomQuda(seed, 1.0)
+
+    def reunitGauge(self, tol: float):
+        gauge = LatticeGauge(self.latt_info)
+        self.saveGauge(gauge)
+        gauge.projectSU3(tol)
+        self.loadGauge(gauge)
 
     def plaquette(self):
         return plaqQuda()[0]
