@@ -8,7 +8,6 @@ from ..pyquda import (
     loadCloverQuda,
     loadGaugeQuda,
     invertQuda,
-    invertMultiShiftQuda,
     MatQuda,
     MatDagMatQuda,
     dslashQuda,
@@ -20,7 +19,6 @@ from ..field import (
     LatticeClover,
     LatticeFermion,
     LatticeStaggeredFermion,
-    MultiLatticeFermion,
 )
 from ..enum_quda import QUDA_MAX_DIM, QUDA_MAX_MULTI_SHIFT, QUDA_MAX_MG_LEVEL
 from ..enum_quda import (  # noqa: F401
@@ -523,8 +521,8 @@ def loadFatLongGauge(fatlink: LatticeGauge, longlink: LatticeGauge, gauge_param:
     gauge_param.use_resident_gauge = 1
 
 
-def performance(invert_param: QudaInvertParam):
-    if invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
+def performance(latt_info: LatticeInfo, invert_param: QudaInvertParam):
+    if latt_info.mpi_rank == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
         print(
             "PyQUDA: "
             f"Time = {invert_param.secs:.3f} secs, "
@@ -533,72 +531,40 @@ def performance(invert_param: QudaInvertParam):
 
 
 def invert(b: LatticeFermion, invert_param: QudaInvertParam):
-    latt_info = b.latt_info
-    x = LatticeFermion(latt_info)
-
+    x = LatticeFermion(b.latt_info)
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    if latt_info.mpi_rank == 0:
-        performance(invert_param)
-
+    performance(b.latt_info, invert_param)
     return x
 
 
-def invertMultiShift(b: LatticeFermion, invert_param: QudaInvertParam, residue: List[float], offset: List[float]):
-    num_offset = len(offset)
-    invert_param.num_offset = num_offset
-    invert_param.offset = offset + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
-    invert_param.residue = residue + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
-
-    latt_info = b.latt_info
-    x = MultiLatticeFermion(latt_info, num_offset)
-
-    invertMultiShiftQuda(x.data_ptrs, b.data_ptr, invert_param)
-
-
 def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
-    latt_info = b.latt_info
-    x = LatticeStaggeredFermion(latt_info)
-
+    x = LatticeStaggeredFermion(b.latt_info)
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    if latt_info.mpi_rank == 0:
-        performance(invert_param)
-
+    performance(b.latt_info, invert_param)
     return x
 
 
 def mat(x: LatticeFermion, invert_param: QudaInvertParam):
-    latt_info = x.latt_info
-    b = LatticeFermion(latt_info)
-
+    b = LatticeFermion(x.latt_info)
     MatQuda(b.data_ptr, x.data_ptr, invert_param)
-
     return b
 
 
 def matStaggered(x: LatticeStaggeredFermion, invert_param: QudaInvertParam):
-    latt_info = x.latt_info
-    b = LatticeStaggeredFermion(latt_info)
-
+    b = LatticeStaggeredFermion(x.latt_info)
     MatQuda(b.data_ptr, x.data_ptr, invert_param)
-
     return b
 
 
 def matDagMat(x: LatticeFermion, invert_param: QudaInvertParam):
-    latt_info = x.latt_info
-    b = LatticeFermion(latt_info)
-
+    b = LatticeFermion(x.latt_info)
     MatDagMatQuda(b.data_ptr, x.data_ptr, invert_param)
-
     return b
 
 
 def matDagMatStaggered(x: LatticeStaggeredFermion, invert_param: QudaInvertParam):
-    latt_info = x.latt_info
-    b = LatticeStaggeredFermion(latt_info)
-
+    b = LatticeStaggeredFermion(x.latt_info)
     MatDagMatQuda(b.data_ptr, x.data_ptr, invert_param)
-
     return b
 
 

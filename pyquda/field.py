@@ -590,6 +590,28 @@ class LatticeStaggeredFermion(LatticeField):
         return lexico(self.getHost(), [0, 1, 2, 3, 4])
 
 
+class MultiLatticeStaggeredFermion(MultiLatticeField):
+    def __init__(self, latt_info: LatticeInfo, L5: int, value=None) -> None:
+        super().__init__(latt_info, L5)
+        Lx, Ly, Lz, Lt = latt_info.size
+        if value is None:
+            self.setData(newMultiLatticeFieldData(latt_info, L5, "StaggeredFermion"))
+        else:
+            self.setData(value.reshape(L5, 2, Lt, Lz, Ly, Lx // 2, Nc))
+
+    @property
+    def data_ptrs(self) -> Pointers:
+        return ndarrayPointer(self.data.reshape(self.L5, -1), True)
+
+    @property
+    def even_ptrs(self) -> Pointers:
+        return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[:, 0], True)
+
+    @property
+    def odd_ptrs(self) -> Pointers:
+        return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[:, 1], True)
+
+
 class LatticeStaggeredPropagator(LatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info)
