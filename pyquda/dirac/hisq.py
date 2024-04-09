@@ -25,12 +25,13 @@ class HISQ(StaggeredDirac):
         super().__init__(latt_info)
         # Using half with multigrid doesn't work
         if geo_block_size is not None:
-            self.precision.sloppy = max(self.precision.sloppy, QudaPrecision.QUDA_SINGLE_PRECISION)
-        if True:
-            self.reconstruct.cuda = max(self.reconstruct.cuda, QudaReconstructType.QUDA_RECONSTRUCT_NO)
-            self.reconstruct.sloppy = max(self.reconstruct.sloppy, QudaReconstructType.QUDA_RECONSTRUCT_NO)
-            self.reconstruct.precondition = max(self.reconstruct.precondition, QudaReconstructType.QUDA_RECONSTRUCT_NO)
-            self.reconstruct.eigensolver = max(self.reconstruct.eigensolver, QudaReconstructType.QUDA_RECONSTRUCT_NO)
+            self._setPrecision(sloppy=max(self.precision.sloppy, QudaPrecision.QUDA_SINGLE_PRECISION))
+        self._setReconstruct(
+            cuda=max(self.reconstruct.cuda, QudaReconstructType.QUDA_RECONSTRUCT_NO),
+            sloppy=max(self.reconstruct.sloppy, QudaReconstructType.QUDA_RECONSTRUCT_NO),
+            precondition=max(self.reconstruct.precondition, QudaReconstructType.QUDA_RECONSTRUCT_NO),
+            eigensolver=max(self.reconstruct.eigensolver, QudaReconstructType.QUDA_RECONSTRUCT_NO),
+        )
         self.mg_instance = None
         self.newCoeff(tadpole_coeff)
         self.newQudaGaugeParam(tadpole_coeff, naik_epsilon)

@@ -24,11 +24,12 @@ class PureGauge(Gauge):
     def __init__(self, latt_info: LatticeInfo) -> None:
         super().__init__(latt_info)
         # Use QUDA_RECONSTRUCT_NO to ensure slight deviations from SU(3) can be preserved
-        if True:
-            self.reconstruct.cuda = max(self.reconstruct.cuda, QudaReconstructType.QUDA_RECONSTRUCT_NO)
-            self.reconstruct.sloppy = max(self.reconstruct.sloppy, QudaReconstructType.QUDA_RECONSTRUCT_NO)
-            self.reconstruct.precondition = max(self.reconstruct.precondition, QudaReconstructType.QUDA_RECONSTRUCT_NO)
-            self.reconstruct.eigensolver = max(self.reconstruct.eigensolver, QudaReconstructType.QUDA_RECONSTRUCT_NO)
+        self._setReconstruct(
+            cuda=max(self.reconstruct.cuda, QudaReconstructType.QUDA_RECONSTRUCT_NO),
+            sloppy=max(self.reconstruct.sloppy, QudaReconstructType.QUDA_RECONSTRUCT_NO),
+            precondition=max(self.reconstruct.precondition, QudaReconstructType.QUDA_RECONSTRUCT_NO),
+            eigensolver=max(self.reconstruct.eigensolver, QudaReconstructType.QUDA_RECONSTRUCT_NO),
+        )
         self.newQudaGaugeParam()
         self.newQudaGaugeSmearParam()
         self.newQudaGaugeObservableParam()

@@ -20,8 +20,10 @@ from ..field import (
     LatticeFermion,
     LatticeStaggeredFermion,
 )
-from ..enum_quda import QUDA_MAX_DIM, QUDA_MAX_MULTI_SHIFT, QUDA_MAX_MG_LEVEL
 from ..enum_quda import (  # noqa: F401
+    QUDA_MAX_DIM,
+    QUDA_MAX_MULTI_SHIFT,
+    QUDA_MAX_MG_LEVEL,
     QudaMemoryType,
     QudaLinkType,
     QudaGaugeFieldOrder,
@@ -87,6 +89,8 @@ from ..enum_quda import (  # noqa: F401
 nullptr = Pointer("void")
 nullptrs = Pointers("void", 0)
 
+from . import Precision, Reconstruct
+
 
 def _fieldLocation():
     from .. import getCUDABackend
@@ -113,35 +117,6 @@ _cuda_prec_precondition: QudaPrecision = QudaPrecision.QUDA_HALF_PRECISION
 _cuda_prec_eigensolver: QudaPrecision = QudaPrecision.QUDA_DOUBLE_PRECISION
 _link_recon: QudaReconstructType = QudaReconstructType.QUDA_RECONSTRUCT_12
 _link_recon_sloppy: QudaReconstructType = QudaReconstructType.QUDA_RECONSTRUCT_12
-
-
-class Precision:
-    def __init__(
-        self,
-        cuda: QudaPrecision = _cuda_prec,
-        sloppy: QudaPrecision = _cuda_prec_sloppy,
-        precondition: QudaPrecision = _cuda_prec_precondition,
-        eigensolver: QudaPrecision = _cuda_prec_eigensolver,
-    ):
-        self.cpu = _cpu_prec
-        self.cuda = cuda
-        self.sloppy = sloppy
-        self.precondition = precondition
-        self.eigensolver = eigensolver
-
-
-class Reconstruct:
-    def __init__(
-        self,
-        cuda: QudaReconstructType = _link_recon,
-        sloppy: QudaReconstructType = _link_recon_sloppy,
-        precondition: QudaReconstructType = _link_recon_sloppy,
-        eigensolver: QudaReconstructType = _link_recon_sloppy,
-    ):
-        self.cuda = cuda
-        self.sloppy = sloppy
-        self.precondition = precondition
-        self.eigensolver = eigensolver
 
 
 def newQudaGaugeParam(

@@ -22,7 +22,7 @@ class CloverWilson(Dirac):
         super().__init__(latt_info)
         # Using half with multigrid doesn't work
         if geo_block_size is not None:
-            self.precision.sloppy = max(self.precision.sloppy, QudaPrecision.QUDA_SINGLE_PRECISION)
+            self._setPrecision(sloppy=max(self.precision.sloppy, QudaPrecision.QUDA_SINGLE_PRECISION))
         self.mg_instance = None
         self.newQudaGaugeParam()
         self.newQudaMultigridParam(geo_block_size, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
