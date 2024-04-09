@@ -6,6 +6,7 @@ from ..pyquda import (
     gaussGaugeQuda,
     loadGaugeQuda,
     saveGaugeQuda,
+    freeUniqueGaugeQuda,
     staggeredPhaseQuda,
     performGaugeSmearQuda,
     gaugeObservablesQuda,
@@ -52,10 +53,16 @@ class PureGauge(Gauge):
     def saveGauge(self, gauge: LatticeGauge):
         saveGaugeQuda(gauge.data_ptrs, self.gauge_param)
 
+    def freeGauge(self):
+        freeUniqueGaugeQuda(QudaLinkType.QUDA_WILSON_LINKS)
+
     def saveSmearedGauge(self, gauge: LatticeGauge):
         self.gauge_param.type = QudaLinkType.QUDA_SMEARED_LINKS
         saveGaugeQuda(gauge.data_ptrs, self.gauge_param)
         self.gauge_param.type = QudaLinkType.QUDA_WILSON_LINKS
+
+    def freeSmearedGauge(self):
+        freeUniqueGaugeQuda(QudaLinkType.QUDA_SMEARED_LINKS)
 
     def staggeredPhase(self, gauge: LatticeGauge):
         self.gauge_param.use_resident_gauge = 0

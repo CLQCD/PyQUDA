@@ -327,38 +327,52 @@ class LatticeGauge(LatticeField):
         self.pure_gauge.loadGauge(self)
         self.pure_gauge.smearAPE(n_steps, alpha, dir_ignore)
         self.pure_gauge.saveSmearedGauge(self)
+        self.pure_gauge.freeGauge()
+        self.pure_gauge.freeSmearedGauge()
 
     def smearSTOUT(self, n_steps: int, rho: float, dir_ignore: int):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
         self.pure_gauge.smearSTOUT(n_steps, rho, dir_ignore)
         self.pure_gauge.saveSmearedGauge(self)
+        self.pure_gauge.freeGauge()
+        self.pure_gauge.freeSmearedGauge()
 
     def smearHYP(self, n_steps: int, alpha1: float, alpha2: float, alpha3: float, dir_ignore: int):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
         self.pure_gauge.smearHYP(n_steps, alpha1, alpha2, alpha3, dir_ignore)
         self.pure_gauge.saveSmearedGauge(self)
+        self.pure_gauge.freeGauge()
+        self.pure_gauge.freeSmearedGauge()
 
     def plaquette(self):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
-        return self.pure_gauge.plaquette()
+        retval = self.pure_gauge.plaquette()
+        self.pure_gauge.freeGauge()
+        return retval
 
     def polyakovLoop(self):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
-        return self.pure_gauge.polyakovLoop()
+        retval = self.pure_gauge.polyakovLoop()
+        self.pure_gauge.freeGauge()
+        return retval
 
     def energy(self):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
-        return self.pure_gauge.energy()
+        retval = self.pure_gauge.energy()
+        self.pure_gauge.freeGauge()
+        return retval
 
     def qcharge(self):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
-        return self.pure_gauge.qcharge()
+        retval = self.pure_gauge.qcharge()
+        self.pure_gauge.freeGauge()
+        return retval
 
     def gauss(self, seed: int, sigma: float):
         """
@@ -378,6 +392,7 @@ class LatticeGauge(LatticeField):
         self.pure_gauge.loadGauge(self)
         self.pure_gauge.gauss(seed, sigma)
         self.pure_gauge.saveGauge(self)
+        self.pure_gauge.freeGauge()
 
     def fixingOVR(
         self,
