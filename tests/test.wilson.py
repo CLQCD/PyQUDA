@@ -11,7 +11,7 @@ mass = 1 / (2 * kappa) - 4
 
 init([1, 1, 1, 1], [4, 4, 4, 8], -1, xi_0 / nu, resource_path=".cache")
 
-dslash = core.getDefaultDirac(mass, 1e-12, 1000, xi_0, multigrid=False)
+dslash = core.getDefaultDirac(mass, 1e-12, 1000)
 gauge = io.readQIOGauge(weak_field)
 
 dslash.loadGauge(gauge)

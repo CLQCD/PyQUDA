@@ -5,7 +5,6 @@ from check_pyquda import weak_field, chroma
 from pyquda import core, init
 from pyquda.utils import io
 
-
 xi_0, nu = 2.464, 0.95
 kappa = 0.115
 mass = 1 / (2 * kappa) - 4

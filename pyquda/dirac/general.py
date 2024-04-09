@@ -574,28 +574,23 @@ def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
 
     latt_info = b.latt_info
     x = LatticeFermion(latt_info)
-    tmp = LatticeFermion(latt_info)
 
-    # dslashQuda(x.odd_ptr, b.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
-    # x.even = b.odd + kappa * x.odd
-    # invertQuda(x.odd_ptr, x.even_ptr, invert_param)
-    # dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
-    # x.even = kappa * (2 * b.even + x.even)
-
-    cloverQuda(tmp.even_ptr, b.even_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY, 1)
-    cloverQuda(tmp.odd_ptr, b.odd_ptr, invert_param, QudaParity.QUDA_ODD_PARITY, 1)
-    dslashQuda(x.odd_ptr, tmp.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
-    x.even = tmp.odd + kappa * x.odd
+    dslashQuda(x.odd_ptr, b.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
+    x.even = b.odd + kappa * x.odd
     # * QUDA_ASYMMETRIC_MASS_NORMALIZATION makes the even part 1 / (2 * kappa) instead of 1
     invertQuda(x.odd_ptr, x.even_ptr, invert_param)
-    if latt_info.mpi_rank == 0:
-        performance(invert_param)
+    performance(b.latt_info, invert_param)
     dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
-    x.even = kappa * (2 * tmp.even + x.even)
-
-    tmp = None
+    x.even = kappa * (2 * b.even + x.even)
 
     return x
+
+
+def invertCloverPC(b: LatticeFermion, invert_param: QudaInvertParam):
+    tmp = LatticeFermion(b.latt_info)
+    cloverQuda(tmp.even_ptr, b.even_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY, 1)
+    cloverQuda(tmp.odd_ptr, b.odd_ptr, invert_param, QudaParity.QUDA_ODD_PARITY, 1)
+    return invertPC(tmp, invert_param)
 
 
 def invertStaggeredPC(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
