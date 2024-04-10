@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import Any, List, Literal
 
 import numpy
 
@@ -321,6 +321,15 @@ class LatticeGauge(LatticeField):
     def projectSU3(self, tol: float):
         self.ensurePureGauge()
         self.pure_gauge.projectSU3(self, tol)
+
+    def path(
+        self,
+        input_path_buf: numpy.ndarray[Any, int],
+        path_length: numpy.ndarray[Any, int],
+        loop_coeff: numpy.ndarray[Any, float],
+    ):
+        self.ensurePureGauge()
+        self.pure_gauge.path(self, input_path_buf, path_length, loop_coeff)
 
     def smearAPE(self, n_steps: int, alpha: float, dir_ignore: int):
         self.ensurePureGauge()

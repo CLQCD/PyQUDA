@@ -1,8 +1,12 @@
-from typing import Literal
+from typing import Any, Literal
 
+import numpy
+
+from ..pointer import ndarrayPointer
 from ..pyquda import (
     QudaGaugeSmearParam,
     QudaGaugeObservableParam,
+    computeGaugePathQuda,
     gaussGaugeQuda,
     loadGaugeQuda,
     saveGaugeQuda,
@@ -83,6 +87,31 @@ class PureGauge(Gauge):
         self.gauge_param.use_resident_gauge = 1
         self.gauge_param.make_resident_gauge = 1
         self.gauge_param.return_result_gauge = 0
+
+    def path(
+        self,
+        gauge: LatticeGauge,
+        input_path_buf: numpy.ndarray[Any, int],
+        path_length: numpy.ndarray[Any, int],
+        loop_coeff: numpy.ndarray[Any, float],
+    ):
+        self.gauge_param.overwrite_gauge = 1
+        self.gauge_param.use_resident_gauge = 0
+        self.gauge_param.make_resident_gauge = 0
+        computeGaugePathQuda(
+            gauge.data_ptrs,
+            gauge.data_ptrs,
+            ndarrayPointer(numpy.ascontiguousarray(input_path_buf)),
+            ndarrayPointer(numpy.ascontiguousarray(path_length)),
+            ndarrayPointer(numpy.ascontiguousarray(loop_coeff)),
+            input_path_buf.shape[1],
+            input_path_buf.shape[2],
+            1.0,
+            self.gauge_param,
+        )
+        self.gauge_param.overwrite_gauge = 0
+        self.gauge_param.use_resident_gauge = 1
+        self.gauge_param.make_resident_gauge = 1
 
     def smearAPE(self, n_steps: int, alpha: float, dir_ignore: int):
         dimAPE = 3 if dir_ignore >= 0 and dir_ignore <= 3 else 4

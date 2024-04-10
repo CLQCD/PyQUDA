@@ -1615,8 +1615,8 @@ def computeGaugeLoopTraceQuda(
 
     @param[in,out] traces:
         The computed traces
-    @param[in] sitelink:
-        The gauge field from which we compute the products of gauge links
+    @param[in] input_path_buf:
+        [num_paths][path_length]
     @param[in] path_length:
         The number of links in each loop
     @param[in] loop_coeff:
