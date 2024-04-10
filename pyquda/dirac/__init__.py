@@ -36,7 +36,7 @@ _precision = Precision(
     QudaPrecision.QUDA_DOUBLE_PRECISION,
     QudaPrecision.QUDA_HALF_PRECISION,
     QudaPrecision.QUDA_HALF_PRECISION,
-    QudaPrecision.QUDA_DOUBLE_PRECISION,
+    QudaPrecision.QUDA_SINGLE_PRECISION,
 )
 _reconstruct = Reconstruct(
     QudaReconstructType.QUDA_RECONSTRUCT_12,
