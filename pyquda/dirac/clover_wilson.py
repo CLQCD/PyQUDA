@@ -15,7 +15,7 @@ class CloverWilson(Dirac):
         kappa: float,
         tol: float,
         maxiter: int,
-        clover_coeff: float = 0.0,
+        clover_csw: float = 0.0,
         clover_xi: float = 1.0,
         geo_block_size: List[List[int]] = None,
     ) -> None:
@@ -26,7 +26,7 @@ class CloverWilson(Dirac):
         self.mg_instance = None
         self.newQudaGaugeParam()
         self.newQudaMultigridParam(geo_block_size, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
-        self.newQudaInvertParam(mass, kappa, tol, maxiter, clover_coeff, clover_xi)
+        self.newQudaInvertParam(mass, kappa, tol, maxiter, clover_csw, clover_xi)
 
     def newQudaGaugeParam(self):
         gauge_param = general.newQudaGaugeParam(self.latt_info, 1.0, 0.0, self.precision, self.reconstruct)
@@ -66,10 +66,10 @@ class CloverWilson(Dirac):
         self.clover_inv: LatticeClover = None
 
     def newQudaInvertParam(
-        self, mass: float, kappa: float, tol: float, maxiter: int, clover_coeff: float, clover_xi: float
+        self, mass: float, kappa: float, tol: float, maxiter: int, clover_csw: float, clover_xi: float
     ):
         invert_param = general.newQudaInvertParam(
-            mass, kappa, tol, maxiter, kappa * clover_coeff, clover_xi, self.mg_param, self.precision
+            mass, kappa, tol, maxiter, kappa * clover_csw, clover_xi, self.mg_param, self.precision
         )
         invert_param.dslash_type = QudaDslashType.QUDA_CLOVER_WILSON_DSLASH
         if self.mg_param is not None:

@@ -85,10 +85,10 @@ def getDslash(
     xi = xi_0 / nu
     kappa = 1 / (2 * (mass + 1 + (Nd - 1) / xi))
     if xi != 1.0:
-        clover_coeff = xi_0 * clover_coeff_t**2 / clover_coeff_r
+        clover_csw = xi_0 * clover_coeff_t**2 / clover_coeff_r
         clover_xi = (xi_0 * clover_coeff_t / clover_coeff_r) ** 0.5
     else:
-        clover_coeff = clover_coeff_t
+        clover_csw = clover_coeff_t
         clover_xi = 1.0
     if anti_periodic_t:
         t_boundary = -1
@@ -103,10 +103,10 @@ def getDslash(
             geo_block_size = multigrid
     latt_info = LatticeInfo([Lx, Ly, Lz, Lt], t_boundary, xi)
 
-    if clover_coeff != 0.0:
+    if clover_csw != 0.0:
         from .dirac.clover_wilson import CloverWilson
 
-        return CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_coeff, clover_xi, geo_block_size)
+        return CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_csw, clover_xi, geo_block_size)
     else:
         from .dirac.wilson import Wilson
 

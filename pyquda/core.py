@@ -182,10 +182,10 @@ def getDirac(
     xi = latt_info.anisotropy
     kappa = 1 / (2 * (mass + 1 + (Nd - 1) / xi))
     if xi != 1.0:
-        clover_coeff = xi_0 * clover_coeff_t**2 / clover_coeff_r
+        clover_csw = xi_0 * clover_coeff_t**2 / clover_coeff_r
         clover_xi = (xi_0 * clover_coeff_t / clover_coeff_r) ** 0.5
     else:
-        clover_coeff = clover_coeff_t
+        clover_csw = clover_coeff_t
         clover_xi = 1.0
     if not multigrid:
         geo_block_size = None
@@ -195,10 +195,10 @@ def getDirac(
         else:
             geo_block_size = multigrid
 
-    if clover_coeff != 0.0:
+    if clover_csw != 0.0:
         from .dirac.clover_wilson import CloverWilson
 
-        return CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_coeff, clover_xi, geo_block_size)
+        return CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_csw, clover_xi, geo_block_size)
     else:
         from .dirac.wilson import Wilson
 
@@ -219,14 +219,6 @@ def getStaggeredDirac(
     from .dirac.hisq import HISQ
 
     return HISQ(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, None)
-
-
-def getPureGauge(
-    latt_info: LatticeInfo,
-):
-    from .dirac.pure_gauge import PureGauge
-
-    return PureGauge(latt_info)
 
 
 def getWilson(
@@ -257,18 +249,18 @@ def getClover(
     tol: float,
     maxiter: int,
     xi_0: float = 1.0,
-    clover_coeff_t: float = 0.0,
-    clover_coeff_r: float = 1.0,
+    clover_csw_t: float = 0.0,
+    clover_csw_r: float = 1.0,
     multigrid: List[List[int]] = None,
 ):
-    assert clover_coeff_t != 0.0
+    assert clover_csw_t != 0.0
     xi = latt_info.anisotropy
     kappa = 1 / (2 * (mass + 1 + (Nd - 1) / xi))
     if xi != 1.0:
-        clover_coeff = xi_0 * clover_coeff_t**2 / clover_coeff_r
-        clover_xi = (xi_0 * clover_coeff_t / clover_coeff_r) ** 0.5
+        clover_csw = xi_0 * clover_csw_t**2 / clover_csw_r
+        clover_xi = (xi_0 * clover_csw_t / clover_csw_r) ** 0.5
     else:
-        clover_coeff = clover_coeff_t
+        clover_csw = clover_csw_t
         clover_xi = 1.0
     if not multigrid:
         geo_block_size = None
@@ -280,7 +272,7 @@ def getClover(
 
     from .dirac.clover_wilson import CloverWilson
 
-    return CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_coeff, clover_xi, geo_block_size)
+    return CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_csw, clover_xi, geo_block_size)
 
 
 def getHISQ(
@@ -297,18 +289,6 @@ def getHISQ(
     from .dirac.hisq import HISQ
 
     return HISQ(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, None)
-
-
-def getLaplace(
-    latt_info: LatticeInfo,
-    laplace3D: int,
-):
-    assert latt_info.t_boundary == 1
-    assert latt_info.anisotropy == 1.0
-
-    from .dirac.laplace import Laplace
-
-    return Laplace(latt_info, laplace3D)
 
 
 def getDefaultDirac(
