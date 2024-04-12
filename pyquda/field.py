@@ -314,6 +314,22 @@ class LatticeGauge(LatticeField):
 
             self.pure_gauge = PureGauge(self.latt_info)
 
+    def loadCovDev(self):
+        self.ensurePureGauge()
+        self.pure_gauge.setCovDev()
+        self.pure_gauge.loadGauge(self)
+
+    def covDev(self, x: "LatticeFermion", covdev_mu: int) -> "LatticeFermion":
+        return self.pure_gauge.covDev(x, covdev_mu)
+
+    def loadLaplace(self, laplace3D: int):
+        self.ensurePureGauge()
+        self.pure_gauge.setLaplace(laplace3D)
+        self.pure_gauge.loadGauge(self)
+
+    def laplace(self, x: "LatticeStaggeredFermion") -> "LatticeStaggeredFermion":
+        return self.pure_gauge.laplace(x)
+
     def staggeredPhase(self):
         self.ensurePureGauge()
         self.pure_gauge.staggeredPhase(self)

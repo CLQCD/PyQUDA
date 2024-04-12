@@ -6,6 +6,7 @@ from ..pointer import ndarrayPointer
 from ..pyquda import (
     QudaGaugeSmearParam,
     QudaGaugeObservableParam,
+    MatQuda,
     computeGaugePathQuda,
     gaussGaugeQuda,
     loadGaugeQuda,
@@ -18,8 +19,16 @@ from ..pyquda import (
     computeGaugeFixingOVRQuda,
     computeGaugeFixingFFTQuda,
 )
-from ..field import LatticeInfo, LatticeGauge
-from ..enum_quda import QudaBoolean, QudaGaugeSmearType, QudaLinkType, QudaReconstructType
+from ..field import LatticeInfo, LatticeGauge, LatticeFermion, LatticeStaggeredFermion
+from ..enum_quda import (
+    QudaBoolean,
+    QudaDslashType,
+    QudaGaugeSmearType,
+    QudaLinkType,
+    QudaMassNormalization,
+    QudaReconstructType,
+    QudaSolveType,
+)
 
 from . import Gauge, general
 
@@ -35,12 +44,19 @@ class PureGauge(Gauge):
             eigensolver=max(self.reconstruct.eigensolver, QudaReconstructType.QUDA_RECONSTRUCT_NO),
         )
         self.newQudaGaugeParam()
+        self.newQudaInvertParam()
         self.newQudaGaugeSmearParam()
         self.newQudaGaugeObservableParam()
 
     def newQudaGaugeParam(self):
         gauge_param = general.newQudaGaugeParam(self.latt_info, 1.0, 0.0, self.precision, self.reconstruct)
         self.gauge_param = gauge_param
+
+    def newQudaInvertParam(self):
+        invert_param = general.newQudaInvertParam(0, 1 / 8, 0, 0, 0.0, 1.0, None, self.precision)
+        invert_param.solve_type = QudaSolveType.QUDA_DIRECT_SOLVE
+        invert_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
+        self.invert_param = invert_param
 
     def newQudaGaugeSmearParam(self):
         smear_param = QudaGaugeSmearParam()
@@ -68,6 +84,29 @@ class PureGauge(Gauge):
 
     def freeSmearedGauge(self):
         freeUniqueGaugeQuda(QudaLinkType.QUDA_SMEARED_LINKS)
+
+    def setCovDev(self):
+        self.invert_param.dslash_type = QudaDslashType.QUDA_COVDEV_DSLASH
+        self.invert_param.mass = -3
+        self.invert_param.kappa = 1 / 2
+
+    def covDev(self, x: LatticeFermion, covdev_mu: int):
+        b = LatticeFermion(x.latt_info)
+        self.invert_param.covdev_mu = covdev_mu
+        MatQuda(b.data_ptr, x.data_ptr, self.invert_param)
+        return b
+
+    def setLaplace(self, laplace3D: int):
+        laplaceDim = 3 if laplace3D in [0, 1, 2, 3] else 4
+        self.invert_param.dslash_type = QudaDslashType.QUDA_LAPLACE_DSLASH
+        self.invert_param.mass = laplaceDim - 4
+        self.invert_param.kappa = 1 / (2 * laplaceDim)
+        self.invert_param.laplace3D = laplace3D
+
+    def laplace(self, x: LatticeStaggeredFermion):
+        b = LatticeStaggeredFermion(x.latt_info)
+        MatQuda(b.data_ptr, x.data_ptr, self.invert_param)
+        return b
 
     def staggeredPhase(self, gauge: LatticeGauge):
         self.gauge_param.use_resident_gauge = 0

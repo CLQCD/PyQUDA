@@ -4,7 +4,6 @@ import cupy as cp
 from check_pyquda import weak_field
 
 from pyquda import init, core
-from pyquda.enum_quda import QudaDslashType
 from pyquda.utils import io, source
 
 init([1, 1, 1, 1], [4, 4, 4, 8], 1, 1.0, resource_path=".cache")
@@ -24,14 +23,11 @@ def covdev(U, x, mu):
 
 
 gauge = io.readQIOGauge(weak_field)
-dirac = core.getDefaultDirac(-3, 0, 0)
-dirac.invert_param.dslash_type = QudaDslashType.QUDA_COVDEV_DSLASH
-dirac.loadGauge(gauge)
+gauge.loadCovDev()
 
 for covdev_mu in range(8):
-    dirac.invert_param.covdev_mu = covdev_mu
     x = source.wall(latt_info, 0, 0, 0)
-    b = dirac.mat(x)
+    b = gauge.covDev(x, covdev_mu)
     covdev(gauge, x, covdev_mu)
 
     print(covdev_mu, cp.linalg.norm(x.data - b.data))

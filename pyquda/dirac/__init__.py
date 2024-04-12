@@ -84,6 +84,7 @@ class Gauge(ABC):
     precision: Precision
     reconstruct: Reconstruct
     gauge_param: QudaGaugeParam
+    invert_param: QudaInvertParam
     smear_param: QudaGaugeSmearParam
     obs_param: QudaGaugeObservableParam
 
@@ -129,7 +130,6 @@ class Gauge(ABC):
 
 
 class Dirac(Gauge):
-    invert_param: QudaInvertParam
     mg_param: QudaMultigridParam
     mg_inv_param: QudaInvertParam
     mg_instance: Pointer
