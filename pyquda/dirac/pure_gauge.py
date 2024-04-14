@@ -10,6 +10,7 @@ from ..pyquda import (
     computeGaugePathQuda,
     gaussGaugeQuda,
     loadGaugeQuda,
+    performWFlowQuda,
     saveGaugeQuda,
     freeUniqueGaugeQuda,
     staggeredPhaseQuda,
@@ -153,36 +154,62 @@ class PureGauge(Gauge):
         self.gauge_param.make_resident_gauge = 1
 
     def smearAPE(self, n_steps: int, alpha: float, dir_ignore: int):
-        dimAPE = 3 if dir_ignore >= 0 and dir_ignore <= 3 else 4
+        self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_APE
         self.smear_param.n_steps = n_steps
+        dimAPE = 3 if dir_ignore >= 0 and dir_ignore <= 3 else 4
         self.smear_param.alpha = (dimAPE - 1) / (dimAPE - 1 + alpha / 2)  # Match with chroma
         self.smear_param.meas_interval = n_steps + 1
-        self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_APE
         self.smear_param.dir_ignore = dir_ignore
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_TRUE
         performGaugeSmearQuda(self.smear_param, self.obs_param)
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
 
     def smearSTOUT(self, n_steps: int, rho: float, dir_ignore: int):
+        self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_STOUT
         self.smear_param.n_steps = n_steps
         self.smear_param.rho = rho
         self.smear_param.meas_interval = n_steps + 1
-        self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_STOUT
         self.smear_param.dir_ignore = dir_ignore
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_TRUE
         performGaugeSmearQuda(self.smear_param, self.obs_param)
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
 
     def smearHYP(self, n_steps: int, alpha1: float, alpha2: float, alpha3: float, dir_ignore: int):
+        self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_HYP
         self.smear_param.n_steps = n_steps
         self.smear_param.alpha1 = alpha1
         self.smear_param.alpha2 = alpha2
         self.smear_param.alpha3 = alpha3
         self.smear_param.meas_interval = n_steps + 1
-        self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_HYP
         self.smear_param.dir_ignore = dir_ignore
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_TRUE
         performGaugeSmearQuda(self.smear_param, self.obs_param)
+        self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
+
+    def flowWilson(self, n_steps: int, epsilon: float, t0: float, restart: bool):
+        self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_WILSON_FLOW
+        self.smear_param.n_steps = n_steps
+        self.smear_param.epsilon = epsilon
+        self.smear_param.t0 = t0
+        self.smear_param.restart = QudaBoolean.QUDA_BOOLEAN_TRUE if restart else QudaBoolean.QUDA_BOOLEAN_FALSE
+        self.smear_param.meas_interval = n_steps + 1
+        self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_TRUE
+        self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_TRUE
+        performWFlowQuda(self.smear_param, self.obs_param)
+        self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_FALSE
+        self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
+
+    def flowSymanzik(self, n_steps: int, epsilon: float, t0: float, restart: bool):
+        self.smear_param.n_steps = n_steps
+        self.smear_param.epsilon = epsilon
+        self.smear_param.t0 = t0
+        self.smear_param.restart = QudaBoolean.QUDA_BOOLEAN_TRUE if restart else QudaBoolean.QUDA_BOOLEAN_FALSE
+        self.smear_param.meas_interval = n_steps + 1
+        self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_SYMANZIK_FLOW
+        self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_TRUE
+        self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_TRUE
+        performWFlowQuda(self.smear_param, self.obs_param)
+        self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_FALSE
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
 
     def plaquette(self):

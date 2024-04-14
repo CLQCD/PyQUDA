@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<chroma>
+  <annotation>
+    ;
+    ; Test input file for chroma main program
+    ;
+  </annotation>
+  <Param>
+    <InlineMeasurements>
+
+      <elem>
+        <Name>WILSON_FLOW</Name>
+        <Frequency>1</Frequency>
+        <Param>
+          <version>2</version>
+          <nstep>100</nstep>
+          <wtime>1.0</wtime>
+          <t_dir>3</t_dir>
+          <smear_dirs>1 1 1 1</smear_dirs>
+        </Param>
+        <NamedObject>
+          <gauge_in>default_gauge_field</gauge_in>
+          <gauge_out>wflow</gauge_out>
+        </NamedObject>
+      </elem>
+
+      <elem>
+        <Name>QIO_WRITE_NAMED_OBJECT</Name>
+        <Frequency>1</Frequency>
+        <NamedObject>
+          <object_id>wflow</object_id>
+          <object_type>Multi1dLatticeColorMatrix</object_type>
+        </NamedObject>
+        <File>
+          <file_name>wflow.lime</file_name>
+          <file_volfmt>SINGLEFILE</file_volfmt>
+        </File>
+      </elem>
+
+
+    </InlineMeasurements>
+    <nrow>4 4 4 8</nrow>
+  </Param>
+
+  <RNG>
+    <Seed>
+      <elem>11</elem>
+      <elem>11</elem>
+      <elem>11</elem>
+      <elem>0</elem>
+    </Seed>
+  </RNG>
+
+  <Cfg>
+    <cfg_type>SZINQIO</cfg_type>
+    <cfg_file>tests/weak_field.lime</cfg_file>
+  </Cfg>
+</chroma>

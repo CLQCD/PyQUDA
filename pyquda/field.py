@@ -371,6 +371,30 @@ class LatticeGauge(LatticeField):
         self.pure_gauge.freeGauge()
         self.pure_gauge.freeSmearedGauge()
 
+    def flowWilson(self, n_steps: int, epsilon: float, t0: float = 0.0, restart: bool = False):
+        self.ensurePureGauge()
+        if restart:
+            self.pure_gauge.flowWilson(n_steps, epsilon, t0, restart)
+            self.pure_gauge.saveSmearedGauge(self)
+        else:
+            self.pure_gauge.loadGauge(self)
+            self.pure_gauge.flowWilson(n_steps, epsilon, t0, restart)
+            self.pure_gauge.saveSmearedGauge(self)
+            # self.pure_gauge.freeGauge()
+            # self.pure_gauge.freeSmearedGauge()
+
+    def flowSymanzik(self, n_steps: int, epsilon: float, t0: float = 0.0, restart: bool = False):
+        self.ensurePureGauge()
+        if restart:
+            self.pure_gauge.flowSymanzik(n_steps, epsilon, t0, restart)
+            self.pure_gauge.saveSmearedGauge(self)
+        else:
+            self.pure_gauge.loadGauge(self)
+            self.pure_gauge.flowSymanzik(n_steps, epsilon, t0, restart)
+            self.pure_gauge.saveSmearedGauge(self)
+            # self.pure_gauge.freeGauge()
+            # self.pure_gauge.freeSmearedGauge()
+
     def plaquette(self):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
