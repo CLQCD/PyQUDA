@@ -597,6 +597,14 @@ class MultiLatticeFermion(MultiLatticeField):
     def odd_ptrs(self) -> Pointers:
         return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[:, 1], True)
 
+    def __getitem__(self, index: int) -> LatticeFermion:
+        assert 0 <= index < self.L5
+        tmp = LatticeFermion(self.latt_info, self.data[index])
+        return LatticeFermion(self.latt_info, tmp.backup())
+
+    def lexico(self):
+        return lexico(self.getHost(), [1, 2, 3, 4, 5])
+
 
 class LatticePropagator(LatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
@@ -681,6 +689,14 @@ class MultiLatticeStaggeredFermion(MultiLatticeField):
     @property
     def odd_ptrs(self) -> Pointers:
         return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[:, 1], True)
+
+    def __getitem__(self, index: int) -> LatticeStaggeredFermion:
+        assert 0 <= index < self.L5
+        tmp = LatticeStaggeredFermion(self.latt_info, self.data[index])
+        return LatticeStaggeredFermion(self.latt_info, tmp.backup())
+
+    def lexico(self):
+        return lexico(self.getHost(), [1, 2, 3, 4, 5])
 
 
 class LatticeStaggeredPropagator(LatticeField):
