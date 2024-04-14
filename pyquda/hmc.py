@@ -10,9 +10,10 @@ from .pyquda import (
     momResidentQuda,
     plaqQuda,
     saveGaugeQuda,
+    setVerbosityQuda,
     updateGaugeFieldQuda,
 )
-from .enum_quda import QudaTboundary
+from .enum_quda import QudaTboundary, QudaVerbosity
 from .field import Nc, Ns, LatticeInfo, LatticeGauge, LatticeFermion
 from .dirac.wilson import Wilson
 from .action import FermionAction, GaugeAction
@@ -27,6 +28,9 @@ class HMC:
         self.dirac = Wilson(latt_info, 0, 0.125, 0, 0, None)
         self.gauge_param = self.dirac.gauge_param
         self.new_gauge = True
+
+    def setVerbosity(self, verbosity: QudaVerbosity):
+        setVerbosityQuda(verbosity, b"\0")
 
     def actionGauge(self) -> float:
         retval = 0

@@ -60,7 +60,7 @@ def path_force(path, coeffs):
     return path, num_paths, max_length, lengths, coeffs, fpath, num_fpaths, max_flength, flengths, fcoeffs
 
 
-class SymanzikGauge(GaugeAction):
+class WilsonGauge(GaugeAction):
     def __init__(self, latt_info: LatticeInfo, beta: float, u_0: float):
         super().__init__(latt_info)
 
@@ -74,18 +74,6 @@ class SymanzikGauge(GaugeAction):
             [1, 2, 6, 5],
             [1, 3, 6, 4],
             [2, 3, 5, 4],
-            [0, 0, 1, 7, 7, 6],
-            [0, 0, 2, 7, 7, 5],
-            [0, 0, 3, 7, 7, 4],
-            [1, 1, 0, 6, 6, 7],
-            [1, 1, 2, 6, 6, 5],
-            [1, 1, 3, 6, 6, 4],
-            [2, 2, 0, 5, 5, 7],
-            [2, 2, 1, 5, 5, 6],
-            [2, 2, 3, 5, 5, 4],
-            [3, 3, 0, 4, 4, 7],
-            [3, 3, 1, 4, 4, 6],
-            [3, 3, 2, 4, 4, 5],
         ]
         input_coeffs = [
             -1,
@@ -94,18 +82,6 @@ class SymanzikGauge(GaugeAction):
             -1,
             -1,
             -1,
-            1 / 20 / u_0**2,
-            1 / 20 / u_0**2,
-            1 / 20 / u_0**2,
-            1 / 20 / u_0**2,
-            1 / 20 / u_0**2,
-            1 / 20 / u_0**2,
-            1 / 20 / u_0**2,
-            1 / 20 / u_0**2,
-            1 / 20 / u_0**2,
-            1 / 20 / u_0**2,
-            1 / 20 / u_0**2,
-            1 / 20 / u_0**2,
         ]
         (
             self.path,

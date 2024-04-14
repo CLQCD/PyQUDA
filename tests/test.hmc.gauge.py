@@ -15,45 +15,36 @@ beta = 6.2
 u_0 = 0.855453
 latt_info = LatticeInfo([16, 16, 16, 32], 1, 1.0)
 
-monomials = [symanzik_gauge.SymanzikGauge(latt_info, beta, u_0)]
+monomials = [
+    symanzik_gauge.SymanzikGauge(latt_info, beta, u_0),
+]
 gauge = LatticeGauge(latt_info, None)
 
 hmc = HMC(latt_info, monomials)
+hmc.setVerbosity(0)
 hmc.loadGauge(gauge)
 hmc.loadMom(gauge)
-
-# input_path = [
-#     [0, 1, 7, 6],
-#     [0, 2, 7, 5],
-#     [0, 3, 7, 4],
-#     [1, 2, 6, 5],
-#     [1, 3, 6, 4],
-#     [2, 3, 5, 4],
-# ]
-# input_coeffs = [
-#     -1,
-#     -1,
-#     -1,
-#     -1,
-#     -1,
-#     -1,
-# ]
 
 rho_ = 0.2539785108410595
 theta_ = -0.03230286765269967
 vartheta_ = 0.08398315262876693
 lambda_ = 0.6822365335719091
 
-print(f"\nplaquette = {hmc.plaquette()}\n")
+start = 0
+stop = 2000
+warm = 500
+save = 5
+
+print("\n" f"Trajectory {start}:\n" f"plaquette = {hmc.plaquette()}\n")
 
 t = 1.0
 steps = 10
 dt = t / steps
-warm = 500
-for i in range(2000):
+for i in range(start, stop):
     s = perf_counter()
 
     hmc.gaussMom(i)
+    hmc.samplePhi(i)
 
     kinetic = hmc.actionMom()
     potential = hmc.actionGauge()
@@ -79,21 +70,22 @@ for i in range(2000):
     energy1 = kinetic1 + potential1
 
     accept = np.random.rand() < np.exp(energy - energy1)
-    if warm > 0:
-        warm -= 1
-    if accept or warm:
+    if accept or i < warm:
         hmc.saveGauge(gauge)
     else:
         hmc.loadGauge(gauge)
 
     print(
-        f"Step {i}:\n"
+        f"Trajectory {i + 1}:\n"
+        f"plaquette = {hmc.plaquette()}\n"
         f"PE_old = {potential}, KE_old = {kinetic}\n"
         f"PE = {potential1}, KE = {kinetic1}\n"
         f"Delta_PE = {potential1 - potential}, Delta_KE = {kinetic1 - kinetic}\n"
         f"Delta_E = {energy1 - energy}\n"
         f"accept rate = {min(1, np.exp(energy - energy1))*100:.2f}%\n"
-        f"accept? {accept or not not warm}\n"
-        f"plaquette = {hmc.plaquette()}\n"
+        f"accept? {accept or i < warm}\n"
         f"HMC time = {perf_counter() - s:.3f} secs\n"
     )
+
+    if (i + 1) % save == 0:
+        np.save(f"./DATA/cfg/cfg_{i + 1}.npy", gauge.lexico())
