@@ -350,7 +350,8 @@ class LatticeGauge(LatticeField):
     def smearAPE(self, n_steps: int, alpha: float, dir_ignore: int):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
-        self.pure_gauge.smearAPE(n_steps, alpha, dir_ignore)
+        dimAPE = 3 if dir_ignore >= 0 and dir_ignore <= 3 else 4
+        self.pure_gauge.smearAPE(n_steps, (dimAPE - 1) / (dimAPE - 1 + alpha / 2), dir_ignore)  # Match with chroma
         self.pure_gauge.saveSmearedGauge(self)
         self.pure_gauge.freeGauge()
         self.pure_gauge.freeSmearedGauge()
@@ -371,29 +372,35 @@ class LatticeGauge(LatticeField):
         self.pure_gauge.freeGauge()
         self.pure_gauge.freeSmearedGauge()
 
-    def flowWilson(self, n_steps: int, epsilon: float, t0: float = 0.0, restart: bool = False):
+    def flowWilson(self, n_steps: int, time: float):
         self.ensurePureGauge()
-        if restart:
-            self.pure_gauge.flowWilson(n_steps, epsilon, t0, restart)
-            self.pure_gauge.saveSmearedGauge(self)
-        else:
-            self.pure_gauge.loadGauge(self)
-            self.pure_gauge.flowWilson(n_steps, epsilon, t0, restart)
-            self.pure_gauge.saveSmearedGauge(self)
-            # self.pure_gauge.freeGauge()
-            # self.pure_gauge.freeSmearedGauge()
+        self.pure_gauge.loadGauge(self)
+        self.pure_gauge.flowWilson(1, time / n_steps, 0, False)
+        retval = [self.pure_gauge.obs_param.energy]
+        for step in range(1, n_steps):
+            self.pure_gauge.flowWilson(1, time / n_steps, time * step / n_steps, True)
+            retval.append(self.pure_gauge.obs_param.energy)
+        self.pure_gauge.saveSmearedGauge(self)  # Save before the last step
+        self.pure_gauge.flowWilson(1, time / n_steps, time, True)
+        retval.append(self.pure_gauge.obs_param.energy)
+        self.pure_gauge.freeGauge()
+        self.pure_gauge.freeSmearedGauge()
+        return retval
 
-    def flowSymanzik(self, n_steps: int, epsilon: float, t0: float = 0.0, restart: bool = False):
+    def flowSymanzik(self, n_steps: int, time: float):
         self.ensurePureGauge()
-        if restart:
-            self.pure_gauge.flowSymanzik(n_steps, epsilon, t0, restart)
-            self.pure_gauge.saveSmearedGauge(self)
-        else:
-            self.pure_gauge.loadGauge(self)
-            self.pure_gauge.flowSymanzik(n_steps, epsilon, t0, restart)
-            self.pure_gauge.saveSmearedGauge(self)
-            # self.pure_gauge.freeGauge()
-            # self.pure_gauge.freeSmearedGauge()
+        self.pure_gauge.loadGauge(self)
+        self.pure_gauge.flowWilson(1, time / n_steps, 0, False)
+        retval = [self.pure_gauge.obs_param.energy]
+        for step in range(1, n_steps):
+            self.pure_gauge.flowSymanzik(1, time / n_steps, time * step / n_steps, True)
+            retval.append(self.pure_gauge.obs_param.energy)
+        self.pure_gauge.saveSmearedGauge(self)  # Save before the last step
+        self.pure_gauge.flowWilson(1, time / n_steps, time, True)
+        retval.append(self.pure_gauge.obs_param.energy)
+        self.pure_gauge.freeGauge()
+        self.pure_gauge.freeSmearedGauge()
+        return retval
 
     def plaquette(self):
         self.ensurePureGauge()

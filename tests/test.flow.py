@@ -9,9 +9,9 @@ init(resource_path=".cache")
 
 gauge = io.readQIOGauge(weak_field)
 gauge_wflow = gauge.copy()
-gauge_wflow.flowWilson(1, 1 / 100)
-for i in range(1, 100):
-    gauge_wflow.flowWilson(1, 1 / 100, i / 100, True)
+energy = gauge_wflow.flowWilson(100, 1.0)
 
 gauge_chroma = io.readQIOGauge("wflow.lime")
 print(cp.linalg.norm(gauge_wflow.data - gauge_chroma.data))
+
+print(energy)

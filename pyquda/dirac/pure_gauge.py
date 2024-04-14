@@ -156,8 +156,7 @@ class PureGauge(Gauge):
     def smearAPE(self, n_steps: int, alpha: float, dir_ignore: int):
         self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_APE
         self.smear_param.n_steps = n_steps
-        dimAPE = 3 if dir_ignore >= 0 and dir_ignore <= 3 else 4
-        self.smear_param.alpha = (dimAPE - 1) / (dimAPE - 1 + alpha / 2)  # Match with chroma
+        self.smear_param.alpha = alpha
         self.smear_param.meas_interval = n_steps + 1
         self.smear_param.dir_ignore = dir_ignore
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_TRUE
