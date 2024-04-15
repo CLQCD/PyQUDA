@@ -1,6 +1,7 @@
 from typing import Any, List, Literal
 
 import numpy
+from numpy.typing import NDArray
 
 from .pointer import ndarrayPointer, Pointer, Pointers
 
@@ -340,9 +341,9 @@ class LatticeGauge(LatticeField):
 
     def path(
         self,
-        input_path_buf: numpy.ndarray[Any, int],
-        path_length: numpy.ndarray[Any, int],
-        loop_coeff: numpy.ndarray[Any, float],
+        input_path_buf: NDArray[numpy.int32],
+        path_length: NDArray[numpy.int32],
+        loop_coeff: NDArray[numpy.float64],
     ):
         self.ensurePureGauge()
         self.pure_gauge.path(self, input_path_buf, path_length, loop_coeff)

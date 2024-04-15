@@ -1,6 +1,7 @@
 from typing import Any, Literal
 
 import numpy
+from numpy.typing import NDArray
 
 from ..pointer import ndarrayPointer
 from ..pyquda import (
@@ -131,9 +132,9 @@ class PureGauge(Gauge):
     def path(
         self,
         gauge: LatticeGauge,
-        input_path_buf: numpy.ndarray[Any, int],
-        path_length: numpy.ndarray[Any, int],
-        loop_coeff: numpy.ndarray[Any, float],
+        input_path_buf: NDArray[numpy.int32],
+        path_length: NDArray[numpy.int32],
+        loop_coeff: NDArray[numpy.float64],
     ):
         self.gauge_param.overwrite_gauge = 1
         self.gauge_param.use_resident_gauge = 0
