@@ -64,7 +64,7 @@ class TwoFlavorClover(FermionAction):
             nullptr,
             dt,
             ndarrayPointer(self.phi.even.reshape(1, -1), True),
-            ndarrayPointer(numpy.array([1.0], "<f8")),
+            numpy.array([1.0], "<f8"),
             self.kappa2,
             self.ck,
             1,

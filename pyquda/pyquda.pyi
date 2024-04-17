@@ -3,6 +3,8 @@ from typing import List
 size_t = int
 double = float
 double_complex = complex
+from numpy import int32, float64, complex128
+from numpy.typing import NDArray
 
 from .enum_quda import (  # noqa: F401
     QUDA_INVALID_ENUM,
@@ -1327,7 +1329,7 @@ def freeCloverQuda() -> None:
     """
     ...
 
-def eigensolveQuda(h_evecs: Pointers, h_evals: Pointer[double_complex], param: QudaEigParam):
+def eigensolveQuda(h_evecs: Pointers, h_evals: NDArray[complex128], param: QudaEigParam):
     """
     Perform the eigensolve. The problem matrix is defined by the invert param, the
     mode of solution is specified by the eig param. It is assumed that the gauge
@@ -1499,7 +1501,7 @@ def computeKSLinkQuda(
     longlink: Pointers,
     ulink: Pointers,
     inlink: Pointers,
-    path_coeff: Pointer[double],
+    path_coeff: NDArray[float64],
     param: QudaGaugeParam,
 ) -> None:
     """ """
@@ -1534,9 +1536,9 @@ def momResidentQuda(mom: Pointer, param: QudaGaugeParam) -> None:
 def computeGaugeForceQuda(
     mom: Pointers,
     sitelink: Pointers,
-    input_path_buf: Pointerss[int],
-    path_length: Pointer[int],
-    loop_coeff: Pointer[double],
+    input_path_buf: NDArray[int32],
+    path_length: NDArray[int32],
+    loop_coeff: NDArray[float64],
     num_paths: int,
     max_length: int,
     dt: double,
@@ -1569,9 +1571,9 @@ def computeGaugeForceQuda(
 def computeGaugePathQuda(
     out: Pointers,
     sitelink: Pointers,
-    input_path_buf: Pointerss[int],
-    path_length: Pointer[int],
-    loop_coeff: Pointer[double],
+    input_path_buf: NDArray[int32],
+    path_length: NDArray[int32],
+    loop_coeff: NDArray[float64],
     num_paths: int,
     max_length: int,
     dt: double,
@@ -1602,10 +1604,10 @@ def computeGaugePathQuda(
     ...
 
 def computeGaugeLoopTraceQuda(
-    traces: Pointer[double_complex],
-    input_path_buf: Pointers[int],
-    path_length: Pointer[int],
-    loop_coeff: Pointer[double],
+    traces: NDArray[complex128],
+    input_path_buf: NDArray[int32],
+    path_length: NDArray[int32],
+    loop_coeff: NDArray[float64],
     num_paths: int,
     max_length: int,
     factor: double,
@@ -1707,7 +1709,7 @@ def computeCloverForceQuda(
     mom: Pointers,
     dt: double,
     x: Pointers,
-    coeff: Pointer[double],
+    coeff: NDArray[float64],
     kappa2: double,
     ck: double,
     nvector: int,
@@ -1746,15 +1748,15 @@ def computeCloverForceQuda(
 def computeHISQForceQuda(
     momentum: Pointers,
     dt: double,
-    level2_coeff: List[double, 6],
-    fat7_coeff: List[double, 6],
+    level2_coeff: NDArray[float64],
+    fat7_coeff: NDArray[float64],
     w_link: Pointers,
     v_link: Pointers,
     u_link: Pointer,
     quark: Pointers,
     num: int,
     num_naik: int,
-    coeff: Pointers[double],
+    coeff: NDArray[float64],
     param: QudaGaugeParam,
 ):
     """
@@ -1896,7 +1898,7 @@ def gaugeObservablesQuda(param: QudaGaugeObservableParam) -> None:
     ...
 
 def contractQuda(
-    x: Pointer, y: Pointer, result: Pointer, cType: QudaContractType, param: QudaInvertParam, X: Pointer[int]
+    x: Pointer, y: Pointer, result: Pointer, cType: QudaContractType, param: QudaInvertParam, X: NDArray[int32]
 ) -> None:
     """
     Public function to perform color contractions of the host spinors x and y.

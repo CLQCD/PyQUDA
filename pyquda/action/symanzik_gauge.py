@@ -1,6 +1,6 @@
 import numpy
 
-from ..pointer import Pointers, ndarrayPointer
+from ..pointer import Pointers
 from ..pyquda import computeGaugeLoopTraceQuda, computeGaugeForceQuda
 from ..field import Nc, LatticeInfo
 from ..dirac.pure_gauge import PureGauge
@@ -125,10 +125,10 @@ class SymanzikGauge(GaugeAction):
     def action(self) -> float:
         traces = numpy.zeros((self.num_paths), "<c16")
         computeGaugeLoopTraceQuda(
-            ndarrayPointer(traces),
-            ndarrayPointer(self.path),
-            ndarrayPointer(self.lengths),
-            ndarrayPointer(self.coeffs),
+            traces,
+            self.path,
+            self.lengths,
+            self.coeffs,
             self.num_paths,
             self.max_length,
             1,
@@ -139,9 +139,9 @@ class SymanzikGauge(GaugeAction):
         computeGaugeForceQuda(
             nullptr,
             nullptr,
-            ndarrayPointer(self.fpath),
-            ndarrayPointer(self.flengths),
-            ndarrayPointer(self.fcoeffs),
+            self.fpath,
+            self.flengths,
+            self.fcoeffs,
             self.num_fpaths,
             self.max_flength,
             dt,

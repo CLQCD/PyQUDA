@@ -1,6 +1,6 @@
 import numpy
 
-from ..pointer import Pointers, ndarrayPointer
+from ..pointer import Pointers
 from ..pyquda import computeCloverForceQuda, invertMultiShiftQuda, loadCloverQuda
 from ..enum_quda import (
     QUDA_MAX_MULTI_SHIFT,
@@ -140,7 +140,7 @@ class OneFlavorClover(FermionAction):
             nullptr,
             dt,
             xx.even_ptrs,
-            ndarrayPointer(numpy.array(residue_inv_square_root, "<f8")),
+            numpy.array(residue_inv_square_root, "<f8"),
             self.kappa2,
             self.ck,
             num_offset,

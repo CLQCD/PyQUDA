@@ -2,7 +2,7 @@ from typing import List
 
 import numpy
 
-from ..pointer import ndarrayPointer, Pointers
+from ..pointer import Pointers
 from ..pyquda import newMultigridQuda, destroyMultigridQuda, computeKSLinkQuda
 from ..field import LatticeInfo, LatticeGauge
 from ..enum_quda import QudaDslashType, QudaInverterType, QudaReconstructType, QudaPrecision
@@ -147,7 +147,7 @@ class HISQ(StaggeredDirac):
             nullptr,
             ulink.data_ptrs,
             inlink.data_ptrs,
-            ndarrayPointer(self.fat7_coeff),
+            self.fat7_coeff,
             self.gauge_param,
         )
         computeKSLinkQuda(
@@ -155,7 +155,7 @@ class HISQ(StaggeredDirac):
             longlink.data_ptrs,
             nullptr,
             ulink.data_ptrs,
-            ndarrayPointer(self.level2_coeff),
+            self.level2_coeff,
             self.gauge_param,
         )
 

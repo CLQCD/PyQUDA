@@ -18,7 +18,6 @@ from .pyquda import (
     computeHISQForceQuda,
     computeGaugeForceQuda,
     computeGaugeLoopTraceQuda,
-    staggeredPhaseQuda,
 )
 from .enum_quda import (
     QudaLinkType,
@@ -111,7 +110,7 @@ class HMC:
             nullptr,
             wlink.data_ptrs,
             ulink.data_ptrs,
-            ndarrayPointer(self.dirac.fat7_coeff),
+            self.dirac.fat7_coeff,
             self.gauge_param,
         )
 
@@ -124,15 +123,15 @@ class HMC:
         computeHISQForceQuda(
             nullptr,
             dt,
-            ndarrayPointer(self.dirac.level2_coeff),
-            ndarrayPointer(self.dirac.fat7_coeff),
+            self.dirac.level2_coeff,
+            self.dirac.fat7_coeff,
             w.data_ptrs,
             v.data_ptrs,
             u.data_ptrs,
             ndarrayPointer(x.even.reshape(1, -1), True),
             1,
             1,
-            ndarrayPointer(numpy.array([[1, -1 / 24], [0, 0]], "<f8")),
+            numpy.array([[1, -1 / 24], [0, 0]], "<f8"),
             self.gauge_param,
         )
         self.gauge_param.staggered_phase_applied = 0
@@ -141,9 +140,9 @@ class HMC:
         computeGaugeForceQuda(
             nullptr,
             nullptr,
-            ndarrayPointer(force),
-            ndarrayPointer(lengths),
-            ndarrayPointer(coeffs),
+            force,
+            lengths,
+            coeffs,
             num_paths,
             max_length,
             dt,
@@ -173,10 +172,10 @@ class HMC:
     def actionGauge(self, path, lengths, coeffs, num_paths, max_length) -> float:
         traces = numpy.zeros((num_paths), "<c16")
         computeGaugeLoopTraceQuda(
-            ndarrayPointer(traces),
-            ndarrayPointer(path),
-            ndarrayPointer(lengths),
-            ndarrayPointer(coeffs),
+            traces,
+            path,
+            lengths,
+            coeffs,
             num_paths,
             max_length,
             1,
