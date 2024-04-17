@@ -3,12 +3,11 @@ import sys
 import io
 from contextlib import contextmanager
 
-import cython
-
+from cython.operator cimport dereference
 from libc.stdio cimport stdout
+ctypedef double complex double_complex
 
 cimport quda
-ctypedef double complex double_complex
 from pyquda.pointer cimport Pointer, Pointers, Pointerss
 
 
@@ -46,7 +45,7 @@ cdef class QudaGaugeParam:
         return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaGaugeParam *ptr):
-        self.param = cython.operator.dereference(ptr)
+        self.param = dereference(ptr)
 
 ##%%!! QudaGaugeParam
 
@@ -63,7 +62,7 @@ cdef class QudaInvertParam:
         return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaInvertParam *ptr):
-        self.param = cython.operator.dereference(ptr)
+        self.param = dereference(ptr)
 
 ##%%!! QudaInvertParam
 
@@ -80,7 +79,7 @@ cdef class QudaMultigridParam:
         return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaMultigridParam *ptr):
-        self.param = cython.operator.dereference(ptr)
+        self.param = dereference(ptr)
 
 ##%%!! QudaMultigridParam
 
@@ -97,7 +96,7 @@ cdef class QudaEigParam:
         return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaEigParam *ptr):
-        self.param = cython.operator.dereference(ptr)
+        self.param = dereference(ptr)
 
 ##%%!! QudaEigParam
 
@@ -114,7 +113,7 @@ cdef class QudaGaugeObservableParam:
         return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaGaugeObservableParam *ptr):
-        self.param = cython.operator.dereference(ptr)
+        self.param = dereference(ptr)
 
 ##%%!! QudaGaugeObservableParam
 
@@ -131,7 +130,7 @@ cdef class QudaGaugeSmearParam:
     #     return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaGaugeSmearParam *ptr):
-        self.param = cython.operator.dereference(ptr)
+        self.param = dereference(ptr)
 
 ##%%!! QudaGaugeSmearParam
 
@@ -148,7 +147,7 @@ cdef class QudaBLASParam:
         return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaBLASParam *ptr):
-        self.param = cython.operator.dereference(ptr)
+        self.param = dereference(ptr)
 
 ##%%!! QudaBLASParam
 
@@ -433,7 +432,7 @@ cdef class QudaQuarkSmearParam:
     #     return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaQuarkSmearParam *ptr):
-        self.param = cython.operator.dereference(ptr)
+        self.param = dereference(ptr)
 
 ##%%!! QudaQuarkSmearParam
 

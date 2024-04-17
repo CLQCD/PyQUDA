@@ -1,7 +1,6 @@
 import os
 import sys
 from setuptools import Extension, setup
-from Cython.Build import cythonize
 from pyquda_pyx import build_pyquda_pyx
 
 if "QUDA_PATH" in os.environ:
@@ -18,6 +17,8 @@ elif "sdist" in sys.argv:
     exit(0)
 else:
     raise EnvironmentError("QUDA_PATH environment is needed to link against libquda")
+
+from Cython.Build import cythonize
 
 extensions = cythonize(
     [

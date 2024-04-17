@@ -18,7 +18,6 @@ from .pyquda import (
     computeHISQForceQuda,
     computeGaugeForceQuda,
     computeGaugeLoopTraceQuda,
-    staggeredPhaseQuda,
 )
 from .enum_quda import (
     QudaLinkType,
