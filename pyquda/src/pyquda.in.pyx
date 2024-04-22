@@ -314,7 +314,6 @@ def computeKSLinkQuda(Pointers fatlink, Pointers longlink, Pointers ulink, Point
     assert longlink.dtype == "void"
     assert ulink.dtype == "void"
     assert inlink.dtype == "void"
-    assert path_coeff.dtype == "double"
     _path_coeff = _NDArray(path_coeff)
     quda.computeKSLinkQuda(fatlink.ptr, longlink.ptr, ulink.ptr, inlink.ptr, <double *>_path_coeff.ptr, &param.param)
 
