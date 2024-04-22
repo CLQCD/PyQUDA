@@ -5,6 +5,7 @@ from ..pyquda import computeCloverForceQuda, invertMultiShiftQuda, loadCloverQud
 from ..enum_quda import (
     QUDA_MAX_MULTI_SHIFT,
     QudaDagType,
+    QudaInverterType,
     QudaMassNormalization,
     QudaMatPCType,
     QudaSolutionType,
@@ -99,11 +100,11 @@ class OneFlavorClover(FermionAction):
         self.gauge_param = self.dirac.gauge_param
         self.invert_param = self.dirac.invert_param
 
-        self.invert_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
-        self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
+        self.invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION
         self.invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE  # This is set to compute action
-        self.invert_param.compute_clover_trlog = 1
+        self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
+        self.invert_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
         self.invert_param.verbosity = QudaVerbosity.QUDA_SILENT
 
     def updateClover(self, new_gauge: bool):
@@ -111,13 +112,15 @@ class OneFlavorClover(FermionAction):
             loadCloverQuda(nullptr, nullptr, self.invert_param)
 
     def action(self, new_gauge: bool) -> float:
+        self.invert_param.compute_clover_trlog = 1
         self.updateClover(new_gauge)
-        self.invert_param.compute_action = 1
+        self.invert_param.compute_clover_trlog = 0
         num_offset = len(offset_inv_square_root)
         self.invert_param.num_offset = num_offset
         self.invert_param.offset = offset_inv_square_root + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
         self.invert_param.residue = residue_inv_square_root + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
         xx = MultiLatticeFermion(self.phi.latt_info, num_offset)
+        self.invert_param.compute_action = 1
         invertMultiShiftQuda(xx.even_ptrs, self.phi.odd_ptr, self.invert_param)
         self.dirac.invert_param.compute_action = 0
         return (

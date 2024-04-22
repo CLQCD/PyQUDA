@@ -424,14 +424,14 @@ def loadClover(
         gauge_data_bak = gauge.backup()
         if clover_anisotropy != 1.0:
             gauge.setAnisotropy(clover_anisotropy)
+            gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
         gauge_param.anisotropy = 1.0
-        gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
         gauge_param.use_resident_gauge = 0
         loadGaugeQuda(gauge.data_ptrs, gauge_param)
         gauge_param.use_resident_gauge = 1
         loadCloverQuda(nullptr, nullptr, invert_param)
-        gauge_param.anisotropy = anisotropy
         gauge_param.reconstruct = reconstruct
+        gauge_param.anisotropy = anisotropy
         gauge.data = gauge_data_bak
     else:
         invert_param.compute_clover = 0
@@ -455,8 +455,8 @@ def saveClover(
     gauge_data_bak = gauge.backup()
     if clover_anisotropy != 1.0:
         gauge.setAnisotropy(clover_anisotropy)
+        gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
     gauge_param.anisotropy = 1.0
-    gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
     gauge_param.use_resident_gauge = 0
     loadGaugeQuda(gauge.data_ptrs, gauge_param)
     gauge_param.use_resident_gauge = 1
@@ -465,8 +465,8 @@ def saveClover(
     loadCloverQuda(clover.data_ptr, clover_inv.data_ptr, invert_param)
     invert_param.return_clover = 0
     invert_param.return_clover_inverse = 0
-    gauge_param.anisotropy = anisotropy
     gauge_param.reconstruct = reconstruct
+    gauge_param.anisotropy = anisotropy
     gauge.data = gauge_data_bak
 
 

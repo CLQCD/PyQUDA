@@ -6,21 +6,22 @@ from check_pyquda import test_dir
 
 from pyquda import init, setGPUID
 from pyquda.hmc import HMC
-from pyquda.action import one_flavor_clover, symanzik_gauge
+from pyquda.action import symanzik_gauge, one_flavor_clover, two_flavor_clover
 from pyquda.field import LatticeInfo, LatticeGauge
 
 setGPUID(0)
 init(resource_path=".cache")
 beta = 6.2
 u_0 = 0.855453
-mass = -0.2400
-kappa = 1 / (2 * (mass + 4))
+mass_l = -0.2770
+mass_s = -0.2400
 csw = 1.160920226
 latt_info = LatticeInfo([16, 16, 16, 32], -1, 1.0)
 
 monomials = [
     symanzik_gauge.SymanzikGauge(latt_info, beta, u_0),
-    one_flavor_clover.OneFlavorClover(latt_info, mass, 1e-9, 1000, csw),
+    one_flavor_clover.OneFlavorClover(latt_info, mass_s, 1e-9, 1000, csw),
+    two_flavor_clover.TwoFlavorClover(latt_info, mass_l, 1e-9, 1000, csw),
 ]
 gauge = LatticeGauge(latt_info, None)
 
