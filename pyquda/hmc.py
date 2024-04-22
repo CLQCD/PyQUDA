@@ -39,7 +39,7 @@ class HMC:
                 retval += monomial.action(self.new_gauge)
             elif isinstance(monomial, GaugeAction):
                 retval += monomial.action()
-        self.new_gauge = False
+        # self.new_gauge = False
         return retval
 
     def updateGauge(self, dt: float):
@@ -56,37 +56,38 @@ class HMC:
                 monomial.force(dt, self.new_gauge)
             elif isinstance(monomial, GaugeAction):
                 monomial.force(dt)
-        self.new_gauge = False
+        # self.new_gauge = False
 
     def samplePhi(self, seed: int):
-        backend = getCUDABackend()
-        if backend == "numpy":
-            import numpy
+        def _seed(seed: int):
+            backend = getCUDABackend()
+            if backend == "numpy":
+                import numpy
 
-            numpy.random.seed(seed)
-            phi = 2 * numpy.pi * numpy.random.random((self.latt_info.volume, Ns, Nc))
-            r = numpy.random.random((self.latt_info.volume, Ns, Nc))
-            noise_raw = numpy.sqrt(-numpy.log(r)) * (numpy.cos(phi) + 1j * numpy.sin(phi))
-        elif backend == "cupy":
-            import cupy
+                numpy.random.seed(seed)
+                return numpy, numpy.random.random, numpy.float64
+            elif backend == "cupy":
+                import cupy
 
-            cupy.random.seed(seed)
-            phi = 2 * cupy.pi * cupy.random.random((self.latt_info.volume, Ns, Nc), "<f8")
-            r = cupy.random.random((self.latt_info.volume, Ns, Nc), "<f8")
-            noise_raw = cupy.sqrt(-cupy.log(r)) * (cupy.cos(phi) + 1j * cupy.sin(phi))
-        elif backend == "torch":
-            import torch
+                cupy.random.seed(seed)
+                return cupy, cupy.random.random, cupy.float64
+            elif backend == "torch":
+                import torch
 
-            torch.random.manual_seed(seed)
-            phi = 2 * torch.pi * torch.rand((self.latt_info.volume, Ns, Nc), dtype=torch.float64)
-            r = torch.rand((self.latt_info.volume, Ns, Nc), dtype=torch.float64)
-            noise_raw = torch.sqrt(-torch.log(r)) * (torch.cos(phi) + 1j * torch.sin(phi))
+                torch.random.manual_seed(seed)
+                return torch, torch.rand, torch.float64
 
-        noise = LatticeFermion(self.latt_info, noise_raw)
+        def _noise(backend, random, float64):
+            phi = 2 * backend.pi * random((self.latt_info.volume, Ns, Nc), dtype=float64)
+            r = random((self.latt_info.volume, Ns, Nc), dtype=float64)
+            noise_raw = backend.sqrt(-backend.log(r)) * (backend.cos(phi) + 1j * backend.sin(phi))
+            return noise_raw
+
+        backend, random, float64 = _seed(seed)
         for monomial in self.monomials:
             if isinstance(monomial, FermionAction):
-                monomial.sample(noise, self.new_gauge)
-        self.new_gauge = False
+                monomial.sample(LatticeFermion(self.latt_info, _noise(backend, random, float64)), self.new_gauge)
+        # self.new_gauge = False
 
     def loadGauge(self, gauge: LatticeGauge):
         gauge_in = gauge.copy()

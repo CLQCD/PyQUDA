@@ -1,9 +1,10 @@
 import numpy
 
 from ..pointer import Pointers, ndarrayPointer
-from ..pyquda import MatQuda, computeCloverForceQuda, invertQuda, loadCloverQuda
+from ..pyquda import MatQuda, computeCloverForceQuda, invertQuda, loadCloverQuda, loadGaugeQuda
 from ..enum_quda import (
     QudaDagType,
+    QudaInverterType,
     QudaMassNormalization,
     QudaMatPCType,
     QudaSolutionType,
@@ -33,19 +34,22 @@ class TwoFlavorClover(FermionAction):
         self.gauge_param = self.dirac.gauge_param
         self.invert_param = self.dirac.invert_param
 
-        self.invert_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
-        self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
+        self.invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION
         self.invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE  # This is set to compute action
-        self.invert_param.compute_clover_trlog = 1
+        self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
+        self.invert_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
         self.invert_param.verbosity = QudaVerbosity.QUDA_SILENT
 
     def updateClover(self, new_gauge: bool):
         if new_gauge:
+            loadGaugeQuda(nullptr, self.gauge_param)
             loadCloverQuda(nullptr, nullptr, self.invert_param)
 
     def action(self, new_gauge: bool) -> float:
+        self.invert_param.compute_clover_trlog = 1
         self.updateClover(new_gauge)
+        self.invert_param.compute_clover_trlog = 0
         self.invert_param.compute_action = 1
         invertQuda(self.phi.even_ptr, self.phi.odd_ptr, self.invert_param)
         self.dirac.invert_param.compute_action = 0
