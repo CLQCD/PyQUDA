@@ -221,7 +221,6 @@ def updateR():
     quda.updateR()
 
 def loadGaugeQuda(Pointers h_gauge, QudaGaugeParam param):
-    assert h_gauge.dtype == "void"
     quda.loadGaugeQuda(h_gauge.ptr, &param.param)
 
 def freeGaugeQuda():
@@ -234,12 +233,9 @@ def freeGaugeSmearedQuda():
     quda.freeGaugeSmearedQuda()
 
 def saveGaugeQuda(Pointers h_gauge, QudaGaugeParam param):
-    assert h_gauge.dtype == "void"
     quda.saveGaugeQuda(h_gauge.ptr, &param.param)
 
 def loadCloverQuda(Pointer h_clover, Pointer h_clovinv, QudaInvertParam inv_param):
-    assert h_clover.dtype == "void"
-    assert h_clovinv.dtype == "void"
     quda.loadCloverQuda(h_clover.ptr, h_clovinv.ptr, &inv_param.param)
 
 def freeCloverQuda():
@@ -249,13 +245,10 @@ def freeCloverQuda():
 # def lanczosQuda(int k0, int m, Pointer hp_Apsi, Pointer hp_r, Pointer hp_V, Pointer hp_alpha, Pointer hp_beta, QudaEigParam eig_param):
 
 def eigensolveQuda(Pointers h_evecs, ndarray[double_complex, ndim=1] h_evals, QudaEigParam param):
-    assert h_evecs.dtype == "void"
     _h_evals = _NDArray(h_evals)
     quda.eigensolveQuda(h_evecs.ptrs, <double_complex *>_h_evals.ptr, &param.param)
 
 def invertQuda(Pointer h_x, Pointer h_b, QudaInvertParam param):
-    assert h_x.dtype == "void"
-    assert h_b.dtype == "void"
     quda.invertQuda(h_x.ptr, h_b.ptr, &param.param)
 
 # def invertMultiSrcQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, Pointer h_gauge, QudaGaugeParam gauge_param)
@@ -263,8 +256,6 @@ def invertQuda(Pointer h_x, Pointer h_b, QudaInvertParam param):
 # def invertMultiSrcCloverQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, Pointer h_gauge, QudaGaugeParam gauge_param, Pointer h_clover, Pointer h_clovinv)
 
 def invertMultiShiftQuda(Pointers _hp_x, Pointer _hp_b, QudaInvertParam param):
-    assert _hp_x.dtype == "void"
-    assert _hp_b.dtype == "void"
     quda.invertMultiShiftQuda(_hp_x.ptrs, _hp_b.ptr, &param.param)
 
 def newMultigridQuda(QudaMultigridParam param) -> Pointer:
@@ -283,8 +274,6 @@ def dumpMultigridQuda(Pointer mg_instance, QudaMultigridParam param):
     quda.dumpMultigridQuda(mg_instance.ptr, &param.param)
 
 def dslashQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param, quda.QudaParity parity):
-    assert h_out.dtype == "void"
-    assert h_in.dtype == "void"
     quda.dslashQuda(h_out.ptr, h_in.ptr, &inv_param.param, parity)
 
 # def dslashMultiSrcQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, QudaParity parity, Pointer h_gauge, QudaGaugeParam gauge_param)
@@ -292,51 +281,34 @@ def dslashQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param, quda.Quda
 # def dslashMultiSrcCloverQuda(Pointers_hp_x, Pointers_hp_b, QudaInvertParam param, QudaParity parity, Pointer h_gauge, QudaGaugeParam gauge_param, Pointer h_clover, Pointer h_clovinv)
 
 def cloverQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param, quda.QudaParity parity, int inverse):
-    assert h_out.dtype == "void"
-    assert h_in.dtype == "void"
     quda.cloverQuda(h_out.ptr, h_in.ptr, &inv_param.param, parity, inverse)
 
 def MatQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param):
-    assert h_out.dtype == "void"
-    assert h_in.dtype == "void"
     quda.MatQuda(h_out.ptr, h_in.ptr, &inv_param.param)
 
 def MatDagMatQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param):
-    assert h_out.dtype == "void"
-    assert h_in.dtype == "void"
     quda.MatDagMatQuda(h_out.ptr, h_in.ptr, &inv_param.param)
 
 # void set_dim(int *)
 # void pack_ghost(void **cpuLink, void **cpuGhost, int nFace, QudaPrecision precision)
 
 def computeKSLinkQuda(Pointers fatlink, Pointers longlink, Pointers ulink, Pointers inlink, ndarray[double, ndim=1] path_coeff, QudaGaugeParam param):
-    assert fatlink.dtype == "void"
-    assert longlink.dtype == "void"
-    assert ulink.dtype == "void"
-    assert inlink.dtype == "void"
     _path_coeff = _NDArray(path_coeff)
     quda.computeKSLinkQuda(fatlink.ptr, longlink.ptr, ulink.ptr, inlink.ptr, <double *>_path_coeff.ptr, &param.param)
 
 def computeTwoLinkQuda(Pointers twolink, Pointers inlink, QudaGaugeParam param):
-    assert twolink.dtype == "void"
-    assert inlink.dtype == "void"
     quda.computeTwoLinkQuda(twolink.ptr, inlink.ptr, &param.param)
 
 def momResidentQuda(Pointers mom, QudaGaugeParam param):
-    assert mom.dtype == "void"
     quda.momResidentQuda(mom.ptr, &param.param)
 
 def computeGaugeForceQuda(Pointers mom, Pointers sitelink, ndarray[int, ndim=3] input_path_buf, ndarray[int, ndim=1] path_length, ndarray[double, ndim=1] loop_coeff, int num_paths, int max_length, double dt, QudaGaugeParam qudaGaugeParam):
-    assert mom.dtype == "void"
-    assert sitelink.dtype == "void"
     _input_path_buf = _NDArray(input_path_buf)
     _path_length = _NDArray(path_length)
     _loop_coeff = _NDArray(loop_coeff)
     return quda.computeGaugeForceQuda(mom.ptr, sitelink.ptr, <int ***>_input_path_buf.ptrss, <int *>_path_length.ptr, <double *>_loop_coeff.ptr, num_paths, max_length, dt, &qudaGaugeParam.param)
 
 def computeGaugePathQuda(Pointers out, Pointers sitelink, ndarray[int, ndim=3] input_path_buf, ndarray[int, ndim=1] path_length, ndarray[double, ndim=1] loop_coeff, int num_paths, int max_length, double dt, QudaGaugeParam qudaGaugeParam):
-    assert out.dtype == "void"
-    assert sitelink.dtype == "void"
     _input_path_buf = _NDArray(input_path_buf)
     _path_length = _NDArray(path_length)
     _loop_coeff = _NDArray(loop_coeff)
@@ -350,20 +322,15 @@ def computeGaugeLoopTraceQuda(ndarray[double_complex, ndim=1] traces, ndarray[in
     quda.computeGaugeLoopTraceQuda(<double_complex *>_traces.ptr, <int **>_input_path_buf.ptrs, <int *>_path_length.ptr, <double *>_loop_coeff.ptr, num_paths, max_length, factor)
 
 def updateGaugeFieldQuda(Pointers gauge, Pointers momentum, double dt, int conj_mom, int exact, QudaGaugeParam param):
-    assert gauge.dtype == "void"
-    assert momentum.dtype == "void"
     quda.updateGaugeFieldQuda(gauge.ptr, momentum.ptr, dt, conj_mom, exact, &param.param)
 
 def staggeredPhaseQuda(Pointers gauge_h, QudaGaugeParam param):
-    assert gauge_h.dtype == "void"
     quda.staggeredPhaseQuda(gauge_h.ptr, &param.param)
 
 def projectSU3Quda(Pointers gauge_h, double tol, QudaGaugeParam param):
-    assert gauge_h.dtype == "void"
     quda.projectSU3Quda(gauge_h.ptr, tol, &param.param)
 
 def momActionQuda(Pointers momentum, QudaGaugeParam param):
-    assert momentum.dtype == "void"
     return quda.momActionQuda(momentum.ptr, &param.param)
 
 # void* createGaugeFieldQuda(void* gauge, int geometry, QudaGaugeParam* param)
@@ -374,21 +341,14 @@ def createCloverQuda(QudaInvertParam param):
     quda.createCloverQuda(&param.param)
 
 def computeCloverForceQuda(Pointers mom, double dt, Pointers x, ndarray[double, ndim=1] coeff, double kappa2, double ck, int nvector, double multiplicity, QudaGaugeParam gauge_param, QudaInvertParam inv_param):
-    assert mom.dtype == "void"
-    assert x.dtype == "void"
     _coeff = _NDArray(coeff)
     quda.computeCloverForceQuda(mom.ptr, dt, x.ptrs, NULL, <double *>_coeff.ptr, kappa2, ck, nvector, multiplicity, NULL, &gauge_param.param, &inv_param.param)
 
 # void computeStaggeredForceQuda(void *mom, double dt, double delta, void *gauge, void **x, QudaGaugeParam *gauge_param, QudaInvertParam *invert_param)
 
 def computeHISQForceQuda(Pointers momentum, double dt, ndarray[double, ndim=1] level2_coeff, ndarray[double, ndim=1] fat7_coeff, Pointers w_link, Pointers v_link, Pointer u_link, Pointers quark, int num, int num_naik, ndarray[double, ndim=2] coeff, QudaGaugeParam param):
-    assert momentum.dtype == "void"
     _level2_coeff = _NDArray(level2_coeff)
     _fat7_coeff = _NDArray(fat7_coeff)
-    assert w_link.dtype == "void"
-    assert v_link.dtype == "void"
-    assert u_link.dtype == "void"
-    assert quark.dtype == "void"
     _coeff = _NDArray(coeff)
     quda.computeHISQForceQuda(momentum.ptr, dt, <double *>_level2_coeff.ptr, <double *>_fat7_coeff.ptr, w_link.ptr, v_link.ptr, u_link.ptr, quark.ptrs, num, num_naik, <double **>_coeff.ptrs, &param.param)
 
@@ -399,20 +359,18 @@ def gaussMomQuda(unsigned long long seed, double sigma):
     quda.gaussMomQuda(seed, sigma)
 
 def plaqQuda() -> list:
-    cdef double plaq[3]
+    cdef double[3] plaq
     quda.plaqQuda(plaq)
     return plaq
 
 def polyakovLoopQuda(int dir) -> list:
-    cdef double ploop[2]
+    cdef double[2] ploop
     quda.polyakovLoopQuda(ploop, dir)
     return ploop
 
 # void copyExtendedResidentGaugeQuda(void *resident_gauge)
 
 def performWuppertalnStep(Pointer h_out, Pointer h_in, QudaInvertParam param, unsigned int n_steps, double alpha):
-    assert h_out.dtype == "void"
-    assert h_in.dtype == "void"
     quda.performWuppertalnStep(h_out.ptr, h_in.ptr, &param.param, n_steps, alpha)
 
 def performGaugeSmearQuda(QudaGaugeSmearParam smear_param, QudaGaugeObservableParam obs_param):
@@ -425,29 +383,19 @@ def gaugeObservablesQuda(QudaGaugeObservableParam param):
     quda.gaugeObservablesQuda(&param.param)
 
 def contractQuda(Pointer x, Pointer y, Pointer result, quda.QudaContractType cType, QudaInvertParam param, ndarray[int, ndim=1] X):
-    assert x.dtype == "void"
-    assert y.dtype == "void"
-    assert result.dtype == "void"
     _X = _NDArray(X)
     quda.contractQuda(x.ptr, y.ptr, result.ptr, cType, &param.param, <int *>_X.ptr)
 
 def computeGaugeFixingOVRQuda(Pointers gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double relax_boost, double tolerance, unsigned int reunit_interval, unsigned int stopWtheta, QudaGaugeParam param):
-    assert gauge.dtype == "void"
     return quda.computeGaugeFixingOVRQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, relax_boost, tolerance, reunit_interval, stopWtheta, &param.param)
 
 def computeGaugeFixingFFTQuda(Pointers gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double alpha, unsigned int autotune, double tolerance, unsigned int stopWtheta, QudaGaugeParam param):
-    assert gauge.dtype == "void"
     return quda.computeGaugeFixingFFTQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta, &param.param)
 
 def blasGEMMQuda(Pointer arrayA, Pointer arrayB, Pointer arrayC, quda.QudaBoolean native, QudaBLASParam param):
-    assert arrayA.dtype == "void"
-    assert arrayB.dtype == "void"
-    assert arrayC.dtype == "void"
     quda.blasGEMMQuda(arrayA.ptr, arrayB.ptr, arrayC.ptr, native, &param.param)
 
 def blasLUInvQuda(Pointer Ainv, Pointer A, quda.QudaBoolean use_native, QudaBLASParam param):
-    assert Ainv.dtype == "void"
-    assert A.dtype == "void"
     quda.blasLUInvQuda(Ainv.ptr, A.ptr, use_native, &param.param)
 
 def flushChronoQuda(int index):
@@ -460,7 +408,6 @@ def newDeflationQuda(QudaEigParam param) -> Pointer:
     return df_instance
 
 def destroyDeflationQuda(Pointer df_instance):
-    assert df_instance.dtype == "void"
     quda.destroyDeflationQuda(df_instance.ptr)
 
 cdef class QudaQuarkSmearParam:
@@ -482,5 +429,4 @@ cdef class QudaQuarkSmearParam:
 ##%%!! QudaQuarkSmearParam
 
 def performTwoLinkGaussianSmearNStep(Pointer h_in, QudaQuarkSmearParam smear_param):
-    assert h_in.dtype == "void"
     quda.performTwoLinkGaussianSmearNStep(h_in.ptr, &smear_param.param)

@@ -110,15 +110,6 @@ def _useMMA():
         return QudaBoolean.QUDA_BOOLEAN_FALSE
 
 
-_cpu_prec: QudaPrecision = QudaPrecision.QUDA_DOUBLE_PRECISION
-_cuda_prec: QudaPrecision = QudaPrecision.QUDA_DOUBLE_PRECISION
-_cuda_prec_sloppy: QudaPrecision = QudaPrecision.QUDA_HALF_PRECISION
-_cuda_prec_precondition: QudaPrecision = QudaPrecision.QUDA_HALF_PRECISION
-_cuda_prec_eigensolver: QudaPrecision = QudaPrecision.QUDA_DOUBLE_PRECISION
-_link_recon: QudaReconstructType = QudaReconstructType.QUDA_RECONSTRUCT_12
-_link_recon_sloppy: QudaReconstructType = QudaReconstructType.QUDA_RECONSTRUCT_12
-
-
 def newQudaGaugeParam(
     lattice: LatticeInfo,
     tadpole_coeff: float,
@@ -137,12 +128,6 @@ def newQudaGaugeParam(
     gauge_param.gauge_order = QudaGaugeFieldOrder.QUDA_QDP_GAUGE_ORDER
     gauge_param.t_boundary = lattice.t_boundary
 
-    # gauge_param.cpu_prec = cpu_prec
-    # gauge_param.cuda_prec = cuda_prec
-    # gauge_param.cuda_prec_sloppy = cuda_prec_sloppy
-    # gauge_param.cuda_prec_refinement_sloppy = cuda_prec_sloppy
-    # gauge_param.cuda_prec_precondition = cuda_prec_precondition
-    # gauge_param.cuda_prec_eigensolver = cuda_prec_eigensolver
     gauge_param.cpu_prec = precision.cpu
     gauge_param.cuda_prec = precision.cuda
     gauge_param.cuda_prec_sloppy = precision.sloppy
@@ -150,11 +135,6 @@ def newQudaGaugeParam(
     gauge_param.cuda_prec_precondition = precision.precondition
     gauge_param.cuda_prec_eigensolver = precision.eigensolver
 
-    # gauge_param.reconstruct = link_recon
-    # gauge_param.reconstruct_sloppy = link_recon_sloppy
-    # gauge_param.reconstruct_refinement_sloppy = link_recon_sloppy
-    # gauge_param.reconstruct_precondition = link_recon_sloppy
-    # gauge_param.reconstruct_eigensolver = link_recon_sloppy
     gauge_param.reconstruct = reconstruct.cuda
     gauge_param.reconstruct_sloppy = reconstruct.sloppy
     gauge_param.reconstruct_refinement_sloppy = reconstruct.sloppy
@@ -216,10 +196,6 @@ def newQudaMultigridParam(
     mg_inv_param.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
 
     location = _fieldLocation()
-    # mg_inv_param.cpu_prec = cpu_prec
-    # mg_inv_param.cuda_prec = cuda_prec
-    # mg_inv_param.cuda_prec_sloppy = cuda_prec_sloppy
-    # mg_inv_param.cuda_prec_precondition = cuda_prec_precondition
     mg_inv_param.cpu_prec = precision.cpu
     mg_inv_param.cuda_prec = precision.cuda
     mg_inv_param.cuda_prec_sloppy = precision.sloppy
@@ -229,10 +205,6 @@ def newQudaMultigridParam(
     mg_inv_param.dirac_order = QudaDiracFieldOrder.QUDA_DIRAC_ORDER
     mg_inv_param.gamma_basis = QudaGammaBasis.QUDA_DEGRAND_ROSSI_GAMMA_BASIS
 
-    # mg_inv_param.clover_cpu_prec = cpu_prec
-    # mg_inv_param.clover_cuda_prec = cuda_prec
-    # mg_inv_param.clover_cuda_prec_sloppy = cuda_prec_sloppy
-    # mg_inv_param.clover_cuda_prec_precondition = cuda_prec_precondition
     mg_inv_param.clover_cpu_prec = precision.cpu
     mg_inv_param.clover_cuda_prec = precision.cuda
     mg_inv_param.clover_cuda_prec_sloppy = precision.sloppy
@@ -254,7 +226,6 @@ def newQudaMultigridParam(
     mg_param.geo_block_size = geo_block_size
     mg_param.spin_block_size = [2] + [1] * (QUDA_MAX_MG_LEVEL - 1)
     mg_param.n_vec = [24] * QUDA_MAX_MG_LEVEL
-    # mg_param.precision_null = [cuda_prec_precondition] * QUDA_MAX_MG_LEVEL
     mg_param.precision_null = [precision.precondition] * QUDA_MAX_MG_LEVEL
     mg_param.n_block_ortho = [1] * QUDA_MAX_MG_LEVEL
 
@@ -351,12 +322,6 @@ def newQudaInvertParam(
     invert_param.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
 
     location = _fieldLocation()
-    # invert_param.cpu_prec = cpu_prec
-    # invert_param.cuda_prec = cuda_prec
-    # invert_param.cuda_prec_sloppy = cuda_prec_sloppy
-    # invert_param.cuda_prec_refinement_sloppy = cuda_prec_sloppy
-    # invert_param.cuda_prec_precondition = cuda_prec_precondition
-    # invert_param.cuda_prec_eigensolver = cuda_prec_eigensolver
     invert_param.cpu_prec = precision.cpu
     invert_param.cuda_prec = precision.cuda
     invert_param.cuda_prec_sloppy = precision.sloppy
@@ -369,12 +334,6 @@ def newQudaInvertParam(
     invert_param.gamma_basis = QudaGammaBasis.QUDA_DEGRAND_ROSSI_GAMMA_BASIS
 
     if clover_coeff != 0.0:
-        # invert_param.clover_cpu_prec = cpu_prec
-        # invert_param.clover_cuda_prec = cuda_prec
-        # invert_param.clover_cuda_prec_sloppy = cuda_prec_sloppy
-        # invert_param.clover_cuda_prec_refinement_sloppy = cuda_prec_sloppy
-        # invert_param.clover_cuda_prec_precondition = cuda_prec_precondition
-        # invert_param.clover_cuda_prec_eigensolver = cuda_prec_eigensolver
         invert_param.clover_cpu_prec = precision.cpu
         invert_param.clover_cuda_prec = precision.cuda
         invert_param.clover_cuda_prec_sloppy = precision.sloppy
@@ -424,14 +383,14 @@ def loadClover(
         gauge_data_bak = gauge.backup()
         if clover_anisotropy != 1.0:
             gauge.setAnisotropy(clover_anisotropy)
+            gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
         gauge_param.anisotropy = 1.0
-        gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
         gauge_param.use_resident_gauge = 0
         loadGaugeQuda(gauge.data_ptrs, gauge_param)
         gauge_param.use_resident_gauge = 1
         loadCloverQuda(nullptr, nullptr, invert_param)
-        gauge_param.anisotropy = anisotropy
         gauge_param.reconstruct = reconstruct
+        gauge_param.anisotropy = anisotropy
         gauge.data = gauge_data_bak
     else:
         invert_param.compute_clover = 0
@@ -455,8 +414,8 @@ def saveClover(
     gauge_data_bak = gauge.backup()
     if clover_anisotropy != 1.0:
         gauge.setAnisotropy(clover_anisotropy)
+        gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
     gauge_param.anisotropy = 1.0
-    gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
     gauge_param.use_resident_gauge = 0
     loadGaugeQuda(gauge.data_ptrs, gauge_param)
     gauge_param.use_resident_gauge = 1
@@ -465,8 +424,8 @@ def saveClover(
     loadCloverQuda(clover.data_ptr, clover_inv.data_ptr, invert_param)
     invert_param.return_clover = 0
     invert_param.return_clover_inverse = 0
-    gauge_param.anisotropy = anisotropy
     gauge_param.reconstruct = reconstruct
+    gauge_param.anisotropy = anisotropy
     gauge.data = gauge_data_bak
 
 
