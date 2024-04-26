@@ -175,7 +175,7 @@ def init(
             pass
         elif backend == "cupy":
             from cupy import cuda
-            from . import malloc_pyquda
+            # from . import malloc_pyquda
         elif backend == "torch":
             from torch import cuda, set_default_device
         else:
@@ -214,8 +214,8 @@ def init(
             cuda.Device(_GPUID).use()
             cc = cuda.Device(_GPUID).compute_capability
             _COMPUTE_CAPABILITY = _ComputeCapability(int(cc[:-1]), int(cc[-1]))
-            allocator = cuda.PythonFunctionAllocator(malloc_pyquda.pyquda_cupy_malloc, malloc_pyquda.pyquda_cupy_free)
-            cuda.set_allocator(allocator.malloc)
+            # allocator = cuda.PythonFunctionAllocator(malloc_pyquda.pyquda_cupy_malloc, malloc_pyquda.pyquda_cupy_free)
+            # cuda.set_allocator(allocator.malloc)
         elif _CUDA_BACKEND == "torch":
             set_default_device(f"cuda:{_GPUID}")
             cc = cuda.get_device_capability(_GPUID)
