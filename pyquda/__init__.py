@@ -1,6 +1,6 @@
 from __future__ import annotations  # TYPE_CHECKING
 from os import environ
-from typing import TYPE_CHECKING, List, Literal, NamedTuple
+from typing import TYPE_CHECKING, Callable, List, Literal, NamedTuple, Tuple
 from warnings import warn, filterwarnings
 
 if TYPE_CHECKING:
@@ -172,27 +172,40 @@ def init(
             printRoot(f"INFO: Using default LatticeInfo({latt_size}, {t_boundary}, {anisotropy})")
 
         if backend == "numpy":
-            pass
+            cudaGetDeviceCount: Callable[[], int] = lambda: 0x7FFFFFFF
+            cudaGetDeviceProperties: Callable[[int], Tuple[int, int]] = lambda device: 0, 0
+            cudaSetDevice: Callable[[int], None] = lambda device: None
         elif backend == "cupy":
-            from cupy import cuda
-            # from . import malloc_pyquda
+            import cupy
+            from cupy.cuda.runtime import getDeviceCount as cudaGetDeviceCount
+            from cupy.cuda.runtime import getDeviceProperties as cudaGetDeviceProperties
+
+            cudaSetDevice: Callable[[int], None] = lambda device: cupy.cuda.Device(device).use()
         elif backend == "torch":
-            from torch import cuda, set_default_device
+            import torch
+            from torch.cuda import device_count as cudaGetDeviceCount
+            from torch.cuda import get_device_properties as cudaGetDeviceProperties
+
+            cudaSetDevice: Callable[[int], None] = lambda device: torch.set_default_device(f"cuda:{device}")
         else:
             raise ValueError(f"Unsupported CUDA backend {backend}")
         _CUDA_BACKEND = backend
 
-        # determine which GPU this rank will use @quda/include/communicator_quda.h
+        # if _CUDA_BACKEND == "cupy":
+        #     from . import malloc_pyquda
+
+        #     allocator = cupy.cuda.PythonFunctionAllocator(
+        #         malloc_pyquda.pyquda_cupy_malloc, malloc_pyquda.pyquda_cupy_free
+        #     )
+        #     cupy.cuda.set_allocator(allocator.malloc)
+
+        # quda/include/communicator_quda.h
+        # determine which GPU this rank will use
         hostname = gethostname()
         hostname_recv_buf = _MPI_COMM.allgather(hostname)
 
         if _GPUID < 0:
-            if _CUDA_BACKEND == "numpy":
-                device_count = 0x7FFFFFFF
-            elif _CUDA_BACKEND == "cupy":
-                device_count = cuda.runtime.getDeviceCount()
-            elif _CUDA_BACKEND == "torch":
-                device_count = cuda.device_count()
+            device_count = cudaGetDeviceCount()
             if device_count == 0:
                 raise RuntimeError("No devices found")
 
@@ -208,18 +221,9 @@ def init(
                 else:
                     raise RuntimeError(f"Too few GPUs available on {hostname}")
 
-        if _CUDA_BACKEND == "numpy":
-            pass
-        elif _CUDA_BACKEND == "cupy":
-            cuda.Device(_GPUID).use()
-            cc = cuda.Device(_GPUID).compute_capability
-            _COMPUTE_CAPABILITY = _ComputeCapability(int(cc[:-1]), int(cc[-1]))
-            # allocator = cuda.PythonFunctionAllocator(malloc_pyquda.pyquda_cupy_malloc, malloc_pyquda.pyquda_cupy_free)
-            # cuda.set_allocator(allocator.malloc)
-        elif _CUDA_BACKEND == "torch":
-            set_default_device(f"cuda:{_GPUID}")
-            cc = cuda.get_device_capability(_GPUID)
-            _COMPUTE_CAPABILITY = _ComputeCapability(cc[0], cc[1])
+        props = cudaGetDeviceProperties(_GPUID)
+        _COMPUTE_CAPABILITY = _ComputeCapability(props.major, props.minor)
+        cudaSetDevice(_GPUID)
 
         quda.initCommsGridQuda(4, _GRID_SIZE)
         quda.initQuda(_GPUID)
