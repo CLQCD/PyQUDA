@@ -222,7 +222,11 @@ def init(
                     raise RuntimeError(f"Too few GPUs available on {hostname}")
 
         props = cudaGetDeviceProperties(_GPUID)
-        _COMPUTE_CAPABILITY = _ComputeCapability(props.major, props.minor)
+        if hasattr(props, "major") and hasattr(props, "minor"):
+            _COMPUTE_CAPABILITY = _ComputeCapability(props.major, props.minor)
+        else:
+            _COMPUTE_CAPABILITY = _ComputeCapability(props["major"], props["minor"])
+        print(_COMPUTE_CAPABILITY)
         cudaSetDevice(_GPUID)
 
         quda.initCommsGridQuda(4, _GRID_SIZE)
