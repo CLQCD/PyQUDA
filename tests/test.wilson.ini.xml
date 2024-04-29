@@ -81,9 +81,9 @@
             <AutotuneDslash>true</AutotuneDslash>
           </InvertParam> -->
           <InvertParam>
-            <invType>CG_INVERTER</invType>
-            <RsdCG>1.0e-12</RsdCG>
-            <MaxCG>1000</MaxCG>
+            <invType>BICGSTAB_INVERTER</invType>
+            <RsdBiCGStab>1.0e-12</RsdBiCGStab>
+            <MaxBiCGStab>1000</MaxBiCGStab>
           </InvertParam>
         </Param>
         <NamedObject>

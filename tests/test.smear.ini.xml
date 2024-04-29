@@ -55,6 +55,28 @@
         </NamedObject>
       </elem>
 
+      <!-- <elem>
+        <Name>APPLY_FERM_STATE</Name>
+        <Frequency>1</Frequency>
+        <Param>
+          <version>1</version>
+          <FermState>
+            <Name>STOUT_FERM_STATE</Name>
+            <rho>0.125</rho>
+            <n_smear>1</n_smear>
+            <orthog_dir>-1</orthog_dir>
+            <FermionBC>
+              <FermBC>SIMPLE_FERMBC</FermBC>
+              <boundary>1 1 1 -1</boundary>
+            </FermionBC>
+          </FermState>
+        </Param>
+        <NamedObject>
+          <gauge_id>default_gauge_field</gauge_id>
+          <output_id>stout</output_id>
+        </NamedObject>
+      </elem> -->
+
       <elem>
         <Name>QIO_WRITE_NAMED_OBJECT</Name>
         <Frequency>1</Frequency>

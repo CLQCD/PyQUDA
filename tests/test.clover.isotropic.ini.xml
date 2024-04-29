@@ -47,44 +47,16 @@
             <clovCoeffR>0.91</clovCoeffR>
             <clovCoeffT>1.07</clovCoeffT>
             <AnisoParam>
-              <anisoP>true</anisoP>
+              <anisoP>false</anisoP>
               <t_dir>3</t_dir>
-              <xi_0>2.464</xi_0>
-              <nu>0.95</nu>
+              <xi_0>1.0</xi_0>
+              <nu>1.0</nu>
             </AnisoParam>
             <FermionBC>
               <FermBC>SIMPLE_FERMBC</FermBC>
               <boundary>1 1 1 -1</boundary>
             </FermionBC>
           </FermionAction>
-          <!-- <InvertParam>
-            <invType>QUDA_CLOVER_INVERTER</invType>
-            <CloverParams>
-              <Mass>0.347826086956522</Mass>
-              <clovCoeff>1.17</clovCoeff>
-              <clovCoeffR>0.91</clovCoeffR>
-              <clovCoeffT>1.07</clovCoeffT>
-              <AnisoParam>
-                <anisoP>true</anisoP>
-                <t_dir>3</t_dir>
-                <xi_0>2.464</xi_0>
-                <nu>0.95</nu>
-              </AnisoParam>
-            </CloverParams>
-            <RsdTarget>1e-09</RsdTarget>
-            <Delta>0.001</Delta>
-            <MaxIter>1000</MaxIter>
-            <RsdToleranceFactor>50</RsdToleranceFactor>
-            <AntiPeriodicT>true</AntiPeriodicT>
-            <SolverType>CG</SolverType>
-            <Verbose>false</Verbose>
-            <AsymmetricLinop>true</AsymmetricLinop>
-            <CudaReconstruct>RECONS_12</CudaReconstruct>
-            <CudaSloppyPrecision>HALF</CudaSloppyPrecision>
-            <CudaSloppyReconstruct>RECONS_12</CudaSloppyReconstruct>
-            <AxialGaugeFix>false</AxialGaugeFix>
-            <AutotuneDslash>true</AutotuneDslash>
-          </InvertParam> -->
           <InvertParam>
             <invType>BICGSTAB_INVERTER</invType>
             <RsdBiCGStab>1.0e-12</RsdBiCGStab>
@@ -106,7 +78,7 @@
           <object_type>LatticePropagator</object_type>
         </NamedObject>
         <File>
-          <file_name>./pt_prop_1</file_name>
+          <file_name>./pt_prop_3</file_name>
           <file_volfmt>SINGLEFILE</file_volfmt>
         </File>
       </elem>
