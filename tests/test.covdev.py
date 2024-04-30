@@ -18,7 +18,7 @@ def covdev(U, x, mu):
     elif 4 <= mu <= 7:
         mu -= 4
         x_ = np.roll(np.einsum("tzyxba,tzyxib->tzyxia", U_[mu].conj(), x_), 1, 3 - mu)
-    x.setData(core.cb2(x_, [0, 1, 2, 3]))
+    x.data = core.cb2(x_, [0, 1, 2, 3])
     x.toDevice()
 
 

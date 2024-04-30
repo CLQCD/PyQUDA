@@ -1,4 +1,4 @@
-from typing import Any, List, Literal
+from typing import List, Literal
 
 import numpy
 from numpy.typing import NDArray
@@ -197,79 +197,74 @@ def newMultiLatticeFieldData(latt_info: LatticeInfo, L5: int, field: str):
 
 class LatticeField:
     def __init__(self, latt_info: LatticeInfo) -> None:
-        self.latt_info = latt_info
-        self.data = None
-
-    def setData(self, data):
         from . import getCUDABackend
 
-        backend = getCUDABackend()
-        if isinstance(data, numpy.ndarray) or backend == "numpy":
-            self.data = numpy.ascontiguousarray(data)
-        elif backend == "cupy":
+        self.latt_info = latt_info
+        self._data = None
+        self.backend = getCUDABackend()
+        if self.backend not in ["numpy", "cupy", "torch"]:
+            raise ValueError(f"Unsupported CUDA backend {self.backend}")
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, value):
+        if isinstance(value, numpy.ndarray) or self.backend == "numpy":
+            self._data = numpy.ascontiguousarray(value)
+        elif self.backend == "cupy":
             import cupy
 
-            self.data = cupy.ascontiguousarray(data)
-        elif backend == "torch":
-            self.data = data.contiguous()
+            self._data = cupy.ascontiguousarray(value)
+        elif self.backend == "torch":
+            self._data = value.contiguous()
+
+    @property
+    def location(self):
+        if isinstance(self.data, numpy.ndarray):
+            return "numpy"
         else:
-            raise ValueError(f"Unsupported CUDA backend {backend}")
+            return self.backend
+
+    def setData(self, data):
+        self.data = data
 
     def backup(self):
-        from . import getCUDABackend
-
-        backend = getCUDABackend()
-        if isinstance(self.data, numpy.ndarray) or backend == "numpy":
+        if isinstance(self.data, numpy.ndarray) or self.backend == "numpy":
             return self.data.copy()
-        elif backend == "cupy":
+        elif self.backend == "cupy":
             return self.data.copy()
-        elif backend == "torch":
+        elif self.backend == "torch":
             return self.data.clone()
-        else:
-            raise ValueError(f"Unsupported CUDA backend {backend}")
 
     def toDevice(self):
-        from . import getCUDABackend
-
-        backend = getCUDABackend()
-        if backend == "numpy":
+        if self.backend == "numpy":
             pass
-        elif backend == "cupy":
+        elif self.backend == "cupy":
             import cupy
 
             self.data = cupy.asarray(self.data)
-        elif backend == "torch":
+        elif self.backend == "torch":
             import torch
 
             self.data = torch.as_tensor(self.data)
-        else:
-            raise ValueError(f"Unsupported CUDA backend {backend}")
 
     def toHost(self):
-        from . import getCUDABackend
-
-        backend = getCUDABackend()
-        if isinstance(self.data, numpy.ndarray) or backend == "numpy":
+        if isinstance(self.data, numpy.ndarray) or self.backend == "numpy":
             pass
-        elif backend == "cupy":
+        elif self.backend == "cupy":
             self.data = self.data.get()
-        elif backend == "torch":
+        elif self.backend == "torch":
             self.data = self.data.cpu().numpy()
-        else:
-            raise ValueError(f"Unsupported CUDA backend {backend}")
 
     def getHost(self):
-        from . import getCUDABackend
-
-        backend = getCUDABackend()
-        if isinstance(self.data, numpy.ndarray) or backend == "numpy":
+        if isinstance(self.data, numpy.ndarray) or self.backend == "numpy":
             return self.data.copy()
-        elif backend == "cupy":
+        elif self.backend == "cupy":
             return self.data.get()
-        elif backend == "torch":
+        elif self.backend == "torch":
             return self.data.cpu().numpy()
-        else:
-            raise ValueError(f"Unsupported CUDA backend {backend}")
 
 
 class MultiLatticeField(LatticeField):
@@ -603,6 +598,10 @@ class MultiLatticeFermion(MultiLatticeField):
         tmp = LatticeFermion(self.latt_info, self.data[index])
         return LatticeFermion(self.latt_info, tmp.backup())
 
+    def __setitem__(self, index: int, value: LatticeFermion):
+        assert 0 <= index < self.L5
+        self.data[index] = value.data
+
     def lexico(self):
         return lexico(self.getHost(), [1, 2, 3, 4, 5])
 
@@ -695,6 +694,10 @@ class MultiLatticeStaggeredFermion(MultiLatticeField):
         assert 0 <= index < self.L5
         tmp = LatticeStaggeredFermion(self.latt_info, self.data[index])
         return LatticeStaggeredFermion(self.latt_info, tmp.backup())
+
+    def __setitem__(self, index: int, value: LatticeStaggeredFermion):
+        assert 0 <= index < self.L5
+        self.data[index] = value.data
 
     def lexico(self):
         return lexico(self.getHost(), [1, 2, 3, 4, 5])

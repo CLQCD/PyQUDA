@@ -644,8 +644,14 @@ class QudaInvertParam:
     use_mobius_fused_kernel: QudaBoolean
     """Whether to use fused kernels for mobius"""
 
+    # Parameters for distance preconditioning algorithm proposed in arXiv:1006.4028,
+    # which is useful to solve a precise heavy quark propagator.
+    # alpha0 and t0 follow Eq.(9) in the article.
+
     distance_pc_alpha0: double
+    """The alpha0 parameter for distance preconditioning, related to the pseudoscalar meson mass"""
     distance_pc_t0: int
+    """The t0 parameter for distance preconditioning, the timeslice where the source is located"""
 
 class QudaEigParam:
     """

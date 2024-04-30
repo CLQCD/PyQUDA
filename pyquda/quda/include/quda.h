@@ -448,8 +448,15 @@ extern "C" {
     /** Whether to use fused kernels for mobius */
     QudaBoolean use_mobius_fused_kernel;
 
-    /** Parameters for distance preconditioning */
+    /**
+     * Parameters for distance preconditioning algorithm proposed in arXiv:1006.4028,
+     * which is useful to solve a precise heavy quark propagator.
+     * alpha0 and t0 follow Eq.(9) in the article.
+     */
+
+    /** The alpha0 parameter for distance preconditioning, related to the pseudoscalar meson mass */
     double distance_pc_alpha0;
+    /** The t0 parameter for distance preconditioning, the timeslice where the source is located */
     int distance_pc_t0;
 
   } QudaInvertParam;
@@ -1801,6 +1808,24 @@ extern "C" {
    * @param[in] smear_param   Contains all metadata the operator which will be applied to the spinor
    */
   void performTwoLinkGaussianSmearNStep(void *h_in, QudaQuarkSmearParam *smear_param);
+
+  /**
+   * @brief Performs contractions between a set of quark fields and
+   * eigenvectors of the 3-d Laplace operator.
+   * @param[in,out] host_sinks An array representing the inner
+   * products between the quark fields and the eigen-vector fields.
+   * Ordered as [nQuark][nEv][Lt][nSpin][complexity].
+   * @param[in] host_quark Array of quark fields we are taking the inner over
+   * @param[in] n_quark Number of quark fields
+   * @param[in] tile_quark Tile size for quark fields (batch size)
+   * @param[in] host_evec Array of eigenvectors we are taking the inner over
+   * @param[in] n_evec Number of eigenvectors
+   * @param[in] tile_evec Tile size for eigenvectors (batch size)
+   * @param[in] inv_param Meta-data structure
+   * @param[in] X Lattice dimensions
+   */
+  void laphSinkProject(double _Complex *host_sinks, void **host_quark, int n_quark, int tile_quark,
+                       void **host_evec, int nevec, int tile_evec, QudaInvertParam *inv_param, const int X[4]);
 
 #ifdef __cplusplus
 }
