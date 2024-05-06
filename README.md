@@ -43,17 +43,17 @@ PyQUDA doesn't list `cupy` or `torch` as dependency because of the different nam
 You should choose **ONE OF** commands below depends on your CUDA toolkit version to install CuPy package.
 
 ```bash
-python3 -m pip install cupy # build from source, not recommand
-python3 -m pip install cupy-cuda110 # for CUDA v11.0
-python3 -m pip install cupy-cuda111 # for CUDA v11.1
-python3 -m pip install cupy-cuda11x # for CUDA v11.2 ~ v11.8
-python3 -m pip install cupy-cuda12x # for CUDA v12.x
+python3 -m pip install "cupy>=12" # build from source, not recommand
+python3 -m pip install "cupy-cuda110>=12" # for CUDA v11.0
+python3 -m pip install "cupy-cuda111>=12" # for CUDA v11.1
+python3 -m pip install "cupy-cuda11x>=12" # for CUDA v11.2 ~ v11.8
+python3 -m pip install "cupy-cuda12x>=12" # for CUDA v12.x
 ```
 
 Or use command blow to install PyTorch package.
 
 ```bash
-python3 -m pip install torch
+python3 -m pip install "torch>=2"
 ```
 
 ### Test PyQUDA
@@ -100,6 +100,7 @@ git clone https://github.com/CLQCD/PyQUDA.git
 cd PyQUDA
 export QUDA_PATH=../quda/build/usqcd
 python3 -m pip install -r requirements.txt
+python3 -m pip install "Cython>=3"
 python3 setup.py build_ext --inplace
 ```
 

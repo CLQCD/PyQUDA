@@ -130,8 +130,8 @@ class HMC:
             u.data_ptrs,
             ndarrayPointer(x.even.reshape(1, -1), True),
             1,
-            1,
-            numpy.array([[1, -1 / 24], [0, 0]], "<f8"),
+            0,
+            numpy.array([[1, -1 / 24]], "<f8"),
             self.gauge_param,
         )
         self.gauge_param.staggered_phase_applied = 0
@@ -210,7 +210,7 @@ class HMC:
             self.gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_MILC
             self.gauge_param.staggered_phase_applied = 0
             self.gauge_param.use_resident_gauge = 1
-            self.updated_fat_long = True
+            # self.updated_fat_long = True
 
     def initNoise(self, x: LatticeStaggeredFermion, seed: int):
         self.updateFatLong()

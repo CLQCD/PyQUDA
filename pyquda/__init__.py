@@ -226,9 +226,8 @@ def init(
             _COMPUTE_CAPABILITY = _ComputeCapability(props.major, props.minor)
         else:
             _COMPUTE_CAPABILITY = _ComputeCapability(props["major"], props["minor"])
-        print(_COMPUTE_CAPABILITY)
-        cudaSetDevice(_GPUID)
 
+        cudaSetDevice(_GPUID)
         quda.initCommsGridQuda(4, _GRID_SIZE)
         quda.initQuda(_GPUID)
         atexit.register(quda.endQuda)
