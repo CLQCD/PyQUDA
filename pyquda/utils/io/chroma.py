@@ -8,7 +8,7 @@ import numpy
 
 from ...field import Ns, Nc, Nd, LatticeInfo, LatticeGauge, LatticePropagator, LatticeStaggeredPropagator, cb2
 
-_precision_map = {"D": 8, "S": 4}
+_precision_map = {"D": 8, "F": 4, "S": 4}
 
 
 def fromILDGGaugeBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
