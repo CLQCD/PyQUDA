@@ -24,8 +24,8 @@ def fromGaugeBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
             gy * Ly : (gy + 1) * Ly,
             gx * Lx : (gx + 1) * Lx,
         ]
-        .astype("<c16")
         .transpose(4, 0, 1, 2, 3, 5, 6)
+        .astype("<c16")
     )
 
     return gauge_raw
@@ -72,8 +72,8 @@ def fromMultiSCIDACPropagatorBuffer(buffer: bytes, dtype: str, latt_info: Lattic
                 gy * Ly : (gy + 1) * Ly,
                 gx * Lx : (gx + 1) * Lx,
             ]
-            .astype("<c16")
             .transpose(2, 3, 4, 5, 6, 0, 7, 1)
+            .astype("<c16")
         )
     else:
         propagator_raw = (
@@ -85,8 +85,8 @@ def fromMultiSCIDACPropagatorBuffer(buffer: bytes, dtype: str, latt_info: Lattic
                 gy * Ly : (gy + 1) * Ly,
                 gx * Lx : (gx + 1) * Lx,
             ]
-            .astype("<c16")
             .transpose(1, 2, 3, 4, 5, 0)
+            .astype("<c16")
         )
 
     return propagator_raw

@@ -24,8 +24,8 @@ def fromILDGGaugeBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
             gy * Ly : (gy + 1) * Ly,
             gx * Lx : (gx + 1) * Lx,
         ]
-        .astype("<c16")
         .transpose(4, 0, 1, 2, 3, 5, 6)
+        .astype("<c16")
     )
 
     return gauge_raw

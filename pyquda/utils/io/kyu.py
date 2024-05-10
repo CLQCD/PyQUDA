@@ -71,12 +71,71 @@ def writeGauge(filename: str, gauge: LatticeGauge):
             f.write(kyu_binary_data)
 
 
+# matrices to convert gamma basis bewteen DeGrand-Rossi and Dirac-Pauli
+# \psi(DP) = _DR_TO_DP \psi(DR)
+# \psi(DR) = _DP_TO_DR \psi(DP)
+_DP_TO_DR = [
+    [0, 1, 0, -1],
+    [-1, 0, 1, 0],
+    [0, 1, 0, 1],
+    [-1, 0, -1, 0],
+]
+_DR_TO_DP = [
+    [0, -1, 0, -1],
+    [1, 0, 1, 0],
+    [0, 1, 0, -1],
+    [-1, 0, 1, 0],
+]
+
+
+def rotateToDiracPauli(propagator: LatticePropagator):
+    from opt_einsum import contract
+
+    if propagator.location == "numpy":
+        A = numpy.asarray(_DP_TO_DR)
+        Ainv = numpy.asarray(_DR_TO_DP)
+    elif propagator.location == "cupy":
+        import cupy
+
+        A = cupy.asarray(_DP_TO_DR)
+        Ainv = cupy.asarray(_DR_TO_DP)
+    elif propagator.location == "torch":
+        import torch
+
+        A = torch.as_tensor(_DP_TO_DR)
+        Ainv = torch.as_tensor(_DR_TO_DP)
+
+    _data = contract("ij,etzyxjkab,kl->etzyxilab", Ainv, propagator.data, A, optimize=True)
+    return LatticePropagator(propagator.latt_info, _data / 2)
+
+
+def rotateToDeGrandRossi(propagator: LatticePropagator):
+    from opt_einsum import contract
+
+    if propagator.location == "numpy":
+        A = numpy.asarray(_DR_TO_DP)
+        Ainv = numpy.asarray(_DP_TO_DR)
+    elif propagator.location == "cupy":
+        import cupy
+
+        A = cupy.array(_DR_TO_DP)
+        Ainv = cupy.array(_DP_TO_DR)
+    elif propagator.location == "torch":
+        import torch
+
+        A = torch.as_tensor(_DR_TO_DP)
+        Ainv = torch.as_tensor(_DP_TO_DR)
+
+    _data = contract("ij,etzyxjkab,kl->etzyxilab", Ainv, propagator.data, A, optimize=True)
+    return LatticePropagator(propagator.latt_info, _data / 2)
+
+
 def fromPropagatorBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
     Gx, Gy, Gz, Gt = latt_info.grid_size
     gx, gy, gz, gt = latt_info.grid_coord
     Lx, Ly, Lz, Lt = latt_info.size
 
-    kyu_raw = (
+    propagator_raw = (
         numpy.frombuffer(buffer, dtype)
         .reshape(Ns, Nc, 2, Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx)[
             :,
@@ -89,17 +148,12 @@ def fromPropagatorBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
             gy * Ly : (gy + 1) * Ly,
             gx * Lx : (gx + 1) * Lx,
         ]
-        .astype("<f8")
         .transpose(5, 6, 7, 8, 3, 0, 4, 1, 2)
         .reshape(Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc * 2)
+        .copy()
+        .astype("<f8")
         .view("<c16")
     )
-
-    propagator_raw = numpy.zeros_like(kyu_raw)
-    propagator_raw[:, :, :, :, 0] = -(2**-0.5) * kyu_raw[:, :, :, :, 1] - 2**-0.5 * kyu_raw[:, :, :, :, 3]
-    propagator_raw[:, :, :, :, 1] = +(2**-0.5) * kyu_raw[:, :, :, :, 2] + 2**-0.5 * kyu_raw[:, :, :, :, 0]
-    propagator_raw[:, :, :, :, 2] = +(2**-0.5) * kyu_raw[:, :, :, :, 3] - 2**-0.5 * kyu_raw[:, :, :, :, 1]
-    propagator_raw[:, :, :, :, 3] = +(2**-0.5) * kyu_raw[:, :, :, :, 0] - 2**-0.5 * kyu_raw[:, :, :, :, 2]
 
     return propagator_raw
 
@@ -110,19 +164,14 @@ def toPropagatorBuffer(propagator_raw: numpy.ndarray, dtype: str, latt_info: Lat
     Gx, Gy, Gz, Gt = latt_info.grid_size
     Lx, Ly, Lz, Lt = latt_info.size
 
-    kyu_raw = numpy.zeros_like(propagator_raw)
-    kyu_raw[:, :, :, :, 0] = +(2**-0.5) * propagator_raw[:, :, :, :, 1] + 2**-0.5 * propagator_raw[:, :, :, :, 3]
-    kyu_raw[:, :, :, :, 1] = -(2**-0.5) * propagator_raw[:, :, :, :, 2] - 2**-0.5 * propagator_raw[:, :, :, :, 0]
-    kyu_raw[:, :, :, :, 2] = -(2**-0.5) * propagator_raw[:, :, :, :, 3] + 2**-0.5 * propagator_raw[:, :, :, :, 1]
-    kyu_raw[:, :, :, :, 3] = -(2**-0.5) * propagator_raw[:, :, :, :, 0] + 2**-0.5 * propagator_raw[:, :, :, :, 2]
-
-    kyu_gathered_raw = gatherPropagatorRaw(kyu_raw, latt_info)
+    propagator_gathered_raw = gatherPropagatorRaw(propagator_raw, latt_info)
     if latt_info.mpi_rank == 0:
         buffer = (
-            kyu_gathered_raw.view("<f8")
+            propagator_gathered_raw.view("<f8")
+            .astype(dtype)
             .reshape(Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Ns, Nc, Nc, 2)
             .transpose(5, 7, 8, 4, 6, 0, 1, 2, 3)
-            .astype(dtype)
+            .copy()
             .tobytes()
         )
     else:
@@ -138,13 +187,14 @@ def readPropagator(filename: str, latt_info: LatticeInfo):
         kyu_binary_data = f.read()
     propagator_raw = fromPropagatorBuffer(kyu_binary_data, ">f8", latt_info)
 
-    return LatticePropagator(latt_info, cb2(propagator_raw, [0, 1, 2, 3]))
+    return rotateToDeGrandRossi(LatticePropagator(latt_info, cb2(propagator_raw, [0, 1, 2, 3])))
 
 
 def writePropagator(filename: str, propagator: LatticePropagator):
     filename = path.expanduser(path.expandvars(filename))
     latt_info = propagator.latt_info
-    kyu_binary_data = toPropagatorBuffer(propagator.lexico(), ">f8", latt_info)
+
+    kyu_binary_data = toPropagatorBuffer(rotateToDiracPauli(propagator).lexico(), ">f8", latt_info)
     if latt_info.mpi_rank == 0:
         with open(filename, "wb") as f:
             f.write(kyu_binary_data)

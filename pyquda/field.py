@@ -221,7 +221,7 @@ class LatticeField:
             self._data = value.contiguous()
 
     @property
-    def location(self):
+    def location(self) -> Literal["numpy", "cupy", "torch"]:
         if isinstance(self.data, numpy.ndarray):
             return "numpy"
         else:
