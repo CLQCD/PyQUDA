@@ -1,3 +1,5 @@
+import io
+import mmap
 from os import path
 
 import numpy
@@ -201,20 +203,52 @@ def writePropagatorFast(filename: str, propagator: LatticePropagator):
     Gx, Gy, Gz, Gt = latt_info.grid_size
     gx, gy, gz, gt = latt_info.grid_coord
     Lx, Ly, Lz, Lt = latt_info.size
+    global_volume = latt_info.global_volume
+    length = global_volume * Ns * Ns * Nc * Nc * 8
+    with open(filename, "w+b") as f:
+        from ... import getMPIComm
 
-    f = numpy.memmap(filename, "<c8", "w+", 0, (Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Nc))
-    f[
-        :,
-        :,
-        gt * Lt : (gt + 1) * Lt,
-        gz * Lz : (gz + 1) * Lz,
-        gy * Ly : (gy + 1) * Ly,
-        gx * Lx : (gx + 1) * Lx,
-    ] = propagator
+        if latt_info.mpi_rank == 0:
+            f.seek(length - 1, io.SEEK_SET)
+            f.write(b"\0")
+            f.flush()
+        getMPIComm().Barrier()
+        with mmap.mmap(f.fileno(), length, access=mmap.ACCESS_WRITE) as mm:
+            file = numpy.ndarray.__new__(numpy.memmap, (Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Nc), "<c8", mm)
+            file[
+                :,
+                :,
+                gt * Lt : (gt + 1) * Lt,
+                gz * Lz : (gz + 1) * Lz,
+                gy * Ly : (gy + 1) * Ly,
+                gx * Lx : (gx + 1) * Lx,
+            ] = propagator
+            file.flush()
+    stopWatch.stop()
+    print(f"Write: {stopWatch} secs")
+
+    # stopWatch.reset()
+    # stopWatch.start()
     # if latt_info.mpi_rank == 0:
     #     kyu_binary_data.tofile(filename)
     # if latt_info.mpi_rank == 0:
     #     f = numpy.memmap(filename, "<c8", "write", 0, (Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Nc))
     #     f[:] = kyu_binary_data
-    stopWatch.stop()
-    print(f"Write: {stopWatch} secs")
+    # stopWatch.stop()
+    # print(f"Write: {stopWatch} secs")
+
+    # stopWatch.reset()
+    # stopWatch.start()
+    # f = numpy.memmap(filename, "<c8", "w+", 0, (Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Nc))
+    # f[
+    #     :,
+    #     :,
+    #     gt * Lt : (gt + 1) * Lt,
+    #     gz * Lz : (gz + 1) * Lz,
+    #     gy * Ly : (gy + 1) * Ly,
+    #     gx * Lx : (gx + 1) * Lx,
+    # ] = propagator
+    # f.flush()
+    # f = None
+    # stopWatch.stop()
+    # print(f"Write3: {stopWatch} secs")
