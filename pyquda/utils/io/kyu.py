@@ -5,25 +5,32 @@ import numpy
 from ...field import Ns, Nc, Nd, LatticeInfo, LatticeGauge, LatticePropagator, cb2
 
 
-def fromGaugeBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
+def fromGaugeBuffer(filename: str, offset: int, dtype: str, latt_info: LatticeInfo):
+    from ... import openMPIFileRead, getMPIDatatype
+
     Gx, Gy, Gz, Gt = latt_info.grid_size
     gx, gy, gz, gt = latt_info.grid_coord
     Lx, Ly, Lz, Lt = latt_info.size
+    native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
+
+    fh = openMPIFileRead(filename)
+    gauge_raw = numpy.empty((Nd, Nc, Nc, 2, Lt, Lz, Ly, Lx), native_dtype)
+    filetype = getMPIDatatype(native_dtype).Create_subarray(
+        (Nd, Nc, Nc, 2, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx),
+        (Nd, Nc, Nc, 2, Lt, Lz, Ly, Lx),
+        (0, 0, 0, 0, gt * Lt, gz * Lz, gy * Ly, gx * Lx),
+    )
+    filetype.Commit()
+    fh.Set_view(offset, filetype=filetype)
+    fh.Read_all(gauge_raw)
+    filetype.Free()
+    fh.Close()
 
     gauge_raw = (
-        numpy.frombuffer(buffer, dtype)
-        .reshape(Nd, Nc, Nc, 2, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx)[
-            :,
-            :,
-            :,
-            :,
-            gt * Lt : (gt + 1) * Lt,
-            gz * Lz : (gz + 1) * Lz,
-            gy * Ly : (gy + 1) * Ly,
-            gx * Lx : (gx + 1) * Lx,
-        ]
+        gauge_raw.transpose(0, 4, 5, 6, 7, 2, 1, 3)
+        .view(dtype)
         .astype("<f8")
-        .transpose(0, 4, 5, 6, 7, 2, 1, 3)
+        .copy()
         .reshape(Nd, Lt, Lz, Ly, Lx, Nc, Nc * 2)
         .view("<c16")
     )
@@ -31,33 +38,38 @@ def fromGaugeBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
     return gauge_raw
 
 
-def toGaugeBuffer(gauge_lexico: numpy.ndarray, dtype: str, latt_info: LatticeInfo):
-    from .gather_raw import gatherGaugeRaw
+def toGaugeBuffer(filename: str, offset: int, gauge_raw: numpy.ndarray, dtype: str, latt_info: LatticeInfo):
+    from ... import openMPIFileWrite, getMPIDatatype
 
     Gx, Gy, Gz, Gt = latt_info.grid_size
+    gx, gy, gz, gt = latt_info.grid_coord
     Lx, Ly, Lz, Lt = latt_info.size
+    native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
 
-    gauge_raw = gatherGaugeRaw(gauge_lexico, latt_info)
-    if latt_info.mpi_rank == 0:
-        buffer = (
-            gauge_raw.view("<f8")
-            .reshape(Nd, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nc, Nc, 2)
-            .transpose(0, 6, 5, 7, 1, 2, 3, 4)
-            .astype(dtype)
-            .tobytes()
-        )
-    else:
-        buffer = None
-
-    return buffer
+    fh = openMPIFileWrite(filename)
+    gauge_raw = (
+        gauge_raw.view("<f8")
+        .reshape(Nd, Lt, Lz, Ly, Lx, Nc, Nc, 2)
+        .astype(dtype)
+        .view(native_dtype)
+        .transpose(0, 6, 5, 7, 1, 2, 3, 4)
+        .copy()
+    )
+    filetype = getMPIDatatype(native_dtype).Create_subarray(
+        (Nd, Nc, Nc, 2, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx),
+        (Nd, Nc, Nc, 2, Lt, Lz, Ly, Lx),
+        (0, 0, 0, 0, gt * Lt, gz * Lz, gy * Ly, gx * Lx),
+    )
+    filetype.Commit()
+    fh.Set_view(offset, filetype=filetype)
+    fh.Write_all(gauge_raw)
+    filetype.Free()
+    fh.Close()
 
 
 def readGauge(filename: str, latt_info: LatticeInfo):
     filename = path.expanduser(path.expandvars(filename))
-    with open(filename, "rb") as f:
-        # kyu_binary_data = f.read(Nd * Nc * Nc * 2 * Lt * Lz * Ly * Lx * 8)
-        kyu_binary_data = f.read()
-    gauge_raw = fromGaugeBuffer(kyu_binary_data, ">f8", latt_info)
+    gauge_raw = fromGaugeBuffer(filename, 0, ">f8", latt_info)
 
     return LatticeGauge(latt_info, cb2(gauge_raw, [1, 2, 3, 4]))
 
@@ -65,10 +77,8 @@ def readGauge(filename: str, latt_info: LatticeInfo):
 def writeGauge(filename: str, gauge: LatticeGauge):
     filename = path.expanduser(path.expandvars(filename))
     latt_info = gauge.latt_info
-    kyu_binary_data = toGaugeBuffer(gauge.lexico(), ">f8", latt_info)
-    if latt_info.mpi_rank == 0:
-        with open(filename, "wb") as f:
-            f.write(kyu_binary_data)
+
+    toGaugeBuffer(filename, 0, gauge.lexico(), ">f8", latt_info)
 
 
 # matrices to convert gamma basis bewteen DeGrand-Rossi and Dirac-Pauli
