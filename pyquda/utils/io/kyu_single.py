@@ -1,5 +1,3 @@
-import io
-import mmap
 from os import path
 
 import numpy
@@ -68,55 +66,57 @@ def rotateToDeGrandRossi(propagator: LatticePropagator):
     )
 
 
-def fromPropagatorBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
+def fromPropagatorBuffer(filename: str, offset: int, dtype: str, latt_info: LatticeInfo):
+    from ... import openMPIFileRead, getMPIDatatype
+
     Gx, Gy, Gz, Gt = latt_info.grid_size
     gx, gy, gz, gt = latt_info.grid_coord
     Lx, Ly, Lz, Lt = latt_info.size
+    native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
 
-    propagator_raw = (
-        numpy.frombuffer(buffer, dtype)
-        .reshape(Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Nc)[
-            :,
-            :,
-            gt * Lt : (gt + 1) * Lt,
-            gz * Lz : (gz + 1) * Lz,
-            gy * Ly : (gy + 1) * Ly,
-            gx * Lx : (gx + 1) * Lx,
-        ]
-        .transpose(2, 3, 4, 5, 6, 0, 7, 1)
-        .astype("<c16")
+    fh = openMPIFileRead(filename)
+    propagator_raw = numpy.empty((Ns, Nc, Lt, Lz, Ly, Lx, Ns, Nc), native_dtype)
+    filetype = getMPIDatatype(native_dtype).Create_subarray(
+        (Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Nc),
+        (Ns, Nc, Lt, Lz, Ly, Lx, Ns, Nc),
+        (0, 0, gt * Lt, gz * Lz, gy * Ly, gx * Lx, 0, 0),
     )
+    filetype.Commit()
+    fh.Set_view(offset, filetype=filetype)
+    fh.Read_all(propagator_raw)
+    filetype.Free()
+    fh.Close()
+
+    propagator_raw = propagator_raw.transpose(2, 3, 4, 5, 6, 0, 7, 1).view(dtype).astype("<c16")
 
     return propagator_raw
 
 
-def toPropagatorBuffer(propagator_raw: numpy.ndarray, dtype: str, latt_info: LatticeInfo):
-    from .gather_raw import gatherPropagatorRaw
+def toPropagatorBuffer(filename: str, offset: int, propagator_raw: numpy.ndarray, dtype: str, latt_info: LatticeInfo):
+    from ... import openMPIFileWrite, getMPIDatatype
 
     Gx, Gy, Gz, Gt = latt_info.grid_size
+    gx, gy, gz, gt = latt_info.grid_coord
     Lx, Ly, Lz, Lt = latt_info.size
+    native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
 
-    propagator_gathered_raw = gatherPropagatorRaw(propagator_raw, latt_info)
-    if latt_info.mpi_rank == 0:
-        buffer = (
-            propagator_gathered_raw.astype(dtype)
-            .reshape(Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Ns, Nc, Nc)
-            .transpose(5, 7, 0, 1, 2, 3, 4, 6)
-            .copy()
-            .tobytes()
-        )
-    else:
-        buffer = None
-
-    return buffer
+    fh = openMPIFileWrite(filename)
+    propagator_raw = propagator_raw.astype(dtype).view(native_dtype).transpose(5, 7, 0, 1, 2, 3, 4, 6).copy()
+    filetype = getMPIDatatype(native_dtype).Create_subarray(
+        (Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Nc),
+        (Ns, Nc, Lt, Lz, Ly, Lx, Ns, Nc),
+        (0, 0, gt * Lt, gz * Lz, gy * Ly, gx * Lx, 0, 0),
+    )
+    filetype.Commit()
+    fh.Set_view(offset, filetype=filetype)
+    fh.Write_all(propagator_raw)
+    filetype.Free()
+    fh.Close()
 
 
 def readPropagator(filename: str, latt_info: LatticeInfo):
     filename = path.expanduser(path.expandvars(filename))
-    with open(filename, "rb") as f:
-        # kyu_binary_data = f.read(2 * Ns * Nc * Lt * Lz * Ly * Lx * 8)
-        kyu_binary_data = f.read()
-    propagator_raw = fromPropagatorBuffer(kyu_binary_data, "<c8", latt_info)
+    propagator_raw = fromPropagatorBuffer(filename, 0, "<c8", latt_info)
 
     return rotateToDeGrandRossi(LatticePropagator(latt_info, cb2(propagator_raw, [0, 1, 2, 3])))
 
@@ -125,10 +125,7 @@ def writePropagator(filename: str, propagator: LatticePropagator):
     filename = path.expanduser(path.expandvars(filename))
     latt_info = propagator.latt_info
 
-    kyu_binary_data = toPropagatorBuffer(rotateToDiracPauli(propagator).lexico(), "<c8", latt_info)
-    if latt_info.mpi_rank == 0:
-        with open(filename, "wb") as f:
-            f.write(kyu_binary_data)
+    toPropagatorBuffer(filename, 0, rotateToDiracPauli(propagator).lexico(), "<c8", latt_info)
 
 
 class StopWatch:
@@ -190,65 +187,24 @@ def writePropagatorFast(filename: str, propagator: LatticePropagator):
     propagator = lexico(propagator.getHost(), [2, 3, 4, 5, 6])
     stopWatch.stop()
     print(f"Lexico: {stopWatch} secs")
-    # stopWatch.reset()
-    # stopWatch.start()
-    # from ...core import gatherLattice
-
-    # kyu_binary_data = gatherLattice(propagator, [2, 3, 4, 5], root=0)
-    # stopWatch.stop()
-    # print(f"Gather: {stopWatch} secs")
-
     stopWatch.reset()
     stopWatch.start()
+    from ... import openMPIFileWrite, getMPIDatatype
+
     Gx, Gy, Gz, Gt = latt_info.grid_size
     gx, gy, gz, gt = latt_info.grid_coord
     Lx, Ly, Lz, Lt = latt_info.size
-    global_volume = latt_info.global_volume
-    length = global_volume * Ns * Ns * Nc * Nc * 8
-    with open(filename, "w+b") as f:
-        from ... import getMPIComm
 
-        if latt_info.mpi_rank == 0:
-            f.seek(length - 1, io.SEEK_SET)
-            f.write(b"\0")
-            f.flush()
-        getMPIComm().Barrier()
-        with mmap.mmap(f.fileno(), length, access=mmap.ACCESS_WRITE) as mm:
-            file = numpy.ndarray.__new__(numpy.memmap, (Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Nc), "<c8", mm)
-            file[
-                :,
-                :,
-                gt * Lt : (gt + 1) * Lt,
-                gz * Lz : (gz + 1) * Lz,
-                gy * Ly : (gy + 1) * Ly,
-                gx * Lx : (gx + 1) * Lx,
-            ] = propagator
-            file.flush()
+    fh = openMPIFileWrite(filename)
+    filetype = getMPIDatatype("<c8").Create_subarray(
+        (Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Nc),
+        (Ns, Nc, Lt, Lz, Ly, Lx, Ns, Nc),
+        (0, 0, gt * Lt, gz * Lz, gy * Ly, gx * Lx, 0, 0),
+    )
+    filetype.Commit()
+    fh.Set_view(filetype=filetype)
+    fh.Write_all(propagator)
+    filetype.Free()
+    fh.Close()
     stopWatch.stop()
     print(f"Write: {stopWatch} secs")
-
-    # stopWatch.reset()
-    # stopWatch.start()
-    # if latt_info.mpi_rank == 0:
-    #     kyu_binary_data.tofile(filename)
-    # if latt_info.mpi_rank == 0:
-    #     f = numpy.memmap(filename, "<c8", "write", 0, (Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Nc))
-    #     f[:] = kyu_binary_data
-    # stopWatch.stop()
-    # print(f"Write: {stopWatch} secs")
-
-    # stopWatch.reset()
-    # stopWatch.start()
-    # f = numpy.memmap(filename, "<c8", "w+", 0, (Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Nc))
-    # f[
-    #     :,
-    #     :,
-    #     gt * Lt : (gt + 1) * Lt,
-    #     gz * Lz : (gz + 1) * Lz,
-    #     gy * Ly : (gy + 1) * Ly,
-    #     gx * Lx : (gx + 1) * Lx,
-    # ] = propagator
-    # f.flush()
-    # f = None
-    # stopWatch.stop()
-    # print(f"Write3: {stopWatch} secs")

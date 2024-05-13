@@ -130,62 +130,71 @@ def rotateToDeGrandRossi(propagator: LatticePropagator):
     return LatticePropagator(propagator.latt_info, _data / 2)
 
 
-def fromPropagatorBuffer(buffer: bytes, dtype: str, latt_info: LatticeInfo):
+def fromPropagatorBuffer(filename: str, offset: int, dtype: str, latt_info: LatticeInfo):
+    from ... import openMPIFileRead, getMPIDatatype
+
     Gx, Gy, Gz, Gt = latt_info.grid_size
     gx, gy, gz, gt = latt_info.grid_coord
     Lx, Ly, Lz, Lt = latt_info.size
+    native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
+
+    fh = openMPIFileRead(filename)
+    propagator_raw = numpy.empty((Ns, Nc, 2, Ns, Nc, Lt, Lz, Ly, Lx), native_dtype)
+    filetype = getMPIDatatype(native_dtype).Create_subarray(
+        (Ns, Nc, 2, Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx),
+        (Ns, Nc, 2, Ns, Nc, Lt, Lz, Ly, Lx),
+        (0, 0, 0, 0, 0, gt * Lt, gz * Lz, gy * Ly, gx * Lx),
+    )
+    filetype.Commit()
+    fh.Set_view(offset, filetype=filetype)
+    fh.Read_all(propagator_raw)
+    filetype.Free()
+    fh.Close()
 
     propagator_raw = (
-        numpy.frombuffer(buffer, dtype)
-        .reshape(Ns, Nc, 2, Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx)[
-            :,
-            :,
-            :,
-            :,
-            :,
-            gt * Lt : (gt + 1) * Lt,
-            gz * Lz : (gz + 1) * Lz,
-            gy * Ly : (gy + 1) * Ly,
-            gx * Lx : (gx + 1) * Lx,
-        ]
-        .transpose(5, 6, 7, 8, 3, 0, 4, 1, 2)
-        .reshape(Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc * 2)
-        .copy()
+        propagator_raw.transpose(5, 6, 7, 8, 3, 0, 4, 1, 2)
+        .view(dtype)
         .astype("<f8")
+        .copy()
+        .reshape(Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc * 2)
         .view("<c16")
     )
 
     return propagator_raw
 
 
-def toPropagatorBuffer(propagator_raw: numpy.ndarray, dtype: str, latt_info: LatticeInfo):
-    from .gather_raw import gatherPropagatorRaw
+def toPropagatorBuffer(filename: str, offset: int, propagator_raw: numpy.ndarray, dtype: str, latt_info: LatticeInfo):
+    from ... import openMPIFileWrite, getMPIDatatype
 
     Gx, Gy, Gz, Gt = latt_info.grid_size
+    gx, gy, gz, gt = latt_info.grid_coord
     Lx, Ly, Lz, Lt = latt_info.size
+    native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
 
-    propagator_gathered_raw = gatherPropagatorRaw(propagator_raw, latt_info)
-    if latt_info.mpi_rank == 0:
-        buffer = (
-            propagator_gathered_raw.view("<f8")
-            .astype(dtype)
-            .reshape(Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Ns, Nc, Nc, 2)
-            .transpose(5, 7, 8, 4, 6, 0, 1, 2, 3)
-            .copy()
-            .tobytes()
-        )
-    else:
-        buffer = None
-
-    return buffer
+    fh = openMPIFileWrite(filename)
+    propagator_raw = (
+        propagator_raw.view("<f8")
+        .reshape(Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc, 2)
+        .astype(dtype)
+        .view(native_dtype)
+        .transpose(5, 7, 8, 4, 6, 0, 1, 2, 3)
+        .copy()
+    )
+    filetype = getMPIDatatype(native_dtype).Create_subarray(
+        (Ns, Nc, 2, Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx),
+        (Ns, Nc, 2, Ns, Nc, Lt, Lz, Ly, Lx),
+        (0, 0, 0, 0, 0, gt * Lt, gz * Lz, gy * Ly, gx * Lx),
+    )
+    filetype.Commit()
+    fh.Set_view(offset, filetype=filetype)
+    fh.Write_all(propagator_raw)
+    filetype.Free()
+    fh.Close()
 
 
 def readPropagator(filename: str, latt_info: LatticeInfo):
     filename = path.expanduser(path.expandvars(filename))
-    with open(filename, "rb") as f:
-        # kyu_binary_data = f.read(2 * Ns * Nc * Lt * Lz * Ly * Lx * 8)
-        kyu_binary_data = f.read()
-    propagator_raw = fromPropagatorBuffer(kyu_binary_data, ">f8", latt_info)
+    propagator_raw = fromPropagatorBuffer(filename, 0, ">f8", latt_info)
 
     return rotateToDeGrandRossi(LatticePropagator(latt_info, cb2(propagator_raw, [0, 1, 2, 3])))
 
@@ -194,7 +203,4 @@ def writePropagator(filename: str, propagator: LatticePropagator):
     filename = path.expanduser(path.expandvars(filename))
     latt_info = propagator.latt_info
 
-    kyu_binary_data = toPropagatorBuffer(rotateToDiracPauli(propagator).lexico(), ">f8", latt_info)
-    if latt_info.mpi_rank == 0:
-        with open(filename, "wb") as f:
-            f.write(kyu_binary_data)
+    toPropagatorBuffer(filename, 0, rotateToDiracPauli(propagator).lexico(), ">f8", latt_info)

@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 
 from mpi4py import MPI
+from mpi4py.util import dtlib
 
 from .version import __version__  # noqa: F401
 from . import pyquda as quda
@@ -287,3 +288,15 @@ def setCUDAComputeCapability(major: int, minor: int):
 
 def getCUDAComputeCapability():
     return _COMPUTE_CAPABILITY
+
+
+def openMPIFileRead(filename: str):
+    return MPI.File.Open(_MPI_COMM, filename, MPI.MODE_RDONLY)
+
+
+def openMPIFileWrite(filename: str):
+    return MPI.File.Open(_MPI_COMM, filename, MPI.MODE_WRONLY | MPI.MODE_CREATE)
+
+
+def getMPIDatatype(dtype: str):
+    return dtlib.from_numpy_dtype(dtype)
