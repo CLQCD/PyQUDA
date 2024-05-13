@@ -1,4 +1,5 @@
 from typing import List, Literal
+from warnings import warn
 
 import numpy
 from numpy.typing import NDArray
@@ -19,9 +20,10 @@ class LatticeInfo:
     ) -> None:
         from . import getMPIComm, getMPISize, getMPIRank, getGridSize, getGridCoord
 
-        if getMPIComm() is None:
+        if getGridSize() is None:
             raise RuntimeError("pyquda.init() must be called before contructing LatticeInfo")
 
+        self.mpi_comm = getMPIComm()
         self.mpi_size = getMPISize()
         self.mpi_rank = getMPIRank()
         self.grid_size = getGridSize()
@@ -31,9 +33,12 @@ class LatticeInfo:
         gx, gy, gz, gt = self.grid_coord
         Lx, Ly, Lz, Lt = latt_size
 
-        assert (
-            Lx % (2 * Gx) == 0 and Ly % (2 * Gy) == 0 and Lz % (2 * Gz) == 0 and Lt % Gt == 0
-        ), "Necessary for consistant even-odd preconditioning"
+        if Lx % Gx != 0 or Ly % Gy != 0 or Lz % Gz != 0 or Lt % Gt != 0:
+            raise ValueError("lattice size must be divisible by gird size")
+        elif Lx % (2 * Gx) != 0 or Ly % (2 * Gy) != 0 or Lz % (2 * Gz) != 0:
+            raise ValueError("even value of sublattice size is nessary for consistant even-odd preconditioning")
+        elif Lt % (2 * Gt) != 0:
+            warn("WARNING: odd value of Lt should only be used with 3D Laplacian", RuntimeWarning)
         self.Gx, self.Gy, self.Gz, self.Gt = Gx, Gy, Gz, Gt
         self.gx, self.gy, self.gz, self.gt = gx, gy, gz, gt
         self.global_size = [Lx, Ly, Lz, Lt]
