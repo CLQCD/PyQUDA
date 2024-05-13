@@ -12,16 +12,24 @@ class LatticeInfo:
     Nc: int = 3
     Nd: int = 4
 
-    def __init__(
-        self,
-        latt_size: List[int],
-        t_boundary: Literal[1, -1] = 1,
-        anisotropy: float = 1.0,
-    ) -> None:
-        from . import getMPIComm, getMPISize, getMPIRank, getGridSize, getGridCoord
+    def __init__(self, latt_size: List[int], t_boundary: Literal[1, -1] = 1, anisotropy: float = 1.0) -> None:
+        self._checkLattice(latt_size)
+        self._setLattice(latt_size, t_boundary, anisotropy)
+
+    def _checkLattice(self, latt_size: List[int]):
+        from . import getGridSize
 
         if getGridSize() is None:
             raise RuntimeError("pyquda.init() must be called before contructing LatticeInfo")
+        Gx, Gy, Gz, Gt = getGridSize()
+        Lx, Ly, Lz, Lt = latt_size
+        assert Lx % (2 * Gx) == 0 and Ly % (2 * Gy) == 0 and Lz % (2 * Gz) == 0 and Lt % (2 * Gt) == 0, (
+            "lattice size must be divisible by gird size, "
+            "and sublattice size must be even in every direction for consistant even-odd preconditioning"
+        )
+
+    def _setLattice(self, latt_size: List[int], t_boundary: Literal[1, -1], anisotropy: float):
+        from . import getMPIComm, getMPISize, getMPIRank, getGridSize, getGridCoord
 
         self.mpi_comm = getMPIComm()
         self.mpi_size = getMPISize()
@@ -33,12 +41,6 @@ class LatticeInfo:
         gx, gy, gz, gt = self.grid_coord
         Lx, Ly, Lz, Lt = latt_size
 
-        if Lx % Gx != 0 or Ly % Gy != 0 or Lz % Gz != 0 or Lt % Gt != 0:
-            raise ValueError("lattice size must be divisible by gird size")
-        elif Lx % (2 * Gx) != 0 or Ly % (2 * Gy) != 0 or Lz % (2 * Gz) != 0:
-            raise ValueError("even value of sublattice size is nessary for consistant even-odd preconditioning")
-        elif Lt % (2 * Gt) != 0:
-            warn("WARNING: odd value of Lt should only be used with 3D Laplacian", RuntimeWarning)
         self.Gx, self.Gy, self.Gz, self.Gt = Gx, Gy, Gz, Gt
         self.gx, self.gy, self.gz, self.gt = gx, gy, gz, gt
         self.global_size = [Lx, Ly, Lz, Lt]
@@ -53,6 +55,24 @@ class LatticeInfo:
 
         self.t_boundary = t_boundary
         self.anisotropy = anisotropy
+
+
+class LaplaceLatticeInfo(LatticeInfo):
+    def __init__(self, latt_size: List[int]):
+        self._checkLatticeOddT(latt_size)
+        self._setLattice(latt_size, 1, 1.0)
+
+    def _checkLatticeOddT(self, latt_size: List[int]):
+        from . import getGridSize
+
+        if getGridSize() is None:
+            raise RuntimeError("pyquda.init() must be called before contructing LatticeInfo")
+        Gx, Gy, Gz, Gt = getGridSize()
+        Lx, Ly, Lz, Lt = latt_size
+        assert Lx % (2 * Gx) == 0 and Ly % (2 * Gy) == 0 and Lz % (2 * Gz) == 0 and Lt % Gt == 0, (
+            "lattice size must be divisible by gird size, "
+            "and sublattice size must be even in spacial direction for consistant even-odd preconditioning"
+        )
 
 
 Ns, Nc, Nd = LatticeInfo.Ns, LatticeInfo.Nc, LatticeInfo.Nd

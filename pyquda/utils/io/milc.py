@@ -138,7 +138,7 @@ def readQIOPropagator(filename: str):
         raise ValueError(f"Unknown typesize={typesize} in MILC QIO propagator")
     assert int(scidac_private_record_xml.find("datacount").text) == 1
     assert int(scidac_private_file_xml.find("spacetime").text) == Nd
-    latt_size = map(int, scidac_private_file_xml.find("dims").text.split())
+    latt_size = [int(L) for L in scidac_private_file_xml.find("dims").text.split()]
     latt_info = LatticeInfo(latt_size)
     propagator_raw = fromMultiSCIDACPropagatorBuffer(filename, offset, f">c{2*precision}", latt_info, staggered)
 

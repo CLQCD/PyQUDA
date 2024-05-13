@@ -89,7 +89,7 @@ class Gauge(ABC):
     obs_param: QudaGaugeObservableParam
 
     def __init__(self, latt_info: LatticeInfo) -> None:
-        self.latt_info = LatticeInfo(latt_info.global_size)
+        self.latt_info = latt_info
         self.precision = Precision(
             _precision.cpu, _precision.cuda, _precision.sloppy, _precision.precondition, _precision.eigensolver
         )
@@ -136,7 +136,6 @@ class Dirac(Gauge):
 
     def __init__(self, latt_info: LatticeInfo) -> None:
         super().__init__(latt_info)
-        self.latt_info = latt_info
 
     @abstractmethod
     def loadGauge(self, gauge: LatticeGauge):
