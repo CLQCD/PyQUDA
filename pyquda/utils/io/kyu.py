@@ -102,42 +102,44 @@ def rotateToDiracPauli(propagator: LatticePropagator):
     from opt_einsum import contract
 
     if propagator.location == "numpy":
-        A = numpy.asarray(_DP_TO_DR)
-        Ainv = numpy.asarray(_DR_TO_DP)
+        P = numpy.asarray(_DR_TO_DP)
+        Pinv = numpy.asarray(_DP_TO_DR) / 2
     elif propagator.location == "cupy":
         import cupy
 
-        A = cupy.asarray(_DP_TO_DR)
-        Ainv = cupy.asarray(_DR_TO_DP)
+        P = cupy.asarray(_DR_TO_DP)
+        Pinv = cupy.asarray(_DP_TO_DR) / 2
     elif propagator.location == "torch":
         import torch
 
-        A = torch.as_tensor(_DP_TO_DR)
-        Ainv = torch.as_tensor(_DR_TO_DP)
+        P = torch.as_tensor(_DR_TO_DP)
+        Pinv = torch.as_tensor(_DP_TO_DR) / 2
 
-    _data = contract("ij,etzyxjkab,kl->etzyxilab", Ainv, propagator.data, A, optimize=True)
-    return LatticePropagator(propagator.latt_info, _data / 2)
+    return LatticePropagator(
+        propagator.latt_info, contract("ij,etzyxjkab,kl->etzyxilab", P, propagator.data, Pinv, optimize=True)
+    )
 
 
 def rotateToDeGrandRossi(propagator: LatticePropagator):
     from opt_einsum import contract
 
     if propagator.location == "numpy":
-        A = numpy.asarray(_DR_TO_DP)
-        Ainv = numpy.asarray(_DP_TO_DR)
+        P = numpy.asarray(_DP_TO_DR)
+        Pinv = numpy.asarray(_DR_TO_DP) / 2
     elif propagator.location == "cupy":
         import cupy
 
-        A = cupy.array(_DR_TO_DP)
-        Ainv = cupy.array(_DP_TO_DR)
+        P = cupy.array(_DP_TO_DR)
+        Pinv = cupy.array(_DR_TO_DP) / 2
     elif propagator.location == "torch":
         import torch
 
-        A = torch.as_tensor(_DR_TO_DP)
-        Ainv = torch.as_tensor(_DP_TO_DR)
+        P = torch.as_tensor(_DP_TO_DR)
+        Pinv = torch.as_tensor(_DR_TO_DP) / 2
 
-    _data = contract("ij,etzyxjkab,kl->etzyxilab", Ainv, propagator.data, A, optimize=True)
-    return LatticePropagator(propagator.latt_info, _data / 2)
+    return LatticePropagator(
+        propagator.latt_info, contract("ij,etzyxjkab,kl->etzyxilab", P, propagator.data, Pinv, optimize=True)
+    )
 
 
 def fromPropagatorBuffer(filename: str, offset: int, dtype: str, latt_info: LatticeInfo):
