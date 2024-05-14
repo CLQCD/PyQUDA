@@ -408,6 +408,27 @@ class LatticeGauge(LatticeField):
         self.pure_gauge.freeSmearedGauge()
         return retval
 
+    def flowWilsonScale(self, epsilon: float):
+        self.ensurePureGauge()
+        self.pure_gauge.loadGauge(self)
+        step = 0
+        self.pure_gauge.flowWilson(1, epsilon, step * epsilon, False)
+        t2E_old, t2E = 0, 0
+        tdt2E_old, tdt2E = 0, 0
+        t0, w0 = 0, 0
+        while t2E < 0.3 or tdt2E < 0.3:
+            step += 1
+            self.pure_gauge.flowWilson(1, epsilon, step * epsilon, True)
+            t2E_old, t2E = t2E, (step * epsilon) ** 2 * self.pure_gauge.obs_param.energy[0]
+            tdt2E_old, tdt2E = tdt2E, (step - 0.5) * (t2E - t2E_old)
+            if t0 == 0 and t2E >= 0.3:
+                t0 = (step - (t2E - 0.3) / (t2E - t2E_old)) * epsilon
+            if w0 == 0 and tdt2E >= 0.3:
+                w0 = ((step - 0.5 - (tdt2E - 0.3) / (tdt2E - tdt2E_old)) * epsilon) ** 0.5
+        self.pure_gauge.freeGauge()
+        self.pure_gauge.freeSmearedGauge()
+        return t0, w0
+
     def flowSymanzik(self, n_steps: int, time: float):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
@@ -422,6 +443,27 @@ class LatticeGauge(LatticeField):
         self.pure_gauge.freeGauge()
         self.pure_gauge.freeSmearedGauge()
         return retval
+
+    def flowSymanzikScale(self, epsilon: float):
+        self.ensurePureGauge()
+        self.pure_gauge.loadGauge(self)
+        step = 0
+        self.pure_gauge.flowSymanzik(1, epsilon, step * epsilon, False)
+        t2E_old, t2E = 0, 0
+        tdt2E_old, tdt2E = 0, 0
+        t0, w0 = 0, 0
+        while t2E < 0.3 or tdt2E < 0.3:
+            step += 1
+            self.pure_gauge.flowSymanzik(1, epsilon, step * epsilon, True)
+            t2E_old, t2E = t2E, (step * epsilon) ** 2 * self.pure_gauge.obs_param.energy[0]
+            tdt2E_old, tdt2E = tdt2E, (step - 0.5) * (t2E - t2E_old)
+            if t0 == 0 and t2E >= 0.3:
+                t0 = (step - (t2E - 0.3) / (t2E - t2E_old)) * epsilon
+            if w0 == 0 and tdt2E >= 0.3:
+                w0 = ((step - 0.5 - (tdt2E - 0.3) / (tdt2E - tdt2E_old)) * epsilon) ** 0.5
+        self.pure_gauge.freeGauge()
+        self.pure_gauge.freeSmearedGauge()
+        return t0, w0
 
     def plaquette(self):
         self.ensurePureGauge()
