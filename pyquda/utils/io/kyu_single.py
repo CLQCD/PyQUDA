@@ -4,70 +4,7 @@ import numpy
 
 from ...field import Ns, Nc, LatticeInfo, LatticePropagator, cb2
 
-
-# matrices to convert gamma basis bewteen DeGrand-Rossi and Dirac-Pauli
-# \psi(DP) = _DR_TO_DP \psi(DR)
-# \psi(DR) = _DP_TO_DR \psi(DP)
-_DP_TO_DR = numpy.array(
-    [
-        [0, 1, 0, -1],
-        [-1, 0, 1, 0],
-        [0, 1, 0, 1],
-        [-1, 0, -1, 0],
-    ]
-)
-_DR_TO_DP = numpy.array(
-    [
-        [0, -1, 0, -1],
-        [1, 0, 1, 0],
-        [0, 1, 0, -1],
-        [-1, 0, 1, 0],
-    ]
-)
-
-
-def rotateToDiracPauli(propagator: LatticePropagator):
-    from opt_einsum import contract
-
-    if propagator.location == "numpy":
-        P = numpy.asarray(_DR_TO_DP)
-        Pinv = numpy.asarray(_DP_TO_DR) / 2
-    elif propagator.location == "cupy":
-        import cupy
-
-        P = cupy.asarray(_DR_TO_DP)
-        Pinv = cupy.asarray(_DP_TO_DR) / 2
-    elif propagator.location == "torch":
-        import torch
-
-        P = torch.as_tensor(_DR_TO_DP)
-        Pinv = torch.as_tensor(_DP_TO_DR) / 2
-
-    return LatticePropagator(
-        propagator.latt_info, contract("ij,etzyxjkab,kl->etzyxilab", P, propagator.data, Pinv, optimize=True)
-    )
-
-
-def rotateToDeGrandRossi(propagator: LatticePropagator):
-    from opt_einsum import contract
-
-    if propagator.location == "numpy":
-        P = numpy.asarray(_DP_TO_DR)
-        Pinv = numpy.asarray(_DR_TO_DP) / 2
-    elif propagator.location == "cupy":
-        import cupy
-
-        P = cupy.asarray(_DP_TO_DR)
-        Pinv = cupy.asarray(_DR_TO_DP) / 2
-    elif propagator.location == "torch":
-        import torch
-
-        P = torch.as_tensor(_DP_TO_DR)
-        Pinv = torch.as_tensor(_DR_TO_DP) / 2
-
-    return LatticePropagator(
-        propagator.latt_info, contract("ij,etzyxjkab,kl->etzyxilab", P, propagator.data, Pinv, optimize=True)
-    )
+from .kyu import rotateToDiracPauli, rotateToDeGrandRossi
 
 
 def fromPropagatorBuffer(filename: str, offset: int, dtype: str, latt_info: LatticeInfo):

@@ -250,10 +250,12 @@ def getMPIRank():
 
 
 def getGridSize():
+    assert _GRID_SIZE is not None
     return _GRID_SIZE
 
 
 def getGridCoord():
+    assert _GRID_COORD is not None
     return _GRID_COORD
 
 

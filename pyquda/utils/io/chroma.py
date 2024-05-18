@@ -77,9 +77,8 @@ def readQIOGauge(filename: str):
     return LatticeGauge(latt_info, cb2(gauge_raw, [1, 2, 3, 4]))
 
 
-def readILDGBinGauge(filename: str, dtype: str, latt_size: LatticeInfo):
+def readILDGBinGauge(filename: str, dtype: str, latt_info: LatticeInfo):
     filename = path.expanduser(path.expandvars(filename))
-    latt_info = LatticeInfo(latt_size)
     gauge_raw = fromILDGGaugeBuffer(filename, 0, dtype, latt_info)
 
     return LatticeGauge(latt_info, cb2(gauge_raw, [1, 2, 3, 4]))
