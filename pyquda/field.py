@@ -291,11 +291,63 @@ class LatticeField:
         elif self.backend == "torch":
             return self.data.cpu().numpy()
 
+    def __add__(self, other):
+        assert self.__class__ == other.__class__ and self.location == other.location
+        return self.__class__(self.latt_info, self.data + other.data)
+
+    def __sub__(self, other):
+        assert self.__class__ == other.__class__ and self.location == other.location
+        return self.__class__(self.latt_info, self.data - other.data)
+
+    def __mul__(self, other):
+        return self.__class__(self.latt_info, self.data * other)
+
+    def __lmul__(self, other):
+        return self.__class__(self.latt_info, other * self.data)
+
+    def __truediv__(self, other):
+        return self.__class__(self.latt_info, self.data / other)
+
+    def __iadd__(self, other):
+        assert self.__class__ == other.__class__ and self.location == other.location
+        self._data += other.data
+        return self
+
+    def __isub__(self, other):
+        assert self.__class__ == other.__class__ and self.location == other.location
+        self._data -= other.data
+        return self
+
+    def __imul__(self, other):
+        self._data *= other
+        return self
+
+    def __itruediv__(self, other):
+        self._data /= other
+        return self
+
 
 class MultiLatticeField(LatticeField):
     def __init__(self, latt_info: LatticeInfo, L5: int) -> None:
         super().__init__(latt_info)
         self.L5 = L5
+
+    def __add__(self, other):
+        assert self.__class__ == other.__class__ and self.location == other.location
+        return self.__class__(self.latt_info, self.L5, self.data + other.data)
+
+    def __sub__(self, other):
+        assert self.__class__ == other.__class__ and self.location == other.location
+        return self.__class__(self.latt_info, self.L5, self.data - other.data)
+
+    def __mul__(self, other):
+        return self.__class__(self.latt_info, self.L5, self.data * other)
+
+    def __lmul__(self, other):
+        return self.__class__(self.latt_info, self.L5, other * self.data)
+
+    def __truediv__(self, other):
+        return self.__class__(self.latt_info, self.L5, self.data / other)
 
 
 class LatticeGauge(LatticeField):
@@ -662,8 +714,7 @@ class MultiLatticeFermion(MultiLatticeField):
 
     def __getitem__(self, index: int) -> LatticeFermion:
         assert 0 <= index < self.L5
-        tmp = LatticeFermion(self.latt_info, self.data[index])
-        return LatticeFermion(self.latt_info, tmp.backup())
+        return LatticeFermion(self.latt_info, self.data[index])
 
     def __setitem__(self, index: int, value: LatticeFermion):
         assert 0 <= index < self.L5
@@ -759,8 +810,7 @@ class MultiLatticeStaggeredFermion(MultiLatticeField):
 
     def __getitem__(self, index: int) -> LatticeStaggeredFermion:
         assert 0 <= index < self.L5
-        tmp = LatticeStaggeredFermion(self.latt_info, self.data[index])
-        return LatticeStaggeredFermion(self.latt_info, tmp.backup())
+        return LatticeStaggeredFermion(self.latt_info, self.data[index])
 
     def __setitem__(self, index: int, value: LatticeStaggeredFermion):
         assert 0 <= index < self.L5

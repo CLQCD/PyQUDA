@@ -60,18 +60,20 @@ def invert(
     source_phase=None,
     rho: float = 0.0,
     nsteps: int = 1,
+    restart: int = 0,
 ):
     latt_info = dslash.latt_info
-    Vol = latt_info.volume
     xi = dslash.gauge_param.anisotropy
 
     prop = LatticePropagator(latt_info)
-    data = prop.data.reshape(Vol, Ns, Ns, Nc, Nc)
     for spin in range(Ns):
         for color in range(Nc):
             b = source(latt_info, source_type, t_srce, spin, color, source_phase, rho, nsteps, xi)
             x = dslash.invert(b)
-            data[:, :, spin, :, color] = x.data.reshape(Vol, Ns, Nc)
+            for _ in range(restart):
+                r = b - dslash.mat(x)
+                x += dslash.invert(r)
+            prop.setFermion(x, spin, color)
 
     return prop
 
@@ -83,17 +85,19 @@ def invertStaggered(
     source_phase=None,
     rho: float = 0.0,
     nsteps: int = 1,
+    restart: int = 0,
 ):
     latt_info = dslash.latt_info
-    Vol = latt_info.volume
     xi = dslash.latt_info.anisotropy
 
     prop = LatticeStaggeredPropagator(latt_info)
-    data = prop.data.reshape(Vol, Nc, Nc)
     for color in range(Nc):
         b = source(latt_info, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
         x = dslash.invert(b)
-        data[:, :, color] = x.data.reshape(Vol, Nc)
+        for _ in range(restart):
+            r = b - dslash.mat(x)
+            x += dslash.invert(r)
+        prop.setFermion(x, color)
 
     return prop
 
