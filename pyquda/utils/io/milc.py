@@ -12,27 +12,23 @@ _precision_map = {"D": 8, "F": 4, "S": 4}
 
 
 def fromGaugeBuffer(filename: str, offset: int, dtype: str, latt_info: LatticeInfo):
-    from ... import openMPIFileRead, getMPIDatatype
+    from ... import readMPIFile
 
     Gx, Gy, Gz, Gt = latt_info.grid_size
     gx, gy, gz, gt = latt_info.grid_coord
     Lx, Ly, Lz, Lt = latt_info.size
-    native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
 
-    fh = openMPIFileRead(filename)
-    gauge_raw = numpy.empty((Lt, Lz, Ly, Lx, Nd, Nc, Nc), native_dtype)
-    filetype = getMPIDatatype(native_dtype).Create_subarray(
+    gauge_raw = readMPIFile(
+        filename,
+        offset,
+        dtype,
         (Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nd, Nc, Nc),
         (Lt, Lz, Ly, Lx, Nd, Nc, Nc),
         (gt * Lt, gz * Lz, gy * Ly, gx * Lx, 0, 0, 0),
     )
-    filetype.Commit()
-    fh.Set_view(offset, filetype=filetype)
-    fh.Read_all(gauge_raw)
-    filetype.Free()
-    fh.Close()
+    gauge_raw = gauge_raw.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
 
-    return gauge_raw.transpose(4, 0, 1, 2, 3, 5, 6).view(dtype).astype("<c16")
+    return gauge_raw
 
 
 def readGauge(filename: str):
@@ -58,42 +54,37 @@ def readGauge(filename: str):
 def fromMultiSCIDACPropagatorBuffer(
     filename: str, offset: List[int], dtype: str, latt_info: LatticeInfo, staggered: bool
 ):
-    from ... import openMPIFileRead, getMPIDatatype
+    from ... import readMPIFile
 
     Gx, Gy, Gz, Gt = latt_info.grid_size
     gx, gy, gz, gt = latt_info.grid_coord
     Lx, Ly, Lz, Lt = latt_info.size
-    native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
 
-    fh = openMPIFileRead(filename)
     if not staggered:
-        propagator_raw = numpy.empty((Ns, Nc, Lt, Lz, Ly, Lx, Ns, Nc), native_dtype)
-        filetype = getMPIDatatype(native_dtype).Create_subarray(
-            (Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Nc),
-            (Lt, Lz, Ly, Lx, Ns, Nc),
-            (gt * Lt, gz * Lz, gy * Ly, gx * Lx, 0, 0),
-        )
-        filetype.Commit()
+        propagator_raw = numpy.empty((Ns, Nc, Lt, Lz, Ly, Lx, Ns, Nc), dtype)
         for spin in range(Ns):
             for color in range(Nc):
-                fh.Set_view(offset[spin * Nc + color], filetype=filetype)
-                fh.Read_all(propagator_raw[spin, color])
-        filetype.Free()
-        propagator_raw = propagator_raw.transpose(2, 3, 4, 5, 6, 0, 7, 1).view(dtype).astype("<c16")
+                propagator_raw[spin, color] = readMPIFile(
+                    filename,
+                    offset[spin * Nc + color],
+                    dtype,
+                    (Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Nc),
+                    (Lt, Lz, Ly, Lx, Ns, Nc),
+                    (gt * Lt, gz * Lz, gy * Ly, gx * Lx, 0, 0),
+                )
+        propagator_raw = propagator_raw.transpose(2, 3, 4, 5, 6, 0, 7, 1).astype("<c16")
     else:
-        propagator_raw = numpy.empty((Nc, Lt, Lz, Ly, Lx, Nc), native_dtype)
-        filetype = getMPIDatatype(native_dtype).Create_subarray(
-            (Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nc),
-            (Lt, Lz, Ly, Lx, Nc),
-            (gt * Lt, gz * Lz, gy * Ly, gx * Lx, 0),
-        )
-        filetype.Commit()
+        propagator_raw = numpy.empty((Nc, Lt, Lz, Ly, Lx, Nc), dtype)
         for color in range(Nc):
-            fh.Set_view(offset[color], filetype=filetype)
-            fh.Read_all(propagator_raw[color])
-        filetype.Free()
-        propagator_raw = propagator_raw.transpose(1, 2, 3, 4, 5, 0).view(dtype).astype("<c16")
-    fh.Close()
+            propagator_raw[color] = readMPIFile(
+                filename,
+                offset[color],
+                dtype,
+                (Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nc),
+                (Lt, Lz, Ly, Lx, Nc),
+                (gt * Lt, gz * Lz, gy * Ly, gx * Lx, 0),
+            )
+        propagator_raw = propagator_raw.transpose(1, 2, 3, 4, 5, 0).astype("<c16")
 
     return propagator_raw
 

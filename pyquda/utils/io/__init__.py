@@ -17,6 +17,7 @@ from .kyu import (
 from .kyu_single import (
     readPropagator as readKYUPropagatorF,
     writePropagator as writeKYUPropagatorF,
+    readPropagatorFast as readKYUPropagatorFFast,
     writePropagatorFast as writeKYUPropagatorFFast,
 )
 from .eigen import readTimeSlice as readTimeSliceEivenvector

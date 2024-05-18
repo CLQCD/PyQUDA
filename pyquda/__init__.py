@@ -1,6 +1,6 @@
 from __future__ import annotations  # TYPE_CHECKING
 from os import environ
-from typing import TYPE_CHECKING, Callable, List, Literal, NamedTuple, Tuple
+from typing import TYPE_CHECKING, Callable, List, Literal, NamedTuple, Sequence, Tuple
 from warnings import warn, filterwarnings
 
 if TYPE_CHECKING:
@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 from mpi4py import MPI
 from mpi4py.util import dtlib
+import numpy
 
 from .version import __version__  # noqa: F401
 from . import pyquda as quda
@@ -290,13 +291,44 @@ def getCUDAComputeCapability():
     return _COMPUTE_CAPABILITY
 
 
-def openMPIFileRead(filename: str):
-    return MPI.File.Open(_MPI_COMM, filename, MPI.MODE_RDONLY)
+def readMPIFile(
+    filename: str,
+    disp: int,
+    dtype: str,
+    sizes: Sequence[int],
+    subsizes: Sequence[int],
+    starts: Sequence[int],
+):
+    native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
+    buf = numpy.empty(subsizes, native_dtype)
+
+    fh = MPI.File.Open(_MPI_COMM, filename, MPI.MODE_RDONLY)
+    filetype = dtlib.from_numpy_dtype(native_dtype).Create_subarray(sizes, subsizes, starts)
+    filetype.Commit()
+    fh.Set_view(disp, filetype=filetype)
+    fh.Read_all(buf)
+    filetype.Free()
+    fh.Close()
+
+    return buf.view(dtype)
 
 
-def openMPIFileWrite(filename: str):
-    return MPI.File.Open(_MPI_COMM, filename, MPI.MODE_WRONLY | MPI.MODE_CREATE)
+def writeMPIFile(
+    filename: str,
+    disp: int,
+    buf: numpy.ndarray,
+    dtype: str,
+    sizes: Sequence[int],
+    subsizes: Sequence[int],
+    starts: Sequence[int],
+):
+    native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
+    buf = buf.view(native_dtype)
 
-
-def getMPIDatatype(dtype: str):
-    return dtlib.from_numpy_dtype(dtype)
+    fh = MPI.File.Open(_MPI_COMM, filename, MPI.MODE_WRONLY | MPI.MODE_CREATE)
+    filetype = dtlib.from_numpy_dtype(native_dtype).Create_subarray(sizes, subsizes, starts)
+    filetype.Commit()
+    fh.Set_view(disp, filetype=filetype)
+    fh.Write_all(buf)
+    filetype.Free()
+    fh.Close()
