@@ -1,5 +1,4 @@
 from typing import List, Literal
-from warnings import warn
 
 import numpy
 from numpy.typing import NDArray
@@ -420,130 +419,155 @@ class LatticeGauge(LatticeField):
         self.ensurePureGauge()
         self.pure_gauge.path(self, input_path_buf, path_length, loop_coeff)
 
-    def smearAPE(self, n_steps: int, alpha: float, dir_ignore: int):
+    def apeSmear(self, n_steps: int, alpha: float, dir_ignore: int):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
+        self.pure_gauge.apeSmear(n_steps, alpha, dir_ignore)  # Match with chroma
+        self.pure_gauge.saveSmearedGauge(self)
+        self.pure_gauge.freeGauge()
+        self.pure_gauge.freeSmearedGauge()
+
+    def smearAPE(self, n_steps: int, factor: float, dir_ignore: int):
         dimAPE = 3 if dir_ignore >= 0 and dir_ignore <= 3 else 4
-        self.pure_gauge.smearAPE(n_steps, (dimAPE - 1) / (dimAPE - 1 + alpha / 2), dir_ignore)  # Match with chroma
+        self.apeSmear(n_steps, (dimAPE - 1) / (dimAPE - 1 + factor / 2), dir_ignore)
+
+    def stoutSmear(self, n_steps: int, rho: float, dir_ignore: int):
+        self.ensurePureGauge()
+        self.pure_gauge.loadGauge(self)
+        self.pure_gauge.stoutSmear(n_steps, rho, dir_ignore)
         self.pure_gauge.saveSmearedGauge(self)
         self.pure_gauge.freeGauge()
         self.pure_gauge.freeSmearedGauge()
 
     def smearSTOUT(self, n_steps: int, rho: float, dir_ignore: int):
+        self.stoutSmear(n_steps, rho, dir_ignore)
+
+    def hypSmear(self, n_steps: int, alpha1: float, alpha2: float, alpha3: float, dir_ignore: int):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
-        self.pure_gauge.smearSTOUT(n_steps, rho, dir_ignore)
+        self.pure_gauge.hypSmear(n_steps, alpha1, alpha2, alpha3, dir_ignore)
         self.pure_gauge.saveSmearedGauge(self)
         self.pure_gauge.freeGauge()
         self.pure_gauge.freeSmearedGauge()
 
     def smearHYP(self, n_steps: int, alpha1: float, alpha2: float, alpha3: float, dir_ignore: int):
-        self.ensurePureGauge()
-        self.pure_gauge.loadGauge(self)
-        self.pure_gauge.smearHYP(n_steps, alpha1, alpha2, alpha3, dir_ignore)
-        self.pure_gauge.saveSmearedGauge(self)
-        self.pure_gauge.freeGauge()
-        self.pure_gauge.freeSmearedGauge()
+        self.hypSmear(n_steps, alpha1, alpha2, alpha3, dir_ignore)
 
-    def flowWilson(self, n_steps: int, time: float):
+    def wilsonFlow(self, n_steps: int, epsilon: float):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
-        self.pure_gauge.flowWilson(1, time / n_steps, 0, False)
-        retval = [self.pure_gauge.obs_param.energy]
+        self.pure_gauge.wilsonFlow(1, epsilon, 0, False)
+        energy = [self.pure_gauge.obs_param.energy]
         for step in range(1, n_steps):
-            self.pure_gauge.flowWilson(1, time / n_steps, time * step / n_steps, True)
-            retval.append(self.pure_gauge.obs_param.energy)
+            self.pure_gauge.wilsonFlow(1, epsilon, step * epsilon, True)
+            energy.append(self.pure_gauge.obs_param.energy)
         self.pure_gauge.saveSmearedGauge(self)  # Save before the last step
-        self.pure_gauge.flowWilson(1, time / n_steps, time, True)
-        retval.append(self.pure_gauge.obs_param.energy)
+        self.pure_gauge.wilsonFlow(1, epsilon, n_steps * epsilon, True)
+        energy.append(self.pure_gauge.obs_param.energy)
         self.pure_gauge.freeGauge()
         self.pure_gauge.freeSmearedGauge()
-        return retval
+        return energy
 
-    def flowWilsonScale(self, epsilon: float):
+    def wilsonFlowScale(self, max_steps: int, epsilon: float):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
-        step = 0
-        self.pure_gauge.flowWilson(1, epsilon, step * epsilon, False)
+        self.pure_gauge.wilsonFlow(1, epsilon, 0, False)
         t2E_old, t2E = 0, 0
         tdt2E_old, tdt2E = 0, 0
         t0, w0 = 0, 0
-        while t2E < 0.3 or tdt2E < 0.3:
-            step += 1
-            self.pure_gauge.flowWilson(1, epsilon, step * epsilon, True)
+        for step in range(1, max_steps + 1):
+            if t2E >= 0.3 and tdt2E >= 0.3:
+                break
+            self.pure_gauge.wilsonFlow(1, epsilon, step * epsilon, True)
             t2E_old, t2E = t2E, (step * epsilon) ** 2 * self.pure_gauge.obs_param.energy[0]
             tdt2E_old, tdt2E = tdt2E, (step - 0.5) * (t2E - t2E_old)
             if t0 == 0 and t2E >= 0.3:
                 t0 = (step - (t2E - 0.3) / (t2E - t2E_old)) * epsilon
             if w0 == 0 and tdt2E >= 0.3:
                 w0 = ((step - 0.5 - (tdt2E - 0.3) / (tdt2E - tdt2E_old)) * epsilon) ** 0.5
+        else:
+            raise RuntimeError(f"Wilson flow scale doesn't exceed 0.3 at max_steps*epsilon={max_steps*epsilon}")
+        self.pure_gauge.freeGauge()
+        self.pure_gauge.freeSmearedGauge()
+        return t0, w0
+
+    def flowWilson(self, n_steps: int, time: float):
+        self.wilsonFlow(n_steps, time / n_steps)
+
+    def flowWilsonScale(self, epsilon: float):
+        self.wilsonFlowScale(100000, epsilon)
+
+    def symanzikFlow(self, n_steps: int, epsilon: float):
+        self.ensurePureGauge()
+        self.pure_gauge.loadGauge(self)
+        self.pure_gauge.symanzikFlow(1, epsilon, 0, False)
+        energy = [self.pure_gauge.obs_param.energy]
+        for step in range(1, n_steps):
+            self.pure_gauge.symanzikFlow(1, epsilon, step * epsilon, True)
+            energy.append(self.pure_gauge.obs_param.energy)
+        self.pure_gauge.saveSmearedGauge(self)  # Save before the last step
+        self.pure_gauge.symanzikFlow(1, epsilon, n_steps * epsilon, True)
+        energy.append(self.pure_gauge.obs_param.energy)
+        self.pure_gauge.freeGauge()
+        self.pure_gauge.freeSmearedGauge()
+        return energy
+
+    def symanzikFlowScale(self, max_steps: int, epsilon: float):
+        self.ensurePureGauge()
+        self.pure_gauge.loadGauge(self)
+        self.pure_gauge.symanzikFlow(1, epsilon, 0, False)
+        t2E_old, t2E = 0, 0
+        tdt2E_old, tdt2E = 0, 0
+        t0, w0 = 0, 0
+        for step in range(1, max_steps + 1):
+            if t2E >= 0.3 and tdt2E >= 0.3:
+                break
+            self.pure_gauge.symanzikFlow(1, epsilon, step * epsilon, True)
+            t2E_old, t2E = t2E, (step * epsilon) ** 2 * self.pure_gauge.obs_param.energy[0]
+            tdt2E_old, tdt2E = tdt2E, (step - 0.5) * (t2E - t2E_old)
+            if t0 == 0 and t2E >= 0.3:
+                t0 = (step - (t2E - 0.3) / (t2E - t2E_old)) * epsilon
+            if w0 == 0 and tdt2E >= 0.3:
+                w0 = ((step - 0.5 - (tdt2E - 0.3) / (tdt2E - tdt2E_old)) * epsilon) ** 0.5
+        else:
+            raise RuntimeError(f"Symanzik flow scale doesn't exceed 0.3 at max_steps*epsilon={max_steps*epsilon}")
         self.pure_gauge.freeGauge()
         self.pure_gauge.freeSmearedGauge()
         return t0, w0
 
     def flowSymanzik(self, n_steps: int, time: float):
-        self.ensurePureGauge()
-        self.pure_gauge.loadGauge(self)
-        self.pure_gauge.flowWilson(1, time / n_steps, 0, False)
-        retval = [self.pure_gauge.obs_param.energy]
-        for step in range(1, n_steps):
-            self.pure_gauge.flowSymanzik(1, time / n_steps, time * step / n_steps, True)
-            retval.append(self.pure_gauge.obs_param.energy)
-        self.pure_gauge.saveSmearedGauge(self)  # Save before the last step
-        self.pure_gauge.flowWilson(1, time / n_steps, time, True)
-        retval.append(self.pure_gauge.obs_param.energy)
-        self.pure_gauge.freeGauge()
-        self.pure_gauge.freeSmearedGauge()
-        return retval
+        self.symanzikFlow(n_steps, time / n_steps)
 
     def flowSymanzikScale(self, epsilon: float):
-        self.ensurePureGauge()
-        self.pure_gauge.loadGauge(self)
-        step = 0
-        self.pure_gauge.flowSymanzik(1, epsilon, step * epsilon, False)
-        t2E_old, t2E = 0, 0
-        tdt2E_old, tdt2E = 0, 0
-        t0, w0 = 0, 0
-        while t2E < 0.3 or tdt2E < 0.3:
-            step += 1
-            self.pure_gauge.flowSymanzik(1, epsilon, step * epsilon, True)
-            t2E_old, t2E = t2E, (step * epsilon) ** 2 * self.pure_gauge.obs_param.energy[0]
-            tdt2E_old, tdt2E = tdt2E, (step - 0.5) * (t2E - t2E_old)
-            if t0 == 0 and t2E >= 0.3:
-                t0 = (step - (t2E - 0.3) / (t2E - t2E_old)) * epsilon
-            if w0 == 0 and tdt2E >= 0.3:
-                w0 = ((step - 0.5 - (tdt2E - 0.3) / (tdt2E - tdt2E_old)) * epsilon) ** 0.5
-        self.pure_gauge.freeGauge()
-        self.pure_gauge.freeSmearedGauge()
-        return t0, w0
+        self.symanzikFlowScale(100000, epsilon)
 
     def plaquette(self):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
-        retval = self.pure_gauge.plaquette()
+        plaquette = self.pure_gauge.plaquette()
         self.pure_gauge.freeGauge()
-        return retval
+        return plaquette
 
     def polyakovLoop(self):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
-        retval = self.pure_gauge.polyakovLoop()
+        polyakovLoop = self.pure_gauge.polyakovLoop()
         self.pure_gauge.freeGauge()
-        return retval
+        return polyakovLoop
 
     def energy(self):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
-        retval = self.pure_gauge.energy()
+        energy = self.pure_gauge.energy()
         self.pure_gauge.freeGauge()
-        return retval
+        return energy
 
     def qcharge(self):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
-        retval = self.pure_gauge.qcharge()
+        qcharge = self.pure_gauge.qcharge()
         self.pure_gauge.freeGauge()
-        return retval
+        return qcharge
 
     def gauss(self, seed: int, sigma: float):
         """

@@ -154,7 +154,7 @@ class PureGauge(Gauge):
         self.gauge_param.use_resident_gauge = 1
         self.gauge_param.make_resident_gauge = 1
 
-    def smearAPE(self, n_steps: int, alpha: float, dir_ignore: int):
+    def apeSmear(self, n_steps: int, alpha: float, dir_ignore: int):
         self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_APE
         self.smear_param.n_steps = n_steps
         self.smear_param.alpha = alpha
@@ -164,7 +164,7 @@ class PureGauge(Gauge):
         performGaugeSmearQuda(self.smear_param, self.obs_param)
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
 
-    def smearSTOUT(self, n_steps: int, rho: float, dir_ignore: int):
+    def stoutSmear(self, n_steps: int, rho: float, dir_ignore: int):
         self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_STOUT
         self.smear_param.n_steps = n_steps
         self.smear_param.rho = rho
@@ -174,7 +174,7 @@ class PureGauge(Gauge):
         performGaugeSmearQuda(self.smear_param, self.obs_param)
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
 
-    def smearHYP(self, n_steps: int, alpha1: float, alpha2: float, alpha3: float, dir_ignore: int):
+    def hypSmear(self, n_steps: int, alpha1: float, alpha2: float, alpha3: float, dir_ignore: int):
         self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_HYP
         self.smear_param.n_steps = n_steps
         self.smear_param.alpha1 = alpha1
@@ -186,7 +186,7 @@ class PureGauge(Gauge):
         performGaugeSmearQuda(self.smear_param, self.obs_param)
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
 
-    def flowWilson(self, n_steps: int, epsilon: float, t0: float, restart: bool):
+    def wilsonFlow(self, n_steps: int, epsilon: float, t0: float, restart: bool):
         self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_WILSON_FLOW
         self.smear_param.n_steps = n_steps
         self.smear_param.epsilon = epsilon
@@ -199,13 +199,13 @@ class PureGauge(Gauge):
         self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_FALSE
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
 
-    def flowSymanzik(self, n_steps: int, epsilon: float, t0: float, restart: bool):
+    def symanzikFlow(self, n_steps: int, epsilon: float, t0: float, restart: bool):
+        self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_SYMANZIK_FLOW
         self.smear_param.n_steps = n_steps
         self.smear_param.epsilon = epsilon
         self.smear_param.t0 = t0
         self.smear_param.restart = QudaBoolean.QUDA_BOOLEAN_TRUE if restart else QudaBoolean.QUDA_BOOLEAN_FALSE
         self.smear_param.meas_interval = n_steps + 1
-        self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_SYMANZIK_FLOW
         self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_TRUE
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_TRUE
         performWFlowQuda(self.smear_param, self.obs_param)
