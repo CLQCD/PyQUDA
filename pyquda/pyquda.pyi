@@ -259,6 +259,8 @@ class QudaInvertParam:
     """Hasenbusch mass shift applied like twisted mass to diagonal (but not inverse)"""
     epsilon: double
     """Twisted mass parameter"""
+    evmax: double
+    """maximum of the eigenvalues of the ndeg twisted mass operator needed for fermionic forces"""
 
     twist_flavor: QudaTwistFlavorType
     """Twisted mass flavor"""
