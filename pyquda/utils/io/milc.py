@@ -20,8 +20,8 @@ def fromGaugeBuffer(filename: str, offset: int, dtype: str, latt_info: LatticeIn
 
     gauge_raw = readMPIFile(
         filename,
-        offset,
         dtype,
+        offset,
         (Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nd, Nc, Nc),
         (Lt, Lz, Ly, Lx, Nd, Nc, Nc),
         (gt * Lt, gz * Lz, gy * Ly, gx * Lx, 0, 0, 0),
@@ -66,8 +66,8 @@ def fromMultiSCIDACPropagatorBuffer(
             for color in range(Nc):
                 propagator_raw[spin, color] = readMPIFile(
                     filename,
-                    offset[spin * Nc + color],
                     dtype,
+                    offset[spin * Nc + color],
                     (Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Nc),
                     (Lt, Lz, Ly, Lx, Ns, Nc),
                     (gt * Lt, gz * Lz, gy * Ly, gx * Lx, 0, 0),
@@ -78,8 +78,8 @@ def fromMultiSCIDACPropagatorBuffer(
         for color in range(Nc):
             propagator_raw[color] = readMPIFile(
                 filename,
-                offset[color],
                 dtype,
+                offset[color],
                 (Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nc),
                 (Lt, Lz, Ly, Lx, Nc),
                 (gt * Lt, gz * Lz, gy * Ly, gx * Lx, 0),

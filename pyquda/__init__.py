@@ -295,8 +295,8 @@ def getCUDAComputeCapability():
 
 def readMPIFile(
     filename: str,
-    disp: int,
     dtype: str,
+    disp: int,
     sizes: Sequence[int],
     subsizes: Sequence[int],
     starts: Sequence[int],
@@ -307,7 +307,7 @@ def readMPIFile(
     fh = MPI.File.Open(_MPI_COMM, filename, MPI.MODE_RDONLY)
     filetype = dtlib.from_numpy_dtype(native_dtype).Create_subarray(sizes, subsizes, starts)
     filetype.Commit()
-    fh.Set_view(disp, filetype=filetype)
+    fh.Set_view(disp=disp, filetype=filetype)
     fh.Read_all(buf)
     filetype.Free()
     fh.Close()
@@ -317,12 +317,12 @@ def readMPIFile(
 
 def writeMPIFile(
     filename: str,
-    disp: int,
-    buf: numpy.ndarray,
     dtype: str,
+    disp: int,
     sizes: Sequence[int],
     subsizes: Sequence[int],
     starts: Sequence[int],
+    buf: numpy.ndarray,
 ):
     native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
     buf = buf.view(native_dtype)
@@ -330,7 +330,7 @@ def writeMPIFile(
     fh = MPI.File.Open(_MPI_COMM, filename, MPI.MODE_WRONLY | MPI.MODE_CREATE)
     filetype = dtlib.from_numpy_dtype(native_dtype).Create_subarray(sizes, subsizes, starts)
     filetype.Commit()
-    fh.Set_view(disp, filetype=filetype)
+    fh.Set_view(disp=disp, filetype=filetype)
     fh.Write_all(buf)
     filetype.Free()
     fh.Close()

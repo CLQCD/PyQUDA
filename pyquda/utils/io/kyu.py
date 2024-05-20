@@ -15,8 +15,8 @@ def fromGaugeBuffer(filename: str, offset: int, dtype: str, latt_info: LatticeIn
 
     gauge_raw = readMPIFile(
         filename,
-        offset,
         dtype,
+        offset,
         (Nd, Nc, Nc, 2, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx),
         (Nd, Nc, Nc, 2, Lt, Lz, Ly, Lx),
         (0, 0, 0, 0, gt * Lt, gz * Lz, gy * Ly, gx * Lx),
@@ -48,12 +48,12 @@ def toGaugeBuffer(filename: str, offset: int, gauge_raw: numpy.ndarray, dtype: s
     )
     writeMPIFile(
         filename,
-        offset,
-        gauge_raw,
         dtype,
+        offset,
         (Nd, Nc, Nc, 2, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx),
         (Nd, Nc, Nc, 2, Lt, Lz, Ly, Lx),
         (0, 0, 0, 0, gt * Lt, gz * Lz, gy * Ly, gx * Lx),
+        gauge_raw,
     )
 
 
@@ -146,8 +146,8 @@ def fromPropagatorBuffer(filename: str, offset: int, dtype: str, latt_info: Latt
 
     propagator_raw = readMPIFile(
         filename,
-        offset,
         dtype,
+        offset,
         (Ns, Nc, 2, Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx),
         (Ns, Nc, 2, Ns, Nc, Lt, Lz, Ly, Lx),
         (0, 0, 0, 0, 0, gt * Lt, gz * Lz, gy * Ly, gx * Lx),
@@ -179,12 +179,12 @@ def toPropagatorBuffer(filename: str, offset: int, propagator_raw: numpy.ndarray
     )
     writeMPIFile(
         filename,
-        offset,
-        propagator_raw,
         dtype,
+        offset,
         (Ns, Nc, 2, Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx),
         (Ns, Nc, 2, Ns, Nc, Lt, Lz, Ly, Lx),
         (0, 0, 0, 0, 0, gt * Lt, gz * Lz, gy * Ly, gx * Lx),
+        propagator_raw,
     )
 
 

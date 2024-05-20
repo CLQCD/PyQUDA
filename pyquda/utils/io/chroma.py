@@ -18,8 +18,8 @@ def fromILDGGaugeBuffer(filename: str, offset: int, dtype: str, latt_info: Latti
 
     gauge_raw = readMPIFile(
         filename,
-        offset,
         dtype,
+        offset,
         (Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nd, Nc, Nc),
         (Lt, Lz, Ly, Lx, Nd, Nc, Nc),
         (gt * Lt, gz * Lz, gy * Ly, gx * Lx, 0, 0, 0),
@@ -95,8 +95,8 @@ def fromSCIDACPropagatorBuffer(filename: str, offset: int, dtype: str, latt_info
     if not staggered:
         propagator_raw = readMPIFile(
             filename,
-            offset,
             dtype,
+            offset,
             (Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Ns, Ns, Nc, Nc),
             (Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc),
             (gt * Lt, gz * Lz, gy * Ly, gx * Lx, 0, 0, 0, 0),
@@ -105,8 +105,8 @@ def fromSCIDACPropagatorBuffer(filename: str, offset: int, dtype: str, latt_info
     else:
         propagator_raw = readMPIFile(
             filename,
-            offset,
             dtype,
+            offset,
             (Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, Nc, Nc),
             (Lt, Lz, Ly, Lx, Nc, Nc),
             (gt * Lt, gz * Lz, gy * Ly, gx * Lx, 0, 0),
