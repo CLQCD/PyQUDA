@@ -255,39 +255,46 @@ class LatticeField:
         self.data = data
 
     def backup(self):
-        if isinstance(self.data, numpy.ndarray) or self.backend == "numpy":
+        location = self.location
+        if location == "numpy":
             return self.data.copy()
-        elif self.backend == "cupy":
+        elif location == "cupy":
             return self.data.copy()
-        elif self.backend == "torch":
+        elif location == "torch":
             return self.data.clone()
 
+    def copy(self):
+        return self.__class__(self.latt_info, self.backup())
+
     def toDevice(self):
-        if self.backend == "numpy":
+        backend = self.backend
+        if backend == "numpy":
             pass
-        elif self.backend == "cupy":
+        elif backend == "cupy":
             import cupy
 
             self.data = cupy.asarray(self.data)
-        elif self.backend == "torch":
+        elif backend == "torch":
             import torch
 
             self.data = torch.as_tensor(self.data)
 
     def toHost(self):
-        if isinstance(self.data, numpy.ndarray) or self.backend == "numpy":
+        location = self.location
+        if location == "numpy":
             pass
-        elif self.backend == "cupy":
+        elif location == "cupy":
             self.data = self.data.get()
-        elif self.backend == "torch":
+        elif location == "torch":
             self.data = self.data.cpu().numpy()
 
     def getHost(self):
-        if isinstance(self.data, numpy.ndarray) or self.backend == "numpy":
+        location = self.location
+        if location == "numpy":
             return self.data.copy()
-        elif self.backend == "cupy":
+        elif location == "cupy":
             return self.data.get()
-        elif self.backend == "torch":
+        elif location == "torch":
             return self.data.cpu().numpy()
 
     def __add__(self, other):
@@ -331,6 +338,9 @@ class MultiLatticeField(LatticeField):
         super().__init__(latt_info)
         self.L5 = L5
 
+    def copy(self):
+        return self.__class__(self.latt_info, self.L5, self.backup())
+
     def __add__(self, other):
         assert self.__class__ == other.__class__ and self.location == other.location
         return self.__class__(self.latt_info, self.L5, self.data + other.data)
@@ -359,10 +369,7 @@ class LatticeGauge(LatticeField):
             self.setData(value.reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc))
         self.pure_gauge = None
 
-    def copy(self):
-        return LatticeGauge(self.latt_info, self.backup())
-
-    def setAntiPeroidicT(self):
+    def setAntiPeriodicT(self):
         if self.latt_info.gt == self.latt_info.Gt - 1:
             self.data[Nd - 1, :, self.latt_info.Lt - 1] *= -1
 
@@ -737,11 +744,9 @@ class MultiLatticeFermion(MultiLatticeField):
         return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[:, 1], True)
 
     def __getitem__(self, index: int) -> LatticeFermion:
-        assert 0 <= index < self.L5
         return LatticeFermion(self.latt_info, self.data[index])
 
     def __setitem__(self, index: int, value: LatticeFermion):
-        assert 0 <= index < self.L5
         self.data[index] = value.data
 
     def lexico(self):
@@ -833,11 +838,9 @@ class MultiLatticeStaggeredFermion(MultiLatticeField):
         return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[:, 1], True)
 
     def __getitem__(self, index: int) -> LatticeStaggeredFermion:
-        assert 0 <= index < self.L5
         return LatticeStaggeredFermion(self.latt_info, self.data[index])
 
     def __setitem__(self, index: int, value: LatticeStaggeredFermion):
-        assert 0 <= index < self.L5
         self.data[index] = value.data
 
     def lexico(self):

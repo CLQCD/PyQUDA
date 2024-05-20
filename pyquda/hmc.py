@@ -92,7 +92,7 @@ class HMC:
     def loadGauge(self, gauge: LatticeGauge):
         gauge_in = gauge.copy()
         if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
-            gauge_in.setAntiPeroidicT()
+            gauge_in.setAntiPeriodicT()
         self.gauge_param.use_resident_gauge = 0
         loadGaugeQuda(gauge_in.data_ptrs, self.gauge_param)
         self.gauge_param.use_resident_gauge = 1
@@ -101,7 +101,7 @@ class HMC:
     def saveGauge(self, gauge: LatticeGauge):
         saveGaugeQuda(gauge.data_ptrs, self.gauge_param)
         if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
-            gauge.setAntiPeroidicT()
+            gauge.setAntiPeriodicT()
 
     def gaussGauge(self, seed: int):
         gaussGaugeQuda(seed, 1.0)

@@ -1,6 +1,6 @@
 from __future__ import annotations  # TYPE_CHECKING
 from os import environ
-from typing import TYPE_CHECKING, Callable, List, Literal, NamedTuple, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, NamedTuple, Sequence
 from warnings import warn, filterwarnings
 
 if TYPE_CHECKING:
@@ -175,7 +175,7 @@ def init(
 
         if backend == "numpy":
             cudaGetDeviceCount: Callable[[], int] = lambda: 0x7FFFFFFF
-            cudaGetDeviceProperties: Callable[[int], Tuple[int, int]] = lambda device: 0, 0
+            cudaGetDeviceProperties: Callable[[int], Dict[str, Any]] = lambda device: {"major": 0, "minor": 0}
             cudaSetDevice: Callable[[int], None] = lambda device: None
         elif backend == "cupy":
             import cupy
@@ -225,9 +225,9 @@ def init(
 
         props = cudaGetDeviceProperties(_GPUID)
         if hasattr(props, "major") and hasattr(props, "minor"):
-            _COMPUTE_CAPABILITY = _ComputeCapability(props.major, props.minor)
+            _COMPUTE_CAPABILITY = _ComputeCapability(int(props.major), int(props.minor))
         else:
-            _COMPUTE_CAPABILITY = _ComputeCapability(props["major"], props["minor"])
+            _COMPUTE_CAPABILITY = _ComputeCapability(int(props["major"]), int(props["minor"]))
 
         cudaSetDevice(_GPUID)
         quda.initCommsGridQuda(4, _GRID_SIZE)

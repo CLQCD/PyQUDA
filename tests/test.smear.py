@@ -14,7 +14,7 @@ gauge_stout = gauge.copy()
 gauge_stout.smearSTOUT(1, 0.241, 3)
 gauge_hyp = gauge.copy()
 gauge_hyp.smearHYP(1, 0.75, 0.6, 0.3, 4)
-# gauge.setAntiPeroidicT()  # for fermion smearing
+# gauge.setAntiPeriodicT()  # for fermion smearing
 
 gauge_chroma = io.readQIOGauge("ape.lime")
 print(cp.linalg.norm(gauge_ape.data - gauge_chroma.data))

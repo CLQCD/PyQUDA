@@ -381,21 +381,20 @@ def loadClover(
         anisotropy = gauge_param.anisotropy
         reconstruct = gauge_param.reconstruct
 
-        gauge_data_bak = gauge.backup()
+        gauge_in = gauge.copy()
         if clover_anisotropy != 1.0:
-            gauge.setAnisotropy(clover_anisotropy)
+            gauge_in.setAnisotropy(clover_anisotropy)
             gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
         gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
         gauge_param.anisotropy = 1.0
         gauge_param.use_resident_gauge = 0
-        loadGaugeQuda(gauge.data_ptrs, gauge_param)
+        loadGaugeQuda(gauge_in.data_ptrs, gauge_param)
         if clover_anisotropy != 1.0:
             gauge_param.reconstruct = reconstruct
         gauge_param.t_boundary = t_boundary
         gauge_param.anisotropy = anisotropy
         gauge_param.use_resident_gauge = 1
         loadCloverQuda(nullptr, nullptr, invert_param)
-        gauge.data = gauge_data_bak
     else:
         invert_param.compute_clover = 0
         invert_param.compute_clover_inverse = 0
@@ -416,14 +415,14 @@ def saveClover(
     anisotropy = gauge_param.anisotropy
     reconstruct = gauge_param.reconstruct
 
-    gauge_data_bak = gauge.backup()
+    gauge_in = gauge.copy()
     if clover_anisotropy != 1.0:
-        gauge.setAnisotropy(clover_anisotropy)
+        gauge_in.setAnisotropy(clover_anisotropy)
         gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
     gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
     gauge_param.anisotropy = 1.0
     gauge_param.use_resident_gauge = 0
-    loadGaugeQuda(gauge.data_ptrs, gauge_param)
+    loadGaugeQuda(gauge_in.data_ptrs, gauge_param)
     if clover_anisotropy != 1.0:
         gauge_param.reconstruct = reconstruct
     gauge_param.t_boundary = t_boundary
@@ -434,19 +433,17 @@ def saveClover(
     loadCloverQuda(clover.data_ptr, clover_inv.data_ptr, invert_param)
     invert_param.return_clover = 0
     invert_param.return_clover_inverse = 0
-    gauge.data = gauge_data_bak
 
 
 def loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
-    gauge_data_bak = gauge.backup()
+    gauge_in = gauge.copy()
     if gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
-        gauge.setAntiPeroidicT()
+        gauge_in.setAntiPeriodicT()
     if gauge_param.anisotropy != 1.0:
-        gauge.setAnisotropy(gauge_param.anisotropy)
+        gauge_in.setAnisotropy(gauge_param.anisotropy)
     gauge_param.use_resident_gauge = 0
-    loadGaugeQuda(gauge.data_ptrs, gauge_param)
+    loadGaugeQuda(gauge_in.data_ptrs, gauge_param)
     gauge_param.use_resident_gauge = 1
-    gauge.data = gauge_data_bak
 
 
 def loadFatLongGauge(fatlink: LatticeGauge, longlink: LatticeGauge, gauge_param: QudaGaugeParam):
