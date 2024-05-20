@@ -472,8 +472,7 @@ class LatticeGauge(LatticeField):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
         self.pure_gauge.wilsonFlow(1, epsilon, 0, False)
-        t2E_old, t2E = 0, 0
-        tdt2E_old, tdt2E = 0, 0
+        t2E, tdt2E = 0, 0
         t0, w0 = 0, 0
         for step in range(1, max_steps + 1):
             if t2E >= 0.3 and tdt2E >= 0.3:
@@ -485,6 +484,7 @@ class LatticeGauge(LatticeField):
                 t0 = (step - (t2E - 0.3) / (t2E - t2E_old)) * epsilon
             if w0 == 0 and tdt2E >= 0.3:
                 w0 = ((step - 0.5 - (tdt2E - 0.3) / (tdt2E - tdt2E_old)) * epsilon) ** 0.5
+            print(f"PyQUDA: t2E({step * epsilon})={t2E}, tdt2E({(step - 0.5) * epsilon})={tdt2E}")
         else:
             raise RuntimeError(f"Wilson flow scale doesn't exceed 0.3 at max_steps*epsilon={max_steps*epsilon}")
         self.pure_gauge.freeGauge()
@@ -516,8 +516,7 @@ class LatticeGauge(LatticeField):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
         self.pure_gauge.symanzikFlow(1, epsilon, 0, False)
-        t2E_old, t2E = 0, 0
-        tdt2E_old, tdt2E = 0, 0
+        t2E, tdt2E = 0, 0
         t0, w0 = 0, 0
         for step in range(1, max_steps + 1):
             if t2E >= 0.3 and tdt2E >= 0.3:
@@ -529,6 +528,7 @@ class LatticeGauge(LatticeField):
                 t0 = (step - (t2E - 0.3) / (t2E - t2E_old)) * epsilon
             if w0 == 0 and tdt2E >= 0.3:
                 w0 = ((step - 0.5 - (tdt2E - 0.3) / (tdt2E - tdt2E_old)) * epsilon) ** 0.5
+            print(f"PyQUDA: t2E({step * epsilon})={t2E}, tdt2E({(step - 0.5) * epsilon})={tdt2E}")
         else:
             raise RuntimeError(f"Symanzik flow scale doesn't exceed 0.3 at max_steps*epsilon={max_steps*epsilon}")
         self.pure_gauge.freeGauge()
