@@ -1,4 +1,5 @@
 from os import path
+from typing import List, Union
 
 import numpy
 
@@ -46,8 +47,9 @@ def toPropagatorBuffer(filename: str, offset: int, propagator_raw: numpy.ndarray
     )
 
 
-def readPropagator(filename: str, latt_info: LatticeInfo):
+def readPropagator(filename: str, latt_info: Union[LatticeInfo, List[int]]):
     filename = path.expanduser(path.expandvars(filename))
+    latt_info = LatticeInfo(latt_info) if not isinstance(latt_info, LatticeInfo) else latt_info
     propagator_raw = fromPropagatorBuffer(filename, 0, "<c8", latt_info)
 
     return rotateToDeGrandRossi(LatticePropagator(latt_info, cb2(propagator_raw, [0, 1, 2, 3])))
@@ -108,8 +110,9 @@ def toPropagatorBufferFast(
     )
 
 
-def readPropagatorFast(filename: str, latt_info: LatticeInfo):
+def readPropagatorFast(filename: str, latt_info: Union[LatticeInfo, List[int]]):
     filename = path.expanduser(path.expandvars(filename))
+    latt_info = LatticeInfo(latt_info) if not isinstance(latt_info, LatticeInfo) else latt_info
 
     return rotateToDeGrandRossi(fromPropagatorBufferFast(filename, 0, "<c8", latt_info))
 

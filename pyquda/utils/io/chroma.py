@@ -1,7 +1,7 @@
 import io
 from os import path
 import struct
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple, Union
 from xml.etree import ElementTree as ET
 
 from ...field import Ns, Nc, Nd, LatticeInfo, LatticeGauge, LatticePropagator, LatticeStaggeredPropagator, cb2
@@ -77,8 +77,9 @@ def readQIOGauge(filename: str):
     return LatticeGauge(latt_info, cb2(gauge_raw, [1, 2, 3, 4]))
 
 
-def readILDGBinGauge(filename: str, dtype: str, latt_info: LatticeInfo):
+def readILDGBinGauge(filename: str, dtype: str, latt_info: Union[LatticeInfo, List[int]]):
     filename = path.expanduser(path.expandvars(filename))
+    latt_info = LatticeInfo(latt_info) if not isinstance(latt_info, LatticeInfo) else latt_info
     gauge_raw = fromILDGGaugeBuffer(filename, 0, dtype, latt_info)
 
     return LatticeGauge(latt_info, cb2(gauge_raw, [1, 2, 3, 4]))

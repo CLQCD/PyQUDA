@@ -1,4 +1,5 @@
 from os import path
+from typing import List, Union
 
 import numpy
 
@@ -56,8 +57,9 @@ def toGaugeBuffer(filename: str, offset: int, gauge_raw: numpy.ndarray, dtype: s
     )
 
 
-def readGauge(filename: str, latt_info: LatticeInfo):
+def readGauge(filename: str, latt_info: Union[LatticeInfo, List[int]]):
     filename = path.expanduser(path.expandvars(filename))
+    latt_info = LatticeInfo(latt_info) if not isinstance(latt_info, LatticeInfo) else latt_info
     gauge_raw = fromGaugeBuffer(filename, 0, ">f8", latt_info)
 
     return LatticeGauge(latt_info, cb2(gauge_raw, [1, 2, 3, 4]))
@@ -186,8 +188,9 @@ def toPropagatorBuffer(filename: str, offset: int, propagator_raw: numpy.ndarray
     )
 
 
-def readPropagator(filename: str, latt_info: LatticeInfo):
+def readPropagator(filename: str, latt_info: Union[LatticeInfo, List[int]]):
     filename = path.expanduser(path.expandvars(filename))
+    latt_info = LatticeInfo(latt_info) if not isinstance(latt_info, LatticeInfo) else latt_info
     propagator_raw = fromPropagatorBuffer(filename, 0, ">f8", latt_info)
 
     return rotateToDeGrandRossi(LatticePropagator(latt_info, cb2(propagator_raw, [0, 1, 2, 3])))
