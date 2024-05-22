@@ -104,10 +104,7 @@ def _fieldLocation():
 def _useMMA():
     from .. import getCUDAComputeCapability
 
-    if getCUDAComputeCapability().major >= 7:
-        return QudaBoolean.QUDA_BOOLEAN_TRUE
-    else:
-        return QudaBoolean.QUDA_BOOLEAN_FALSE
+    QudaBoolean(getCUDAComputeCapability().major >= 7)
 
 
 def newQudaGaugeParam(
@@ -195,7 +192,7 @@ def newQudaMultigridParam(
     mg_inv_param.gcrNkrylov = 8
     mg_inv_param.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
 
-    location = _fieldLocation()
+    location: QudaFieldLocation = _fieldLocation()
     mg_inv_param.cpu_prec = precision.cpu
     mg_inv_param.cuda_prec = precision.cuda
     mg_inv_param.cuda_prec_sloppy = precision.sloppy
@@ -269,7 +266,7 @@ def newQudaMultigridParam(
     mg_param.run_low_mode_check = QudaBoolean.QUDA_BOOLEAN_FALSE
     mg_param.run_oblique_proj_check = QudaBoolean.QUDA_BOOLEAN_FALSE
 
-    use_mma = _useMMA()
+    use_mma: QudaBoolean = _useMMA()
     mg_param.setup_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
     mg_param.dslash_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
 
@@ -321,7 +318,7 @@ def newQudaInvertParam(
     invert_param.gcrNkrylov = 8
     invert_param.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
 
-    location = _fieldLocation()
+    location: QudaFieldLocation = _fieldLocation()
     invert_param.cpu_prec = precision.cpu
     invert_param.cuda_prec = precision.cuda
     invert_param.cuda_prec_sloppy = precision.sloppy

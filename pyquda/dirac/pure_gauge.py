@@ -191,7 +191,7 @@ class PureGauge(Gauge):
         self.smear_param.n_steps = n_steps
         self.smear_param.epsilon = epsilon
         self.smear_param.t0 = t0
-        self.smear_param.restart = QudaBoolean.QUDA_BOOLEAN_TRUE if restart else QudaBoolean.QUDA_BOOLEAN_FALSE
+        self.smear_param.restart = QudaBoolean(restart)
         self.smear_param.meas_interval = n_steps + 1
         self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_TRUE
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_TRUE
@@ -204,7 +204,7 @@ class PureGauge(Gauge):
         self.smear_param.n_steps = n_steps
         self.smear_param.epsilon = epsilon
         self.smear_param.t0 = t0
-        self.smear_param.restart = QudaBoolean.QUDA_BOOLEAN_TRUE if restart else QudaBoolean.QUDA_BOOLEAN_FALSE
+        self.smear_param.restart = QudaBoolean(restart)
         self.smear_param.meas_interval = n_steps + 1
         self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_TRUE
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_TRUE

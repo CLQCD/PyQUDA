@@ -499,10 +499,10 @@ class LatticeGauge(LatticeField):
         return t0, w0
 
     def flowWilson(self, n_steps: int, time: float):
-        self.wilsonFlow(n_steps, time / n_steps)
+        return self.wilsonFlow(n_steps, time / n_steps)
 
     def flowWilsonScale(self, epsilon: float):
-        self.wilsonFlowScale(100000, epsilon)
+        return self.wilsonFlowScale(100000, epsilon)
 
     def symanzikFlow(self, n_steps: int, epsilon: float):
         self.ensurePureGauge()
@@ -543,10 +543,10 @@ class LatticeGauge(LatticeField):
         return t0, w0
 
     def flowSymanzik(self, n_steps: int, time: float):
-        self.symanzikFlow(n_steps, time / n_steps)
+        return self.symanzikFlow(n_steps, time / n_steps)
 
     def flowSymanzikScale(self, epsilon: float):
-        self.symanzikFlowScale(100000, epsilon)
+        return self.symanzikFlowScale(100000, epsilon)
 
     def plaquette(self):
         self.ensurePureGauge()
