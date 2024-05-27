@@ -1,7 +1,7 @@
 from __future__ import annotations  # TYPE_CHECKING
+import logging
 from os import environ
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, NamedTuple, Sequence
-from warnings import warn, filterwarnings
 
 if TYPE_CHECKING:
     from typing import Protocol, TypeVar
@@ -22,11 +22,40 @@ from . import pyquda as quda
 from .field import LatticeInfo
 
 
+class _MPILogger:
+    def __init__(self, logger: logging.Logger, root: int = 0) -> None:
+        self.logger = logger
+        self.root = root
+
+    def debug(self, msg: str):
+        if _MPI_RANK == self.root:
+            self.logger.debug(msg)
+
+    def info(self, msg: str):
+        if _MPI_RANK == self.root:
+            self.logger.info(msg)
+
+    def warning(self, msg: str, category: Warning):
+        if _MPI_RANK == self.root:
+            self.logger.warning(msg, exc_info=category(msg), stack_info=True)
+
+    def error(self, msg: str, category: Exception):
+        if _MPI_RANK == self.root:
+            self.logger.error(msg, exc_info=category(msg), stack_info=True)
+
+    def critical(self, msg: str, category: Exception):
+        if _MPI_RANK == self.root:
+            self.logger.critical(msg, exc_info=category(msg), stack_info=True)
+        raise category(msg)
+
+
 class _ComputeCapability(NamedTuple):
     major: int
     minor: int
 
 
+logging.basicConfig(format="{name} {levelname}: {message}", style="{", level=logging.DEBUG, encoding="utf-8")
+_MPI_LOGGER: _MPILogger = _MPILogger(logging.getLogger("PyQUDA"))
 _MPI_COMM: MPI.Comm = MPI.COMM_WORLD
 _MPI_SIZE: int = _MPI_COMM.Get_size()
 _MPI_RANK: int = _MPI_COMM.Get_rank()
@@ -48,25 +77,14 @@ def getCoordFromRank(rank: int, grid: List[int]) -> List[int]:
     return [rank // t // z // y, rank // t // z % y, rank // t % z, rank % t]
 
 
-def printRoot(
-    *values: object,
-    sep: str | None = " ",
-    end: str | None = "\n",
-    file: SupportsWriteAndFlush[str] | None = None,
-    flush: bool = False,
-):
-    if _MPI_RANK == 0:
-        print(*values, sep=sep, end=end, file=file, flush=flush)
-
-
 def _initEnviron(**kwargs):
     def _setEnviron(env, key, value):
         if value is not None:
             if env in environ:
-                warn(f"WARNING: Both {env} and init({key}) are set", RuntimeWarning)
+                _MPI_LOGGER.warning(f"Both {env} and init({key}) are set", RuntimeWarning)
             environ[env] = value
         if env in environ:
-            printRoot(f"INFO: Using {env}={environ[env]}")
+            _MPI_LOGGER.info(f"Using {env}={environ[env]}")
 
     for key in kwargs.keys():
         _setEnviron(f"QUDA_{key.upper()}", key, kwargs[key])
@@ -76,13 +94,13 @@ def _initEnvironWarn(**kwargs):
     def _setEnviron(env, key, value):
         if value is not None:
             if env in environ:
-                warn(f"WARNING: Both {env} and init({key}) are set", RuntimeWarning)
+                _MPI_LOGGER.warning(f"Both {env} and init({key}) are set", RuntimeWarning)
             environ[env] = value
         else:
             if env not in environ:
-                warn(f"WARNING: Neither {env} nor init({key}) is set", RuntimeWarning)
+                _MPI_LOGGER.warning(f"Neither {env} nor init({key}) is set", RuntimeWarning)
         if env in environ:
-            printRoot(f"INFO: Using {env}={environ[env]}")
+            _MPI_LOGGER.info(f"Using {env}={environ[env]}")
 
     for key in kwargs.keys():
         _setEnviron(f"QUDA_{key.upper()}", key, kwargs[key])
@@ -124,7 +142,6 @@ def init(
     """
     Initialize MPI along with the QUDA library.
     """
-    filterwarnings("default", "", DeprecationWarning)
     global _GRID_SIZE, _GRID_COORD
     if _GRID_SIZE is None:
         import atexit
@@ -134,7 +151,7 @@ def init(
         assert _MPI_SIZE == Gx * Gy * Gz * Gt
         _GRID_SIZE = [Gx, Gy, Gz, Gt]
         _GRID_COORD = getCoordFromRank(_MPI_RANK, _GRID_SIZE)
-        printRoot(f"INFO: Using gird {_GRID_SIZE}")
+        _MPI_LOGGER.info(f"Using GPU grid {_GRID_SIZE}")
 
         _initEnvironWarn(resource_path=resource_path if resource_path != "" else None)
         _initEnviron(
@@ -171,7 +188,7 @@ def init(
         if latt_size is not None:
             assert t_boundary is not None and anisotropy is not None
             _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
-            printRoot(f"INFO: Using default LatticeInfo({latt_size}, {t_boundary}, {anisotropy})")
+            _MPI_LOGGER.info(f"Using default LatticeInfo({latt_size}, {t_boundary}, {anisotropy})")
 
         if backend == "numpy":
             cudaGetDeviceCount: Callable[[], int] = lambda: 0x7FFFFFFF
@@ -190,14 +207,15 @@ def init(
 
             cudaSetDevice: Callable[[int], None] = lambda device: torch.set_default_device(f"cuda:{device}")
         else:
-            raise ValueError(f"Unsupported CUDA backend {backend}")
+            _MPI_LOGGER.critical(f"Unsupported CUDA backend {backend}", ValueError)
         _CUDA_BACKEND = backend
+        _MPI_LOGGER.info(f"Using CUDA backend {backend}")
 
         # if _CUDA_BACKEND == "cupy":
         #     from . import malloc_pyquda
 
         #     allocator = cupy.cuda.PythonFunctionAllocator(
-        #         malloc_pyquda.pyquda_cupy_malloc, malloc_pyquda.pyquda_cupy_free
+        #         malloc_pyquda.pyquda_device_malloc, malloc_pyquda.pyquda_device_free
         #     )
         #     cupy.cuda.set_allocator(allocator.malloc)
 
@@ -209,7 +227,7 @@ def init(
         if _GPUID < 0:
             device_count = cudaGetDeviceCount()
             if device_count == 0:
-                raise RuntimeError("No devices found")
+                _MPI_LOGGER.critical("No devices found", RuntimeError)
 
             _GPUID = 0
             for i in range(_MPI_RANK):
@@ -219,9 +237,9 @@ def init(
             if _GPUID >= device_count:
                 if "QUDA_ENABLE_MPS" in environ and environ["QUDA_ENABLE_MPS"] == "1":
                     _GPUID %= device_count
-                    print(f"INFO: MPS enabled, rank={_MPI_RANK} -> gpu={_GPUID}")
+                    print(f"MPS enabled, rank={_MPI_RANK} -> gpu={_GPUID}")
                 else:
-                    raise RuntimeError(f"Too few GPUs available on {hostname}")
+                    _MPI_LOGGER.critical(f"Too few GPUs available on {hostname}", RuntimeError)
 
         props = cudaGetDeviceProperties(_GPUID)
         if hasattr(props, "major") and hasattr(props, "minor"):
@@ -234,7 +252,15 @@ def init(
         quda.initQuda(_GPUID)
         atexit.register(quda.endQuda)
     else:
-        warn("WARNING: PyQUDA is already initialized", RuntimeWarning)
+        _MPI_LOGGER.warning("PyQUDA is already initialized", RuntimeWarning)
+
+
+def getLogger():
+    return _MPI_LOGGER
+
+
+def setLoggerLevel(level: int):
+    _MPI_LOGGER.logger.setLevel(level)
 
 
 def getMPIComm():

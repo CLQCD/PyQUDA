@@ -66,7 +66,7 @@ cdef class _NDArray:
                     ptr_uint64 = data[i, j].ctypes.data
                     self.ptrss[i][j] = <void *>ptr_uint64
         else:
-            raise NotImplementedError("ndarray.ndim > 3 not implemented yet.")
+            raise NotImplementedError("ndarray.ndim > 3 not implemented yet")
 
     def __dealloc__(self):
         if self.ptrs:

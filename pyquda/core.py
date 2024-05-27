@@ -9,6 +9,7 @@ from . import (
     getGridSize,
     getCoordFromRank,
     getDefaultLattice,
+    getLogger,
 )
 from .field import (
     Ns,
@@ -165,7 +166,9 @@ def gatherLattice(data: numpy.ndarray, axes: List[int], reduce_op: Literal["sum"
         elif reduce_op.lower() == "mean":
             return data.mean(reduce_axis)
         else:
-            raise NotImplementedError(f"core.gather doesn't support reduce operator reduce_op={reduce_op}")
+            getLogger().critical(
+                f"core.gather doesn't support reduce operator reduce_op={reduce_op}", NotImplementedError
+            )
     else:
         sendbuf = numpy.ascontiguousarray(data.reshape(-1))
         recvbuf = None

@@ -12,7 +12,7 @@ except ModuleNotFoundError:
     sys.path.insert(1, pyquda_dir)
     import pyquda
 finally:
-    pyquda.printRoot(f"INFO: Using {pyquda.__file__} as pyquda")
+    pyquda.getLogger().debug(f"Using {pyquda.__file__} as pyquda")
 
 
 def chroma(ini_xml: str):

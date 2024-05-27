@@ -3,7 +3,7 @@ from typing import List, Literal, NamedTuple, Union
 
 import numpy
 
-from .. import getCUDABackend
+from .. import getCUDABackend, getLogger
 
 
 class GammaMatrix:
@@ -165,7 +165,7 @@ def gamma(n: int):
 def bilateral_apply(data, out, axis, gamma_left, gamma_right, conj):
     backend = getCUDABackend()
     if backend != "cupy":
-        raise ValueError(f"`bilateral_apply` doesn't support {backend} backend yet.")
+        getLogger().critical(f"`bilateral_apply` doesn't support {backend} backend yet", ValueError)
     import cupy
 
     gamma_left = cupy.sparse.csr_matrix(gamma_left)

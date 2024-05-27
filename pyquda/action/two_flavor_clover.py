@@ -1,5 +1,6 @@
 import numpy
 
+from .. import getLogger
 from ..pointer import Pointers, ndarrayPointer
 from ..pyquda import MatQuda, computeCloverForceQuda, invertQuda, loadCloverQuda, loadGaugeQuda
 from ..enum_quda import (
@@ -22,7 +23,8 @@ from . import FermionAction
 class TwoFlavorClover(FermionAction):
     def __init__(self, latt_info: LatticeInfo, mass: float, tol: float, maxiter: int, clover_csw: float) -> None:
         super().__init__(latt_info)
-        assert latt_info.anisotropy == 1.0
+        if latt_info.anisotropy != 1.0:
+            getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
 
         kappa = 1 / (2 * (mass + Nd))
         self.kappa2 = -(kappa**2)

@@ -16,16 +16,18 @@ class LatticeInfo:
         self._setLattice(latt_size, t_boundary, anisotropy)
 
     def _checkLattice(self, latt_size: List[int]):
-        from . import getGridSize
+        from . import getLogger, getGridSize
 
         if getGridSize() is None:
-            raise RuntimeError("pyquda.init() must be called before contructing LatticeInfo")
+            getLogger().critical("pyquda.init() must be called before contructing LatticeInfo", RuntimeError)
         Gx, Gy, Gz, Gt = getGridSize()
         Lx, Ly, Lz, Lt = latt_size
-        assert Lx % (2 * Gx) == 0 and Ly % (2 * Gy) == 0 and Lz % (2 * Gz) == 0 and Lt % (2 * Gt) == 0, (
-            "lattice size must be divisible by gird size, "
-            "and sublattice size must be even in every direction for consistant even-odd preconditioning"
-        )
+        if not (Lx % (2 * Gx) == 0 and Ly % (2 * Gy) == 0 and Lz % (2 * Gz) == 0 and Lt % (2 * Gt) == 0):
+            getLogger().critical(
+                "lattice size must be divisible by gird size, "
+                "and sublattice size must be even in every direction for consistant even-odd preconditioning",
+                ValueError,
+            )
 
     def _setLattice(self, latt_size: List[int], t_boundary: Literal[1, -1], anisotropy: float):
         from . import getMPIComm, getMPISize, getMPIRank, getGridSize, getGridCoord
@@ -62,16 +64,18 @@ class LaplaceLatticeInfo(LatticeInfo):
         self._setLattice(latt_size, 1, 1.0)
 
     def _checkLatticeOddT(self, latt_size: List[int]):
-        from . import getGridSize
+        from . import getLogger, getGridSize
 
         if getGridSize() is None:
-            raise RuntimeError("pyquda.init() must be called before contructing LatticeInfo")
+            getLogger().critical("pyquda.init() must be called before contructing LatticeInfo", RuntimeError)
         Gx, Gy, Gz, Gt = getGridSize()
         Lx, Ly, Lz, Lt = latt_size
-        assert Lx % (2 * Gx) == 0 and Ly % (2 * Gy) == 0 and Lz % (2 * Gz) == 0 and Lt % Gt == 0, (
-            "lattice size must be divisible by gird size, "
-            "and sublattice size must be even in spacial direction for consistant even-odd preconditioning"
-        )
+        if not (Lx % (2 * Gx) == 0 and Ly % (2 * Gy) == 0 and Lz % (2 * Gz) == 0 and Lt % Gt == 0):
+            getLogger().critical(
+                "lattice size must be divisible by gird size, "
+                "and sublattice size must be even in spacial direction for consistant even-odd preconditioning",
+                ValueError,
+            )
 
 
 Ns, Nc, Nd = LatticeInfo.Ns, LatticeInfo.Nc, LatticeInfo.Nd
@@ -80,7 +84,7 @@ Ns, Nc, Nd = LatticeInfo.Ns, LatticeInfo.Nc, LatticeInfo.Nd
 def lexico(data: numpy.ndarray, axes: List[int], dtype=None):
     shape = data.shape
     Np, Lt, Lz, Ly, Lx = [shape[axis] for axis in axes]
-    assert Np == 2, "There must be 2 parities."
+    assert Np == 2
     Lx *= 2
     Npre = int(numpy.prod(shape[: axes[0]]))
     Nsuf = int(numpy.prod(shape[axes[-1] + 1 :]))
@@ -141,8 +145,6 @@ def newLatticeFieldData(latt_info: LatticeInfo, field: str):
             return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
         elif field == "Clover":
             return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), "<f8")
-        else:
-            raise ValueError(f"Unsupported lattice field type {field}")
     elif backend == "cupy":
         import cupy
 
@@ -160,8 +162,6 @@ def newLatticeFieldData(latt_info: LatticeInfo, field: str):
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
         elif field == "Clover":
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), "<f8")
-        else:
-            raise ValueError(f"Unsupported lattice field type {field}")
     elif backend == "torch":
         import torch
 
@@ -179,10 +179,6 @@ def newLatticeFieldData(latt_info: LatticeInfo, field: str):
             return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128)
         elif field == "Clover":
             return torch.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), dtype=torch.float64)
-        else:
-            raise ValueError(f"Unsupported lattice field type {field}")
-    else:
-        raise ValueError(f"Unsupported CUDA backend {backend}")
 
 
 def newMultiLatticeFieldData(latt_info: LatticeInfo, L5: int, field: str):
@@ -195,8 +191,6 @@ def newMultiLatticeFieldData(latt_info: LatticeInfo, L5: int, field: str):
             return numpy.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
         elif field == "StaggeredFermion":
             return numpy.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
-        else:
-            raise ValueError(f"Unsupported lattice field type {field}")
     elif backend == "cupy":
         import cupy
 
@@ -204,8 +198,6 @@ def newMultiLatticeFieldData(latt_info: LatticeInfo, L5: int, field: str):
             return cupy.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
         elif field == "StaggeredFermion":
             return cupy.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
-        else:
-            raise ValueError(f"Unsupported lattice field type {field}")
     elif backend == "torch":
         import torch
 
@@ -213,10 +205,6 @@ def newMultiLatticeFieldData(latt_info: LatticeInfo, L5: int, field: str):
             return torch.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=torch.complex128)
         elif field == "StaggeredFermion":
             return torch.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128)
-        else:
-            raise ValueError(f"Unsupported lattice field type {field}")
-    else:
-        raise ValueError(f"Unsupported CUDA backend {backend}")
 
 
 class LatticeField:
@@ -226,8 +214,6 @@ class LatticeField:
         self.latt_info = latt_info
         self._data = None
         self.backend = getCUDABackend()
-        if self.backend not in ["numpy", "cupy", "torch"]:
-            raise ValueError(f"Unsupported CUDA backend {self.backend}")
 
     @property
     def data(self):
@@ -476,6 +462,8 @@ class LatticeGauge(LatticeField):
         return energy
 
     def wilsonFlowScale(self, max_steps: int, epsilon: float):
+        from . import getLogger
+
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
         self.pure_gauge.wilsonFlow(1, epsilon, 0, False)
@@ -491,9 +479,11 @@ class LatticeGauge(LatticeField):
                 t0 = (step - (t2E - 0.3) / (t2E - t2E_old)) * epsilon
             if w0 == 0 and tdt2E >= 0.3:
                 w0 = ((step - 0.5 - (tdt2E - 0.3) / (tdt2E - tdt2E_old)) * epsilon) ** 0.5
-            print(f"PyQUDA: t2E({step * epsilon})={t2E}, tdt2E({(step - 0.5) * epsilon})={tdt2E}")
+            getLogger().info(f"t2E({step * epsilon})={t2E}, tdt2E({(step - 0.5) * epsilon})={tdt2E}")
         else:
-            raise RuntimeError(f"Wilson flow scale doesn't exceed 0.3 at max_steps*epsilon={max_steps*epsilon}")
+            getLogger().error(
+                f"Wilson flow scale doesn't exceed 0.3 at max_steps*epsilon={max_steps*epsilon}", RuntimeError
+            )
         self.pure_gauge.freeGauge()
         self.pure_gauge.freeSmearedGauge()
         return t0, w0
@@ -520,6 +510,8 @@ class LatticeGauge(LatticeField):
         return energy
 
     def symanzikFlowScale(self, max_steps: int, epsilon: float):
+        from . import getLogger
+
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
         self.pure_gauge.symanzikFlow(1, epsilon, 0, False)
@@ -535,9 +527,11 @@ class LatticeGauge(LatticeField):
                 t0 = (step - (t2E - 0.3) / (t2E - t2E_old)) * epsilon
             if w0 == 0 and tdt2E >= 0.3:
                 w0 = ((step - 0.5 - (tdt2E - 0.3) / (tdt2E - tdt2E_old)) * epsilon) ** 0.5
-            print(f"PyQUDA: t2E({step * epsilon})={t2E}, tdt2E({(step - 0.5) * epsilon})={tdt2E}")
+            getLogger().info(f"t2E({step * epsilon})={t2E}, tdt2E({(step - 0.5) * epsilon})={tdt2E}")
         else:
-            raise RuntimeError(f"Symanzik flow scale doesn't exceed 0.3 at max_steps*epsilon={max_steps*epsilon}")
+            getLogger().error(
+                f"Symanzik flow scale doesn't exceed 0.3 at max_steps*epsilon={max_steps*epsilon}", RuntimeError
+            )
         self.pure_gauge.freeGauge()
         self.pure_gauge.freeSmearedGauge()
         return t0, w0

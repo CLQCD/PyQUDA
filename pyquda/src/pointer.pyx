@@ -1,5 +1,3 @@
-from warnings import warn
-
 from libc.stdlib cimport malloc, free
 
 cdef class Pointer:
@@ -76,7 +74,7 @@ def ndarrayPointer(ndarray, as_void=False):
         elif dtype == "<c16":
             dtype = "double_complex"
         else:
-            raise TypeError(f"ndarrayPointer: ndarray has unsupported dtype={dtype}.")
+            raise TypeError(f"ndarrayPointer: ndarray has unsupported dtype={dtype}")
     else:
         dtype = "void"
 
@@ -139,6 +137,6 @@ def ndarrayPointer(ndarray, as_void=False):
         free(ptrss)
         return ptr3
     else:
-        raise NotImplementedError("ndarray.ndim > 3 not implemented yet.")
+        raise NotImplementedError("ndarray.ndim > 3 not implemented yet")
 
 ndarrayDataPointer = ndarrayPointer

@@ -2,7 +2,7 @@ from typing import List
 
 import numpy
 
-from .. import getGridSize, getGridCoord, getCUDABackend
+from .. import getGridSize, getGridCoord, getCUDABackend, getLogger
 
 
 def isqrt(n):
@@ -16,7 +16,7 @@ def isqrt(n):
     elif n == 0:
         return 0
     else:
-        raise ValueError("Integer square root not defined for negative numbers.")
+        getLogger().critical("Integer square root not defined for negative numbers", ValueError)
 
 
 def getMomList(mom2_max, mom2_min=0):

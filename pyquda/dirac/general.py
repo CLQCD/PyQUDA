@@ -457,26 +457,24 @@ def loadFatLongGauge(fatlink: LatticeGauge, longlink: LatticeGauge, gauge_param:
     gauge_param.use_resident_gauge = 1
 
 
-def performance(latt_info: LatticeInfo, invert_param: QudaInvertParam):
-    if latt_info.mpi_rank == 0 and invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
-        print(
-            "PyQUDA: "
-            f"Time = {invert_param.secs:.3f} secs, "
-            f"Performance = {invert_param.gflops / invert_param.secs:.3f} GFLOPS"
-        )
+def performance(invert_param: QudaInvertParam):
+    from .. import getLogger
+
+    gflops, secs = invert_param.gflops, invert_param.secs
+    getLogger().info(f"Time = {secs:.3f} secs, Performance = {gflops / secs:.3f} GFLOPS")
 
 
 def invert(b: LatticeFermion, invert_param: QudaInvertParam):
     x = LatticeFermion(b.latt_info)
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    performance(b.latt_info, invert_param)
+    performance(invert_param)
     return x
 
 
 def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
     x = LatticeStaggeredFermion(b.latt_info)
     invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    performance(b.latt_info, invert_param)
+    performance(invert_param)
     return x
 
 
@@ -515,7 +513,7 @@ def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
     x.even = b.odd + kappa * x.odd
     # * QUDA_ASYMMETRIC_MASS_NORMALIZATION makes the even part 1 / (2 * kappa) instead of 1
     invertQuda(x.odd_ptr, x.even_ptr, invert_param)
-    performance(b.latt_info, invert_param)
+    performance(invert_param)
     dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
     x.even = kappa * (2 * b.even + x.even)
 
@@ -539,8 +537,7 @@ def invertStaggeredPC(b: LatticeStaggeredFermion, invert_param: QudaInvertParam)
     dslashQuda(x.odd_ptr, b.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
     x.even = (2 * mass) * b.odd + x.odd
     invertQuda(x.odd_ptr, x.even_ptr, invert_param)
-    if latt_info.mpi_rank == 0:
-        performance(invert_param)
+    performance(invert_param)
     dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
     x.even = (0.5 / mass) * (b.even + x.even)
 

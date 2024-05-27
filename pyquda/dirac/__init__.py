@@ -12,7 +12,7 @@ from ..pyquda import (
     MatQuda,
     MatDagMatQuda,
 )
-from ..enum_quda import QudaPrecision, QudaReconstructType, QudaVerbosity
+from ..enum_quda import QudaPrecision, QudaReconstructType
 from ..field import LatticeInfo, LatticeGauge, LatticeFermion, LatticeStaggeredFermion
 
 
@@ -146,12 +146,10 @@ class Dirac(Gauge):
         pass
 
     def performance(self):
-        if self.latt_info.mpi_rank == 0 and self.invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
-            print(
-                "PyQUDA: "
-                f"Time = {self.invert_param.secs:.3f} secs, "
-                f"Performance = {self.invert_param.gflops / self.invert_param.secs:.3f} GFLOPS"
-            )
+        from .. import getLogger
+
+        gflops, secs = self.invert_param.gflops, self.invert_param.secs
+        getLogger().info(f"Time = {secs:.3f} secs, Performance = {gflops / secs:.3f} GFLOPS")
 
     def invert(self, b: LatticeFermion):
         x = LatticeFermion(b.latt_info)

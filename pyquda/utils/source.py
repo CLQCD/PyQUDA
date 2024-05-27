@@ -1,6 +1,7 @@
 from typing import List, Literal, Union
-from warnings import warn
 
+from .. import core, quda, getGridSize, getLogger
+from ..enum_quda import QudaDslashType, QudaParity
 from ..field import (
     Ns,
     Nc,
@@ -61,8 +62,6 @@ def momentum(latt_info: LatticeInfo, t_srce: int, spin: int, color: int, phase):
 
 
 def gaussian3(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, nsteps: int):
-    from .. import core, quda
-    from ..enum_quda import QudaDslashType
 
     _b = point(latt_info, t_srce, None, color)
     dslash = core.getDslash(latt_info.size, 0, 0, 0, anti_periodic_t=False)
@@ -80,9 +79,6 @@ def gaussian3(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, 
 
 
 def gaussian2(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, nsteps: int, xi: float):
-    from .. import core, quda
-    from ..enum_quda import QudaDslashType
-
     def _Laplacian(src, aux, sigma, invert_param):
         # aux = -kappa * Laplace * src + src
         quda.MatQuda(aux.data_ptr, src.data_ptr, invert_param)
@@ -111,9 +107,6 @@ def gaussian2(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, 
 
 
 def gaussian(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, nsteps: int, xi: float):
-    from .. import core, quda
-    from ..enum_quda import QudaDslashType, QudaParity
-
     def _Laplacian(src, aux, sigma, xi, invert_param):
         aux.data[:] = 0
         quda.dslashQuda(aux.even_ptr, src.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
@@ -194,11 +187,10 @@ def source(
     if isinstance(latt_info, LatticeInfo):
         pass
     else:
-        warn(
+        getLogger().warning(
             "source(latt_size: List[int]) is deprecated, use source(latt_info: LatticeInfo) instead",
             DeprecationWarning,
         )
-        from .. import getGridSize
 
         Gx, Gy, Gz, Gt = getGridSize()
         Lx, Ly, Lz, Lt = latt_info
@@ -218,7 +210,7 @@ def source(
     elif source_type.lower() == "colorvector":
         return colorvector(latt_info, t_srce, spin, source_phase)
     else:
-        raise NotImplementedError(f"{source_type} source is not implemented yet.")
+        getLogger().critical(f"{source_type} source is not implemented yet", NotImplementedError)
 
 
 def source12(
@@ -233,11 +225,10 @@ def source12(
     if isinstance(latt_info, LatticeInfo):
         pass
     else:
-        warn(
+        getLogger().warning(
             "source12(latt_size: List[int]) is deprecated, use source12(latt_info: LatticeInfo) instead",
             DeprecationWarning,
         )
-        from .. import getGridSize
 
         Gx, Gy, Gz, Gt = getGridSize()
         Lx, Ly, Lz, Lt = latt_info
@@ -278,11 +269,10 @@ def source3(
     if isinstance(latt_info, LatticeInfo):
         pass
     else:
-        warn(
+        getLogger().warning(
             "source3(latt_size: List[int]) is deprecated, use source3(latt_info: LatticeInfo) instead",
             DeprecationWarning,
         )
-        from .. import getGridSize
 
         Gx, Gy, Gz, Gt = getGridSize()
         Lx, Ly, Lz, Lt = latt_info

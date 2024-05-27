@@ -41,7 +41,7 @@ def main():
         "-b",
         "--backend",
         default="cupy",
-        choices=("cupy", "torch"),
+        choices=("numpy", "cupy", "torch"),
         help="CUDA backend of PyQUDA (default: cupy)",
     )
     parser.add_argument(

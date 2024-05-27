@@ -1,5 +1,6 @@
 import numpy
 
+from .. import getLogger
 from ..pointer import Pointers
 from ..pyquda import computeCloverForceQuda, invertMultiShiftQuda, loadCloverQuda, loadGaugeQuda
 from ..enum_quda import (
@@ -88,7 +89,8 @@ offset_inv_square_root = [
 class OneFlavorClover(FermionAction):
     def __init__(self, latt_info: LatticeInfo, mass: float, tol: float, maxiter: int, clover_csw: float) -> None:
         super().__init__(latt_info)
-        assert latt_info.anisotropy == 1.0
+        if latt_info.anisotropy != 1.0:
+            getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
 
         kappa = 1 / (2 * (mass + Nd))
         self.kappa2 = -(kappa**2)
