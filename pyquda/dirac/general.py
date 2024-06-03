@@ -104,7 +104,7 @@ def _fieldLocation():
 def _useMMA():
     from .. import getCUDAComputeCapability
 
-    QudaBoolean(getCUDAComputeCapability().major >= 7)
+    return QudaBoolean(getCUDAComputeCapability().major >= 7)
 
 
 def newQudaGaugeParam(
