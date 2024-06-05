@@ -56,7 +56,7 @@ class O4Nf5Ng0V(Integrator):
 
 class O4Nf5Ng0P(Integrator):
     """https://doi.org/10.1016/S0010-4655(02)00754-3
-    Eq.(63), Eq.(71)"""
+    Eq.(72), Eq.(80)"""
 
     rho_ = 0.2750081212332419
     theta_ = -0.1347950099106792
