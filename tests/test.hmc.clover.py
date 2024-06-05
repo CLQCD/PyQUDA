@@ -13,7 +13,7 @@ init(resource_path=".cache")
 latt_info = LatticeInfo([16, 16, 16, 32], -1, 1.0)
 
 monomials = [
-    symanzik_gauge.SymanzikGauge(latt_info, beta=6.2, u0=0.855453),
+    symanzik_gauge.SymanzikGauge(latt_info, beta=6.2, u_0=0.855453),
     one_flavor_clover.OneFlavorClover(latt_info, mass=-0.2400, tol=1e-9, maxiter=1000, clover_csw=1.160920226),
     two_flavor_clover.TwoFlavorClover(latt_info, mass=-0.2700, tol=1e-9, maxiter=1000, clover_csw=1.160920226),
 ]

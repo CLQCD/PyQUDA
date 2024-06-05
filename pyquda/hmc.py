@@ -45,13 +45,39 @@ class O4Nf5Ng0V(Integrator):
             hmc.updateGauge(cls.rho_ * dt)
             hmc.updateMom(cls.lambda_ * dt)
             hmc.updateGauge(cls.theta_ * dt)
-            hmc.updateMom((0.5 - (cls.lambda_ + cls.vartheta_)) * dt)
-            hmc.updateGauge((1.0 - 2 * (cls.theta_ + cls.rho_)) * dt)
-            hmc.updateMom((0.5 - (cls.lambda_ + cls.vartheta_)) * dt)
+            hmc.updateMom((1 - 2 * (cls.lambda_ + cls.vartheta_)) * dt / 2)
+            hmc.updateGauge((1 - 2 * (cls.theta_ + cls.rho_)) * dt)
+            hmc.updateMom((1 - 2 * (cls.lambda_ + cls.vartheta_)) * dt / 2)
             hmc.updateGauge(cls.theta_ * dt)
             hmc.updateMom(cls.lambda_ * dt)
             hmc.updateGauge(cls.rho_ * dt)
             hmc.updateMom(cls.vartheta_ * dt)
+
+
+class O4Nf5Ng0P(Integrator):
+    """https://doi.org/10.1016/S0010-4655(02)00754-3
+    Eq.(63), Eq.(71)"""
+
+    rho_ = 0.2750081212332419
+    theta_ = -0.1347950099106792
+    vartheta_ = -0.08442961950707149
+    lambda_ = 0.3549000571574260
+
+    @classmethod
+    def integrate(cls, hmc: "HMC", t: float, n_steps: int):
+        dt = t / n_steps
+        for _ in range(n_steps):
+            hmc.updateMom(cls.rho_ * dt)
+            hmc.updateGauge(cls.vartheta_ * dt)
+            hmc.updateGauge(cls.theta_ * dt)
+            hmc.updateMom(cls.lambda_ * dt)
+            hmc.updateGauge((1 - 2 * (cls.theta_ + cls.rho_)) * dt / 2)
+            hmc.updateMom((1 - 2 * (cls.lambda_ + cls.vartheta_)) * dt)
+            hmc.updateGauge((1 - 2 * (cls.theta_ + cls.rho_)) * dt / 2)
+            hmc.updateMom(cls.lambda_ * dt)
+            hmc.updateGauge(cls.theta_ * dt)
+            hmc.updateGauge(cls.vartheta_ * dt)
+            hmc.updateMom(cls.rho_ * dt)
 
 
 class HMC:
