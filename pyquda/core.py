@@ -60,7 +60,7 @@ def invert(
     t_srce: Union[int, List[int]],
     source_phase=None,
     rho: float = 0.0,
-    nsteps: int = 1,
+    n_steps: int = 1,
     restart: int = 0,
 ):
     latt_info = dslash.latt_info
@@ -69,7 +69,7 @@ def invert(
     prop = LatticePropagator(latt_info)
     for spin in range(Ns):
         for color in range(Nc):
-            b = source(latt_info, source_type, t_srce, spin, color, source_phase, rho, nsteps, xi)
+            b = source(latt_info, source_type, t_srce, spin, color, source_phase, rho, n_steps, xi)
             x = dslash.invert(b)
             for _ in range(restart):
                 r = b - dslash.mat(x)
@@ -85,7 +85,7 @@ def invertStaggered(
     t_srce: Union[int, List[int]],
     source_phase=None,
     rho: float = 0.0,
-    nsteps: int = 1,
+    n_steps: int = 1,
     restart: int = 0,
 ):
     latt_info = dslash.latt_info
@@ -93,7 +93,7 @@ def invertStaggered(
 
     prop = LatticeStaggeredPropagator(latt_info)
     for color in range(Nc):
-        b = source(latt_info, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
+        b = source(latt_info, source_type, t_srce, None, color, source_phase, rho, n_steps, xi)
         x = dslash.invert(b)
         for _ in range(restart):
             r = b - dslash.mat(x)

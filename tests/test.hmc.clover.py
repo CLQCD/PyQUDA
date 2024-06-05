@@ -4,36 +4,25 @@ import numpy as np
 
 from check_pyquda import test_dir
 
-from pyquda import init, setGPUID
-from pyquda.hmc import HMC
+from pyquda import init
+from pyquda.hmc import HMC, O4Nf5Ng0V
 from pyquda.action import one_flavor_clover, two_flavor_clover, symanzik_gauge
 from pyquda.field import LatticeInfo, LatticeGauge
 
-setGPUID(3)
 init(resource_path=".cache")
-beta = 6.2
-u_0 = 0.855453
-mass_l = -0.2770
-mass_s = -0.2400
-csw = 1.160920226
 latt_info = LatticeInfo([16, 16, 16, 32], -1, 1.0)
 
 monomials = [
-    symanzik_gauge.SymanzikGauge(latt_info, beta, u_0),
-    one_flavor_clover.OneFlavorClover(latt_info, mass_s, 1e-9, 1000, csw),
-    two_flavor_clover.TwoFlavorClover(latt_info, mass_l, 1e-9, 1000, csw),
+    symanzik_gauge.SymanzikGauge(latt_info, beta=6.2, u0=0.855453),
+    one_flavor_clover.OneFlavorClover(latt_info, mass=-0.2400, tol=1e-9, maxiter=1000, clover_csw=1.160920226),
+    two_flavor_clover.TwoFlavorClover(latt_info, mass=-0.2700, tol=1e-9, maxiter=1000, clover_csw=1.160920226),
 ]
 gauge = LatticeGauge(latt_info, None)
 
-hmc = HMC(latt_info, monomials)
+hmc = HMC(latt_info, monomials, O4Nf5Ng0V)
 hmc.setVerbosity(0)
 hmc.loadGauge(gauge)
 hmc.loadMom(gauge)
-
-rho_ = 0.2539785108410595
-theta_ = -0.03230286765269967
-vartheta_ = 0.08398315262876693
-lambda_ = 0.6822365335719091
 
 start = 0
 stop = 2000
@@ -44,7 +33,6 @@ print("\n" f"Trajectory {start}:\n" f"plaquette = {hmc.plaquette()}\n")
 
 t = 1.0
 steps = 10
-dt = t / steps
 for i in range(start, stop):
     s = perf_counter()
 
@@ -55,19 +43,7 @@ for i in range(start, stop):
     potential = hmc.actionGauge()
     energy = kinetic + potential
 
-    for step in range(steps):
-        hmc.updateMom(vartheta_ * dt)
-        hmc.updateGauge(rho_ * dt)
-        hmc.updateMom(lambda_ * dt)
-        hmc.updateGauge(theta_ * dt)
-        hmc.updateMom((0.5 - (lambda_ + vartheta_)) * dt)
-        hmc.updateGauge((1.0 - 2 * (theta_ + rho_)) * dt)
-        hmc.updateMom((0.5 - (lambda_ + vartheta_)) * dt)
-        hmc.updateGauge(theta_ * dt)
-        hmc.updateMom(lambda_ * dt)
-        hmc.updateGauge(rho_ * dt)
-        hmc.updateMom(vartheta_ * dt)
-
+    hmc.integrate(t, steps)
     hmc.reunitGauge(1e-15)
 
     kinetic1 = hmc.actionMom()

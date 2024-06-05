@@ -10,7 +10,7 @@ init(resource_path=".cache")
 latt_info = LatticeInfo([4, 4, 4, 8])
 
 rho = 2.0
-nsteps = 5
+n_steps = 5
 x, y, z, t = 0, 0, 0, 0
 
 xi = 5.2
@@ -22,9 +22,9 @@ dslash = core.getDslash(latt_info.size, 0, 0, 0, xi_0, nu / u_s, anti_periodic_t
 gauge = io.readQIOGauge(weak_field)
 dslash.loadGauge(gauge)
 
-shell_source = source.source12(latt_info.size, "gaussian", [0, 0, 0, 0], rho=2.0, nsteps=5, xi=xi * u_s)
+shell_source = source.source12(latt_info.size, "gaussian", [0, 0, 0, 0], rho=2.0, n_steps=5, xi=xi * u_s)
 # shell_source = source.source12(
-#     latt_info.size, "gaussian", [0, 0, 0, 0], rho=2.0, nsteps=5
+#     latt_info.size, "gaussian", [0, 0, 0, 0], rho=2.0, n_steps=5
 # )  # * This is used for isotropic lattice
 
 
@@ -52,11 +52,11 @@ print(cp.linalg.norm(shell_source.data - shell_source_chroma.data))
 # pt_src.data = cp.asarray(pt_src.lexico())
 # U = gauge[:, t].copy()
 # U_dag = U.conj().transpose(0, 1, 2, 3, 5, 4)
-# for step in range(nsteps):
+# for step in range(n_steps):
 #     for color in range(Nc):
 #         for spin in range(Ns):
 #             F = pt_src.data[t, :, :, :, :, spin, :, color].copy()
-#             pt_src.data[t, :, :, :, :, spin, :, color] = Laplacian(F, U, U_dag, rho**2 / 4 / nsteps)
+#             pt_src.data[t, :, :, :, :, spin, :, color] = Laplacian(F, U, U_dag, rho**2 / 4 / n_steps)
 # data_cupy = pt_src.data.get()
 
 # print(np.linalg.norm(data - data_cupy))

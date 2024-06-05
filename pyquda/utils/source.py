@@ -61,13 +61,13 @@ def momentum(latt_info: LatticeInfo, t_srce: int, spin: int, color: int, phase):
     return b
 
 
-def gaussian3(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, nsteps: int):
+def gaussian3(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, n_steps: int):
 
     _b = point(latt_info, t_srce, None, color)
     dslash = core.getDslash(latt_info.size, 0, 0, 0, anti_periodic_t=False)
     dslash.invert_param.dslash_type = QudaDslashType.QUDA_LAPLACE_DSLASH
-    alpha = 1 / (4 * nsteps / rho**2 - 6)
-    quda.performWuppertalnStep(_b.data_ptr, _b.data_ptr, dslash.invert_param, nsteps, alpha)
+    alpha = 1 / (4 * n_steps / rho**2 - 6)
+    quda.performWuppertalnStep(_b.data_ptr, _b.data_ptr, dslash.invert_param, n_steps, alpha)
 
     if spin is not None:
         b = LatticeFermion(latt_info)
@@ -78,7 +78,7 @@ def gaussian3(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, 
     return b
 
 
-def gaussian2(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, nsteps: int, xi: float):
+def gaussian2(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, n_steps: int, xi: float):
     def _Laplacian(src, aux, sigma, invert_param):
         # aux = -kappa * Laplace * src + src
         quda.MatQuda(aux.data_ptr, src.data_ptr, invert_param)
@@ -87,14 +87,14 @@ def gaussian2(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, 
     _b = point(latt_info, t_srce, None, color)
     _c = LatticeStaggeredFermion(latt_info)
 
-    # use mass to get specific kappa = -xi * rho**2 / 4 / nsteps
-    kappa = -(rho**2) / 4 / nsteps * xi
+    # use mass to get specific kappa = -xi * rho**2 / 4 / n_steps
+    kappa = -(rho**2) / 4 / n_steps * xi
     mass = 1 / (2 * kappa) - 4
     dslash = core.getDslash(latt_info.size, mass, 0, 0, anti_periodic_t=False)
     dslash.invert_param.dslash_type = QudaDslashType.QUDA_LAPLACE_DSLASH
-    for _ in range(nsteps):
+    for _ in range(n_steps):
         # (rho**2 / 4) here aims to achieve the same result with Chroma
-        _Laplacian(_b, _c, rho**2 / 4 / nsteps, dslash.invert_param)
+        _Laplacian(_b, _c, rho**2 / 4 / n_steps, dslash.invert_param)
     _c = None
 
     if spin is not None:
@@ -106,7 +106,7 @@ def gaussian2(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, 
     return b
 
 
-def gaussian(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, nsteps: int, xi: float):
+def gaussian(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, n_steps: int, xi: float):
     def _Laplacian(src, aux, sigma, xi, invert_param):
         aux.data[:] = 0
         quda.dslashQuda(aux.even_ptr, src.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
@@ -133,9 +133,9 @@ def gaussian(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, r
 
     dslash = core.getDslash(latt_info.size, 0, 0, 0, anti_periodic_t=False)
     dslash.invert_param.dslash_type = QudaDslashType.QUDA_LAPLACE_DSLASH
-    for _ in range(nsteps):
+    for _ in range(n_steps):
         # (rho**2 / 4) aims to achieve the same result with Chroma
-        _Laplacian(_b, _c, rho**2 / 4 / nsteps, xi, dslash.invert_param)
+        _Laplacian(_b, _c, rho**2 / 4 / n_steps, xi, dslash.invert_param)
     _c = None
 
     if spin is not None:
@@ -181,7 +181,7 @@ def source(
     color: int,
     source_phase=None,
     rho: float = 0.0,
-    nsteps: int = 0,
+    n_steps: int = 0,
     xi: float = 1.0,
 ):
     if isinstance(latt_info, LatticeInfo):
@@ -204,9 +204,9 @@ def source(
     elif source_type.lower() == "momentum":
         return momentum(latt_info, t_srce, spin, color, source_phase)
     elif source_type.lower() == "gaussian":
-        return gaussian(latt_info, t_srce, spin, color, rho, nsteps, xi)
+        return gaussian(latt_info, t_srce, spin, color, rho, n_steps, xi)
     elif source_type.lower() == "smearedgaussian":
-        return gaussian3(latt_info, t_srce, spin, color, rho, nsteps)
+        return gaussian3(latt_info, t_srce, spin, color, rho, n_steps)
     elif source_type.lower() == "colorvector":
         return colorvector(latt_info, t_srce, spin, source_phase)
     else:
@@ -219,7 +219,7 @@ def source12(
     t_srce: Union[int, List[int]],
     source_phase=None,
     rho: float = 0.0,
-    nsteps: int = 0,
+    n_steps: int = 0,
     xi: float = 1.0,
 ):
     if isinstance(latt_info, LatticeInfo):
@@ -245,7 +245,7 @@ def source12(
                 data[:, spin, spin, :, color] = b.data.reshape(volume, Nc)
     elif source_type.lower() in ["gaussian", "smearedgaussian"]:
         for color in range(Nc):
-            b = source(latt_info, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
+            b = source(latt_info, source_type, t_srce, None, color, source_phase, rho, n_steps, xi)
             for spin in range(Ns):
                 data[:, spin, spin, :, color] = b.data.reshape(volume, Nc)
     else:
@@ -263,7 +263,7 @@ def source3(
     t_srce: Union[int, List[int]],
     source_phase=None,
     rho: float = 0.0,
-    nsteps: int = 0,
+    n_steps: int = 0,
     xi: float = 1.0,
 ):
     if isinstance(latt_info, LatticeInfo):
@@ -284,7 +284,7 @@ def source3(
     data = b3.data.reshape(volume, Nc, Nc)
 
     for color in range(Nc):
-        b = source(latt_info, source_type, t_srce, None, color, source_phase, rho, nsteps, xi)
+        b = source(latt_info, source_type, t_srce, None, color, source_phase, rho, n_steps, xi)
         data[:, :, color] = b.data.reshape(volume, Nc)
 
     return b3
