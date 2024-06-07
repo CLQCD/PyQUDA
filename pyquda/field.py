@@ -412,6 +412,17 @@ class LatticeGauge(LatticeField):
         self.ensurePureGauge()
         self.pure_gauge.path(self, input_path_buf, path_length, loop_coeff)
 
+    def loopTrace(
+        self,
+        input_path_buf: NDArray[numpy.int32],
+        path_length: NDArray[numpy.int32],
+    ):
+        self.ensurePureGauge()
+        self.pure_gauge.loadGauge(self)
+        traces = self.pure_gauge.loopTrace(input_path_buf, path_length)
+        self.pure_gauge.freeGauge()
+        return traces
+
     def apeSmear(self, n_steps: int, alpha: float, dir_ignore: int):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
@@ -569,6 +580,13 @@ class LatticeGauge(LatticeField):
         qcharge = self.pure_gauge.qcharge()
         self.pure_gauge.freeGauge()
         return qcharge
+
+    def qchargeDensity(self):
+        self.ensurePureGauge()
+        self.pure_gauge.loadGauge(self)
+        qcharge_density = self.pure_gauge.qchargeDensity()
+        self.pure_gauge.freeGauge()
+        return qcharge_density
 
     def gauss(self, seed: int, sigma: float):
         """

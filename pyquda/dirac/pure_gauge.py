@@ -9,6 +9,7 @@ from ..pyquda import (
     QudaGaugeObservableParam,
     MatQuda,
     computeGaugePathQuda,
+    computeGaugeLoopTraceQuda,
     gaussGaugeQuda,
     loadGaugeQuda,
     performWFlowQuda,
@@ -154,6 +155,23 @@ class PureGauge(Gauge):
         self.gauge_param.use_resident_gauge = 1
         self.gauge_param.make_resident_gauge = 1
 
+    def loopTrace(
+        self,
+        input_path_buf: NDArray[numpy.int32],
+        path_length: NDArray[numpy.int32],
+    ):
+        traces = numpy.zeros((input_path_buf.shape[0]), "<c16")
+        computeGaugeLoopTraceQuda(
+            traces,
+            input_path_buf,
+            path_length,
+            numpy.ones((input_path_buf.shape[0]), "<f8"),
+            input_path_buf.shape[0],
+            input_path_buf.shape[1],
+            1.0,
+        )
+        return traces
+
     def apeSmear(self, n_steps: int, alpha: float, dir_ignore: int):
         self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_APE
         self.smear_param.n_steps = n_steps
@@ -237,12 +255,12 @@ class PureGauge(Gauge):
         return self.obs_param.qcharge
 
     def qchargeDensity(self):
-        retval = numpy.zeros((self.latt_info.volume), "<c16")
-        self.obs_param.qcharge_density = ndarrayPointer(retval, True)
+        qcharge_density = numpy.zeros((self.latt_info.volume), "<c16")
+        self.obs_param.qcharge_density = ndarrayPointer(qcharge_density, True)
         self.obs_param.compute_qcharge_density = QudaBoolean.QUDA_BOOLEAN_TRUE
         gaugeObservablesQuda(self.obs_param)
         self.obs_param.compute_qcharge_density = QudaBoolean.QUDA_BOOLEAN_TRUE
-        return retval
+        return qcharge_density.reshape(*self.latt_info.size[::-1])
 
     def gauss(self, seed: int, sigma: float):
         gaussGaugeQuda(seed, sigma)
