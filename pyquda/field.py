@@ -412,14 +412,10 @@ class LatticeGauge(LatticeField):
         self.ensurePureGauge()
         self.pure_gauge.path(self, input_path_buf, path_length, loop_coeff)
 
-    def loopTrace(
-        self,
-        input_path_buf: NDArray[numpy.int32],
-        path_length: NDArray[numpy.int32],
-    ):
+    def loopTrace(self, paths: List[List[int]]):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
-        traces = self.pure_gauge.loopTrace(input_path_buf, path_length)
+        traces = self.pure_gauge.loopTrace(paths)
         self.pure_gauge.freeGauge()
         return traces
 

@@ -15,10 +15,7 @@ gauge = io.readChromaQIOGauge("/public/ensemble/C24P29/beta6.20_mu-0.2770_ms-0.2
 # print(0.17355 / w0)
 
 retr = (
-    gauge.loopTrace(
-        np.array([[0, 3, 7, 4], [1, 3, 6, 4], [2, 3, 5, 4], [0, 1, 7, 6], [0, 2, 7, 5], [1, 2, 6, 5]], "<i4"),
-        np.array([4, 4, 4, 4, 4, 4], "<i4"),
-    ).real
+    gauge.loopTrace([[0, 3, 7, 4], [1, 3, 6, 4], [2, 3, 5, 4], [0, 1, 7, 6], [0, 2, 7, 5], [1, 2, 6, 5]]).real
     / gauge.latt_info.global_volume
 )
 print(retr[:3].mean() / 3, retr[3:].mean() / 3)

@@ -4,6 +4,7 @@ import numpy as np
 
 from pyquda import init
 from pyquda.hmc import HMC, O4Nf5Ng0V
+from pyquda.utils import io
 from pyquda.action import symanzik_gauge, two_flavor_clover, one_flavor_clover
 from pyquda.field import LatticeInfo, LatticeGauge
 
@@ -67,4 +68,4 @@ for i in range(start, stop):
     )
 
     if (i + 1) % save == 0:
-        np.save(f"./DATA/cfg/cfg_{i + 1}.npy", gauge.lexico())
+        io.writeKYUGauge(f"./DATA/cfg/cfg_{i + 1}.kyu", gauge)

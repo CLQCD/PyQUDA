@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import List, Literal
 
 import numpy
 from numpy.typing import NDArray
@@ -155,19 +155,24 @@ class PureGauge(Gauge):
         self.gauge_param.use_resident_gauge = 1
         self.gauge_param.make_resident_gauge = 1
 
-    def loopTrace(
-        self,
-        input_path_buf: NDArray[numpy.int32],
-        path_length: NDArray[numpy.int32],
-    ):
-        traces = numpy.zeros((input_path_buf.shape[0]), "<c16")
+    def loopTrace(self, paths: List[List[int]]):
+        num_paths = len(paths)
+        traces = numpy.zeros((num_paths), "<c16")
+        path_length = numpy.zeros((num_paths), "<i4")
+        loop_coeff = numpy.ones((num_paths), "<f8")
+        for i in range(num_paths):
+            path_length[i] = len(paths[i])
+        max_length = numpy.max(path_length)
+        input_path_buf = numpy.zeros((num_paths, max_length), "<i4")
+        for i in range(num_paths):
+            input_path_buf[i, : path_length[i]] = numpy.array(paths[i], "<i4")
         computeGaugeLoopTraceQuda(
             traces,
             input_path_buf,
             path_length,
-            numpy.ones((input_path_buf.shape[0]), "<f8"),
-            input_path_buf.shape[0],
-            input_path_buf.shape[1],
+            loop_coeff,
+            num_paths,
+            max_length,
             1.0,
         )
         return traces
