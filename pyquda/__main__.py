@@ -59,7 +59,7 @@ def main():
         args.backend,
         resource_path=args.resource_path,
     )
-    exec(open(args.script).read())
+    exec(open(args.script).read(), globals(), globals())
 
 
 if __name__ == "__main__":
