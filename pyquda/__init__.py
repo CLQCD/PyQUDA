@@ -1,6 +1,7 @@
 from __future__ import annotations  # TYPE_CHECKING
 import logging
 from os import environ
+from sys import stdout
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, NamedTuple, Sequence
 
 if TYPE_CHECKING:
@@ -23,9 +24,22 @@ from .field import LatticeInfo
 
 
 class _MPILogger:
-    def __init__(self, logger: logging.Logger, root: int = 0) -> None:
-        self.logger = logger
+    def __init__(self, root: int = 0) -> None:
         self.root = root
+        formatter = logging.Formatter(fmt="{name} {levelname}: {message}", style="{")
+        stdout_handler = logging.StreamHandler(stdout)
+        stdout_handler.setFormatter(formatter)
+        stdout_handler.setLevel(logging.DEBUG)
+        stdout_handler.addFilter(lambda record: record.levelno <= logging.INFO)
+        stderr_handler = logging.StreamHandler()
+        stderr_handler.setFormatter(formatter)
+        stderr_handler.setLevel(logging.WARNING)
+        logging.basicConfig(
+            level=logging.DEBUG,
+            handlers=[stdout_handler, stderr_handler],
+            encoding="utf-8",
+        )
+        self.logger = logging.getLogger("PyQUDA")
 
     def debug(self, msg: str):
         if _MPI_RANK == self.root:
@@ -54,8 +68,7 @@ class _ComputeCapability(NamedTuple):
     minor: int
 
 
-logging.basicConfig(format="{name} {levelname}: {message}", style="{", level=logging.DEBUG, encoding="utf-8")
-_MPI_LOGGER: _MPILogger = _MPILogger(logging.getLogger("PyQUDA"))
+_MPI_LOGGER: _MPILogger = _MPILogger()
 _MPI_COMM: MPI.Comm = MPI.COMM_WORLD
 _MPI_SIZE: int = _MPI_COMM.Get_size()
 _MPI_RANK: int = _MPI_COMM.Get_rank()
