@@ -1,7 +1,6 @@
 from typing import List, Literal
 
 import numpy
-from numpy.typing import NDArray
 
 from ..pointer import ndarrayPointer
 from ..pyquda import (
@@ -130,13 +129,36 @@ class PureGauge(Gauge):
         self.gauge_param.make_resident_gauge = 1
         self.gauge_param.return_result_gauge = 0
 
+    @classmethod
+    def _getPath(cls, paths: List[List[int]]):
+        num_paths = len(paths)
+        path_length = numpy.zeros((num_paths), "<i4")
+        for i in range(num_paths):
+            path_length[i] = len(paths[i])
+        max_length = int(numpy.max(path_length))
+        input_path_buf = numpy.zeros((num_paths, max_length), "<i4")
+        for i in range(num_paths):
+            input_path_buf[i, : path_length[i]] = numpy.array(
+                [dir if 0 <= dir < 4 else 7 - (dir - 4) for dir in paths[i]], "<i4"
+            )
+        return input_path_buf, path_length, num_paths, max_length
+
     def path(
         self,
         gauge: LatticeGauge,
-        input_path_buf: NDArray[numpy.int32],
-        path_length: NDArray[numpy.int32],
-        loop_coeff: NDArray[numpy.float64],
+        paths: List[List[List[int]]],
+        coeff: List[float],
     ):
+        input_path_buf_x, path_length, num_paths, max_length = PureGauge._getPath(paths[0])
+        input_path_buf = numpy.zeros((4, num_paths, max_length + 1), "<i4")
+        input_path_buf[0, :, 0] = 7
+        input_path_buf[0, :, 1:] = input_path_buf_x
+        for d in range(1, 4):
+            input_path_buf_, path_length_, num_paths_, max_length_ = PureGauge._getPath(paths[d])
+            assert (path_length_ == path_length).all()
+            input_path_buf[d, :, 0] = 7 - d
+            input_path_buf[d, :, 1:] = input_path_buf_
+        loop_coeff = numpy.asarray(coeff, "<f8")
         self.gauge_param.overwrite_gauge = 1
         self.gauge_param.use_resident_gauge = 0
         self.gauge_param.make_resident_gauge = 0
@@ -144,10 +166,10 @@ class PureGauge(Gauge):
             gauge.data_ptrs,
             gauge.data_ptrs,
             input_path_buf,
-            path_length,
+            path_length + 1,
             loop_coeff,
-            input_path_buf.shape[1],
-            input_path_buf.shape[2],
+            num_paths,
+            max_length + 1,
             1.0,
             self.gauge_param,
         )
@@ -156,16 +178,9 @@ class PureGauge(Gauge):
         self.gauge_param.make_resident_gauge = 1
 
     def loopTrace(self, paths: List[List[int]]):
-        num_paths = len(paths)
+        input_path_buf, path_length, num_paths, max_length = PureGauge._getPath(paths)
         traces = numpy.zeros((num_paths), "<c16")
-        path_length = numpy.zeros((num_paths), "<i4")
         loop_coeff = numpy.ones((num_paths), "<f8")
-        for i in range(num_paths):
-            path_length[i] = len(paths[i])
-        max_length = numpy.max(path_length)
-        input_path_buf = numpy.zeros((num_paths, max_length), "<i4")
-        for i in range(num_paths):
-            input_path_buf[i, : path_length[i]] = numpy.array(paths[i], "<i4")
         computeGaugeLoopTraceQuda(
             traces,
             input_path_buf,
