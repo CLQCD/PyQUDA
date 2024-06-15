@@ -83,7 +83,7 @@ Ns, Nc, Nd = LatticeInfo.Ns, LatticeInfo.Nc, LatticeInfo.Nd
 def lexico(data: numpy.ndarray, axes: List[int], dtype=None):
     shape = data.shape
     Np, Lt, Lz, Ly, Lx = [shape[axis] for axis in axes]
-    assert Np == 2
+    assert Np == 2, "There must be 2 parities"
     Lx *= 2
     Npre = int(numpy.prod(shape[: axes[0]]))
     Nsuf = int(numpy.prod(shape[axes[-1] + 1 :]))

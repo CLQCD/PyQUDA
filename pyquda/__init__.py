@@ -332,21 +332,38 @@ def getCUDAComputeCapability():
     return _COMPUTE_CAPABILITY
 
 
+def getSublatticeSize(latt_size: List[int]):
+    Lx, Ly, Lz, Lt = latt_size
+    Gx, Gy, Gz, Gt = _GRID_SIZE
+    assert Lx % Gx == 0 and Ly % Gy == 0 and Lz % Gz == 0 and Lt % Gt == 0
+    return [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
+
+
+def _getSubarray(shape: Sequence[int], axes: Sequence[int]):
+    sizes = [d for d in shape]
+    subsizes = [d for d in shape]
+    starts = [d if i in axes else 0 for i, d in enumerate(shape)]
+    for j, i in enumerate(axes):
+        sizes[i] *= _GRID_SIZE[j]
+        starts[i] *= _GRID_COORD[j]
+    return sizes, subsizes, starts
+
+
 def readMPIFile(
     filename: str,
     dtype: str,
-    disp: int,
-    sizes: Sequence[int],
-    subsizes: Sequence[int],
-    starts: Sequence[int],
+    offset: int,
+    shape: Sequence[int],
+    axes: Sequence[int],
 ):
+    sizes, subsizes, starts = _getSubarray(shape, axes)
     native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
     buf = numpy.empty(subsizes, native_dtype)
 
     fh = MPI.File.Open(_MPI_COMM, filename, MPI.MODE_RDONLY)
     filetype = dtlib.from_numpy_dtype(native_dtype).Create_subarray(sizes, subsizes, starts)
     filetype.Commit()
-    fh.Set_view(disp=disp, filetype=filetype)
+    fh.Set_view(disp=offset, filetype=filetype)
     fh.Read_all(buf)
     filetype.Free()
     fh.Close()
@@ -357,19 +374,19 @@ def readMPIFile(
 def writeMPIFile(
     filename: str,
     dtype: str,
-    disp: int,
-    sizes: Sequence[int],
-    subsizes: Sequence[int],
-    starts: Sequence[int],
+    offset: int,
+    shape: Sequence[int],
+    axes: Sequence[int],
     buf: numpy.ndarray,
 ):
+    sizes, subsizes, starts = _getSubarray(shape, axes)
     native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
     buf = buf.view(native_dtype)
 
     fh = MPI.File.Open(_MPI_COMM, filename, MPI.MODE_WRONLY | MPI.MODE_CREATE)
     filetype = dtlib.from_numpy_dtype(native_dtype).Create_subarray(sizes, subsizes, starts)
     filetype.Commit()
-    fh.Set_view(disp=disp, filetype=filetype)
+    fh.Set_view(disp=offset, filetype=filetype)
     fh.Write_all(buf)
     filetype.Free()
     fh.Close()

@@ -1,26 +1,17 @@
 from os import path
-from typing import List, Union
+from typing import List
 
 import numpy
 
-from ...field import Ns, Nc, Nd, LatticeInfo, LatticeGauge, LatticePropagator, cb2
+from ... import getSublatticeSize, readMPIFile, writeMPIFile
+
+Nd, Ns, Nc = 4, 4, 3
 
 
-def fromGaugeBuffer(filename: str, offset: int, dtype: str, latt_info: LatticeInfo):
-    from ... import readMPIFile
+def fromGaugeFile(filename: str, offset: int, dtype: str, sublatt_size: List[int]):
+    Lx, Ly, Lz, Lt = sublatt_size
 
-    Gx, Gy, Gz, Gt = latt_info.grid_size
-    gx, gy, gz, gt = latt_info.grid_coord
-    Lx, Ly, Lz, Lt = latt_info.size
-
-    gauge_raw = readMPIFile(
-        filename,
-        dtype,
-        offset,
-        (Nd, Nc, Nc, 2, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx),
-        (Nd, Nc, Nc, 2, Lt, Lz, Ly, Lx),
-        (0, 0, 0, 0, gt * Lt, gz * Lz, gy * Ly, gx * Lx),
-    )
+    gauge_raw = readMPIFile(filename, dtype, offset, (Nd, Nc, Nc, 2, Lt, Lz, Ly, Lx), (7, 6, 5, 4))
     gauge_raw = (
         gauge_raw.transpose(0, 4, 5, 6, 7, 2, 1, 3)
         .astype("<f8")
@@ -32,12 +23,8 @@ def fromGaugeBuffer(filename: str, offset: int, dtype: str, latt_info: LatticeIn
     return gauge_raw
 
 
-def toGaugeBuffer(filename: str, offset: int, gauge_raw: numpy.ndarray, dtype: str, latt_info: LatticeInfo):
-    from ... import writeMPIFile
-
-    Gx, Gy, Gz, Gt = latt_info.grid_size
-    gx, gy, gz, gt = latt_info.grid_coord
-    Lx, Ly, Lz, Lt = latt_info.size
+def toGaugeFile(filename: str, offset: int, gauge_raw: numpy.ndarray, dtype: str, sublatt_size: List[int]):
+    Lx, Ly, Lz, Lt = sublatt_size
 
     gauge_raw = (
         gauge_raw.view("<f8")
@@ -46,112 +33,26 @@ def toGaugeBuffer(filename: str, offset: int, gauge_raw: numpy.ndarray, dtype: s
         .transpose(0, 6, 5, 7, 1, 2, 3, 4)
         .copy()
     )
-    writeMPIFile(
-        filename,
-        dtype,
-        offset,
-        (Nd, Nc, Nc, 2, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx),
-        (Nd, Nc, Nc, 2, Lt, Lz, Ly, Lx),
-        (0, 0, 0, 0, gt * Lt, gz * Lz, gy * Ly, gx * Lx),
-        gauge_raw,
-    )
+    writeMPIFile(filename, dtype, offset, (Nd, Nc, Nc, 2, Lt, Lz, Ly, Lx), (7, 6, 5, 4), gauge_raw)
 
 
-def readGauge(filename: str, latt_info: Union[LatticeInfo, List[int]]):
+def readGauge(filename: str, latt_size: List[int]):
     filename = path.expanduser(path.expandvars(filename))
-    latt_info = LatticeInfo(latt_info) if not isinstance(latt_info, LatticeInfo) else latt_info
-    gauge_raw = fromGaugeBuffer(filename, 0, ">f8", latt_info)
+    sublatt_size = getSublatticeSize(latt_size)
+    gauge_raw = fromGaugeFile(filename, 0, ">f8", sublatt_size)
+    return gauge_raw
 
-    return LatticeGauge(latt_info, cb2(gauge_raw, [1, 2, 3, 4]))
 
-
-def writeGauge(filename: str, gauge: LatticeGauge):
+def writeGauge(filename: str, gauge_raw: numpy.ndarray, latt_size: List[int]):
     filename = path.expanduser(path.expandvars(filename))
-    latt_info = gauge.latt_info
-
-    toGaugeBuffer(filename, 0, gauge.lexico(), ">f8", latt_info)
-
-
-# matrices to convert gamma basis bewteen DeGrand-Rossi and Dirac-Pauli
-# \psi(DP) = _DR_TO_DP \psi(DR)
-# \psi(DR) = _DP_TO_DR \psi(DP)
-_DP_TO_DR = numpy.array(
-    [
-        [0, 1, 0, -1],
-        [-1, 0, 1, 0],
-        [0, 1, 0, 1],
-        [-1, 0, -1, 0],
-    ]
-)
-_DR_TO_DP = numpy.array(
-    [
-        [0, -1, 0, -1],
-        [1, 0, 1, 0],
-        [0, 1, 0, -1],
-        [-1, 0, 1, 0],
-    ]
-)
+    sublatt_size = getSublatticeSize(latt_size)
+    toGaugeFile(filename, 0, gauge_raw, ">f8", sublatt_size)
 
 
-def rotateToDiracPauli(propagator: LatticePropagator):
-    from opt_einsum import contract
+def fromPropagatorFile(filename: str, offset: int, dtype: str, sublatt_size: List[int]):
+    Lx, Ly, Lz, Lt = sublatt_size
 
-    if propagator.location == "numpy":
-        P = numpy.asarray(_DR_TO_DP)
-        Pinv = numpy.asarray(_DP_TO_DR) / 2
-    elif propagator.location == "cupy":
-        import cupy
-
-        P = cupy.asarray(_DR_TO_DP)
-        Pinv = cupy.asarray(_DP_TO_DR) / 2
-    elif propagator.location == "torch":
-        import torch
-
-        P = torch.as_tensor(_DR_TO_DP)
-        Pinv = torch.as_tensor(_DP_TO_DR) / 2
-
-    return LatticePropagator(
-        propagator.latt_info, contract("ij,etzyxjkab,kl->etzyxilab", P, propagator.data, Pinv, optimize=True)
-    )
-
-
-def rotateToDeGrandRossi(propagator: LatticePropagator):
-    from opt_einsum import contract
-
-    if propagator.location == "numpy":
-        P = numpy.asarray(_DP_TO_DR)
-        Pinv = numpy.asarray(_DR_TO_DP) / 2
-    elif propagator.location == "cupy":
-        import cupy
-
-        P = cupy.asarray(_DP_TO_DR)
-        Pinv = cupy.asarray(_DR_TO_DP) / 2
-    elif propagator.location == "torch":
-        import torch
-
-        P = torch.as_tensor(_DP_TO_DR)
-        Pinv = torch.as_tensor(_DR_TO_DP) / 2
-
-    return LatticePropagator(
-        propagator.latt_info, contract("ij,etzyxjkab,kl->etzyxilab", P, propagator.data, Pinv, optimize=True)
-    )
-
-
-def fromPropagatorBuffer(filename: str, offset: int, dtype: str, latt_info: LatticeInfo):
-    from ... import readMPIFile
-
-    Gx, Gy, Gz, Gt = latt_info.grid_size
-    gx, gy, gz, gt = latt_info.grid_coord
-    Lx, Ly, Lz, Lt = latt_info.size
-
-    propagator_raw = readMPIFile(
-        filename,
-        dtype,
-        offset,
-        (Ns, Nc, 2, Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx),
-        (Ns, Nc, 2, Ns, Nc, Lt, Lz, Ly, Lx),
-        (0, 0, 0, 0, 0, gt * Lt, gz * Lz, gy * Ly, gx * Lx),
-    )
+    propagator_raw = readMPIFile(filename, dtype, offset, (Ns, Nc, 2, Ns, Nc, Lt, Lz, Ly, Lx), (8, 7, 6, 5))
     propagator_raw = (
         propagator_raw.transpose(5, 6, 7, 8, 3, 0, 4, 1, 2)
         .astype("<f8")
@@ -163,12 +64,8 @@ def fromPropagatorBuffer(filename: str, offset: int, dtype: str, latt_info: Latt
     return propagator_raw
 
 
-def toPropagatorBuffer(filename: str, offset: int, propagator_raw: numpy.ndarray, dtype: str, latt_info: LatticeInfo):
-    from ... import writeMPIFile
-
-    Gx, Gy, Gz, Gt = latt_info.grid_size
-    gx, gy, gz, gt = latt_info.grid_coord
-    Lx, Ly, Lz, Lt = latt_info.size
+def toPropagatorFile(filename: str, offset: int, propagator_raw: numpy.ndarray, dtype: str, sublatt_size: List[int]):
+    Lx, Ly, Lz, Lt = sublatt_size
 
     propagator_raw = (
         propagator_raw.view("<f8")
@@ -177,27 +74,18 @@ def toPropagatorBuffer(filename: str, offset: int, propagator_raw: numpy.ndarray
         .transpose(5, 7, 8, 4, 6, 0, 1, 2, 3)
         .copy()
     )
-    writeMPIFile(
-        filename,
-        dtype,
-        offset,
-        (Ns, Nc, 2, Ns, Nc, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx),
-        (Ns, Nc, 2, Ns, Nc, Lt, Lz, Ly, Lx),
-        (0, 0, 0, 0, 0, gt * Lt, gz * Lz, gy * Ly, gx * Lx),
-        propagator_raw,
-    )
+    writeMPIFile(filename, dtype, offset, (Ns, Nc, 2, Ns, Nc, Lt, Lz, Ly, Lx), (8, 7, 6, 5), propagator_raw)
 
 
-def readPropagator(filename: str, latt_info: Union[LatticeInfo, List[int]]):
+def readPropagator(filename: str, latt_size: List[int]):
     filename = path.expanduser(path.expandvars(filename))
-    latt_info = LatticeInfo(latt_info) if not isinstance(latt_info, LatticeInfo) else latt_info
-    propagator_raw = fromPropagatorBuffer(filename, 0, ">f8", latt_info)
+    sublatt_size = getSublatticeSize(latt_size)
+    propagator_raw = fromPropagatorFile(filename, 0, ">f8", sublatt_size)
+    return propagator_raw
 
-    return rotateToDeGrandRossi(LatticePropagator(latt_info, cb2(propagator_raw, [0, 1, 2, 3])))
 
-
-def writePropagator(filename: str, propagator: LatticePropagator):
+def writePropagator(filename: str, propagator: numpy.ndarray, latt_size: List[int]):
     filename = path.expanduser(path.expandvars(filename))
-    latt_info = propagator.latt_info
+    sublatt_size = getSublatticeSize(latt_size)
 
-    toPropagatorBuffer(filename, 0, rotateToDiracPauli(propagator).lexico(), ">f8", latt_info)
+    toPropagatorFile(filename, 0, propagator, ">f8", sublatt_size)

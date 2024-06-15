@@ -6,7 +6,9 @@ from xml.etree import ElementTree as ET
 
 import numpy
 
-from ...field import Nc, LatticeInfo, cb2
+from ...field import cb2
+
+Nc = 3
 
 
 def _readStr(f: io.BufferedReader) -> str:
@@ -49,10 +51,12 @@ def readTimeSlice(filename: str, Ne: int = None):
     if Ne is None:
         Ne = int(format.find("num_vecs").text)
 
-    latt_info = LatticeInfo(latt_size)
-    Gx, Gy, Gz, Gt = latt_info.grid_size
-    gx, gy, gz, gt = latt_info.grid_coord
-    Lx, Ly, Lz, Lt = latt_info.size
+    from ... import getGridSize, getGridCoord, getSublatticeSize
+
+    Gx, Gy, Gz, Gt = getGridSize()
+    gx, gy, gz, gt = getGridCoord()
+    sublatt_size = getSublatticeSize(latt_size)
+    Lx, Ly, Lz, Lt = sublatt_size
 
     eigen_raw = numpy.zeros((Ne, Lt, Lz, Ly, Lx, Nc), ndarray_dtype)
     for e in range(Ne):
