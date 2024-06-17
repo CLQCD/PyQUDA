@@ -138,9 +138,18 @@ class PureGauge(Gauge):
         max_length = int(numpy.max(path_length))
         input_path_buf = numpy.zeros((num_paths, max_length), "<i4")
         for i in range(num_paths):
-            input_path_buf[i, : path_length[i]] = numpy.array(
-                [dir if 0 <= dir < 4 else 7 - (dir - 4) for dir in paths[i]], "<i4"
-            )
+            dx = [0, 0, 0, 0]
+            for j, d in enumerate(paths[i]):
+                if 0 <= d < 4:
+                    dx[d] += 1
+                    input_path_buf[i, j] = d
+                elif 4 <= d < 8:
+                    dx[d - 4] -= 1
+                    input_path_buf[i, j] = 7 - (d - 4)
+                else:
+                    raise ValueError(f"path should be list of int from 0 to 7, but get {paths[i]}")
+            if dx != [0, 0, 0, 0]:
+                raise ValueError(f"path {paths[i]} is not a loop")
         return input_path_buf, path_length, num_paths, max_length
 
     def path(
@@ -155,7 +164,7 @@ class PureGauge(Gauge):
         input_path_buf[0, :, 1:] = input_path_buf_x
         for d in range(1, 4):
             input_path_buf_, path_length_, num_paths_, max_length_ = PureGauge._getPath(paths[d])
-            assert (path_length_ == path_length).all()
+            assert (path_length_ == path_length).all(), "paths in all directions should have the same shape"
             input_path_buf[d, :, 0] = 7 - d
             input_path_buf[d, :, 1:] = input_path_buf_
         loop_coeff = numpy.asarray(coeff, "<f8")

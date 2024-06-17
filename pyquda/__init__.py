@@ -1,18 +1,7 @@
-from __future__ import annotations  # TYPE_CHECKING
 import logging
 from os import environ
 from sys import stdout
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, NamedTuple, Sequence
-
-if TYPE_CHECKING:
-    from typing import Protocol, TypeVar
-    from _typeshed import SupportsFlush, SupportsWrite
-
-    _T_contra = TypeVar("_T_contra", contravariant=True)
-
-    class SupportsWriteAndFlush(SupportsWrite[_T_contra], SupportsFlush, Protocol[_T_contra]):
-        pass
-
+from typing import Any, Callable, Dict, List, Literal, NamedTuple, Sequence
 
 from mpi4py import MPI
 from mpi4py.util import dtlib
@@ -161,7 +150,8 @@ def init(
         from platform import node as gethostname
 
         Gx, Gy, Gz, Gt = grid_size if grid_size is not None else [1, 1, 1, 1]
-        assert _MPI_SIZE == Gx * Gy * Gz * Gt
+        if _MPI_SIZE != Gx * Gy * Gz * Gt:
+            _MPI_LOGGER.critical(f"the MPI size {_MPI_SIZE} does not match the grid size {grid_size}", ValueError)
         _GRID_SIZE = [Gx, Gy, Gz, Gt]
         _GRID_COORD = getCoordFromRank(_MPI_RANK, _GRID_SIZE)
         _MPI_LOGGER.info(f"Using GPU grid {_GRID_SIZE}")
@@ -199,7 +189,8 @@ def init(
         global _DEFAULT_LATTICE, _CUDA_BACKEND, _GPUID, _COMPUTE_CAPABILITY
 
         if latt_size is not None:
-            assert t_boundary is not None and anisotropy is not None
+            if t_boundary is None or anisotropy is None:
+                _MPI_LOGGER.critical("t_boundary and anisotropy should not be None if latt_size is given", ValueError)
             _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
             _MPI_LOGGER.info(f"Using default LatticeInfo({latt_size}, {t_boundary}, {anisotropy})")
 

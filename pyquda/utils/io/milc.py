@@ -65,7 +65,7 @@ def fromMultiSCIDACPropagatorFile(
 def readQIOPropagator(filename: str):
     filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
-        meta: Dict[str, List[Tuple[int]]] = {}
+        meta: Dict[str, List[Tuple[int, int]]] = {}
         buffer = f.read(8)
         while buffer != b"" and buffer != b"\x0A":
             assert buffer.startswith(b"\x45\x67\x89\xAB\x00\x01")

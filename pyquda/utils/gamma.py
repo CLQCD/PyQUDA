@@ -116,7 +116,7 @@ class Gamma:
     popsign = [1, -1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1, -1, -1, 1]
 
     def __init__(self, index: int, sign: Literal[1, -1]) -> None:
-        assert isinstance(index, int) and 0b0000 <= index <= 0b1111
+        assert isinstance(index, int) and 0b0000 <= index <= 0b1111, "index should be int from 0 to 15"
         self.index = index
         self.sign = sign
 
@@ -148,7 +148,7 @@ class Gamma:
 
 
 def gamma(n: int):
-    assert isinstance(n, int) and n >= 0 and n <= 15
+    assert isinstance(n, int) and 0 <= n <= 15, "n should be int from 0 to 15"
     backend = getCUDABackend()
     if backend == "numpy":
         return GammaMatrix.matrix(n)

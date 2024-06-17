@@ -83,7 +83,7 @@ Ns, Nc, Nd = LatticeInfo.Ns, LatticeInfo.Nc, LatticeInfo.Nd
 def lexico(data: numpy.ndarray, axes: List[int], dtype=None):
     shape = data.shape
     Np, Lt, Lz, Ly, Lx = [shape[axis] for axis in axes]
-    assert Np == 2, "There must be 2 parities"
+    assert Np == 2
     Lx *= 2
     Npre = int(numpy.prod(shape[: axes[0]]))
     Nsuf = int(numpy.prod(shape[axes[-1] + 1 :]))
@@ -402,11 +402,7 @@ class LatticeGauge(LatticeField):
         self.ensurePureGauge()
         self.pure_gauge.projectSU3(self, tol)
 
-    def path(
-        self,
-        paths: List[List[List[int]]],
-        coeff: List[float],
-    ):
+    def path(self, paths: List[List[List[int]]], coeff: List[float]):
         self.ensurePureGauge()
         self.pure_gauge.path(self, paths, coeff)
 
