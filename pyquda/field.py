@@ -416,12 +416,13 @@ class LatticeGauge(LatticeField):
     def apeSmear(self, n_steps: int, alpha: float, dir_ignore: int):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
-        self.pure_gauge.apeSmear(n_steps, alpha, dir_ignore)  # Match with chroma
+        self.pure_gauge.apeSmear(n_steps, alpha, dir_ignore)
         self.pure_gauge.saveSmearedGauge(self)
         self.pure_gauge.freeGauge()
         self.pure_gauge.freeSmearedGauge()
 
     def smearAPE(self, n_steps: int, factor: float, dir_ignore: int):
+        """A variant of apeSmear() to match Chroma"""
         dimAPE = 3 if dir_ignore >= 0 and dir_ignore <= 3 else 4
         self.apeSmear(n_steps, (dimAPE - 1) / (dimAPE - 1 + factor / 2), dir_ignore)
 

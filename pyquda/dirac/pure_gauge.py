@@ -284,12 +284,13 @@ class PureGauge(Gauge):
         return self.obs_param.qcharge
 
     def qchargeDensity(self):
-        qcharge_density = numpy.zeros((self.latt_info.volume), "<c16")
+        qcharge_density = numpy.zeros((self.latt_info.volume), "<f8")
         self.obs_param.qcharge_density = ndarrayPointer(qcharge_density, True)
         self.obs_param.compute_qcharge_density = QudaBoolean.QUDA_BOOLEAN_TRUE
         gaugeObservablesQuda(self.obs_param)
         self.obs_param.compute_qcharge_density = QudaBoolean.QUDA_BOOLEAN_TRUE
-        return qcharge_density.reshape(*self.latt_info.size[::-1])
+        Lx, Ly, Lz, Lt = self.latt_info.size
+        return qcharge_density.reshape(2, Lt, Lz, Ly, Lx // 2)
 
     def gauss(self, seed: int, sigma: float):
         gaussGaugeQuda(seed, sigma)
