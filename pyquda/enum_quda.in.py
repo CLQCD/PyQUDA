@@ -242,6 +242,14 @@ class QudaFieldCreate(IntEnum):
 
 
 class QudaGammaBasis(IntEnum):
+    """
+    gamj=((top 2 rows)(bottom 2 rows))  s1,s2,s3 are Pauli spin matrices, 1 is 2x2 identity
+
+    Dirac-Pauli -> DeGrand-Rossi   T = i/sqrt(2)*((s2,-s2)(s2,s2))     field_DR = T * field_DP\n
+    UKQCD -> DeGrand-Rossi         T = i/sqrt(2)*((-s2,-s2)(-s2,s2))   field_DR = T * field_UK\n
+    Chiral -> DeGrand-Rossi        T = i*((0,-s2)(s2,0))               field_DR = T * field_chiral
+    """
+
     pass
 
 
@@ -309,12 +317,6 @@ class QudaBoolean(IntEnum):
     pass
 
 
-QUDA_BOOLEAN_NO = QudaBoolean.QUDA_BOOLEAN_FALSE
-"""define these for backwards compatibility"""
-QUDA_BOOLEAN_YES = QudaBoolean.QUDA_BOOLEAN_TRUE
-"""define these for backwards compatibility"""
-
-
 class QudaBLASType(IntEnum):
     pass
 
@@ -351,7 +353,15 @@ class QudaStaggeredPhase(IntEnum):
     pass
 
 
+class QudaSpinTasteGamma(IntEnum):
+    pass
+
+
 class QudaContractType(IntEnum):
+    pass
+
+
+class QudaFFTSymmType(IntEnum):
     pass
 
 
@@ -360,6 +370,10 @@ class QudaContractGamma(IntEnum):
 
 
 class QudaGaugeSmearType(IntEnum):
+    pass
+
+
+class QudaWFlowType(IntEnum):
     pass
 
 

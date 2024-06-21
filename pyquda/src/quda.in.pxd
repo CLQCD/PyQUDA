@@ -294,6 +294,11 @@ cdef extern from "quda.h":
     void freeGaugeSmearedQuda()
 
     #
+    # Free QUDA's internal two-link gauge field.
+    #
+    void freeGaugeTwoLinkQuda()
+
+    #
     # Save the gauge field to the host.
     # @param h_gauge Base pointer to host gauge field (regardless of dimensionality)
     # @param param   Contains all metadata regarding host and device storage
@@ -360,37 +365,8 @@ cdef extern from "quda.h":
     # @param _hp_x       Array of solution spinor fields
     # @param _hp_b       Array of source spinor fields
     # @param param       Contains all metadata regarding host and device storage and solver parameters
-    # @param h_gauge     Base pointer to host gauge field (regardless of dimensionality)
-    # @param gauge_param Contains all metadata regarding host and device storage for gauge field
     #
-    void invertMultiSrcQuda(void **_hp_x, void **_hp_b, QudaInvertParam *param, void *h_gauge, QudaGaugeParam *gauge_param)
-
-    #
-    # @brief Really the same with @invertMultiSrcQuda but for staggered-style fermions, by accepting pointers
-    # to fat links and long links.
-    # @param _hp_x       Array of solution spinor fields
-    # @param _hp_b       Array of source spinor fields
-    # @param param       Contains all metadata regarding host and device storage and solver parameters
-    # @param milc_fatlinks     Base pointer to host **fat** gauge field (regardless of dimensionality)
-    # @param milc_longlinks    Base pointer to host **long** gauge field (regardless of dimensionality)
-    # @param gauge_param Contains all metadata regarding host and device storage for gauge field
-    #
-    void invertMultiSrcStaggeredQuda(void **_hp_x, void **_hp_b, QudaInvertParam *param, void *milc_fatlinks,
-                                     void *milc_longlinks, QudaGaugeParam *gauge_param)
-
-    #
-    # @brief Really the same with @invertMultiSrcQuda but for clover-style fermions, by accepting pointers
-    # to direct and inverse clover field pointers.
-    # @param _hp_x       Array of solution spinor fields
-    # @param _hp_b       Array of source spinor fields
-    # @param param       Contains all metadata regarding host and device storage and solver parameters
-    # @param h_gauge     Base pointer to host gauge field (regardless of dimensionality)
-    # @param gauge_param Contains all metadata regarding host and device storage for gauge field
-    # @param h_clover    Base pointer to the direct clover field
-    # @param h_clovinv   Base pointer to the inverse clover field
-    #
-    void invertMultiSrcCloverQuda(void **_hp_x, void **_hp_b, QudaInvertParam *param, void *h_gauge,
-                                  QudaGaugeParam *gauge_param, void *h_clover, void *h_clovinv)
+    void invertMultiSrcQuda(void **_hp_x, void **_hp_b, QudaInvertParam *param)
 
     #
     # Solve for multiple shifts (e.g., masses).
@@ -438,13 +414,42 @@ cdef extern from "quda.h":
 
     #
     # Apply the Dslash operator (D_{eo} or D_{oe}).
-    # @param h_out  Result spinor field
-    # @param h_in   Input spinor field
-    # @param param  Contains all metadata regarding host and device
+    # @param[out] h_out  Result spinor field
+    # @param[in] h_in   Input spinor field
+    # @param[in] param  Contains all metadata regarding host and device
     #               storage
-    # @param parity The destination parity of the field
+    # @param[in] parity The destination parity of the field
     #
     void dslashQuda(void *h_out, void *h_in, QudaInvertParam *inv_param, QudaParity parity)
+
+    #
+    # Apply the covariant derivative.
+    # @param[out] h_out  Result spinor field
+    # @param[in] h_in   Input spinor field
+    # @param[in] dir    Direction of application
+    # @param[in] param  Metadata for host and device storage
+    #
+    void covDevQuda(void *h_out, void *h_in, int dir, QudaInvertParam *param)
+
+    #
+    # Apply the covariant derivative.
+    # @param[out] h_out  Result spinor field
+    # @param[in] h_in   Input spinor field
+    # @param[in] dir    Direction of application
+    # @param[in] sym    Apply forward=2, backward=2 or symmetric=3 shift
+    # @param[in] param  Metadata for host and device storage
+    #
+    void shiftQuda(void *h_out, void *h_in, int dir, int sym, QudaInvertParam *param)
+
+    #
+    # Apply the spin-taste operator.
+    # @param[out] h_out  Result spinor field
+    # @param[in] h_in   Input spinor field
+    # @param[in] spin   Spin gamma structure
+    # @param[in] taste  Taste gamma structure
+    # @param[in] param  Metadata for host and device storage
+    #
+    void spinTasteQuda(void *h_out, void *h_in, int spin, int taste, QudaInvertParam *param)
 
     #
     # @brief Perform the solve like @dslashQuda but for multiple rhs by spliting the comm grid into
@@ -456,40 +461,8 @@ cdef extern from "quda.h":
     # @param _hp_b       Array of source spinor fields
     # @param param       Contains all metadata regarding host and device storage and solver parameters
     # @param parity      Parity to apply dslash on
-    # @param h_gauge     Base pointer to host gauge field (regardless of dimensionality)
-    # @param gauge_param Contains all metadata regarding host and device storage for gauge field
     #
-    void dslashMultiSrcQuda(void **_hp_x, void **_hp_b, QudaInvertParam *param, QudaParity parity, void *h_gauge,
-                            QudaGaugeParam *gauge_param)
-    #
-    # @brief Really the same with @dslashMultiSrcQuda but for staggered-style fermions, by accepting pointers
-    # to fat links and long links.
-    # @param _hp_x       Array of solution spinor fields
-    # @param _hp_b       Array of source spinor fields
-    # @param param       Contains all metadata regarding host and device storage and solver parameters
-    # @param parity      Parity to apply dslash on
-    # @param milc_fatlinks     Base pointer to host **fat** gauge field (regardless of dimensionality)
-    # @param milc_longlinks    Base pointer to host **long** gauge field (regardless of dimensionality)
-    # @param gauge_param Contains all metadata regarding host and device storage for gauge field
-    #
-
-    void dslashMultiSrcStaggeredQuda(void **_hp_x, void **_hp_b, QudaInvertParam *param, QudaParity parity,
-                                     void *milc_fatlinks, void *milc_longlinks, QudaGaugeParam *gauge_param)
-
-    #
-    # @brief Really the same with @dslashMultiSrcQuda but for clover-style fermions, by accepting pointers
-    # to direct and inverse clover field pointers.
-    # @param _hp_x       Array of solution spinor fields
-    # @param _hp_b       Array of source spinor fields
-    # @param param       Contains all metadata regarding host and device storage and solver parameters
-    # @param parity      Parity to apply dslash on
-    # @param h_gauge     Base pointer to host gauge field (regardless of dimensionality)
-    # @param gauge_param Contains all metadata regarding host and device storage for gauge field
-    # @param h_clover    Base pointer to the direct clover field
-    # @param h_clovinv   Base pointer to the inverse clover field
-    #
-    void dslashMultiSrcCloverQuda(void **_hp_x, void **_hp_b, QudaInvertParam *param, QudaParity parity, void *h_gauge,
-                                  QudaGaugeParam *gauge_param, void *h_clover, void *h_clovinv)
+    void dslashMultiSrcQuda(void **_hp_x, void **_hp_b, QudaInvertParam *param, QudaParity parity)
 
     #
     # Apply the clover operator or its inverse.
@@ -804,6 +777,21 @@ cdef extern from "quda.h":
     void copyExtendedResidentGaugeQuda(void *resident_gauge)
 
     #
+    # Performs gaussian/Wuppertal smearing on a given spinor using the gauge field
+    # gaugeSmeared, if it exist, or gaugePrecise if no smeared field is present.
+    # @param h_in   Input spinor field
+    # @param h_out  Output spinor field
+    # @param param  Contains all metadata regarding host and device
+    #               storage and operator which will be applied to the spinor
+    # @param n_steps Number of steps to apply.
+    # @param coeff  Width of the Gaussian distribution
+    # @param smear_type Gaussian/Wuppertal smearing
+    #
+    void performFermionSmearQuda(void *h_out, void *h_in, QudaInvertParam *param, const int n_steps, const double coeff,
+                                const QudaFermionSmearType smear_type)
+
+    #
+    # LEGACY
     # Performs Wuppertal smearing on a given spinor using the gauge field
     # gaugeSmeared, if it exist, or gaugePrecise if no smeared field is present.
     # @param h_out  Result spinor field
@@ -814,6 +802,19 @@ cdef extern from "quda.h":
     # @param alpha  Alpha coefficient for Wuppertal smearing.
     #
     void performWuppertalnStep(void *h_out, void *h_in, QudaInvertParam *param, unsigned int n_steps, double alpha)
+
+    #
+    # LEGACY
+    # Performs gaussian smearing on a given spinor using the gauge field
+    # gaugeSmeared, if it exist, or gaugePrecise if no smeared field is present.
+    # @param h_in   Input spinor field
+    # @param h_out  Output spinor field
+    # @param param  Contains all metadata regarding host and device
+    #               storage and operator which will be applied to the spinor
+    # @param n_steps Number of steps to apply.
+    # @param omega  Width of the Gaussian distribution
+    #
+    void performGaussianSmearNStep(void *h_out, void *h_in, QudaInvertParam *param, const int n_steps, const double omega)
 
     #
     # Performs APE, Stout, or Over Imroved STOUT smearing on gaugePrecise and stores it in gaugeSmeared
@@ -852,6 +853,24 @@ cdef extern from "quda.h":
     #
     void contractQuda(const void *x, const void *y, void *result, const QudaContractType cType, QudaInvertParam *param,
                       const int *X)
+
+    #
+    # @param[in] x pointer to host data array
+    # @param[in] y pointer to host data array
+    # @param[out] result pointer to the spin*spin projections per lattice slice site
+    # @param[in] cType Which type of contraction (open, degrand-rossi, etc)
+    # @param[in] param meta data for construction of ColorSpinorFields.
+    # @param[in] src_colors color dilution parameter
+    # @param[in] X local lattice dimansions
+    # @param[in] source_position source position array
+    # @param[in] number of momentum modes
+    # @param[in] mom_modes momentum modes
+    # @param[in] fft_type Fourier phase factor type (cos, sin or exp{ikx})
+    #
+    void contractFTQuda(void **x, void **y, void **result, const QudaContractType cType, void *cs_param_ptr,
+                        const int src_colors, const int *X, const int *const source_position, const int n_mom,
+                        const int *const mom_modes, const QudaFFTSymmType *const fft_type)
+
 
     #
     # @brief Gauge fixing with overrelaxation with support for single and multi GPU.
@@ -937,6 +956,23 @@ cdef extern from "quda.h":
     #
     void performTwoLinkGaussianSmearNStep(void *h_in, QudaQuarkSmearParam *smear_param)
 
+    #
+    # @brief Performs contractions between a set of quark fields and
+    # eigenvectors of the 3-d Laplace operator.
+    # @param[in,out] host_sinks An array representing the inner
+    # products between the quark fields and the eigen-vector fields.
+    # Ordered as [nQuark][nEv][Lt][nSpin][complexity].
+    # @param[in] host_quark Array of quark fields we are taking the inner over
+    # @param[in] n_quark Number of quark fields
+    # @param[in] tile_quark Tile size for quark fields (batch size)
+    # @param[in] host_evec Array of eigenvectors we are taking the inner over
+    # @param[in] n_evec Number of eigenvectors
+    # @param[in] tile_evec Tile size for eigenvectors (batch size)
+    # @param[in] inv_param Meta-data structure
+    # @param[in] X Lattice dimensions
+    #
+    void laphSinkProject(double_complex *host_sinks, void **host_quark, int n_quark, int tile_quark,
+                        void **host_evec, int nevec, int tile_evec, QudaInvertParam *inv_param, const int X[4])
 
 
 

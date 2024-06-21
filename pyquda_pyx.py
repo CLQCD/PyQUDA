@@ -247,6 +247,13 @@ def build_pyquda_pyx(pyquda_root, quda_path):
     # with open(os.path.join(pyquda_root, "pyquda", "pyquda.in.pyi"), "r") as f:
     #     pyquda_pyi = f.read()
 
+    enum_quda_pxd = 'cdef extern from "enum_quda.h":'
+    start = enum_quda_py.find("class ", 0)
+    while start >= 0:
+        stop = enum_quda_py.find("(IntEnum):", start)
+        enum_quda_pxd += f"\n    ctypedef enum {enum_quda_py[start + 6 : stop]}:\n        pass\n"
+        start = enum_quda_py.find("class ", stop)
+
     for key, val in quda_enum_meta.items():
         enum_quda_py_block = ""
         for item in val:
@@ -310,6 +317,8 @@ def build_pyquda_pyx(pyquda_root, quda_path):
         #     pyi.replace("double _Complex", "double_complex").replace("unsigned int", "int"),
         # )
 
+    with open(os.path.join(pyquda_root, "pyquda", "src", "enum_quda.pxd"), "w") as f:
+        f.write(enum_quda_pxd)
     with open(os.path.join(pyquda_root, "pyquda", "enum_quda.py"), "w") as f:
         f.write(enum_quda_py)
     with open(os.path.join(pyquda_root, "pyquda", "src", "quda.pxd"), "w") as f:
