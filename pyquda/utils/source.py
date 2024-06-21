@@ -1,11 +1,12 @@
 from typing import List, Literal, Union
 
-from .. import core, quda, getGridSize, getLogger
+from .. import quda, getGridSize, getLogger
 from ..enum_quda import QudaDslashType, QudaParity
 from ..field import (
     Ns,
     Nc,
     LatticeInfo,
+    LatticeGauge,
     LatticeFermion,
     LatticePropagator,
     LatticeStaggeredFermion,
@@ -61,7 +62,8 @@ def momentum(latt_info: LatticeInfo, t_srce: int, spin: int, color: int, phase):
     return b
 
 
-def gaussian3(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, n_steps: int):
+def _gaussian3(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, n_steps: int):
+    from .. import core
 
     _b = point(latt_info, t_srce, None, color)
     dslash = core.getDslash(latt_info.size, 0, 0, 0, anti_periodic_t=False)
@@ -78,7 +80,9 @@ def gaussian3(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, 
     return b
 
 
-def gaussian2(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, n_steps: int, xi: float):
+def _gaussian2(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, n_steps: int, xi: float):
+    from .. import core
+
     def _Laplacian(src, aux, sigma, invert_param):
         # aux = -kappa * Laplace * src + src
         quda.MatQuda(aux.data_ptr, src.data_ptr, invert_param)
@@ -106,7 +110,9 @@ def gaussian2(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, 
     return b
 
 
-def gaussian(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, n_steps: int, xi: float):
+def _gaussian1(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, n_steps: int, xi: float):
+    from .. import core
+
     def _Laplacian(src, aux, sigma, xi, invert_param):
         aux.data[:] = 0
         quda.dslashQuda(aux.even_ptr, src.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
@@ -161,18 +167,6 @@ def colorvector(latt_info: LatticeInfo, t_srce: int, spin: int, phase):
     return b
 
 
-def sequential(latt_info: LatticeInfo, t_srce: int, fermion: Union[LatticeFermion, LatticeStaggeredFermion]):
-    Lt = latt_info.Lt
-    gt = latt_info.gt
-    t = t_srce
-    staggered = isinstance(fermion, LatticeStaggeredFermion)
-    b = LatticeFermion(latt_info) if not staggered else LatticeStaggeredFermion(latt_info)
-    if gt * Lt <= t < (gt + 1) * Lt:
-        b.data[:, t - gt * Lt, :, :, :] = fermion.data[:, t - gt * Lt, :, :, :]
-
-    return b
-
-
 def source(
     latt_info: Union[LatticeInfo, List[int]],
     source_type: str,
@@ -180,9 +174,6 @@ def source(
     spin: int,
     color: int,
     source_phase=None,
-    rho: float = 0.0,
-    n_steps: int = 0,
-    xi: float = 1.0,
 ):
     if isinstance(latt_info, LatticeInfo):
         pass
@@ -203,28 +194,38 @@ def source(
         return wall(latt_info, t_srce, spin, color)
     elif source_type.lower() == "momentum":
         return momentum(latt_info, t_srce, spin, color, source_phase)
-    elif source_type.lower() == "gaussian":
-        return gaussian(latt_info, t_srce, spin, color, rho, n_steps, xi)
-    elif source_type.lower() == "smearedgaussian":
-        return gaussian3(latt_info, t_srce, spin, color, rho, n_steps)
     elif source_type.lower() == "colorvector":
         return colorvector(latt_info, t_srce, spin, source_phase)
     else:
         getLogger().critical(f"{source_type} source is not implemented yet", NotImplementedError)
 
 
+def sequential(x: Union[LatticeFermion, LatticeStaggeredFermion], t_srce: int):
+    Lt = x.latt_info.Lx
+    gt = x.latt_info.gt
+    t = t_srce
+    if isinstance(x, LatticeStaggeredFermion):
+        b = LatticeStaggeredFermion(x.latt_info)
+    else:
+        b = LatticeFermion(x.latt_info)
+    if gt * Lt <= t < (gt + 1) * Lt:
+        b.data[:, t - gt * Lt, :, :, :] = x.data[:, t - gt * Lt, :, :, :]
+
+    return b
+
+
+def gaussian(x: Union[LatticeFermion, LatticeStaggeredFermion], gauge: LatticeGauge, n_steps: int, rho: float):
+    alpha = 1 / (4 * n_steps / rho**2 - 6)
+    return gauge.wuppertalSmear(x, n_steps, alpha)
+
+
 def source12(
     latt_info: Union[LatticeInfo, List[int]],
-    source_type: Literal["point", "wall", "momentum", "gaussian", "smearedgaussian", "colorvector"],
+    source_type: Literal["point", "wall", "momentum", "colorvector"],
     t_srce: Union[int, List[int]],
     source_phase=None,
-    rho: float = 0.0,
-    n_steps: int = 0,
-    xi: float = 1.0,
 ):
-    if isinstance(latt_info, LatticeInfo):
-        pass
-    else:
+    if not isinstance(latt_info, LatticeInfo):
         getLogger().warning(
             "source12(latt_size: List[int]) is deprecated, use source12(latt_info: LatticeInfo) instead",
             DeprecationWarning,
@@ -243,11 +244,6 @@ def source12(
         for color in range(Nc):
             for spin in range(Ns):
                 data[:, spin, spin, :, color] = b.data.reshape(volume, Nc)
-    elif source_type.lower() in ["gaussian", "smearedgaussian"]:
-        for color in range(Nc):
-            b = source(latt_info, source_type, t_srce, None, color, source_phase, rho, n_steps, xi)
-            for spin in range(Ns):
-                data[:, spin, spin, :, color] = b.data.reshape(volume, Nc)
     else:
         for color in range(Nc):
             for spin in range(Ns):
@@ -259,16 +255,11 @@ def source12(
 
 def source3(
     latt_info: Union[LatticeInfo, List[int]],
-    source_type: Literal["point", "wall", "momentum", "gaussian", "smearedgaussian", "colorvector"],
+    source_type: Literal["point", "wall", "momentum", "colorvector"],
     t_srce: Union[int, List[int]],
     source_phase=None,
-    rho: float = 0.0,
-    n_steps: int = 0,
-    xi: float = 1.0,
 ):
-    if isinstance(latt_info, LatticeInfo):
-        pass
-    else:
+    if not isinstance(latt_info, LatticeInfo):
         getLogger().warning(
             "source3(latt_size: List[int]) is deprecated, use source3(latt_info: LatticeInfo) instead",
             DeprecationWarning,
@@ -284,7 +275,51 @@ def source3(
     data = b3.data.reshape(volume, Nc, Nc)
 
     for color in range(Nc):
-        b = source(latt_info, source_type, t_srce, None, color, source_phase, rho, n_steps, xi)
+        b = source(latt_info, source_type, t_srce, None, color, source_phase)
         data[:, :, color] = b.data.reshape(volume, Nc)
+
+    return b3
+
+
+def sequential12(x12: LatticePropagator, t_srce: int):
+    b12 = LatticePropagator(x12.latt_info)
+    for spin in range(Ns):
+        for color in range(Nc):
+            b12.setFermion(sequential(x12.getFermion(spin, color), t_srce), spin, color)
+
+    return b12
+
+
+def sequential3(x3: LatticeStaggeredPropagator, t_srce: int):
+    b3 = LatticeStaggeredPropagator(x3.latt_info)
+    for color in range(Nc):
+        b3.setFermion(sequential(x3.getFermion(color), t_srce))
+
+    return b3
+
+
+def gaussian12(x12: LatticePropagator, gauge: LatticeGauge, n_steps: int, rho: float):
+    alpha = 1 / (4 * n_steps / rho**2 - 6)
+    b12 = LatticePropagator(x12.latt_info)
+    gauge.ensurePureGauge()
+    pure_gauge = gauge.pure_gauge
+    pure_gauge.loadGauge(gauge)
+    for spin in range(Ns):
+        for color in range(Nc):
+            b12.setFermion(pure_gauge.wuppertalSmear(x12.getFermion(spin, color), n_steps, alpha), spin, color)
+    pure_gauge.freeGauge()
+
+    return b12
+
+
+def gaussian3(x3: LatticeStaggeredPropagator, gauge: LatticeGauge, n_steps: int, rho: float):
+    alpha = 1 / (4 * n_steps / rho**2 - 6)
+    b3 = LatticeStaggeredPropagator(x3.latt_info)
+    gauge.ensurePureGauge()
+    pure_gauge = gauge.pure_gauge
+    pure_gauge.loadGauge(gauge)
+    for color in range(Nc):
+        b3.setFermion(pure_gauge.wuppertalSmear(x3.getFermion(color), n_steps, alpha), color)
+    pure_gauge.freeGauge()
 
     return b3

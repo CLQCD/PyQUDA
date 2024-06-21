@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import List, Literal, Union
 
 import numpy
 
@@ -16,6 +16,7 @@ from ..pyquda import (
     freeUniqueGaugeQuda,
     staggeredPhaseQuda,
     performGaugeSmearQuda,
+    performWuppertalnStep,
     gaugeObservablesQuda,
     projectSU3Quda,
     computeGaugeFixingOVRQuda,
@@ -87,27 +88,33 @@ class PureGauge(Gauge):
     def freeSmearedGauge(self):
         freeUniqueGaugeQuda(QudaLinkType.QUDA_SMEARED_LINKS)
 
-    def setCovDev(self):
+    def covDev(self, x: LatticeFermion, covdev_mu: int):
+        b = LatticeFermion(x.latt_info)
         self.invert_param.dslash_type = QudaDslashType.QUDA_COVDEV_DSLASH
         self.invert_param.mass = -3
         self.invert_param.kappa = 1 / 2
-
-    def covDev(self, x: LatticeFermion, covdev_mu: int):
-        b = LatticeFermion(x.latt_info)
         self.invert_param.covdev_mu = covdev_mu
         MatQuda(b.data_ptr, x.data_ptr, self.invert_param)
         return b
 
-    def setLaplace(self, laplace3D: int):
-        laplaceDim = 3 if laplace3D in [0, 1, 2, 3] else 4
+    def laplace(self, x: LatticeStaggeredFermion, laplace3D: int):
+        b = LatticeStaggeredFermion(x.latt_info)
         self.invert_param.dslash_type = QudaDslashType.QUDA_LAPLACE_DSLASH
+        laplaceDim = 3 if laplace3D in [0, 1, 2, 3] else 4
         self.invert_param.mass = laplaceDim - 4
         self.invert_param.kappa = 1 / (2 * laplaceDim)
         self.invert_param.laplace3D = laplace3D
-
-    def laplace(self, x: LatticeStaggeredFermion):
-        b = LatticeStaggeredFermion(x.latt_info)
         MatQuda(b.data_ptr, x.data_ptr, self.invert_param)
+        return b
+
+    def wuppertalSmear(self, x: Union[LatticeFermion, LatticeStaggeredFermion], n_steps: int, alpha: float):
+        if isinstance(x, LatticeStaggeredFermion):
+            b = LatticeStaggeredFermion(x.latt_info)
+            self.invert_param.dslash_type = QudaDslashType.QUDA_STAGGERED_DSLASH
+        else:
+            b = LatticeFermion(x.latt_info)
+            self.invert_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
+        performWuppertalnStep(b.data_ptr, x.data_ptr, self.invert_param, n_steps, alpha)
         return b
 
     def staggeredPhase(self, gauge: LatticeGauge):

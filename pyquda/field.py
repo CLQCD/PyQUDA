@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import List, Literal, Union
 
 import numpy
 
@@ -378,21 +378,26 @@ class LatticeGauge(LatticeField):
 
             self.pure_gauge = PureGauge(self.latt_info)
 
-    def loadCovDev(self):
-        self.ensurePureGauge()
-        self.pure_gauge.setCovDev()
-        self.pure_gauge.loadGauge(self)
-
     def covDev(self, x: "LatticeFermion", covdev_mu: int) -> "LatticeFermion":
-        return self.pure_gauge.covDev(x, covdev_mu)
-
-    def loadLaplace(self, laplace3D: int):
         self.ensurePureGauge()
-        self.pure_gauge.setLaplace(laplace3D)
         self.pure_gauge.loadGauge(self)
+        b = self.pure_gauge.covDev(x, covdev_mu)
+        self.pure_gauge.freeGauge()
+        return b
 
-    def laplace(self, x: "LatticeStaggeredFermion") -> "LatticeStaggeredFermion":
-        return self.pure_gauge.laplace(x)
+    def laplace(self, x: "LatticeStaggeredFermion", laplace3D: int) -> "LatticeStaggeredFermion":
+        self.ensurePureGauge()
+        self.pure_gauge.loadGauge(self)
+        b = self.pure_gauge.laplace(x, laplace3D)
+        self.pure_gauge.freeGauge()
+        return b
+
+    def wuppertalSmear(self, x: Union["LatticeFermion", "LatticeStaggeredFermion"], n_steps: int, alpha: float):
+        self.ensurePureGauge()
+        self.pure_gauge.loadGauge(self)
+        b = self.pure_gauge.wuppertalSmear(x, n_steps, alpha)
+        self.pure_gauge.freeGauge()
+        return b
 
     def staggeredPhase(self):
         self.ensurePureGauge()
@@ -421,11 +426,6 @@ class LatticeGauge(LatticeField):
         self.pure_gauge.freeGauge()
         self.pure_gauge.freeSmearedGauge()
 
-    def smearAPE(self, n_steps: int, factor: float, dir_ignore: int):
-        """A variant of apeSmear() to match Chroma"""
-        dimAPE = 3 if dir_ignore >= 0 and dir_ignore <= 3 else 4
-        self.apeSmear(n_steps, (dimAPE - 1) / (dimAPE - 1 + factor / 2), dir_ignore)
-
     def stoutSmear(self, n_steps: int, rho: float, dir_ignore: int):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
@@ -434,9 +434,6 @@ class LatticeGauge(LatticeField):
         self.pure_gauge.freeGauge()
         self.pure_gauge.freeSmearedGauge()
 
-    def smearSTOUT(self, n_steps: int, rho: float, dir_ignore: int):
-        self.stoutSmear(n_steps, rho, dir_ignore)
-
     def hypSmear(self, n_steps: int, alpha1: float, alpha2: float, alpha3: float, dir_ignore: int):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
@@ -444,9 +441,6 @@ class LatticeGauge(LatticeField):
         self.pure_gauge.saveSmearedGauge(self)
         self.pure_gauge.freeGauge()
         self.pure_gauge.freeSmearedGauge()
-
-    def smearHYP(self, n_steps: int, alpha1: float, alpha2: float, alpha3: float, dir_ignore: int):
-        self.hypSmear(n_steps, alpha1, alpha2, alpha3, dir_ignore)
 
     def wilsonFlow(self, n_steps: int, epsilon: float):
         self.ensurePureGauge()
@@ -490,12 +484,6 @@ class LatticeGauge(LatticeField):
         self.pure_gauge.freeSmearedGauge()
         return t0, w0
 
-    def flowWilson(self, n_steps: int, time: float):
-        return self.wilsonFlow(n_steps, time / n_steps)
-
-    def flowWilsonScale(self, epsilon: float):
-        return self.wilsonFlowScale(100000, epsilon)
-
     def symanzikFlow(self, n_steps: int, epsilon: float):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
@@ -537,6 +525,23 @@ class LatticeGauge(LatticeField):
         self.pure_gauge.freeGauge()
         self.pure_gauge.freeSmearedGauge()
         return t0, w0
+
+    def smearAPE(self, n_steps: int, factor: float, dir_ignore: int):
+        """A variant of apeSmear() to match Chroma"""
+        dimAPE = 3 if dir_ignore >= 0 and dir_ignore <= 3 else 4
+        self.apeSmear(n_steps, (dimAPE - 1) / (dimAPE - 1 + factor / 2), dir_ignore)
+
+    def smearSTOUT(self, n_steps: int, rho: float, dir_ignore: int):
+        self.stoutSmear(n_steps, rho, dir_ignore)
+
+    def smearHYP(self, n_steps: int, alpha1: float, alpha2: float, alpha3: float, dir_ignore: int):
+        self.hypSmear(n_steps, alpha1, alpha2, alpha3, dir_ignore)
+
+    def flowWilson(self, n_steps: int, time: float):
+        return self.wilsonFlow(n_steps, time / n_steps)
+
+    def flowWilsonScale(self, epsilon: float):
+        return self.wilsonFlowScale(100000, epsilon)
 
     def flowSymanzik(self, n_steps: int, time: float):
         return self.symanzikFlow(n_steps, time / n_steps)
