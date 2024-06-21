@@ -319,12 +319,12 @@ def build_pyquda_pyx(pyquda_root, quda_path):
 
     with open(os.path.join(pyquda_root, "pyquda", "src", "enum_quda.pxd"), "w") as f:
         f.write(enum_quda_pxd)
-    with open(os.path.join(pyquda_root, "pyquda", "enum_quda.py"), "w") as f:
-        f.write(enum_quda_py)
     with open(os.path.join(pyquda_root, "pyquda", "src", "quda.pxd"), "w") as f:
         f.write(quda_pxd)
     with open(os.path.join(pyquda_root, "pyquda", "src", "pyquda.pyx"), "w") as f:
         f.write(pyquda_pyx)
+    with open(os.path.join(pyquda_root, "pyquda", "enum_quda.py"), "w") as f:
+        f.write(enum_quda_py)
     # with open(os.path.join(pyquda_root, "pyquda", "pyquda.pyi"), "w") as f:
     #     f.write(pyquda_pyi)
 

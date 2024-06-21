@@ -71,8 +71,6 @@ from .enum_quda import (  # noqa: F401
     QudaSetupType,
     QudaTransferType,
     QudaBoolean,
-    QUDA_BOOLEAN_NO,
-    QUDA_BOOLEAN_YES,
     QudaBLASType,
     QudaBLASOperation,
     QudaBLASDataType,

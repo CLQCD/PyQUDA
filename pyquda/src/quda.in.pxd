@@ -685,8 +685,8 @@ cdef extern from "quda.h":
     # @param inv_param Dirac and solver meta data
     # @param detratio if 0 compute the force of a determinant otherwise compute the force from a ratio of determinants
     #
-    # void computeTMCloverForceQuda(void *h_mom, void **h_x, void **h_x0, double *coeff, int nvector,
-    #                               QudaGaugeParam *gauge_param, QudaInvertParam *inv_param, int detratio)
+    void computeTMCloverForceQuda(void *h_mom, void **h_x, void **h_x0, double *coeff, int nvector,
+                                  QudaGaugeParam *gauge_param, QudaInvertParam *inv_param, int detratio)
 
     #
     # Compute the naive staggered force.  All fields must be in the same precision.
