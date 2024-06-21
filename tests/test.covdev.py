@@ -23,7 +23,6 @@ def covdev(U: LatticeGauge, x: LatticeFermion, mu: int):
 
 
 gauge = io.readQIOGauge(weak_field)
-gauge.loadCovDev()
 
 x = source.wall(latt_info, 0, 0, 0)
 for covdev_mu in range(8):
@@ -43,7 +42,6 @@ def shift(U: LatticeGauge, dim: int, mu: int):
 
 
 unit = LatticeGauge(latt_info)
-unit.loadCovDev()
 
 gauge.toDevice()
 gauge2 = gauge.copy()
