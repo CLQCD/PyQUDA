@@ -247,12 +247,20 @@ def build_pyquda_pyx(pyquda_root, quda_path):
     # with open(os.path.join(pyquda_root, "pyquda", "pyquda.in.pyi"), "r") as f:
     #     pyquda_pyi = f.read()
 
+    enum_quda_start = enum_quda_py.find("\nQUDA_INVALID_ENUM = -0x7FFFFFFF - 1")
+    quda_constants_pxd = 'cdef extern from "quda_constants.h":\n    cdef enum:'
+    start = enum_quda_py.find("\nQUDA", 0)
+    while enum_quda_start > start >= 0:
+        stop = enum_quda_py.find(" =", start)
+        quda_constants_pxd += f"\n        {enum_quda_py[start + 1 : stop]}\n"
+        start = enum_quda_py.find("\nQUDA", stop)
+
     enum_quda_pxd = 'cdef extern from "enum_quda.h":'
-    start = enum_quda_py.find("class ", 0)
+    start = enum_quda_py.find("\nclass ", enum_quda_start)
     while start >= 0:
         stop = enum_quda_py.find("(IntEnum):", start)
-        enum_quda_pxd += f"\n    ctypedef enum {enum_quda_py[start + 6 : stop]}:\n        pass\n"
-        start = enum_quda_py.find("class ", stop)
+        enum_quda_pxd += f"\n    ctypedef enum {enum_quda_py[start + 7 : stop]}:\n        pass\n"
+        start = enum_quda_py.find("\nclass ", stop)
 
     for key, val in quda_enum_meta.items():
         enum_quda_py_block = ""
@@ -317,6 +325,8 @@ def build_pyquda_pyx(pyquda_root, quda_path):
         #     pyi.replace("double _Complex", "double_complex").replace("unsigned int", "int"),
         # )
 
+    with open(os.path.join(pyquda_root, "pyquda", "src", "quda_constants.pxd"), "w") as f:
+        f.write(quda_constants_pxd)
     with open(os.path.join(pyquda_root, "pyquda", "src", "enum_quda.pxd"), "w") as f:
         f.write(enum_quda_pxd)
     with open(os.path.join(pyquda_root, "pyquda", "src", "quda.pxd"), "w") as f:
@@ -325,6 +335,7 @@ def build_pyquda_pyx(pyquda_root, quda_path):
         f.write(pyquda_pyx)
     with open(os.path.join(pyquda_root, "pyquda", "enum_quda.py"), "w") as f:
         f.write(enum_quda_py)
+
     # with open(os.path.join(pyquda_root, "pyquda", "pyquda.pyi"), "w") as f:
     #     f.write(pyquda_pyi)
 

@@ -1,4 +1,5 @@
 # .gitignore
+exclude pyquda/src/quda_constants.pxd
 exclude pyquda/src/enum_quda.pxd
 exclude pyquda/src/quda.pxd
 exclude pyquda/src/pyquda.pyx
