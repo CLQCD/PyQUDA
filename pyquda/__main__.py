@@ -18,6 +18,7 @@ def main():
     parser.add_argument(
         "-l",
         "--latt",
+        "--lattice",
         nargs=4,
         type=int,
         help="Lattice size used as the default",
@@ -28,13 +29,13 @@ def main():
         "--t-boundary",
         type=int,
         choices=(1, -1),
-        help="Lattice t boundary used as the default (required if -l/--latt is set)",
+        help="Lattice t boundary used as the default (required if -l/--latt/--lattice is set)",
     )
     parser.add_argument(
         "-a",
         "--anisotropy",
         type=float,
-        help="Lattice anisotropy used as the default (required if -l/--latt is set)",
+        help="Lattice anisotropy used as the default (required if -l/--latt/--lattice is set)",
         metavar="xi",
     )
     parser.add_argument(
