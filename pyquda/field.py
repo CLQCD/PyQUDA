@@ -407,14 +407,18 @@ class LatticeGauge(LatticeField):
         self.ensurePureGauge()
         self.pure_gauge.projectSU3(self, tol)
 
-    def path(self, paths: List[List[List[int]]], coeff: List[float]):
+    def path(self, paths: List[List[int]]):
         self.ensurePureGauge()
-        self.pure_gauge.path(self, paths, coeff)
+        self.pure_gauge.path(self, paths)
 
-    def loopTrace(self, paths: List[List[int]]):
+    def loop(self, loops: List[List[List[int]]], coeff: List[float]):
+        self.ensurePureGauge()
+        self.pure_gauge.loop(self, loops, coeff)
+
+    def loopTrace(self, loops: List[List[int]]):
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
-        traces = self.pure_gauge.loopTrace(paths)
+        traces = self.pure_gauge.loopTrace(loops)
         self.pure_gauge.freeGauge()
         return traces
 

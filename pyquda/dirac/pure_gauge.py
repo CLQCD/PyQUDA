@@ -137,16 +137,64 @@ class PureGauge(Gauge):
         self.gauge_param.return_result_gauge = 0
 
     @classmethod
-    def _getPath(cls, paths: List[List[int]]):
-        num_paths = len(paths)
+    def _getPath(cls, path: List[int]):
+        input_path_buf = numpy.zeros((len(path)), "<i4")
+        for j, d in enumerate(path):
+            if 0 <= d < 4:
+                input_path_buf[j] = d
+            elif 4 <= d < 8:
+                input_path_buf[j] = 7 - (d - 4)
+            else:
+                raise ValueError(f"path should be list of int from 0 to 7, but get {path}")
+        return input_path_buf, len(path)
+
+    def path(
+        self,
+        gauge: LatticeGauge,
+        paths: List[List[int]],
+    ):
+        num_paths = 1
+        input_path_buf_x, path_length = PureGauge._getPath(paths[0])
+        input_path_buf = numpy.zeros((4, 1, path_length + 1), "<i4")
+        input_path_buf[0, 0, 0] = 7
+        input_path_buf[0, 0, 1:] = input_path_buf_x
+        for d in range(1, 4):
+            input_path_buf_, path_length_ = PureGauge._getPath(paths[d])
+            assert path_length_ == path_length, "paths in all directions should have the same shape"
+            input_path_buf[d, 0, 0] = 7 - d
+            input_path_buf[d, 0, 1:] = input_path_buf_
+        max_length = path_length
+        path_length = numpy.array([path_length], "<i4")
+        loop_coeff = numpy.ones((1), "<f8")
+        self.gauge_param.overwrite_gauge = 1
+        self.gauge_param.use_resident_gauge = 0
+        self.gauge_param.make_resident_gauge = 0
+        computeGaugePathQuda(
+            gauge.data_ptrs,
+            gauge.data_ptrs,
+            input_path_buf,
+            path_length + 1,
+            loop_coeff,
+            num_paths,
+            max_length + 1,
+            1.0,
+            self.gauge_param,
+        )
+        self.gauge_param.overwrite_gauge = 0
+        self.gauge_param.use_resident_gauge = 1
+        self.gauge_param.make_resident_gauge = 1
+
+    @classmethod
+    def _getLoops(cls, loops: List[List[int]]):
+        num_paths = len(loops)
         path_length = numpy.zeros((num_paths), "<i4")
         for i in range(num_paths):
-            path_length[i] = len(paths[i])
+            path_length[i] = len(loops[i])
         max_length = int(numpy.max(path_length))
         input_path_buf = numpy.zeros((num_paths, max_length), "<i4")
         for i in range(num_paths):
             dx = [0, 0, 0, 0]
-            for j, d in enumerate(paths[i]):
+            for j, d in enumerate(loops[i]):
                 if 0 <= d < 4:
                     dx[d] += 1
                     input_path_buf[i, j] = d
@@ -154,23 +202,23 @@ class PureGauge(Gauge):
                     dx[d - 4] -= 1
                     input_path_buf[i, j] = 7 - (d - 4)
                 else:
-                    raise ValueError(f"path should be list of int from 0 to 7, but get {paths[i]}")
+                    raise ValueError(f"path should be list of int from 0 to 7, but get {loops[i]}")
             if dx != [0, 0, 0, 0]:
-                raise ValueError(f"path {paths[i]} is not a loop")
+                raise ValueError(f"path {loops[i]} is not a loop")
         return input_path_buf, path_length, num_paths, max_length
 
-    def path(
+    def loop(
         self,
         gauge: LatticeGauge,
-        paths: List[List[List[int]]],
+        loops: List[List[List[int]]],
         coeff: List[float],
     ):
-        input_path_buf_x, path_length, num_paths, max_length = PureGauge._getPath(paths[0])
+        input_path_buf_x, path_length, num_paths, max_length = PureGauge._getLoops(loops[0])
         input_path_buf = numpy.zeros((4, num_paths, max_length + 1), "<i4")
         input_path_buf[0, :, 0] = 7
         input_path_buf[0, :, 1:] = input_path_buf_x
         for d in range(1, 4):
-            input_path_buf_, path_length_, num_paths_, max_length_ = PureGauge._getPath(paths[d])
+            input_path_buf_, path_length_, num_paths_, max_length_ = PureGauge._getLoops(loops[d])
             assert (path_length_ == path_length).all(), "paths in all directions should have the same shape"
             input_path_buf[d, :, 0] = 7 - d
             input_path_buf[d, :, 1:] = input_path_buf_
@@ -193,8 +241,8 @@ class PureGauge(Gauge):
         self.gauge_param.use_resident_gauge = 1
         self.gauge_param.make_resident_gauge = 1
 
-    def loopTrace(self, paths: List[List[int]]):
-        input_path_buf, path_length, num_paths, max_length = PureGauge._getPath(paths)
+    def loopTrace(self, loops: List[List[int]]):
+        input_path_buf, path_length, num_paths, max_length = PureGauge._getLoops(loops)
         traces = numpy.zeros((num_paths), "<c16")
         loop_coeff = numpy.ones((num_paths), "<f8")
         computeGaugeLoopTraceQuda(
