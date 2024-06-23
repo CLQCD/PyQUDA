@@ -25,7 +25,6 @@ pion = cp.zeros((len(t_src_list), len(momentum_list), latt_info.Lt), "<c16")
 
 for t_idx, t_src in enumerate(t_src_list):
     propag = core.invert(dirac, "point", [0, 0, 0, t_src])
-    diquark = cp.zeros_like(propag.data)
 
     pion[t_idx] += contract(
         "petzyx,etzyxjiba,jk,etzyxklba,li->pt",

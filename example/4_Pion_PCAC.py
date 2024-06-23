@@ -25,7 +25,6 @@ pionA4 = cp.zeros((len(t_src_list), latt_info.Lt), "<c16")
 
 for t_idx, t_src in enumerate(t_src_list):
     propag = core.invert(dirac, "wall", t_src)
-    diquark = cp.zeros_like(propag.data)
 
     pion[t_idx] += contract(
         "etzyxjiba,jk,etzyxklba,li->t",
