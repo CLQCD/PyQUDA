@@ -89,10 +89,10 @@ pip install .
 ```bash
 git clone https://github.com/lattice/quda.git
 mkdir build && cd build
+export GPU_TARGET=sm_70
 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
     -DCMAKE_BUILD_TYPE=RELEASE \
     -DQUDA_GPU_ARCH=${GPU_TARGET} \
-    -DQUDA_HETEROGENEOUS_ATOMIC=${HETEROGENEOUS_ATOMIC} \
     -DQUDA_MPI=ON \
     -DQUDA_CONTRACT=ON \
     -DQUDA_COVDEV=ON \
@@ -221,21 +221,13 @@ Instantiates a `LatticeGauge` with `latt_info`, and the value of `data` is initi
 
 Returns a `numpy.ndarray` copy of `LatticeField.data`, but without even-odd preconditioning.
 
-#### `LatticeGauge.loadCovDev()`
-
-Prepares data for covariant derivative.
-
 #### `LatticeGauge.covDev(x, covdev_mu)`
 
 Applies the covariant derivative on `x` in direction `covdev_mu`. `x` should be `LatticeFermion`. 0/1/2/3 represent +x/+y/+z/+t and 4/5/6/7 represent -x/-y/-z/-t. The covariant derivative is defined as $\psi'(x)=U_\mu(x)\psi(x+\hat{\mu})$.
 
-#### `LatticeGauge.loadLaplace(laplace3D)`
+#### `LatticeGauge.laplace(x, laplace3D)`
 
-Prepares data for Laplacian operator. `laplace3D` takes 3 or 4 to apply Laplacian on spacial or all directions.
-
-#### `LatticeGauge.laplace(x)`
-
-Applies the Laplacian operator on `x`. `x` should be `LatticeStaggeredFermion`. The Laplacian operator is defined as $\psi'(x)=\frac{1}{N_\mathrm{Lap}}\sum_\mu\psi(x)-\dfrac{1}{2}\left[U_\mu(x)\psi(x+\hat{\mu})+U_\mu^\dagger(x-\hat{\mu})\psi(x-\hat{\mu})\right]$
+Applies the Laplacian operator on `x`, and `laplace3D` takes 3 or 4 to apply Laplacian on spacial or all directions. `x` should be `LatticeStaggeredFermion`. The Laplacian operator is defined as $\psi'(x)=\frac{1}{N_\mathrm{Lap}}\sum_\mu\psi(x)-\dfrac{1}{2}\left[U_\mu(x)\psi(x+\hat{\mu})+U_\mu^\dagger(x-\hat{\mu})\psi(x-\hat{\mu})\right]$
 
 #### `LatticeGauge.staggeredPhase()`
 
@@ -377,9 +369,21 @@ python3 1.py
 
 ## 3. 在HYP smeared的组态上跑clover传播子（csw=1），计算pion和nucleon的2pt（mpi～300 MeV，700MeV，3000MeV）
 
+```bash
+python3 3_Pion_Proton_2pt.py
+```
+
 ## 4. 基于PCAC计算三种pion mass下的quark mass
 
+```bash
+python3 4_Pion_PCAC.py
+```
+
 ## 5. 计算不同动量的2pt，确定色散关系，计算quasi-DA矩阵元（可选）
+
+```bash
+python3 5_Pion_Dispersion.py
+```
 
 ## 6. 计算seq source，计算nucleon的gV和gA
 
