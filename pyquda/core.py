@@ -24,7 +24,7 @@ from .field import (
     lexico,
     cb2,
 )
-from .dirac import Dirac, StaggeredDirac
+from .dirac import Multigrid, Dirac, StaggeredDirac
 from .utils.source import source
 from .deprecated import smear, smear4, invert12, getDslash, getStaggeredDslash
 
@@ -178,7 +178,7 @@ def getDirac(
     xi_0: float = 1.0,
     clover_coeff_t: float = 0.0,
     clover_coeff_r: float = 1.0,
-    multigrid: List[List[int]] = None,
+    multigrid: Union[List[List[int]], Multigrid] = None,
 ):
     xi = latt_info.anisotropy
     kappa = 1 / (2 * (mass + 1 + (Nd - 1) / xi))
@@ -189,21 +189,19 @@ def getDirac(
         clover_csw = clover_coeff_t
         clover_xi = 1.0
     if not multigrid:
-        geo_block_size = None
+        multigrid = None
     else:
-        if not isinstance(multigrid, list):
-            geo_block_size = [[2, 2, 2, 2], [4, 4, 4, 4]]
-        else:
-            geo_block_size = multigrid
+        if not isinstance(multigrid, list) and not isinstance(multigrid, Multigrid):
+            multigrid = [[2, 2, 2, 2], [4, 4, 4, 4]]
 
     if clover_csw != 0.0:
         from .dirac.clover_wilson import CloverWilson
 
-        return CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_csw, clover_xi, geo_block_size)
+        return CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_csw, clover_xi, multigrid)
     else:
         from .dirac.wilson import Wilson
 
-        return Wilson(latt_info, mass, kappa, tol, maxiter, geo_block_size)
+        return Wilson(latt_info, mass, kappa, tol, maxiter, multigrid)
 
 
 def getStaggeredDirac(
@@ -232,16 +230,14 @@ def getWilson(
     xi = latt_info.anisotropy
     kappa = 1 / (2 * (mass + 1 + (Nd - 1) / xi))
     if not multigrid:
-        geo_block_size = None
+        multigrid = None
     else:
-        if not isinstance(multigrid, list):
-            geo_block_size = [[2, 2, 2, 2], [4, 4, 4, 4]]
-        else:
-            geo_block_size = multigrid
+        if not isinstance(multigrid, list) and not isinstance(multigrid, Multigrid):
+            multigrid = [[2, 2, 2, 2], [4, 4, 4, 4]]
 
     from .dirac.wilson import Wilson
 
-    return Wilson(latt_info, mass, kappa, tol, maxiter, geo_block_size)
+    return Wilson(latt_info, mass, kappa, tol, maxiter, multigrid)
 
 
 def getClover(
@@ -264,16 +260,14 @@ def getClover(
         clover_csw = clover_csw_t
         clover_xi = 1.0
     if not multigrid:
-        geo_block_size = None
+        multigrid = None
     else:
-        if not isinstance(multigrid, list):
-            geo_block_size = [[2, 2, 2, 2], [4, 4, 4, 4]]
-        else:
-            geo_block_size = multigrid
+        if not isinstance(multigrid, list) and not isinstance(multigrid, Multigrid):
+            multigrid = [[2, 2, 2, 2], [4, 4, 4, 4]]
 
     from .dirac.clover_wilson import CloverWilson
 
-    return CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_csw, clover_xi, geo_block_size)
+    return CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_csw, clover_xi, multigrid)
 
 
 def getHISQ(
@@ -299,7 +293,7 @@ def getDefaultDirac(
     xi_0: float = 1.0,
     clover_coeff_t: float = 0.0,
     clover_coeff_r: float = 1.0,
-    multigrid: List[List[int]] = None,
+    multigrid: Union[List[List[int]], Multigrid] = None,
 ):
     return getDirac(getDefaultLattice(), mass, tol, maxiter, xi_0, clover_coeff_t, clover_coeff_r, multigrid)
 

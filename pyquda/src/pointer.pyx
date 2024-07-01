@@ -8,6 +8,9 @@ cdef class Pointer:
     cdef set_ptr(self, void *ptr):
         self.ptr = ptr
 
+    def __repr__(self) -> str:
+        return f"Pointer at 0x{<size_t>self.ptr:016x}"
+
 cdef class Pointers(Pointer):
     def __cinit__(self, str dtype, unsigned int n1):
         self.n1 = n1

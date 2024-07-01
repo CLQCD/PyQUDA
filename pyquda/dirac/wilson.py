@@ -1,9 +1,9 @@
-from typing import List
+from typing import List, Union
 
 from ..field import LatticeInfo, LatticeGauge
-from ..enum_quda import QudaDslashType, QudaInverterType, QudaPrecision
+from ..enum_quda import QudaDslashType, QudaPrecision
 
-from . import Dirac, general
+from . import Multigrid, Dirac, general
 
 
 class Wilson(Dirac):
@@ -14,15 +14,17 @@ class Wilson(Dirac):
         kappa: float,
         tol: float,
         maxiter: int,
-        geo_block_size: List[List[int]] = None,
+        multigrid: Union[List[List[int]], Multigrid] = None,
     ) -> None:
         super().__init__(latt_info)
         # Using half with multigrid doesn't work
-        if geo_block_size is not None:
+        if multigrid is not None:
             self._setPrecision(sloppy=max(self.precision.sloppy, QudaPrecision.QUDA_SINGLE_PRECISION))
-        self.mg_instance = None
         self.newQudaGaugeParam()
-        self.newQudaMultigridParam(geo_block_size, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
+        if isinstance(multigrid, Multigrid):
+            self.multigrid = multigrid
+        else:
+            self.newQudaMultigridParam(multigrid, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
         self.newQudaInvertParam(mass, kappa, tol, maxiter)
 
     def newQudaGaugeParam(self):
@@ -55,21 +57,20 @@ class Wilson(Dirac):
                 self.precision,
             )
             mg_inv_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
+            self.multigrid = Multigrid(mg_param, mg_inv_param)
         else:
-            mg_param, mg_inv_param = None, None
-        self.mg_param = mg_param
-        self.mg_inv_param = mg_inv_param
+            self.multigrid = Multigrid(None, None)
 
     def newQudaInvertParam(self, mass: float, kappa: float, tol: float, maxiter: int):
-        invert_param = general.newQudaInvertParam(mass, kappa, tol, maxiter, 0.0, 1.0, self.mg_param, self.precision)
+        invert_param = general.newQudaInvertParam(
+            mass, kappa, tol, maxiter, 0.0, 1.0, self.multigrid.param, self.precision
+        )
         invert_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
-        if self.mg_param is not None:
-            invert_param.inv_type = QudaInverterType.QUDA_GCR_INVERTER
         self.invert_param = invert_param
 
     def loadGauge(self, gauge: LatticeGauge, thin_update_only: bool = False):
         general.loadGauge(gauge, self.gauge_param)
-        if self.mg_instance is None:
+        if self.multigrid.instance is None:
             self.newMultigrid()
         else:
             self.updateMultigrid(thin_update_only)

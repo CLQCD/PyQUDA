@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 
 import numpy
 
@@ -7,7 +7,7 @@ from ..pyquda import computeKSLinkQuda
 from ..field import LatticeInfo, LatticeGauge
 from ..enum_quda import QudaDslashType, QudaInverterType, QudaReconstructType, QudaPrecision
 
-from . import StaggeredDirac, general
+from . import Multigrid, StaggeredDirac, general
 
 
 class HISQ(StaggeredDirac):
@@ -20,11 +20,11 @@ class HISQ(StaggeredDirac):
         maxiter: int,
         tadpole_coeff: float = 1.0,
         naik_epsilon: float = 0.0,
-        geo_block_size: List[List[int]] = None,
+        multigrid: Union[List[List[int]], Multigrid] = None,
     ) -> None:
         super().__init__(latt_info)
         # Using half with multigrid doesn't work
-        if geo_block_size is not None:
+        if multigrid is not None:
             self._setPrecision(sloppy=max(self.precision.sloppy, QudaPrecision.QUDA_SINGLE_PRECISION))
         self._setReconstruct(
             cuda=max(self.reconstruct.cuda, QudaReconstructType.QUDA_RECONSTRUCT_NO),
@@ -32,10 +32,12 @@ class HISQ(StaggeredDirac):
             precondition=max(self.reconstruct.precondition, QudaReconstructType.QUDA_RECONSTRUCT_NO),
             eigensolver=max(self.reconstruct.eigensolver, QudaReconstructType.QUDA_RECONSTRUCT_NO),
         )
-        self.mg_instance = None
         self.newCoeff(tadpole_coeff)
         self.newQudaGaugeParam(tadpole_coeff, naik_epsilon)
-        self.newQudaMultigridParam(geo_block_size, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
+        if isinstance(multigrid, Multigrid):
+            self.multigrid = multigrid
+        else:
+            self.newQudaMultigridParam(multigrid, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
         self.newQudaInvertParam(mass, kappa, tol, maxiter)
 
     def newCoeff(self, tadpole_coeff: float):
@@ -110,17 +112,16 @@ class HISQ(StaggeredDirac):
                 self.precision,
             )
             mg_inv_param.dslash_type = QudaDslashType.QUDA_ASQTAD_DSLASH
+            self.multigrid = Multigrid(mg_param, mg_inv_param)
         else:
-            mg_param, mg_inv_param = None, None
-        self.mg_param = mg_param
-        self.mg_inv_param = mg_inv_param
+            self.multigrid = Multigrid(None, None)
 
     def newQudaInvertParam(self, mass: float, kappa: float, tol: float, maxiter: int):
-        invert_param = general.newQudaInvertParam(mass, kappa, tol, maxiter, 0.0, 1.0, self.mg_param, self.precision)
+        invert_param = general.newQudaInvertParam(
+            mass, kappa, tol, maxiter, 0.0, 1.0, self.multigrid.param, self.precision
+        )
         invert_param.dslash_type = QudaDslashType.QUDA_ASQTAD_DSLASH
-        if self.mg_param is not None:
-            invert_param.inv_type = QudaInverterType.QUDA_GCR_INVERTER
-        else:
+        if self.multigrid.param is None:
             invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
         self.invert_param = invert_param
 
@@ -164,7 +165,7 @@ class HISQ(StaggeredDirac):
     def loadGauge(self, gauge: LatticeGauge, thin_update_only: bool = False):
         fatlink, longlink = self.computeFatLong(gauge)
         general.loadFatLongGauge(fatlink, longlink, self.gauge_param)
-        if self.mg_instance is None:
+        if self.multigrid.instance is None:
             self.newMultigrid()
         else:
             self.updateMultigrid(thin_update_only)

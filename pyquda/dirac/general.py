@@ -351,6 +351,7 @@ def newQudaInvertParam(
     invert_param.tol_hq_offset = [invert_param.tol_hq] * QUDA_MAX_MULTI_SHIFT
 
     if mg_param is not None:
+        invert_param.inv_type = QudaInverterType.QUDA_GCR_INVERTER
         invert_param.inv_type_precondition = QudaInverterType.QUDA_MG_INVERTER
         invert_param.tol_precondition = mg_param.coarse_solver_tol[0]
         invert_param.maxiter_precondition = mg_param.coarse_solver_maxiter[0]

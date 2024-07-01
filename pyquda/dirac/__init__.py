@@ -133,10 +133,38 @@ class Gauge(ABC):
         )
 
 
+class Multigrid:
+    param: QudaMultigridParam
+    inv_param: QudaInvertParam
+    instance: Pointer
+
+    def __init__(self, param: QudaMultigridParam, inv_param: QudaInvertParam) -> None:
+        self.param = param
+        self.inv_param = inv_param
+        self.instance = None
+
+    def new(self):
+        if self.instance is not None:
+            destroyMultigridQuda(self.instance)
+        self.instance = newMultigridQuda(self.param)
+
+    def update(self, thin_update_only: bool):
+        if self.instance is not None:
+            if thin_update_only:
+                self.param.thin_update_only = QudaBoolean.QUDA_BOOLEAN_TRUE
+                updateMultigridQuda(self.instance, self.param)
+                self.param.thin_update_only = QudaBoolean.QUDA_BOOLEAN_FALSE
+            else:
+                updateMultigridQuda(self.instance, self.param)
+
+    def destroy(self):
+        if self.instance is not None:
+            destroyMultigridQuda(self.instance)
+        self.instance = None
+
+
 class Dirac(Gauge):
-    mg_param: QudaMultigridParam
-    mg_inv_param: QudaInvertParam
-    mg_instance: Pointer
+    multigrid: Multigrid
 
     def __init__(self, latt_info: LatticeInfo) -> None:
         super().__init__(latt_info)
@@ -172,40 +200,18 @@ class Dirac(Gauge):
         return b
 
     def newMultigrid(self):
-        if self.mg_param is not None:
-            if self.mg_instance is not None:
-                destroyMultigridQuda(self.mg_instance)
-            self.mg_instance = newMultigridQuda(self.mg_param)
-            self.invert_param.preconditioner = self.mg_instance
+        if self.multigrid.param is not None:
+            self.multigrid.new()
+            self.invert_param.preconditioner = self.multigrid.instance
 
     def updateMultigrid(self, thin_update_only: bool):
-        if self.mg_param is not None:
-            if self.mg_instance is not None:
-                if thin_update_only:
-                    self.mg_param.thin_update_only = QudaBoolean.QUDA_BOOLEAN_TRUE
-                    updateMultigridQuda(self.mg_instance, self.mg_param)
-                    self.mg_param.thin_update_only = QudaBoolean.QUDA_BOOLEAN_FALSE
-                else:
-                    updateMultigridQuda(self.mg_instance, self.mg_param)
+        if self.multigrid.param is not None:
+            self.multigrid.update(thin_update_only)
+            self.invert_param.preconditioner = self.multigrid.instance
 
     def destroyMultigrid(self):
-        if self.mg_param is not None:
-            if self.mg_instance is not None:
-                destroyMultigridQuda(self.mg_instance)
-                self.mg_instance = None
-
-    def getMultigrid(self):
-        if self.mg_param is not None:
-            if self.mg_instance is not None:
-                return self.mg_instance
-        return None
-
-    def setMultigrid(self, mg_instance: Pointer):
-        if self.mg_param is not None:
-            if self.mg_instance is not None:
-                destroyMultigridQuda(self.mg_instance)
-            self.mg_instance = mg_instance
-            self.invert_param.preconditioner = self.mg_instance
+        if self.multigrid.param is not None:
+            self.multigrid.destroy()
 
 
 class StaggeredDirac(Dirac):
