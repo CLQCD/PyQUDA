@@ -1,6 +1,5 @@
 from typing import List
 
-from ..pyquda import newMultigridQuda, destroyMultigridQuda
 from ..field import LatticeInfo, LatticeGauge
 from ..enum_quda import QudaDslashType, QudaInverterType, QudaPrecision
 
@@ -68,15 +67,9 @@ class Wilson(Dirac):
             invert_param.inv_type = QudaInverterType.QUDA_GCR_INVERTER
         self.invert_param = invert_param
 
-    def loadGauge(self, gauge: LatticeGauge):
+    def loadGauge(self, gauge: LatticeGauge, thin_update_only: bool = False):
         general.loadGauge(gauge, self.gauge_param)
-        if self.mg_param is not None:
-            if self.mg_instance is not None:
-                self.destroy()
-            self.mg_instance = newMultigridQuda(self.mg_param)
-            self.invert_param.preconditioner = self.mg_instance
+        self.updateMultigrid(thin_update_only)
 
     def destroy(self):
-        if self.mg_instance is not None:
-            destroyMultigridQuda(self.mg_instance)
-            self.mg_instance = None
+        self.destroyMultigrid()

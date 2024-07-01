@@ -3,7 +3,7 @@ from typing import List
 import numpy
 
 from ..pointer import Pointers
-from ..pyquda import newMultigridQuda, destroyMultigridQuda, computeKSLinkQuda
+from ..pyquda import computeKSLinkQuda
 from ..field import LatticeInfo, LatticeGauge
 from ..enum_quda import QudaDslashType, QudaInverterType, QudaReconstructType, QudaPrecision
 
@@ -161,16 +161,10 @@ class HISQ(StaggeredDirac):
 
         return fatlink, longlink
 
-    def loadGauge(self, gauge: LatticeGauge):
+    def loadGauge(self, gauge: LatticeGauge, thin_update_only: bool = False):
         fatlink, longlink = self.computeFatLong(gauge)
         general.loadFatLongGauge(fatlink, longlink, self.gauge_param)
-        if self.mg_param is not None:
-            if self.mg_instance is not None:
-                self.destroy()
-            self.mg_instance = newMultigridQuda(self.mg_param)
-            self.invert_param.preconditioner = self.mg_instance
+        self.updateMultigrid(thin_update_only)
 
     def destroy(self):
-        if self.mg_instance is not None:
-            destroyMultigridQuda(self.mg_instance)
-            self.mg_instance = None
+        self.destroyMultigrid()

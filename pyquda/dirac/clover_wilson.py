@@ -1,8 +1,7 @@
 from typing import List
 
-from ..pyquda import newMultigridQuda, destroyMultigridQuda, updateMultigridQuda
 from ..field import LatticeInfo, LatticeGauge, LatticeClover
-from ..enum_quda import QudaBoolean, QudaDslashType, QudaInverterType, QudaPrecision
+from ..enum_quda import QudaDslashType, QudaInverterType, QudaPrecision
 
 from . import Dirac, general
 
@@ -85,22 +84,12 @@ class CloverWilson(Dirac):
     def restoreClover(self):
         assert self.clover is not None and self.clover_inv is not None
         general.loadClover(self.clover, self.clover_inv, None, self.gauge_param, self.invert_param)
-        if self.mg_param is not None:
-            if self.mg_instance is not None:
-                self.mg_param.thin_update_only = QudaBoolean.QUDA_BOOLEAN_TRUE
-                updateMultigridQuda(self.mg_instance, self.mg_param)
-                self.mg_param.thin_update_only = QudaBoolean.QUDA_BOOLEAN_FALSE
+        self.updateMultigrid(True)
 
-    def loadGauge(self, gauge: LatticeGauge):
+    def loadGauge(self, gauge: LatticeGauge, thin_update_only: bool = False):
         general.loadClover(self.clover, self.clover_inv, gauge, self.gauge_param, self.invert_param)
         general.loadGauge(gauge, self.gauge_param)
-        if self.mg_param is not None:
-            if self.mg_instance is not None:
-                self.destroy()
-            self.mg_instance = newMultigridQuda(self.mg_param)
-            self.invert_param.preconditioner = self.mg_instance
+        self.updateMultigrid(thin_update_only)
 
     def destroy(self):
-        if self.mg_instance is not None:
-            destroyMultigridQuda(self.mg_instance)
-            self.mg_instance = None
+        self.destroyMultigrid()
