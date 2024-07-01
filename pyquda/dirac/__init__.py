@@ -14,6 +14,7 @@ from ..pyquda import (
     newMultigridQuda,
     updateMultigridQuda,
     destroyMultigridQuda,
+    dumpMultigridQuda,
 )
 from ..enum_quda import QudaBoolean, QudaPrecision, QudaReconstructType
 from ..field import LatticeInfo, LatticeGauge, LatticeFermion, LatticeStaggeredFermion
@@ -170,6 +171,13 @@ class Dirac(Gauge):
         MatDagMatQuda(b.data_ptr, x.data_ptr, self.invert_param)
         return b
 
+    def newMultigrid(self):
+        if self.mg_param is not None:
+            if self.mg_instance is not None:
+                destroyMultigridQuda(self.mg_instance)
+            self.mg_instance = newMultigridQuda(self.mg_param)
+            self.invert_param.preconditioner = self.mg_instance
+
     def updateMultigrid(self, thin_update_only: bool):
         if self.mg_param is not None:
             if self.mg_instance is not None:
@@ -179,15 +187,25 @@ class Dirac(Gauge):
                     self.mg_param.thin_update_only = QudaBoolean.QUDA_BOOLEAN_FALSE
                 else:
                     updateMultigridQuda(self.mg_instance, self.mg_param)
-            else:
-                self.mg_instance = newMultigridQuda(self.mg_param)
-                self.invert_param.preconditioner = self.mg_instance
 
     def destroyMultigrid(self):
         if self.mg_param is not None:
             if self.mg_instance is not None:
                 destroyMultigridQuda(self.mg_instance)
                 self.mg_instance = None
+
+    def getMultigrid(self):
+        if self.mg_param is not None:
+            if self.mg_instance is not None:
+                return self.mg_instance
+        return None
+
+    def setMultigrid(self, mg_instance: Pointer):
+        if self.mg_param is not None:
+            if self.mg_instance is not None:
+                destroyMultigridQuda(self.mg_instance)
+            self.mg_instance = mg_instance
+            self.invert_param.preconditioner = self.mg_instance
 
 
 class StaggeredDirac(Dirac):

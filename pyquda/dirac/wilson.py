@@ -69,7 +69,10 @@ class Wilson(Dirac):
 
     def loadGauge(self, gauge: LatticeGauge, thin_update_only: bool = False):
         general.loadGauge(gauge, self.gauge_param)
-        self.updateMultigrid(thin_update_only)
+        if self.mg_instance is None:
+            self.newMultigrid()
+        else:
+            self.updateMultigrid(thin_update_only)
 
     def destroy(self):
         self.destroyMultigrid()

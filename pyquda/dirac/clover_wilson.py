@@ -89,7 +89,10 @@ class CloverWilson(Dirac):
     def loadGauge(self, gauge: LatticeGauge, thin_update_only: bool = False):
         general.loadClover(self.clover, self.clover_inv, gauge, self.gauge_param, self.invert_param)
         general.loadGauge(gauge, self.gauge_param)
-        self.updateMultigrid(thin_update_only)
+        if self.mg_instance is None:
+            self.newMultigrid()
+        else:
+            self.updateMultigrid(thin_update_only)
 
     def destroy(self):
         self.destroyMultigrid()
