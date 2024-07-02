@@ -8,7 +8,8 @@ from pyquda.field import Ns, Nc
 from pyquda.enum_quda import QudaParity
 
 init([1, 1, 1, 1], [16, 16, 16, 32], 1, 1.0, resource_path=".cache")
-Lx, Ly, Lz, Lt = core.getDefaultLattice().size
+latt_info = core.getDefaultLattice()
+Lx, Ly, Lz, Lt = latt_info.size
 
 
 def applyDslash(Mp, p, U_seed):
@@ -16,13 +17,13 @@ def applyDslash(Mp, p, U_seed):
     dslash = core.getDefaultDirac(-3.5, 0, 0)
 
     # Generate gauge and then load it
-    U = core.DefaultLatticeGauge()
+    U = core.LatticeGauge(latt_info)
     U.gauss(U_seed, 1.0)
     dslash.loadGauge(U)
 
     # Load a from p and allocate b
-    a = core.DefaultLatticeFermion(cp.asarray(core.cb2(p, [0, 1, 2, 3])))
-    b = core.DefaultLatticeFermion()
+    a = core.LatticeFermion(latt_info, cp.asarray(core.cb2(p, [0, 1, 2, 3])))
+    b = core.LatticeFermion(latt_info)
 
     # Dslash a = b
     quda.dslashQuda(b.even_ptr, a.odd_ptr, dslash.invert_param, QudaParity.QUDA_EVEN_PARITY)

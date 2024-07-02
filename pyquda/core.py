@@ -29,31 +29,6 @@ from .utils.source import source
 from .deprecated import smear, smear4, invert12, getDslash, getStaggeredDslash
 
 
-class DefaultLatticeGauge(LatticeGauge):
-    def __init__(self, value=None) -> None:
-        super().__init__(getDefaultLattice(), value)
-
-
-class DefaultLatticeFermion(LatticeFermion):
-    def __init__(self, value=None) -> None:
-        super().__init__(getDefaultLattice(), value)
-
-
-class DefaultLatticePropagator(LatticePropagator):
-    def __init__(self, value=None) -> None:
-        super().__init__(getDefaultLattice(), value)
-
-
-class DefaultLatticeStaggeredFermion(LatticeStaggeredFermion):
-    def __init__(self, value=None) -> None:
-        super().__init__(getDefaultLattice(), value)
-
-
-class DefaultLatticeStaggeredPropagator(LatticeStaggeredPropagator):
-    def __init__(self, value=None) -> None:
-        super().__init__(getDefaultLattice(), value)
-
-
 def invert(
     dslash: Dirac,
     source_type: str,
