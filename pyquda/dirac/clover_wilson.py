@@ -25,10 +25,7 @@ class CloverWilson(Dirac):
         if multigrid is not None:
             self._setPrecision(sloppy=max(self.precision.sloppy, QudaPrecision.QUDA_SINGLE_PRECISION))
         self.newQudaGaugeParam()
-        if isinstance(multigrid, Multigrid):
-            self.multigrid = multigrid
-        else:
-            self.newQudaMultigridParam(multigrid, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
+        self.newQudaMultigridParam(multigrid, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
         self.newQudaInvertParam(mass, kappa, tol, maxiter, clover_csw, clover_xi)
 
     def newQudaGaugeParam(self):
@@ -37,7 +34,7 @@ class CloverWilson(Dirac):
 
     def newQudaMultigridParam(
         self,
-        geo_block_size: List[List[int]],
+        multigrid: Union[List[List[int]], Multigrid],
         mass: float,
         kappa: float,
         coarse_tol: float,
@@ -47,7 +44,10 @@ class CloverWilson(Dirac):
         nu_pre: int,
         nu_post: int,
     ):
-        if geo_block_size is not None:
+        if isinstance(multigrid, Multigrid):
+            self.multigrid = multigrid
+        elif multigrid is not None:
+            geo_block_size = multigrid
             mg_param, mg_inv_param = general.newQudaMultigridParam(
                 mass,
                 kappa,

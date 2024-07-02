@@ -2,8 +2,6 @@ from typing import List, Union
 
 import numpy
 
-from ..pointer import Pointers
-from ..pyquda import computeKSLinkQuda
 from ..field import LatticeInfo, LatticeGauge
 from ..enum_quda import QudaDslashType, QudaInverterType, QudaReconstructType, QudaPrecision
 
@@ -34,10 +32,7 @@ class HISQ(StaggeredDirac):
         )
         self.newCoeff(tadpole_coeff)
         self.newQudaGaugeParam(tadpole_coeff, naik_epsilon)
-        if isinstance(multigrid, Multigrid):
-            self.multigrid = multigrid
-        else:
-            self.newQudaMultigridParam(multigrid, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
+        self.newQudaMultigridParam(multigrid, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
         self.newQudaInvertParam(mass, kappa, tol, maxiter)
 
     def newCoeff(self, tadpole_coeff: float):
@@ -84,11 +79,12 @@ class HISQ(StaggeredDirac):
         gauge_param = general.newQudaGaugeParam(
             self.latt_info, tadpole_coeff, naik_epsilon, self.precision, self.reconstruct
         )
+        gauge_param.staggered_phase_applied = 1
         self.gauge_param = gauge_param
 
     def newQudaMultigridParam(
         self,
-        geo_block_size: List[List[int]],
+        multigrid: Union[List[List[int]], Multigrid],
         mass: float,
         kappa: float,
         coarse_tol: float,
@@ -98,7 +94,10 @@ class HISQ(StaggeredDirac):
         nu_pre: int,
         nu_post: int,
     ):
-        if geo_block_size is not None:
+        if isinstance(multigrid, Multigrid):
+            self.multigrid = multigrid
+        elif multigrid is not None:
+            geo_block_size = multigrid
             mg_param, mg_inv_param = general.newQudaMultigridParam(
                 mass,
                 kappa,
@@ -125,46 +124,8 @@ class HISQ(StaggeredDirac):
             invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
         self.invert_param = invert_param
 
-    def computeFatLong(self, gauge: LatticeGauge):
-        nullptr = Pointers("void", 0)
-        inlink = gauge.copy()
-        ulink = LatticeGauge(gauge.latt_info)
-        fatlink = LatticeGauge(gauge.latt_info)
-        longlink = LatticeGauge(gauge.latt_info)
-
-        # gauge_param.use_resident_gauge = 0
-        # loadGaugeQuda(inlink.data_ptrs, gauge_param)  # Save the original gauge for the smeared source.
-        # gauge_param.use_resident_gauge = 1
-
-        # t boundary will be applied by the staggered phase.
-        inlink.staggeredPhase()
-        self.gauge_param.staggered_phase_applied = 1
-
-        # Chroma uses periodic boundary condition to do the SU(3) projection.
-        # But I think it's wrong.
-        # gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
-        computeKSLinkQuda(
-            nullptr,
-            nullptr,
-            ulink.data_ptrs,
-            inlink.data_ptrs,
-            self.fat7_coeff,
-            self.gauge_param,
-        )
-        computeKSLinkQuda(
-            fatlink.data_ptrs,
-            longlink.data_ptrs,
-            nullptr,
-            ulink.data_ptrs,
-            self.level2_coeff,
-            self.gauge_param,
-        )
-
-        return fatlink, longlink
-
     def loadGauge(self, gauge: LatticeGauge, thin_update_only: bool = False):
-        fatlink, longlink = self.computeFatLong(gauge)
-        general.loadFatLongGauge(fatlink, longlink, self.gauge_param)
+        general.loadFatLongGauge(gauge, self.fat7_coeff, self.level2_coeff, self.gauge_param)
         if self.multigrid.instance is None:
             self.newMultigrid()
         else:
@@ -172,3 +133,43 @@ class HISQ(StaggeredDirac):
 
     def destroy(self):
         self.destroyMultigrid()
+
+    # def computeFatLong(self, gauge: LatticeGauge):
+    #     from ..pointer import Pointers
+    #     from ..pyquda import computeKSLinkQuda
+
+    #     nullptr = Pointers("void", 0)
+    #     inlink = gauge.copy()
+    #     ulink = LatticeGauge(gauge.latt_info)
+    #     fatlink = LatticeGauge(gauge.latt_info)
+    #     longlink = LatticeGauge(gauge.latt_info)
+
+    #     # gauge_param.use_resident_gauge = 0
+    #     # loadGaugeQuda(inlink.data_ptrs, gauge_param)  # Save the original gauge for the smeared source.
+    #     # gauge_param.use_resident_gauge = 1
+
+    #     # t boundary will be applied by the staggered phase.
+    #     inlink.staggeredPhase()
+    #     self.gauge_param.staggered_phase_applied = 1
+
+    #     # Chroma uses periodic boundary condition to do the SU(3) projection.
+    #     # But I think it's wrong.
+    #     # gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
+    #     computeKSLinkQuda(
+    #         nullptr,
+    #         nullptr,
+    #         ulink.data_ptrs,
+    #         inlink.data_ptrs,
+    #         self.fat7_coeff,
+    #         self.gauge_param,
+    #     )
+    #     computeKSLinkQuda(
+    #         fatlink.data_ptrs,
+    #         longlink.data_ptrs,
+    #         nullptr,
+    #         ulink.data_ptrs,
+    #         self.level2_coeff,
+    #         self.gauge_param,
+    #     )
+
+    #     return fatlink, longlink

@@ -1,5 +1,8 @@
 from typing import List
 
+import numpy
+from numpy.typing import NDArray
+
 from ..pointer import Pointer, Pointers
 from ..pyquda import (
     QudaGaugeParam,
@@ -12,6 +15,7 @@ from ..pyquda import (
     MatDagMatQuda,
     dslashQuda,
     cloverQuda,
+    computeKSLinkQuda,
 )
 from ..field import (
     LatticeInfo,
@@ -444,7 +448,23 @@ def loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     gauge_param.use_resident_gauge = 1
 
 
-def loadFatLongGauge(fatlink: LatticeGauge, longlink: LatticeGauge, gauge_param: QudaGaugeParam):
+def loadFatLongGauge(
+    gauge: LatticeGauge,
+    fat7_coeff: NDArray[numpy.float64],
+    level2_coeff: NDArray[numpy.float64],
+    gauge_param: QudaGaugeParam,
+):
+    staggered_phase_type = gauge_param.staggered_phase_type
+
+    inlink = gauge.copy()
+    ulink = LatticeGauge(gauge.latt_info)
+    fatlink = LatticeGauge(gauge.latt_info)
+    longlink = LatticeGauge(gauge.latt_info)
+
+    inlink.staggeredPhase()
+    computeKSLinkQuda(nullptrs, nullptrs, ulink.data_ptrs, inlink.data_ptrs, fat7_coeff, gauge_param)
+    computeKSLinkQuda(fatlink.data_ptrs, longlink.data_ptrs, nullptrs, ulink.data_ptrs, level2_coeff, gauge_param)
+
     gauge_param.use_resident_gauge = 0
     gauge_param.type = QudaLinkType.QUDA_ASQTAD_FAT_LINKS
     loadGaugeQuda(fatlink.data_ptrs, gauge_param)
@@ -453,8 +473,8 @@ def loadFatLongGauge(fatlink: LatticeGauge, longlink: LatticeGauge, gauge_param:
     gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_NO
     loadGaugeQuda(longlink.data_ptrs, gauge_param)
     gauge_param.type = QudaLinkType.QUDA_WILSON_LINKS
-    gauge_param.ga_pad = gauge_param.ga_pad / 3
-    gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_MILC
+    gauge_param.ga_pad = gauge_param.ga_pad // 3
+    gauge_param.staggered_phase_type = staggered_phase_type
     gauge_param.use_resident_gauge = 1
 
 
