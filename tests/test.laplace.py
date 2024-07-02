@@ -24,9 +24,6 @@ latt_info = LaplaceLatticeInfo([Lx, Ly, Lz, 1])
 gauge_tmp_lexico = cp.array(gauge.lexico()[:, t])
 gauge_tmp_lexico_dagger = gauge_tmp_lexico.transpose(0, 1, 2, 3, 5, 4).conj().copy()
 gauge_tmp = LatticeGauge(latt_info, core.cb2(gauge.lexico()[:, t : t + 1], [1, 2, 3, 4]))
-gauge_tmp.loadLaplace(3)
-gauge_tmp.pure_gauge.invert_param.verbosity = 0
-
 
 Lx, Ly, Lz, _ = latt_info.size
 n_ev = 20
@@ -39,7 +36,7 @@ def Laplacian(x):
     x = x.reshape(Lz * Ly * Lx * Nc, -1)
     ret = cp.zeros_like(x, "<c16")
     for i in range(x.shape[1]):
-        ret[:, i] = gauge_tmp.laplace(LatticeStaggeredFermion(latt_info, x[:, i])).data.reshape(Lz * Ly * Lx * Nc)
+        ret[:, i] = gauge_tmp.laplace(LatticeStaggeredFermion(latt_info, x[:, i]), 3).data.reshape(Lz * Ly * Lx * Nc)
     return ret
 
 
@@ -73,7 +70,7 @@ evals, evecs = linalg.eigsh(A, n_ev, which="SA", tol=tol)
 print(f"{perf_counter() - s:.3f} secs")
 print(evals)
 
-
+gauge_tmp.pure_gauge.loadGauge(gauge_tmp)
 eig_param = quda.QudaEigParam()
 eig_param.invert_param = gauge_tmp.pure_gauge.invert_param
 eig_param.eig_type = enum_quda.QudaEigType.QUDA_EIG_TR_LANCZOS
