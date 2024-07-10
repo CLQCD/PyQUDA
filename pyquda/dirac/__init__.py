@@ -14,7 +14,6 @@ from ..pyquda import (
     newMultigridQuda,
     updateMultigridQuda,
     destroyMultigridQuda,
-    dumpMultigridQuda,
 )
 from ..enum_quda import QudaBoolean, QudaPrecision, QudaReconstructType
 from ..field import LatticeInfo, LatticeGauge, LatticeFermion, LatticeStaggeredFermion

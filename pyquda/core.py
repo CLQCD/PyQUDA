@@ -2,15 +2,7 @@ from typing import List, Literal, Union
 
 import numpy
 
-from . import (
-    getMPIComm,
-    getMPISize,
-    getMPIRank,
-    getGridSize,
-    getCoordFromRank,
-    getDefaultLattice,
-    getLogger,
-)
+from . import getDefaultLattice, getLogger
 from .field import (
     Ns,
     Nc,
@@ -102,6 +94,8 @@ def gatherLattice(data: numpy.ndarray, axes: List[int], reduce_op: Literal["sum"
     Note:
     - This function assumes that MPI environment has been initialized before its invocation.
     """
+    from . import getMPIComm, getMPISize, getMPIRank, getGridSize, getCoordFromRank
+
     Gx, Gy, Gz, Gt = getGridSize()
     Lt, Lz, Ly, Lx = [data.shape[axis] if axis >= 0 else 1 for axis in axes]
     keep = tuple([axis for axis in axes if axis >= 0])
