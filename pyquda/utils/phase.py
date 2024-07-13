@@ -1,3 +1,4 @@
+from math import pi
 from typing import List, NamedTuple, Sequence, Union
 
 import numpy
@@ -39,13 +40,20 @@ def getMomDict(mom2_max, mom2_min=0):
     return mom_dict
 
 
-class MomentumMode(NamedTuple):
+class ThreeMomentumMode(NamedTuple):
     x: int
     y: int
     z: int
 
 
-class MomentumPhase:
+class FourMomentumMode(NamedTuple):
+    x: int
+    y: int
+    z: int
+    t: int
+
+
+class MomentumPhaseOld:
     def __init__(self, latt_info: LatticeInfo) -> None:
         from .. import getCUDABackend
 
@@ -95,12 +103,12 @@ class MomentumPhase:
             self.y = torch.as_tensor(y_cb2)
             self.z = torch.as_tensor(z_cb2)
 
-    def getPhase(self, mom: Union[MomentumMode, Sequence[int]]):
+    def getPhase(self, mom: Union[ThreeMomentumMode, Sequence[int]]):
         from .. import getCUDABackend
 
         backend = getCUDABackend()
-        if not isinstance(mom, MomentumMode):
-            mom = MomentumMode(*mom)
+        if not isinstance(mom, ThreeMomentumMode):
+            mom = ThreeMomentumMode(*mom)
         if backend == "numpy":
             return numpy.exp(mom.x * self.x + mom.y * self.y + mom.z * self.z)
         elif backend == "cupy":
@@ -112,7 +120,117 @@ class MomentumPhase:
 
             return torch.exp(mom.x * self.x + mom.y * self.y + mom.z * self.z)
 
-    def getPhases(self, mom_list: Sequence[Union[MomentumMode, Sequence[int]]]):
+    def getPhases(self, mom_list: Sequence[Union[ThreeMomentumMode, Sequence[int]]]):
+        from .. import getCUDABackend
+
+        backend = getCUDABackend()
+        if backend == "numpy":
+            phases = numpy.zeros((len(mom_list), *self.x.shape), "<c16")
+        elif backend == "cupy":
+            import cupy
+
+            phases = cupy.zeros((len(mom_list), *self.x.shape), "<c16")
+        elif backend == "torch":
+            import torch
+
+            phases = torch.zeros((len(mom_list), *self.x.shape), dtype=torch.complex128)
+        for idx, mom in enumerate(mom_list):
+            phases[idx] = self.getPhase(mom)
+
+        return phases
+
+
+class MomentumPhase:
+    def __init__(self, latt_info: LatticeInfo) -> None:
+        from .. import getCUDABackend
+
+        backend = getCUDABackend()
+        gx, gy, gz, gt = latt_info.grid_coord
+        GLx, GLy, GLz, GLt = latt_info.global_size
+        Lx, Ly, Lz, Lt = latt_info.size
+
+        if backend == "numpy":
+            x = numpy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
+            y = numpy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
+            z = numpy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
+            t = numpy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
+            xx = 2j * pi / GLx * numpy.arange(gx * Lx, (gx + 1) * Lx)
+        elif backend == "cupy":
+            import cupy
+
+            x = cupy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
+            y = cupy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
+            z = cupy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
+            t = cupy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
+            xx = 2j * pi / GLx * cupy.arange(gx * Lx, (gx + 1) * Lx)
+        elif backend == "torch":
+            import torch
+
+            x = torch.zeros((2, Lt, Lz, Ly, Lx // 2), dtype=torch.complex128)
+            y = torch.zeros((2, Lt, Lz, Ly, Lx // 2), dtype=torch.complex128)
+            z = torch.zeros((2, Lt, Lz, Ly, Lx // 2), dtype=torch.complex128)
+            t = torch.zeros((2, Lt, Lz, Ly, Lx // 2), dtype=torch.complex128)
+            xx = 2j * pi / GLx * torch.arange(gx * Lx, (gx + 1) * Lx)
+
+        for it in range(Lt):
+            for iz in range(Lz):
+                for iy in range(Ly):
+                    ieo = (it + iz + iy) % 2
+                    if ieo == 0:
+                        x[0, it, iz, iy] = xx[0::2]
+                        x[1, it, iz, iy] = xx[1::2]
+                    else:
+                        x[1, it, iz, iy] = xx[0::2]
+                        x[0, it, iz, iy] = xx[1::2]
+        for iy in range(Ly):
+            y[:, :, :, iy, :] = 2j * pi / GLy * (gy * Ly + iy)
+        for iz in range(Lz):
+            z[:, :, iz, :, :] = 2j * pi / GLz * (gz * Lz + iz)
+        for it in range(Lt):
+            t[:, it, :, :, :] = 2j * pi / GLt * (gt * Lt + it)
+
+        self.x = x
+        self.y = y
+        self.z = z
+        self.t = t
+
+    def getPhase(self, mom: Union[ThreeMomentumMode, FourMomentumMode, Sequence[int]]):
+        from .. import getCUDABackend
+
+        backend = getCUDABackend()
+        if not isinstance(mom, ThreeMomentumMode) or not isinstance(mom, FourMomentumMode):
+            if len(mom) == 3:
+                mom = ThreeMomentumMode(*mom)
+            elif len(mom) == 4:
+                mom = FourMomentumMode(*mom)
+            else:
+                from .. import getLogger
+
+                getLogger().critical(f"mom should be a sequence of int with length 3 or 4, but get {mom}", ValueError)
+        if isinstance(mom, ThreeMomentumMode):
+            if backend == "numpy":
+                return numpy.exp(mom.x * self.x + mom.y * self.y + mom.z * self.z)
+            elif backend == "cupy":
+                import cupy
+
+                return cupy.exp(mom.x * self.x + mom.y * self.y + mom.z * self.z)
+            elif backend == "torch":
+                import torch
+
+                return torch.exp(mom.x * self.x + mom.y * self.y + mom.z * self.z)
+        elif isinstance(mom, FourMomentumMode):
+            if backend == "numpy":
+                return numpy.exp(mom.x * self.x + mom.y * self.y + mom.z * self.z + mom.t * self.t)
+            elif backend == "cupy":
+                import cupy
+
+                return cupy.exp(mom.x * self.x + mom.y * self.y + mom.z * self.z + mom.t * self.t)
+            elif backend == "torch":
+                import torch
+
+                return torch.exp(mom.x * self.x + mom.y * self.y + mom.z * self.z + mom.t * self.t)
+
+    def getPhases(self, mom_list: Sequence[Union[ThreeMomentumMode, FourMomentumMode, Sequence[int]]]):
         from .. import getCUDABackend
 
         backend = getCUDABackend()
