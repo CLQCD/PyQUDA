@@ -149,29 +149,12 @@ class MomentumPhase:
         GLx, GLy, GLz, GLt = latt_info.global_size
         Lx, Ly, Lz, Lt = latt_info.size
 
-        if backend == "numpy":
-            x = numpy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
-            y = numpy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
-            z = numpy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
-            t = numpy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
-            xx = 2j * pi / GLx * numpy.arange(gx * Lx, (gx + 1) * Lx)
-        elif backend == "cupy":
-            import cupy
+        x = numpy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
+        y = numpy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
+        z = numpy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
+        t = numpy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
 
-            x = cupy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
-            y = cupy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
-            z = cupy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
-            t = cupy.zeros((2, Lt, Lz, Ly, Lx // 2), "<c16")
-            xx = 2j * pi / GLx * cupy.arange(gx * Lx, (gx + 1) * Lx)
-        elif backend == "torch":
-            import torch
-
-            x = torch.zeros((2, Lt, Lz, Ly, Lx // 2), dtype=torch.complex128)
-            y = torch.zeros((2, Lt, Lz, Ly, Lx // 2), dtype=torch.complex128)
-            z = torch.zeros((2, Lt, Lz, Ly, Lx // 2), dtype=torch.complex128)
-            t = torch.zeros((2, Lt, Lz, Ly, Lx // 2), dtype=torch.complex128)
-            xx = 2j * pi / GLx * torch.arange(gx * Lx, (gx + 1) * Lx)
-
+        xx = 2j * pi / GLx * numpy.arange(gx * Lx, (gx + 1) * Lx)
         for it in range(Lt):
             for iz in range(Lz):
                 for iy in range(Ly):
@@ -189,10 +172,25 @@ class MomentumPhase:
         for it in range(Lt):
             t[:, it, :, :, :] = 2j * pi / GLt * (gt * Lt + it)
 
-        self.x = x
-        self.y = y
-        self.z = z
-        self.t = t
+        if backend == "numpy":
+            self.x = x
+            self.y = y
+            self.z = z
+            self.t = t
+        elif backend == "cupy":
+            import cupy
+
+            self.x = cupy.asarray(x)
+            self.y = cupy.asarray(y)
+            self.z = cupy.asarray(z)
+            self.t = cupy.asarray(t)
+        elif backend == "torch":
+            import torch
+
+            self.x = torch.as_tensor(x)
+            self.y = torch.as_tensor(y)
+            self.z = torch.as_tensor(z)
+            self.t = torch.as_tensor(t)
 
     def getPhase(self, mom: Union[ThreeMomentumMode, FourMomentumMode, Sequence[int]]):
         from .. import getCUDABackend
