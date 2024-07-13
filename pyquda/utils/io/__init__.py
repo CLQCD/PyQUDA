@@ -140,20 +140,20 @@ def writeKYUPropagator(filename: str, propagator: LatticePropagator):
 
 
 def readXQCDPropagator(filename: str, latt_size: List[int]):
-    from .kyu_single import readPropagator as read
+    from .xqcd import readPropagator as read
 
     propagator_raw = read(filename, latt_size)
     return rotateToDeGrandRossi(LatticePropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3])))
 
 
 def writeXQCDPropagator(filename: str, propagator: LatticePropagator):
-    from .kyu_single import writePropagator as write
+    from .xqcd import writePropagator as write
 
     write(filename, rotateToDiracPauli(propagator).lexico(), propagator.latt_info.global_size)
 
 
 def readXQCDPropagatorFast(filename: str, latt_size: List[int]):
-    from .kyu_single import readPropagatorFast as read
+    from .xqcd import readPropagatorFast as read
 
     latt_info = LatticeInfo(latt_size)
     Lx, Ly, Lz, Lt = latt_info.size
@@ -167,7 +167,7 @@ def readXQCDPropagatorFast(filename: str, latt_size: List[int]):
 
 
 def writeXQCDPropagatorFast(filename: str, propagator: LatticePropagator):
-    from .kyu_single import writePropagatorFast as write
+    from .xqcd import writePropagatorFast as write
 
     latt_info = propagator.latt_info
     Lx, Ly, Lz, Lt = latt_info.size
