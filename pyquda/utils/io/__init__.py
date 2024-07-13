@@ -152,6 +152,18 @@ def writeXQCDPropagator(filename: str, propagator: LatticePropagator):
     write(filename, rotateToDiracPauli(propagator).lexico(), propagator.latt_info.global_size)
 
 
+def readXQCDStaggeredPropagator(filename: str, latt_size: List[int]):
+    from .xqcd import readStaggeredPropagator as read
+
+    read(filename, latt_size)
+
+
+def writeXQCDStaggeredPropagator(filename: str, propagator: LatticeStaggeredPropagator):
+    from xqcd import writeStaggeredPropagator as write
+
+    write(filename, propagator.lexico(), propagator.latt_info.global_size)
+
+
 def readXQCDPropagatorFast(filename: str, latt_size: List[int]):
     from .xqcd import readPropagatorFast as read
 
