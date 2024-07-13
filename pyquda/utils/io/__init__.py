@@ -79,10 +79,6 @@ def readChromaQIOGauge(filename: str):
     return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
 
 
-def readQIOGauge(filename: str):
-    return readChromaQIOGauge(filename)
-
-
 def readILDGBinGauge(filename: str, dtype: str, latt_size: List[int]):
     from .chroma import readILDGBinGauge as read
 
@@ -98,10 +94,6 @@ def readChromaQIOPropagator(filename: str):
         return LatticePropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
     else:
         return LatticeStaggeredPropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
-
-
-def readQIOPropagator(filename: str):
-    return readChromaQIOPropagator(filename)
 
 
 def readMILCGauge(filename: str):
@@ -147,20 +139,20 @@ def writeKYUPropagator(filename: str, propagator: LatticePropagator):
     write(filename, rotateToDiracPauli(propagator).lexico(), propagator.latt_info.global_size)
 
 
-def readKYUPropagatorF(filename: str, latt_size: List[int]):
+def readXQCDPropagator(filename: str, latt_size: List[int]):
     from .kyu_single import readPropagator as read
 
     propagator_raw = read(filename, latt_size)
     return rotateToDeGrandRossi(LatticePropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3])))
 
 
-def writeKYUPropagatorF(filename: str, propagator: LatticePropagator):
+def writeXQCDPropagator(filename: str, propagator: LatticePropagator):
     from .kyu_single import writePropagator as write
 
     write(filename, rotateToDiracPauli(propagator).lexico(), propagator.latt_info.global_size)
 
 
-def readKYUPropagatorFFast(filename: str, latt_size: List[int]):
+def readXQCDPropagatorFast(filename: str, latt_size: List[int]):
     from .kyu_single import readPropagatorFast as read
 
     latt_info = LatticeInfo(latt_size)
@@ -174,7 +166,7 @@ def readKYUPropagatorFFast(filename: str, latt_size: List[int]):
     return rotateToDeGrandRossi(propagator)
 
 
-def writeKYUPropagatorFFast(filename: str, propagator: LatticePropagator):
+def writeXQCDPropagatorFast(filename: str, propagator: LatticePropagator):
     from .kyu_single import writePropagatorFast as write
 
     latt_info = propagator.latt_info
@@ -185,3 +177,27 @@ def writeKYUPropagatorFFast(filename: str, propagator: LatticePropagator):
     propagator.data = propagator.data.reshape(Ns, Nc, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
     propagator_raw = lexico(propagator.data, [2, 3, 4, 5, 6])
     write(filename, propagator_raw, latt_info.global_size)
+
+
+def readQIOGauge(filename: str):
+    return readChromaQIOGauge(filename)
+
+
+def readQIOPropagator(filename: str):
+    return readChromaQIOPropagator(filename)
+
+
+def readKYUPropagatorF(filename: str, latt_size: List[int]):
+    return readXQCDPropagator(filename, latt_size)
+
+
+def writeKYUPropagatorF(filename: str, propagator: LatticePropagator):
+    writeXQCDPropagator(filename, propagator)
+
+
+def readKYUPropagatorFFast(filename: str, latt_size: List[int]):
+    return readXQCDPropagatorFast(filename, latt_size)
+
+
+def writeKYUPropagatorFFast(filename: str, propagator: LatticePropagator):
+    writeXQCDPropagatorFast(filename, propagator)

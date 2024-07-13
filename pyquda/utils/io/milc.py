@@ -12,15 +12,6 @@ Nd, Ns, Nc = 4, 4, 3
 _precision_map = {"D": 8, "F": 4, "S": 4}
 
 
-def fromGaugeFile(filename: str, offset: int, dtype: str, sublatt_size: List[int]):
-    Lx, Ly, Lz, Lt = sublatt_size
-
-    gauge_raw = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
-    gauge_raw = gauge_raw.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
-
-    return gauge_raw
-
-
 def readGauge(filename: str):
     filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
@@ -35,31 +26,12 @@ def readGauge(filename: str):
         assert struct.unpack(f"{endian}i", f.read(4))[0] == 0
         sum29, sum31 = struct.unpack(f"{endian}II", f.read(8))
         offset = f.tell()
-    sublatt_size = getSublatticeSize(latt_size)
-    gauge_raw = fromGaugeFile(filename, offset, f"{endian}c8", sublatt_size)
-    return latt_size, gauge_raw
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
+    dtype = f"{endian}c8"
 
-
-def fromMultiSCIDACPropagatorFile(
-    filename: str, offset: List[int], dtype: str, sublatt_size: List[int], staggered: bool
-):
-    Lx, Ly, Lz, Lt = sublatt_size
-
-    if not staggered:
-        propagator_raw = numpy.empty((Ns, Nc, Lt, Lz, Ly, Lx, Ns, Nc), dtype)
-        for spin in range(Ns):
-            for color in range(Nc):
-                propagator_raw[spin, color] = readMPIFile(
-                    filename, dtype, offset[spin * Nc + color], (Lt, Lz, Ly, Lx, Ns, Nc), (3, 2, 1, 0)
-                )
-        propagator_raw = propagator_raw.transpose(2, 3, 4, 5, 6, 0, 7, 1).astype("<c16")
-    else:
-        propagator_raw = numpy.empty((Nc, Lt, Lz, Ly, Lx, Nc), dtype)
-        for color in range(Nc):
-            propagator_raw[color] = readMPIFile(filename, dtype, offset[color], (Lt, Lz, Ly, Lx, Nc), (3, 2, 1, 0))
-        propagator_raw = propagator_raw.transpose(1, 2, 3, 4, 5, 0).astype("<c16")
-
-    return propagator_raw
+    gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
+    gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
+    return latt_size, gauge
 
 
 def readQIOPropagator(filename: str):
@@ -103,6 +75,20 @@ def readQIOPropagator(filename: str):
     assert int(scidac_private_record_xml.find("datacount").text) == 1
     assert int(scidac_private_file_xml.find("spacetime").text) == Nd
     latt_size = [int(L) for L in scidac_private_file_xml.find("dims").text.split()]
-    sublatt_size = getSublatticeSize(latt_size)
-    propagator_raw = fromMultiSCIDACPropagatorFile(filename, offset, f">c{2*precision}", sublatt_size, staggered)
-    return latt_size, staggered, propagator_raw
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
+    dtype = f">c{2*precision}"
+
+    if not staggered:
+        propagator = numpy.empty((Ns, Nc, Lt, Lz, Ly, Lx, Ns, Nc), dtype)
+        for spin in range(Ns):
+            for color in range(Nc):
+                propagator[spin, color] = readMPIFile(
+                    filename, dtype, offset[spin * Nc + color], (Lt, Lz, Ly, Lx, Ns, Nc), (3, 2, 1, 0)
+                )
+        propagator = propagator.transpose(2, 3, 4, 5, 6, 0, 7, 1).astype("<c16")
+    else:
+        propagator = numpy.empty((Nc, Lt, Lz, Ly, Lx, Nc), dtype)
+        for color in range(Nc):
+            propagator[color] = readMPIFile(filename, dtype, offset[color], (Lt, Lz, Ly, Lx, Nc), (3, 2, 1, 0))
+        propagator = propagator.transpose(1, 2, 3, 4, 5, 0).astype("<c16")
+    return latt_size, staggered, propagator

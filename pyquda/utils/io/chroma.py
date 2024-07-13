@@ -10,15 +10,6 @@ Nd, Ns, Nc = 4, 4, 3
 _precision_map = {"D": 8, "F": 4, "S": 4}
 
 
-def fromILDGGaugeFile(filename: str, offset: int, dtype: str, sublatt_size: List[int]):
-    Lx, Ly, Lz, Lt = sublatt_size
-
-    gauge_raw = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
-    gauge_raw = gauge_raw.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
-
-    return gauge_raw
-
-
 def readQIOGauge(filename: str):
     filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
@@ -51,29 +42,22 @@ def readQIOGauge(filename: str):
     assert int(scidac_private_record_xml.find("datacount").text) == Nd
     assert int(scidac_private_file_xml.find("spacetime").text) == Nd
     latt_size = [int(L) for L in scidac_private_file_xml.find("dims").text.split()]
-    sublatt_size = getSublatticeSize(latt_size)
-    gauge_raw = fromILDGGaugeFile(filename, offset, f">c{2*precision}", sublatt_size)
-    return latt_size, gauge_raw
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
+    dtype = f">c{2*precision}"
+
+    gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
+    gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
+    return latt_size, gauge
 
 
 def readILDGBinGauge(filename: str, dtype: str, latt_size: List[int]):
     filename = path.expanduser(path.expandvars(filename))
-    sublatt_size = getSublatticeSize(latt_size)
-    gauge_raw = fromILDGGaugeFile(filename, 0, dtype, sublatt_size)
-    return gauge_raw
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
+    offset = 0
 
-
-def fromSCIDACPropagatorFile(filename: str, offset: int, dtype: str, sublatt_size: List[int], staggered: bool):
-    Lx, Ly, Lz, Lt = sublatt_size
-
-    if not staggered:
-        propagator_raw = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc), (3, 2, 1, 0))
-        propagator_raw = propagator_raw.astype("<c16")
-    else:
-        propagator_raw = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nc, Nc), (3, 2, 1, 0))
-        propagator_raw = propagator_raw.astype("<c16")
-
-    return propagator_raw
+    gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
+    gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
+    return gauge
 
 
 def readQIOPropagator(filename: str):
@@ -114,6 +98,13 @@ def readQIOPropagator(filename: str):
     assert int(scidac_private_record_xml.find("datacount").text) == 1
     assert int(scidac_private_file_xml.find("spacetime").text) == Nd
     latt_size = [int(L) for L in scidac_private_file_xml.find("dims").text.split()]
-    sublatt_size = getSublatticeSize(latt_size)
-    propagator_raw = fromSCIDACPropagatorFile(filename, offset, f">c{2*precision}", sublatt_size, staggered)
-    return latt_size, staggered, propagator_raw
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
+    dtype = f">c{2*precision}"
+
+    if not staggered:
+        propagator = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc), (3, 2, 1, 0))
+        propagator = propagator.astype("<c16")
+    else:
+        propagator = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nc, Nc), (3, 2, 1, 0))
+        propagator = propagator.astype("<c16")
+    return latt_size, staggered, propagator
