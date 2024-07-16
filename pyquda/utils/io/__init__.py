@@ -155,11 +155,12 @@ def writeXQCDPropagator(filename: str, propagator: LatticePropagator):
 def readXQCDStaggeredPropagator(filename: str, latt_size: List[int]):
     from .xqcd import readStaggeredPropagator as read
 
-    read(filename, latt_size)
+    propagator_raw = read(filename, latt_size)
+    return LatticeStaggeredPropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
 
 
 def writeXQCDStaggeredPropagator(filename: str, propagator: LatticeStaggeredPropagator):
-    from xqcd import writeStaggeredPropagator as write
+    from .xqcd import writeStaggeredPropagator as write
 
     write(filename, propagator.lexico(), propagator.latt_info.global_size)
 
