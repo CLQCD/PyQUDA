@@ -32,8 +32,9 @@ def readStaggeredPropagator(filename: str, latt_size: List[int]):
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     dtype, offset = "<c8", 0
 
-    propagator = readMPIFile(filename, dtype, offset, (Nc, Lt, Lz, Ly, Lx, Nc), (4, 3, 2, 1))
-    propagator = propagator.transpose(1, 2, 3, 4, 5, 0).astype("<c16")
+    # QDP_ALIGN16 makes the last Nc to be aligned with 16 Bytes.
+    propagator_align16 = readMPIFile(filename, dtype, offset, (Nc, Lt, Lz, Ly, Lx, 4), (4, 3, 2, 1))
+    propagator = propagator_align16[:, :, :, :, :, :Nc].transpose(1, 2, 3, 4, 5, 0).astype("<c16")
     return propagator
 
 
@@ -42,8 +43,10 @@ def writeStaggeredPropagator(filename: str, propagator: numpy.ndarray, latt_size
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     dtype, offset = "<c8", 0
 
-    propagator = propagator.astype(dtype).transpose(5, 0, 1, 2, 3, 4).copy()
-    writeMPIFile(filename, dtype, offset, (Nc, Lt, Lz, Ly, Lx, Nc), (4, 3, 2, 1), propagator)
+    # QDP_ALIGN16 makes the last Nc to be aligned with 16 Bytes.
+    propagator_align16 = numpy.zeros((Nc, Lt, Lz, Ly, Lx, 4), dtype)
+    propagator_align16[:, :, :, :, :, :Nc] = propagator.astype(dtype).transpose(5, 0, 1, 2, 3, 4)
+    writeMPIFile(filename, dtype, offset, (Nc, Lt, Lz, Ly, Lx, 4), (4, 3, 2, 1), propagator_align16)
 
 
 def readPropagatorFast(filename: str, latt_size: List[int]):
