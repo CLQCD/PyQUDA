@@ -1,11 +1,8 @@
-from typing import List
+from typing import List, Union
 
 import numpy
 
 from ...field import Ns, Nc, LatticeInfo, LatticeGauge, LatticePropagator, LatticeStaggeredPropagator, cb2, lexico
-
-from .eigen import readTimeSlice as readTimeSliceEivenvector
-
 
 # matrices to convert gamma basis bewteen DeGrand-Rossi and Dirac-Pauli
 # \psi(DP) = _DR_TO_DP \psi(DR)
@@ -139,30 +136,25 @@ def writeKYUPropagator(filename: str, propagator: LatticePropagator):
     write(filename, rotateToDiracPauli(propagator).lexico(), propagator.latt_info.global_size)
 
 
-def readXQCDPropagator(filename: str, latt_size: List[int]):
+def readXQCDPropagator(filename: str, latt_size: List[int], staggered: bool):
     from .xqcd import readPropagator as read
 
-    propagator_raw = read(filename, latt_size)
-    return rotateToDeGrandRossi(LatticePropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3])))
+    propagator_raw = read(filename, latt_size, staggered)
+    if not staggered:
+        return rotateToDeGrandRossi(LatticePropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3])))
+    else:
+        return LatticeStaggeredPropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
 
 
-def writeXQCDPropagator(filename: str, propagator: LatticePropagator):
+def writeXQCDPropagator(filename: str, propagator: Union[LatticePropagator, LatticeStaggeredPropagator]):
     from .xqcd import writePropagator as write
 
-    write(filename, rotateToDiracPauli(propagator).lexico(), propagator.latt_info.global_size)
-
-
-def readXQCDStaggeredPropagator(filename: str, latt_size: List[int]):
-    from .xqcd import readStaggeredPropagator as read
-
-    propagator_raw = read(filename, latt_size)
-    return LatticeStaggeredPropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
-
-
-def writeXQCDStaggeredPropagator(filename: str, propagator: LatticeStaggeredPropagator):
-    from .xqcd import writeStaggeredPropagator as write
-
-    write(filename, propagator.lexico(), propagator.latt_info.global_size)
+    latt_size = propagator.latt_info.global_size
+    staggered = isinstance(propagator, LatticeStaggeredPropagator)
+    if not staggered:
+        write(filename, rotateToDiracPauli(propagator).lexico(), latt_size, staggered)
+    else:
+        write(filename, propagator.lexico(), latt_size, staggered)
 
 
 def readXQCDPropagatorFast(filename: str, latt_size: List[int]):
@@ -201,10 +193,18 @@ def readQIOPropagator(filename: str):
 
 
 def readKYUPropagatorF(filename: str, latt_size: List[int]):
-    return readXQCDPropagator(filename, latt_size)
+    return readXQCDPropagator(filename, latt_size, False)
 
 
 def writeKYUPropagatorF(filename: str, propagator: LatticePropagator):
+    writeXQCDPropagator(filename, propagator, False)
+
+
+def readXQCDStaggeredPropagator(filename: str, latt_size: List[int]):
+    return readXQCDPropagator(filename, latt_size, True)
+
+
+def writeXQCDStaggeredPropagator(filename: str, propagator: LatticeStaggeredPropagator):
     writeXQCDPropagator(filename, propagator)
 
 
