@@ -14,7 +14,7 @@ n_steps = 5
 
 gauge = io.readQIOGauge(weak_field)
 point_source = source.source12(latt_info, "point", [0, 0, 0, 0])
-shell_source = source.gaussian12(point_source, gauge, n_steps, rho)
+shell_source = source.gaussian12(point_source, gauge, rho, n_steps)
 
 shell_source_chroma = io.readQIOPropagator("pt_prop_4")
 shell_source_chroma.toDevice()
