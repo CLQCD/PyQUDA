@@ -409,11 +409,11 @@ class LatticeGauge(LatticeField):
 
     def path(self, paths: List[List[int]]):
         self.ensurePureGauge()
-        self.pure_gauge.path(self, paths)
+        return self.pure_gauge.path(self, paths)
 
     def loop(self, loops: List[List[List[int]]], coeff: List[float]):
         self.ensurePureGauge()
-        self.pure_gauge.loop(self, loops, coeff)
+        return self.pure_gauge.loop(self, loops, coeff)
 
     def loopTrace(self, loops: List[List[int]]):
         self.ensurePureGauge()

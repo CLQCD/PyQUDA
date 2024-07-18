@@ -23,7 +23,7 @@ from .deprecated import smear, smear4, invert12, getDslash, getStaggeredDslash
 
 def invert(
     dslash: Dirac,
-    source_type: str,
+    source_type: Literal["point", "wall", "volume", "momentum", "colorvector"],
     t_srce: Union[int, List[int]],
     source_phase=None,
     restart: int = 0,
@@ -45,7 +45,7 @@ def invert(
 
 def invertStaggered(
     dslash: StaggeredDirac,
-    source_type: str,
+    source_type: Literal["point", "wall", "volume", "momentum", "colorvector"],
     t_srce: Union[int, List[int]],
     source_phase=None,
     restart: int = 0,

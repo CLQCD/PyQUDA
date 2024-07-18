@@ -80,7 +80,7 @@ class MomentumPhase:
                         x[0, it, iz, iy] = xx[1::2]
         y[:] = 2j * pi / GLy * numpy.arange(gy * Ly, (gy + 1) * Ly).reshape(1, 1, 1, Ly, 1)
         z[:] = 2j * pi / GLz * numpy.arange(gz * Lz, (gz + 1) * Lz).reshape(1, 1, Lz, 1, 1)
-        t[:] = 2j * pi / GLz * numpy.arange(gt * Lt, (gt + 1) * Lt).reshape(1, Lt, 1, 1, 1)
+        t[:] = 2j * pi / GLt * numpy.arange(gt * Lt, (gt + 1) * Lt).reshape(1, Lt, 1, 1, 1)
 
         backend = getCUDABackend()
         if backend == "numpy":
@@ -162,18 +162,22 @@ class MomentumPhase:
 
 
 class GridPhase:
-    def __init__(self, latt_info: LatticeInfo) -> None:
+    def __init__(self, latt_info: LatticeInfo, stride: Sequence[int]) -> None:
         self.latt_info = latt_info
+        self.stride = stride
 
-    def getPhase(self, stride: Sequence[int]):
+    def getPhase(self, t_srce: Sequence[int]):
         from .. import getCUDABackend
 
         gx, gy, gz, gt = self.latt_info.grid_coord
         Lx, Ly, Lz, Lt = self.latt_info.size
-        Sx, Sy, Sz, St = stride
+        Sx, Sy, Sz, St = self.stride
+        x, y, z, t = t_srce
         phase = numpy.zeros((Lt, Lz, Ly, Lx), "<i4")
-        if (gt * Lt) % St < Lt and (gz * Lz) % Sz < Lz and (gy * Ly) % Sy < Ly and (gx * Lx) % Sx < Lx:
-            phase[(gt * Lt) % St :: St, (gz * Lz) % Sz :: Sz, (gy * Ly) % Sy :: Sy, (gx * Lx) % Sx :: Sx] = 1
+        if (t + gt * Lt) % St < Lt and (z + gz * Lz) % Sz < Lz and (y + gy * Ly) % Sy < Ly and (x + gx * Lx) % Sx < Lx:
+            phase[
+                (t + gt * Lt) % St :: St, (z + gz * Lz) % Sz :: Sz, (y + gy * Ly) % Sy :: Sy, (x + gx * Lx) % Sx :: Sx
+            ] = 1
         phase = cb2(phase, [0, 1, 2, 3])
 
         backend = getCUDABackend()
@@ -188,23 +192,23 @@ class GridPhase:
 
             return torch.as_tensor(phase)
 
-    def getPhases(self, stride_list: Sequence[Sequence[int]]):
+    def getPhases(self, t_srce_list: Sequence[Sequence[int]]):
         from .. import getCUDABackend
 
         Lx, Ly, Lz, Lt = self.latt_info.size
 
         backend = getCUDABackend()
         if backend == "numpy":
-            phases = numpy.zeros((len(stride_list), 2, Lt, Lz, Ly, Lx // 2), "<c16")
+            phases = numpy.zeros((len(t_srce_list), 2, Lt, Lz, Ly, Lx // 2), "<c16")
         elif backend == "cupy":
             import cupy
 
-            phases = cupy.zeros((len(stride_list), 2, Lt, Lz, Ly, Lx // 2), "<c16")
+            phases = cupy.zeros((len(t_srce_list), 2, Lt, Lz, Ly, Lx // 2), "<c16")
         elif backend == "torch":
             import torch
 
-            phases = torch.zeros((len(stride_list), 2, Lt, Lz, Ly, Lx // 2), dtype=torch.complex128)
-        for idx, stride in enumerate(stride_list):
-            phases[idx] = self.getPhase(stride)
+            phases = torch.zeros((len(t_srce_list), 2, Lt, Lz, Ly, Lx // 2), dtype=torch.complex128)
+        for idx, t_srce in enumerate(t_srce_list):
+            phases[idx] = self.getPhase(t_srce)
 
         return phases

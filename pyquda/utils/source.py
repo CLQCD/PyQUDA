@@ -129,7 +129,7 @@ def source(
 
 def source12(
     latt_info: Union[LatticeInfo, List[int]],
-    source_type: Literal["point", "wall", "momentum", "colorvector"],
+    source_type: Literal["point", "wall", "volume", "momentum", "colorvector"],
     t_srce: Union[List[int], int, None],
     source_phase=None,
 ):
@@ -163,7 +163,7 @@ def source12(
 
 def source3(
     latt_info: Union[LatticeInfo, List[int]],
-    source_type: Literal["point", "wall", "momentum", "colorvector"],
+    source_type: Literal["point", "wall", "volume", "momentum", "colorvector"],
     t_srce: Union[List[int], int, None],
     source_phase=None,
 ):

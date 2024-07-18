@@ -153,6 +153,7 @@ class PureGauge(Gauge):
         gauge: LatticeGauge,
         paths: List[List[int]],
     ):
+        gauge_path = LatticeGauge(gauge.latt_info)
         num_paths = 1
         input_path_buf_x, path_length = PureGauge._getPath(paths[0])
         input_path_buf = numpy.zeros((4, 1, path_length + 1), "<i4")
@@ -170,7 +171,7 @@ class PureGauge(Gauge):
         self.gauge_param.use_resident_gauge = 0
         self.gauge_param.make_resident_gauge = 0
         computeGaugePathQuda(
-            gauge.data_ptrs,
+            gauge_path.data_ptrs,
             gauge.data_ptrs,
             input_path_buf,
             path_length + 1,
@@ -183,6 +184,7 @@ class PureGauge(Gauge):
         self.gauge_param.overwrite_gauge = 0
         self.gauge_param.use_resident_gauge = 1
         self.gauge_param.make_resident_gauge = 1
+        return gauge_path
 
     @classmethod
     def _getLoops(cls, loops: List[List[int]]):
@@ -213,6 +215,7 @@ class PureGauge(Gauge):
         loops: List[List[List[int]]],
         coeff: List[float],
     ):
+        gauge_loop = LatticeGauge(gauge.latt_info)
         input_path_buf_x, path_length, num_paths, max_length = PureGauge._getLoops(loops[0])
         input_path_buf = numpy.zeros((4, num_paths, max_length + 1), "<i4")
         input_path_buf[0, :, 0] = 7
@@ -227,7 +230,7 @@ class PureGauge(Gauge):
         self.gauge_param.use_resident_gauge = 0
         self.gauge_param.make_resident_gauge = 0
         computeGaugePathQuda(
-            gauge.data_ptrs,
+            gauge_loop.data_ptrs,
             gauge.data_ptrs,
             input_path_buf,
             path_length + 1,
@@ -240,6 +243,7 @@ class PureGauge(Gauge):
         self.gauge_param.overwrite_gauge = 0
         self.gauge_param.use_resident_gauge = 1
         self.gauge_param.make_resident_gauge = 1
+        return gauge_loop
 
     def loopTrace(self, loops: List[List[int]]):
         input_path_buf, path_length, num_paths, max_length = PureGauge._getLoops(loops)
