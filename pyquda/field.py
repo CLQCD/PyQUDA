@@ -134,6 +134,10 @@ def newLatticeFieldData(latt_info: LatticeInfo, field: str):
             ret = numpy.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
             ret[:] = numpy.identity(Nc)
             return ret
+        elif field == "Rotation":
+            ret = numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
+            ret[:] = numpy.identity(Nc)
+            return ret
         elif field == "Fermion":
             return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
         elif field == "Propagator":
@@ -151,6 +155,10 @@ def newLatticeFieldData(latt_info: LatticeInfo, field: str):
             ret = cupy.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
             ret[:] = cupy.identity(Nc)
             return ret
+        elif field == "Rotation":
+            ret = cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
+            ret[:] = cupy.identity(Nc)
+            return ret
         elif field == "Fermion":
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
         elif field == "Propagator":
@@ -166,6 +174,10 @@ def newLatticeFieldData(latt_info: LatticeInfo, field: str):
 
         if field == "Gauge":
             ret = torch.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128)
+            ret[:] = torch.eye(Nc)
+            return ret
+        elif field == "Rotation":
+            ret = torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128)
             ret[:] = torch.eye(Nc)
             return ret
         elif field == "Fermion":
@@ -677,6 +689,28 @@ class LatticeGauge(LatticeField):
         """
         self.ensurePureGauge()
         self.pure_gauge.fixingFFT(self, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta)
+
+
+class LatticeRotation(LatticeField):
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info)
+        Lx, Ly, Lz, Lt = latt_info.size
+        if value is None:
+            self.setData(newLatticeFieldData(latt_info, "Rotation"))
+        else:
+            self.setData(value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc, Nc))
+        self.pure_gauge = None
+
+    @property
+    def data_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(-1), True)
+
+    @property
+    def data_ptrs(self) -> Pointers:
+        return ndarrayPointer(self.data.reshape(1, -1), True)
+
+    def lexico(self):
+        return lexico(self.getHost(), [0, 1, 2, 3, 4])
 
 
 class LatticeClover(LatticeField):

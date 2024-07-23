@@ -9,6 +9,8 @@ from .field import (
     Nd,
     LatticeInfo,
     LatticeGauge,
+    LatticeRotation,
+    LatticeClover,
     LatticeFermion,
     LatticePropagator,
     LatticeStaggeredFermion,

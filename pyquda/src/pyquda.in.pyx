@@ -389,6 +389,9 @@ def contractQuda(Pointer x, Pointer y, Pointer result, quda.QudaContractType cTy
 def computeGaugeFixingOVRQuda(Pointers gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double relax_boost, double tolerance, unsigned int reunit_interval, unsigned int stopWtheta, QudaGaugeParam param):
     return quda.computeGaugeFixingOVRQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, relax_boost, tolerance, reunit_interval, stopWtheta, &param.param)
 
+def computeGaugeFixingOVR2Quda(Pointers gauge, Pointers rotation, double tol, int maxiter, int dir_ignore, double relax_boost, int verbose_interval, int use_theta, QudaGaugeParam param):
+    return quda.computeGaugeFixingOVR2Quda(gauge.ptr, rotation.ptr, tol, maxiter, dir_ignore, relax_boost, verbose_interval, use_theta, &param.param)
+
 def computeGaugeFixingFFTQuda(Pointers gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double alpha, unsigned int autotune, double tolerance, unsigned int stopWtheta, QudaGaugeParam param):
     return quda.computeGaugeFixingFFTQuda(gauge.ptr, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta, &param.param)
 
