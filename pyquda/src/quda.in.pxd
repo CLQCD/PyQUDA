@@ -889,7 +889,7 @@ cdef extern from "quda.h":
                                   const unsigned int verbose_interval, const double relax_boost, const double tolerance,
                                   const unsigned int reunit_interval, const unsigned int stopWtheta, QudaGaugeParam *param)
 
-    void computeGaugeFixingOVR2Quda(void *gauge, void *rotation, double tol, int maxiter, int dir_ignore,
+    void computeGaugeFixingOVR2Quda(void *rotation, void *gauge, double tol, int maxiter, int dir_ignore,
                                     double relax_boost, int verbose_interval, int use_theta, QudaGaugeParam *param)
 
     #
