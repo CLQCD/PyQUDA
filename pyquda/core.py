@@ -42,7 +42,7 @@ def invert(
 
 def invertPropagator(
     dirac: Dirac,
-    source_propag: Union[None, LatticePropagator] = None,
+    source_propag: LatticePropagator,
     restart: int = 0,
 ):
     latt_info = dirac.latt_info
