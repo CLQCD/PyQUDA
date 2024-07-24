@@ -22,46 +22,73 @@ from .deprecated import smear, smear4, invert12, getDslash, getStaggeredDslash
 
 
 def invert(
-    dslash: Dirac,
+    dirac: Dirac,
     source_type: Literal["point", "wall", "volume", "momentum", "colorvector"],
-    t_srce: Union[int, List[int]],
+    t_srce: Union[List[int], int, None],
     source_phase=None,
     restart: int = 0,
 ):
-    latt_info = dslash.latt_info
+    latt_info = dirac.latt_info
 
-    prop = LatticePropagator(latt_info)
+    propag = LatticePropagator(latt_info)
     for spin in range(Ns):
         for color in range(Nc):
             b = source(latt_info, source_type, t_srce, spin, color, source_phase)
-            x = dslash.invert(b)
-            for _ in range(restart):
-                r = b - dslash.mat(x)
-                x += dslash.invert(r)
-            prop.setFermion(x, spin, color)
+            x = dirac.invertRestart(b, restart)
+            propag.setFermion(x, spin, color)
 
-    return prop
+    return propag
+
+
+def invertPropagator(
+    dirac: Dirac,
+    source_propag: Union[None, LatticePropagator] = None,
+    restart: int = 0,
+):
+    latt_info = dirac.latt_info
+
+    propag = LatticePropagator(latt_info)
+    for spin in range(Ns):
+        for color in range(Nc):
+            b = source_propag.getFermion(spin, color)
+            x = dirac.invertRestart(b, restart)
+            propag.setFermion(x, spin, color)
+
+    return propag
 
 
 def invertStaggered(
-    dslash: StaggeredDirac,
+    dirac: StaggeredDirac,
     source_type: Literal["point", "wall", "volume", "momentum", "colorvector"],
-    t_srce: Union[int, List[int]],
+    t_srce: Union[List[int], int, None],
     source_phase=None,
     restart: int = 0,
 ):
-    latt_info = dslash.latt_info
+    latt_info = dirac.latt_info
 
-    prop = LatticeStaggeredPropagator(latt_info)
+    propag = LatticeStaggeredPropagator(latt_info)
     for color in range(Nc):
         b = source(latt_info, source_type, t_srce, None, color, source_phase)
-        x = dslash.invert(b)
-        for _ in range(restart):
-            r = b - dslash.mat(x)
-            x += dslash.invert(r)
-        prop.setFermion(x, color)
+        x = dirac.invertRestart(b, restart)
+        propag.setFermion(x, color)
 
-    return prop
+    return propag
+
+
+def invertStaggeredPropagator(
+    dirac: StaggeredDirac,
+    source_propag: LatticeStaggeredPropagator,
+    restart: int = 0,
+):
+    latt_info = dirac.latt_info
+
+    propag = LatticeStaggeredPropagator(latt_info)
+    for color in range(Nc):
+        b = source_propag.getFermion(color)
+        x = dirac.invertRestart(b, restart)
+        propag.setFermion(x, color)
+
+    return propag
 
 
 def gatherLattice(data: numpy.ndarray, axes: List[int], reduce_op: Literal["sum", "mean"] = "sum", root: int = 0):

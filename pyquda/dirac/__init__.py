@@ -188,6 +188,13 @@ class Dirac(Gauge):
         self.performance()
         return x
 
+    def invertRestart(self, b: LatticeFermion, restart: int):
+        x = self.invert(b)
+        for _ in range(restart):
+            r = b - self.mat(x)
+            x += self.invert(r)
+        return x
+
     def mat(self, x: LatticeFermion):
         b = LatticeFermion(x.latt_info)
         MatQuda(b.data_ptr, x.data_ptr, self.invert_param)
@@ -218,6 +225,13 @@ class StaggeredDirac(Dirac):
         x = LatticeStaggeredFermion(b.latt_info)
         invertQuda(x.data_ptr, b.data_ptr, self.invert_param)
         self.performance()
+        return x
+
+    def invertRestart(self, b: LatticeStaggeredFermion, restart: int):
+        x = self.invert(b)
+        for _ in range(restart):
+            r = b - self.mat(x)
+            x += self.invert(r)
         return x
 
     def mat(self, x: LatticeStaggeredFermion):
