@@ -890,7 +890,7 @@ cdef extern from "quda.h":
                                   const unsigned int reunit_interval, const unsigned int stopWtheta, QudaGaugeParam *param)
 
     void computeGaugeFixingOVR2Quda(void *rotation, void *gauge, double tol, int maxiter, int dir_ignore,
-                                    double relax_boost, int verbose_interval, int use_theta, QudaGaugeParam *param)
+                                    double omega, QudaGaugeParam *param)
 
     #
     # @brief Gauge fixing with Steepest descent method with FFTs with support for single GPU only.
