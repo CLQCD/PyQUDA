@@ -59,7 +59,7 @@ for t in range(Lt):
         )
         for p in range(mom_num):
             res = cp.einsum(
-                "etzyx,etzyx->t",
+                "wtzyx,wtzyx->t",
                 phase_list[p],
                 tmp.reshape(2, Lt, Lz, Ly, Lx // 2),
                 optimize=True,

@@ -27,7 +27,7 @@ for t_idx, t_src in enumerate(t_src_list):
     propag = core.invert(dirac, "point", [0, 0, 0, t_src])
 
     pion[t_idx] += contract(
-        "petzyx,etzyxjiba,jk,etzyxklba,li->pt",
+        "pwtzyx,wtzyxjiba,jk,wtzyxklba,li->pt",
         momentum_phase,
         propag.data.conj(),
         G5 @ G5,

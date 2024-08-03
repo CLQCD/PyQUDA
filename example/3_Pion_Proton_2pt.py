@@ -37,7 +37,7 @@ for t_idx, t_src in enumerate(t_src_list):
     diquark = cp.zeros_like(propag.data)
 
     pion[t_idx] += contract(
-        "etzyxjiba,jk,etzyxklba,li->t",
+        "wtzyxjiba,jk,wtzyxklba,li->t",
         propag.data.conj(),
         G5 @ G5,
         propag.data,
@@ -52,7 +52,7 @@ for t_idx, t_src in enumerate(t_src_list):
             sign *= 1 if e == (d + 1) % 3 else -1
             proton[t_idx] += (sign * T_) * (
                 contract(
-                    "ij,kl,tmn,etzyxik,etzyxjl,etzyxmn->t",
+                    "ij,kl,tmn,wtzyxik,wtzyxjl,wtzyxmn->t",
                     C @ G5,
                     C @ G5,
                     P_,
@@ -61,7 +61,7 @@ for t_idx, t_src in enumerate(t_src_list):
                     propag.data[:, :, :, :, :, :, :, c, f],
                 )
                 + contract(
-                    "ij,kl,tmn,etzyxik,etzyxjn,etzyxml->t",
+                    "ij,kl,tmn,wtzyxik,wtzyxjn,wtzyxml->t",
                     C @ G5,
                     C @ G5,
                     P_,

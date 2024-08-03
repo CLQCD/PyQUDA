@@ -34,6 +34,6 @@ propagator_chroma = io.readQIOPropagator("pt_prop_2")
 propagator_chroma.toDevice()
 print(cp.linalg.norm(propagator.data - propagator_chroma.data))
 
-twopt = cp.einsum("etzyxab,etzyxab->t", propagator.data.conj(), propagator.data)
-twopt_chroma = cp.einsum("etzyxab,etzyxab->t", propagator_chroma.data.conj(), propagator_chroma.data)
+twopt = cp.einsum("wtzyxab,wtzyxab->t", propagator.data.conj(), propagator.data)
+twopt_chroma = cp.einsum("wtzyxab,wtzyxab->t", propagator_chroma.data.conj(), propagator_chroma.data)
 print(cp.linalg.norm(twopt - twopt_chroma))

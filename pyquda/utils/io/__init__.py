@@ -43,7 +43,7 @@ def rotateToDiracPauli(propagator: LatticePropagator):
         Pinv = torch.as_tensor(_DP_TO_DR) / 2
 
     return LatticePropagator(
-        propagator.latt_info, contract("ij,etzyxjkab,kl->etzyxilab", P, propagator.data, Pinv, optimize=True)
+        propagator.latt_info, contract("ij,wtzyxjkab,kl->wtzyxilab", P, propagator.data, Pinv, optimize=True)
     )
 
 
@@ -65,7 +65,7 @@ def rotateToDeGrandRossi(propagator: LatticePropagator):
         Pinv = torch.as_tensor(_DR_TO_DP) / 2
 
     return LatticePropagator(
-        propagator.latt_info, contract("ij,etzyxjkab,kl->etzyxilab", P, propagator.data, Pinv, optimize=True)
+        propagator.latt_info, contract("ij,wtzyxjkab,kl->wtzyxilab", P, propagator.data, Pinv, optimize=True)
     )
 
 

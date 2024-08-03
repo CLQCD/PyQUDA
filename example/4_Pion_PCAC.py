@@ -27,7 +27,7 @@ for t_idx, t_src in enumerate(t_src_list):
     propag = core.invert(dirac, "wall", t_src)
 
     pion[t_idx] += contract(
-        "etzyxjiba,jk,etzyxklba,li->t",
+        "wtzyxjiba,jk,wtzyxklba,li->t",
         propag.data.conj(),
         G5 @ G5,
         propag.data,
@@ -35,7 +35,7 @@ for t_idx, t_src in enumerate(t_src_list):
     )
 
     pionA4[t_idx] += contract(
-        "etzyxjiba,jk,etzyxklba,li->t",
+        "wtzyxjiba,jk,wtzyxklba,li->t",
         propag.data.conj(),
         G5 @ G5 @ G4,
         propag.data,
