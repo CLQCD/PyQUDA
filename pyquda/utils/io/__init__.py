@@ -184,6 +184,32 @@ def writeXQCDPropagatorFast(filename: str, propagator: LatticePropagator):
     write(filename, propagator_raw, latt_info.global_size)
 
 
+def readNPYGauge(filename: str):
+    from .npy import readGauge as read
+
+    latt_size, gauge_raw = read(filename)
+    return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
+
+
+def writeNPYGauge(filename: str, gauge: LatticeGauge):
+    from .npy import writeGauge as write
+
+    write(filename, gauge.lexico(), gauge.latt_info.global_size)
+
+
+def readNPYPropagator(filename: str):
+    from .npy import readPropagator as read
+
+    latt_size, propagator_raw = read(filename)
+    return LatticePropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
+
+
+def writeNPYPropagator(filename: str, propagator: LatticePropagator):
+    from .npy import writePropagator as write
+
+    write(filename, propagator.lexico(), propagator.latt_info.global_size)
+
+
 def readQIOGauge(filename: str):
     return readChromaQIOGauge(filename)
 
