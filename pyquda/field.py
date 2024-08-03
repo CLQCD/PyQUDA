@@ -733,6 +733,14 @@ class LatticeFermion(LatticeField):
     def lexico(self):
         return lexico(self.getHost(), [0, 1, 2, 3, 4])
 
+    def timeslice(self, t: int):
+        Lt = self.latt_info.Lt
+        gt = self.latt_info.gt
+        x = LatticeFermion(self.latt_info)
+        if gt * Lt <= t < (gt + 1) * Lt:
+            x.data[:, t - gt * Lt, :, :, :] = self.data[:, t - gt * Lt, :, :, :]
+        return x
+
 
 class MultiLatticeFermion(MultiLatticeField):
     def __init__(self, latt_info: LatticeInfo, L5: int, value=None) -> None:
@@ -786,6 +794,14 @@ class LatticePropagator(LatticeField):
     def getFermion(self, spin: int, color: int):
         return LatticeFermion(self.latt_info, self.data[:, :, :, :, :, :, spin, :, color])
 
+    def timeslice(self, t: int):
+        Lt = self.latt_info.Lt
+        gt = self.latt_info.gt
+        x = LatticePropagator(self.latt_info)
+        if gt * Lt <= t < (gt + 1) * Lt:
+            x.data[:, t - gt * Lt, :, :, :] = self.data[:, t - gt * Lt, :, :, :]
+        return x
+
 
 class LatticeStaggeredFermion(LatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
@@ -826,6 +842,14 @@ class LatticeStaggeredFermion(LatticeField):
 
     def lexico(self):
         return lexico(self.getHost(), [0, 1, 2, 3, 4])
+
+    def timeslice(self, t: int):
+        Lt = self.latt_info.Lt
+        gt = self.latt_info.gt
+        x = LatticeStaggeredFermion(self.latt_info)
+        if gt * Lt <= t < (gt + 1) * Lt:
+            x.data[:, t - gt * Lt, :, :, :] = self.data[:, t - gt * Lt, :, :, :]
+        return x
 
 
 class MultiLatticeStaggeredFermion(MultiLatticeField):
@@ -879,3 +903,11 @@ class LatticeStaggeredPropagator(LatticeField):
 
     def getFermion(self, color: int):
         return LatticeStaggeredFermion(self.latt_info, self.data[:, :, :, :, :, :, color])
+
+    def timeslice(self, t: int):
+        Lt = self.latt_info.Lt
+        gt = self.latt_info.gt
+        x = LatticeStaggeredPropagator(self.latt_info)
+        if gt * Lt <= t < (gt + 1) * Lt:
+            x.data[:, t - gt * Lt, :, :, :] = self.data[:, t - gt * Lt, :, :, :]
+        return x
