@@ -190,7 +190,7 @@ def source3(
 
 
 def sequential(x: Union[LatticeFermion, LatticeStaggeredFermion], t_srce: int):
-    Lt = x.latt_info.Lx
+    Lt = x.latt_info.Lt
     gt = x.latt_info.gt
     t = t_srce
     if isinstance(x, LatticeStaggeredFermion):
