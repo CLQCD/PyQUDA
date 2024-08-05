@@ -3,25 +3,85 @@ from time import perf_counter
 import numpy as np
 
 from pyquda import init
-from pyquda.hmc import HMC, O4Nf5Ng0V
 from pyquda.utils import io
-from pyquda.action import symanzik_gauge, two_flavor_clover, one_flavor_clover
-from pyquda.field import LatticeInfo, LatticeGauge
+from pyquda.field import LatticeInfo, LatticeGauge, Nc
+
+from hmc import HMC
 
 init(resource_path=".cache")
-latt_info = LatticeInfo([16, 16, 16, 32], t_boundary=-1, anisotropy=1.0)
+latt_info = LatticeInfo([16, 16, 16, 32])
 
-monomials = [
-    symanzik_gauge.SymanzikGauge(latt_info, beta=6.2, u_0=0.855453),
-    # two_flavor_clover.TwoFlavorClover(latt_info, mass=-0.2770, tol=1e-9, maxiter=1000, clover_csw=1.160920226),
-    # one_flavor_clover.OneFlavorClover(latt_info, mass=-0.2400, tol=1e-9, maxiter=1000, clover_csw=1.160920226),
-]
 gauge = LatticeGauge(latt_info)
 
-hmc = HMC(latt_info, monomials=monomials, integrator=O4Nf5Ng0V)
+
+u_0 = 0.855453
+beta = 6.20 * u_0**4
+input_path = [
+    [0, 1, 4, 5],
+    [0, 2, 4, 6],
+    [0, 3, 4, 7],
+    [1, 2, 5, 6],
+    [1, 3, 5, 7],
+    [2, 3, 6, 7],
+]
+input_coeff_ = [
+    -1 / u_0**4,
+    -1 / u_0**4,
+    -1 / u_0**4,
+    -1 / u_0**4,
+    -1 / u_0**4,
+    -1 / u_0**4,
+]
+input_coeff = [val * beta / Nc for val in input_coeff_]
+
+input_path2 = [
+    [
+        [0, 1, 4, 5],
+        [0, 5, 4, 1],
+        [0, 2, 4, 6],
+        [0, 6, 4, 2],
+        [0, 3, 4, 7],
+        [0, 7, 4, 3],
+    ],
+    [
+        [1, 4, 5, 0],
+        [1, 0, 5, 4],
+        [1, 2, 5, 6],
+        [1, 6, 5, 2],
+        [1, 3, 5, 7],
+        [1, 7, 5, 3],
+    ],
+    [
+        [2, 4, 6, 0],
+        [2, 0, 6, 4],
+        [2, 5, 6, 1],
+        [2, 1, 6, 5],
+        [2, 3, 6, 7],
+        [2, 7, 6, 3],
+    ],
+    [
+        [3, 4, 7, 0],
+        [3, 0, 7, 4],
+        [3, 5, 7, 1],
+        [3, 1, 7, 5],
+        [3, 6, 7, 2],
+        [3, 2, 7, 6],
+    ],
+]
+input_coeff2_ = [
+    1 / u_0**4,
+    1 / u_0**4,
+    1 / u_0**4,
+    1 / u_0**4,
+    1 / u_0**4,
+    1 / u_0**4,
+]
+input_coeff2 = [val * beta / Nc for val in input_coeff2_]
+
+
+hmc = HMC(latt_info)
 hmc.setVerbosity(0)
-hmc.loadGauge(gauge)
-hmc.loadMom(gauge)
+hmc.initialize()
 
 start = 0
 stop = 2000
@@ -31,22 +91,26 @@ save = 5
 print("\n" f"Trajectory {start}:\n" f"plaquette = {hmc.plaquette()}\n")
 
 t = 1.0
-steps = 10
+n_steps = 10
 for i in range(start, stop):
     s = perf_counter()
 
     hmc.gaussMom(i)
-    hmc.samplePhi(i)
 
     kinetic_old = hmc.actionMom()
-    potential_old = hmc.actionGauge()
+    potential_old = hmc.actionGauge(input_path, input_coeff)
     energy_old = kinetic_old + potential_old
 
-    hmc.integrate(t, steps)
+    dt = t / n_steps
+    for _ in range(n_steps):
+        hmc.updateMom(input_path2, input_coeff2, dt / 2)
+        hmc.updateGauge(dt)
+        hmc.updateMom(input_path2, input_coeff2, dt / 2)
+
     hmc.reunitGauge(1e-15)
 
     kinetic = hmc.actionMom()
-    potential = hmc.actionGauge()
+    potential = hmc.actionGauge(input_path, input_coeff)
     energy = kinetic + potential
 
     accept = np.random.rand() < np.exp(energy_old - energy)
@@ -62,7 +126,7 @@ for i in range(start, stop):
         f"P = {potential}, K = {kinetic}\n"
         f"Delta_P = {potential - potential_old}, Delta_K = {kinetic - kinetic_old}\n"
         f"Delta_E = {energy - energy_old}\n"
-        f"accept rate = {min(1, np.exp(energy_old - energy))*100:.2f}%\n"
+        f"acceptance rate = {min(1, np.exp(energy_old - energy))*100:.2f}%\n"
         f"accept? {accept or i < warm}\n"
         f"HMC time = {perf_counter() - s:.3f} secs\n"
     )

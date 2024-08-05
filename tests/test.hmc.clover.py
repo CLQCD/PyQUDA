@@ -58,11 +58,11 @@ for i in range(start, stop):
     print(
         f"Trajectory {i + 1}:\n"
         f"plaquette = {hmc.plaquette()}\n"
-        f"PE_old = {potential}, KE_old = {kinetic}\n"
-        f"PE = {potential1}, KE = {kinetic1}\n"
-        f"Delta_PE = {potential1 - potential}, Delta_KE = {kinetic1 - kinetic}\n"
+        f"P_old = {potential}, K_old = {kinetic}\n"
+        f"P = {potential1}, K = {kinetic1}\n"
+        f"Delta_P = {potential1 - potential}, Delta_K = {kinetic1 - kinetic}\n"
         f"Delta_E = {energy1 - energy}\n"
-        f"accept rate = {min(1, np.exp(energy - energy1))*100:.2f}%\n"
+        f"acceptance rate = {min(1, np.exp(energy - energy1))*100:.2f}%\n"
         f"accept? {accept or i < warm}\n"
         f"HMC time = {perf_counter() - s:.3f} secs\n"
     )

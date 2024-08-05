@@ -131,13 +131,13 @@ class HMC:
                 self.gaussGauge(gauge)
 
     def actionGauge(self) -> float:
-        retval = 0
+        action = 0
         for monomial in self._monomials:
             if isinstance(monomial, FermionAction):
-                retval += monomial.action(True)
+                action += monomial.action(True)
             elif isinstance(monomial, GaugeAction):
-                retval += monomial.action()
-        return retval
+                action += monomial.action()
+        return action
 
     def actionMom(self) -> float:
         return momActionQuda(nullptr, self.gauge_param)
