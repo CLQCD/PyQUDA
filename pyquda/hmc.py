@@ -16,7 +16,7 @@ from .pyquda import (
 )
 from .enum_quda import QudaTboundary, QudaVerbosity
 from .field import Nc, Ns, LatticeInfo, LatticeGauge, LatticeFermion
-from .dirac.wilson import Wilson
+from .dirac.pure_gauge import PureGauge
 from .action import FermionAction, GaugeAction
 
 nullptr = Pointers("void", 0)
@@ -28,9 +28,35 @@ class Integrator(ABC):
         raise NotImplementedError
 
 
+class O2Nf1Ng0V(Integrator):
+    R"""https://doi.org/10.1016/S0010-4655(02)00754-3
+    BAB: Eq.(23), \xi=0"""
+
+    @classmethod
+    def integrate(cls, hmc: "HMC", t: float, n_steps: int):
+        dt = t / n_steps
+        for _ in range(n_steps):
+            hmc.updateMom(dt / 2)
+            hmc.updateGauge(dt)
+            hmc.updateMom(dt / 2)
+
+
+class O2Nf1Ng0P(Integrator):
+    R"""https://doi.org/10.1016/S0010-4655(02)00754-3
+    ABA: Eq.(24), \xi=0"""
+
+    @classmethod
+    def integrate(cls, hmc: "HMC", t: float, n_steps: int):
+        dt = t / n_steps
+        for _ in range(n_steps):
+            hmc.updateGauge(dt / 2)
+            hmc.updateMom(dt)
+            hmc.updateGauge(dt / 2)
+
+
 class O4Nf5Ng0V(Integrator):
-    """https://doi.org/10.1016/S0010-4655(02)00754-3
-    Eq.(63), Eq.(71)"""
+    R"""https://doi.org/10.1016/S0010-4655(02)00754-3
+    BABABABABAB: Eq.(63), Eq.(71)"""
 
     rho_ = 0.2539785108410595
     theta_ = -0.03230286765269967
@@ -55,8 +81,8 @@ class O4Nf5Ng0V(Integrator):
 
 
 class O4Nf5Ng0P(Integrator):
-    """https://doi.org/10.1016/S0010-4655(02)00754-3
-    Eq.(72), Eq.(80)"""
+    R"""https://doi.org/10.1016/S0010-4655(02)00754-3
+    ABABABABABA: Eq.(72), Eq.(80)"""
 
     rho_ = 0.2750081212332419
     theta_ = -0.1347950099106792
@@ -67,8 +93,8 @@ class O4Nf5Ng0P(Integrator):
     def integrate(cls, hmc: "HMC", t: float, n_steps: int):
         dt = t / n_steps
         for _ in range(n_steps):
-            hmc.updateMom(cls.rho_ * dt)
-            hmc.updateGauge(cls.vartheta_ * dt)
+            hmc.updateGauge(cls.rho_ * dt)
+            hmc.updateMom(cls.vartheta_ * dt)
             hmc.updateGauge(cls.theta_ * dt)
             hmc.updateMom(cls.lambda_ * dt)
             hmc.updateGauge((1 - 2 * (cls.theta_ + cls.rho_)) * dt / 2)
@@ -76,8 +102,8 @@ class O4Nf5Ng0P(Integrator):
             hmc.updateGauge((1 - 2 * (cls.theta_ + cls.rho_)) * dt / 2)
             hmc.updateMom(cls.lambda_ * dt)
             hmc.updateGauge(cls.theta_ * dt)
-            hmc.updateGauge(cls.vartheta_ * dt)
-            hmc.updateMom(cls.rho_ * dt)
+            hmc.updateMom(cls.vartheta_ * dt)
+            hmc.updateGauge(cls.rho_ * dt)
 
 
 class HMC:
@@ -87,11 +113,22 @@ class HMC:
         self.latt_info = latt_info
         self._monomials = monomials
         self._integrator = integrator
-        self._dirac = Wilson(latt_info, 0, 0.125, 0, 0, None)
-        self.gauge_param = self._dirac.gauge_param
+        self._pure_gauge = PureGauge(latt_info)
+        self.gauge_param = self._pure_gauge.gauge_param
 
     def setVerbosity(self, verbosity: QudaVerbosity):
         setVerbosityQuda(verbosity, b"\0")
+
+    def initialize(self, gauge: Union[LatticeGauge, int, None] = None):
+        if isinstance(gauge, LatticeGauge):
+            self.loadGauge(gauge)
+            self.loadMom(gauge)
+        else:
+            unit = LatticeGauge(self.latt_info)
+            self.loadGauge(unit)
+            self.loadMom(unit)
+            if gauge is not None:
+                self.gaussGauge(gauge)
 
     def actionGauge(self) -> float:
         retval = 0

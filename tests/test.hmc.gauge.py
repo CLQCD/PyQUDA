@@ -19,8 +19,7 @@ gauge = LatticeGauge(latt_info)
 
 hmc = HMC(latt_info, monomials, O4Nf5Ng0V)
 hmc.setVerbosity(0)
-hmc.loadGauge(gauge)
-hmc.loadMom(gauge)
+hmc.initialize(gauge)
 
 start = 0
 stop = 2000
