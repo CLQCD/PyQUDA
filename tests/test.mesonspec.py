@@ -29,10 +29,10 @@ gamma_insertion = [(gamma5, gamma5), (gamma4 @ gamma5, gamma4 @ gamma5)]
 
 mom_list = phase.getMomList(9)
 mom_num = len(mom_list)
-mom_phase = phase.Phase(latt_info.size)
-phase_list = mom_phase.cache(mom_list)
+mom_phase = phase.MomentumPhase(latt_info)
+phase_list = mom_phase.getPhases(mom_list)
 
-dslash = core.getDefaultDirac(mass, 1e-12, 1000, xi_0, coeff_t, coeff_r, multigrid=True)
+dslash = core.getDefaultDirac(mass, 1e-12, 1000, xi_0, coeff_t, coeff_r)
 twopt = np.zeros((Lt, Lt, len(gamma_insertion), mom_num), "<c16")
 
 
