@@ -106,9 +106,9 @@ def _fieldLocation():
 
 
 def _useMMA():
-    from .. import getCUDAComputeCapability
+    from .. import isHIP, getCUDAComputeCapability
 
-    return QudaBoolean(getCUDAComputeCapability().major >= 7)
+    return QudaBoolean(isHIP() and getCUDAComputeCapability().major >= 7)
 
 
 def newQudaGaugeParam(

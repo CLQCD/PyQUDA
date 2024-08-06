@@ -1,7 +1,7 @@
 import logging
 from os import environ
 from sys import stdout
-from typing import Any, Callable, Dict, List, Literal, NamedTuple, Sequence
+from typing import Any, Callable, Dict, List, Literal, NamedTuple, Sequence, Union
 
 from mpi4py import MPI
 from mpi4py.util import dtlib
@@ -61,10 +61,11 @@ _MPI_LOGGER: _MPILogger = _MPILogger()
 _MPI_COMM: MPI.Comm = MPI.COMM_WORLD
 _MPI_SIZE: int = _MPI_COMM.Get_size()
 _MPI_RANK: int = _MPI_COMM.Get_rank()
-_GRID_SIZE: List[int] = None
-_GRID_COORD: List[int] = None
-_DEFAULT_LATTICE: LatticeInfo = None
+_GRID_SIZE: Union[List[int], None] = None
+_GRID_COORD: Union[List[int], None] = None
+_DEFAULT_LATTICE: Union[LatticeInfo, None] = None
 _CUDA_BACKEND: Literal["numpy", "cupy", "torch"] = "cupy"
+_HIP: bool = False
 _GPUID: int = -1
 _COMPUTE_CAPABILITY: _ComputeCapability = _ComputeCapability(0, 0)
 
@@ -186,7 +187,7 @@ def init(
             device_reset="1" if device_reset else None,
         )
 
-        global _DEFAULT_LATTICE, _CUDA_BACKEND, _GPUID, _COMPUTE_CAPABILITY
+        global _DEFAULT_LATTICE, _CUDA_BACKEND, _HIP, _GPUID, _COMPUTE_CAPABILITY
 
         if latt_size is not None:
             if t_boundary is None or anisotropy is None:
@@ -202,14 +203,18 @@ def init(
             import cupy
             from cupy.cuda.runtime import getDeviceCount as cudaGetDeviceCount
             from cupy.cuda.runtime import getDeviceProperties as cudaGetDeviceProperties
+            from cupy.cuda.runtime import is_hip
 
             cudaSetDevice: Callable[[int], None] = lambda device: cupy.cuda.Device(device).use()
+            _HIP = is_hip
         elif backend == "torch":
             import torch
             from torch.cuda import device_count as cudaGetDeviceCount
             from torch.cuda import get_device_properties as cudaGetDeviceProperties
+            from torch.version import hip
 
             cudaSetDevice: Callable[[int], None] = lambda device: torch.set_default_device(f"cuda:{device}")
+            _HIP = hip is not None
         else:
             _MPI_LOGGER.critical(f"Unsupported CUDA backend {backend}", ValueError)
         _CUDA_BACKEND = backend
@@ -299,6 +304,14 @@ def getDefaultLattice():
     return _DEFAULT_LATTICE
 
 
+def getCUDABackend():
+    return _CUDA_BACKEND
+
+
+def isHIP():
+    return _HIP
+
+
 def setGPUID(gpuid: int):
     global _GPUID
     assert _GRID_SIZE is None, "setGPUID() should be called before init()"
@@ -308,15 +321,6 @@ def setGPUID(gpuid: int):
 
 def getGPUID():
     return _GPUID
-
-
-def getCUDABackend():
-    return _CUDA_BACKEND
-
-
-def setCUDAComputeCapability(major: int, minor: int):
-    global _COMPUTE_CAPABILITY
-    _COMPUTE_CAPABILITY = _ComputeCapability(major, minor)
 
 
 def getCUDAComputeCapability():
