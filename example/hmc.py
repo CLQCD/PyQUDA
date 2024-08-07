@@ -17,7 +17,7 @@ from pyquda.pyquda import (
     computeGaugeForceQuda,
 )
 from pyquda.enum_quda import QudaTboundary, QudaVerbosity
-from pyquda.field import LatticeInfo, LatticeGauge
+from pyquda.field import LatticeInfo, LatticeGauge, LatticeMom
 from pyquda.dirac.pure_gauge import PureGauge
 
 nullptr = Pointers("void", 0)
@@ -128,10 +128,10 @@ class HMC:
     def gaussGauge(self, seed: int):
         gaussGaugeQuda(seed, 1.0)
 
-    def loadMom(self, mom: LatticeGauge):
+    def loadMom(self, mom: LatticeMom):
         momResidentQuda(mom.data_ptrs, self.gauge_param)
 
-    def saveMom(self, mom: LatticeGauge):
+    def saveMom(self, mom: LatticeMom):
         self.gauge_param.make_resident_mom = 0
         self.gauge_param.return_result_mom = 1
         momResidentQuda(mom.data_ptrs, self.gauge_param)

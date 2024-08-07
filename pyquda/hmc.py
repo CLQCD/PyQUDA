@@ -4,18 +4,18 @@ from typing import List, Union
 from . import getCUDABackend
 from .pointer import Pointers
 from .pyquda import (
+    setVerbosityQuda,
     gaussGaugeQuda,
     gaussMomQuda,
     loadGaugeQuda,
-    momActionQuda,
-    momResidentQuda,
-    plaqQuda,
     saveGaugeQuda,
-    setVerbosityQuda,
+    momResidentQuda,
+    momActionQuda,
+    plaqQuda,
     updateGaugeFieldQuda,
 )
 from .enum_quda import QudaTboundary, QudaVerbosity
-from .field import Nc, Ns, LatticeInfo, LatticeGauge, LatticeFermion
+from .field import Nc, Ns, LatticeInfo, LatticeGauge, LatticeMom, LatticeFermion
 from .dirac.pure_gauge import PureGauge
 from .action import FermionAction, GaugeAction
 
@@ -122,13 +122,13 @@ class HMC:
     def initialize(self, gauge: Union[LatticeGauge, int, None] = None):
         if isinstance(gauge, LatticeGauge):
             self.loadGauge(gauge)
-            self.loadMom(gauge)
         else:
             unit = LatticeGauge(self.latt_info)
             self.loadGauge(unit)
-            self.loadMom(unit)
             if gauge is not None:
                 self.gaussGauge(gauge)
+        mom = LatticeMom(self.latt_info)
+        self.loadMom(mom)
 
     def actionGauge(self) -> float:
         action = 0
@@ -146,7 +146,7 @@ class HMC:
         updateGaugeFieldQuda(nullptr, nullptr, dt, False, True, self.gauge_param)
         loadGaugeQuda(nullptr, self.gauge_param)
 
-    def updateMom(self, dt):
+    def updateMom(self, dt: float):
         for monomial in self._monomials:
             if isinstance(monomial, FermionAction):
                 monomial.force(dt, True)
@@ -202,10 +202,10 @@ class HMC:
     def gaussGauge(self, seed: int):
         gaussGaugeQuda(seed, 1.0)
 
-    def loadMom(self, mom: LatticeGauge):
+    def loadMom(self, mom: LatticeMom):
         momResidentQuda(mom.data_ptrs, self.gauge_param)
 
-    def saveMom(self, mom: LatticeGauge):
+    def saveMom(self, mom: LatticeMom):
         self.gauge_param.make_resident_mom = 0
         self.gauge_param.return_result_mom = 1
         momResidentQuda(mom.data_ptrs, self.gauge_param)

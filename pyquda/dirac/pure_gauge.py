@@ -10,9 +10,11 @@ from ..pyquda import (
     computeGaugePathQuda,
     computeGaugeLoopTraceQuda,
     gaussGaugeQuda,
+    gaussMomQuda,
     loadGaugeQuda,
-    performWFlowQuda,
     saveGaugeQuda,
+    momResidentQuda,
+    performWFlowQuda,
     freeUniqueGaugeQuda,
     staggeredPhaseQuda,
     performGaugeSmearQuda,
@@ -22,7 +24,7 @@ from ..pyquda import (
     computeGaugeFixingOVRQuda,
     computeGaugeFixingFFTQuda,
 )
-from ..field import LatticeInfo, LatticeGauge, LatticeFermion, LatticeStaggeredFermion
+from ..field import LatticeInfo, LatticeGauge, LatticeMom, LatticeFermion, LatticeStaggeredFermion
 from ..enum_quda import (
     QudaBoolean,
     QudaDslashType,
@@ -79,6 +81,16 @@ class PureGauge(Gauge):
 
     def freeGauge(self):
         freeUniqueGaugeQuda(QudaLinkType.QUDA_WILSON_LINKS)
+
+    def loadMom(self, mom: LatticeMom):
+        momResidentQuda(mom.data_ptrs, self.gauge_param)
+
+    def saveFreeMom(self, mom: LatticeMom):
+        self.gauge_param.make_resident_mom = 0
+        self.gauge_param.return_result_mom = 1
+        momResidentQuda(mom.data_ptrs, self.gauge_param)
+        self.gauge_param.make_resident_mom = 1
+        self.gauge_param.return_result_mom = 0
 
     def saveSmearedGauge(self, gauge: LatticeGauge):
         self.gauge_param.type = QudaLinkType.QUDA_SMEARED_LINKS
@@ -351,8 +363,11 @@ class PureGauge(Gauge):
         Lx, Ly, Lz, Lt = self.latt_info.size
         return qcharge_density.reshape(2, Lt, Lz, Ly, Lx // 2)
 
-    def gauss(self, seed: int, sigma: float):
+    def gaussGauge(self, seed: int, sigma: float):
         gaussGaugeQuda(seed, sigma)
+
+    def gaussMom(self, seed: int, sigma: float):
+        gaussMomQuda(seed, sigma)
 
     def fixingOVR(
         self,

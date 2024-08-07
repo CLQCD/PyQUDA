@@ -144,6 +144,8 @@ def newLatticeFieldData(latt_info: LatticeInfo, field: str):
             return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
         elif field == "Clover":
             return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), "<f8")
+        elif field == "Mom":
+            return numpy.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, 10), "<f8")
     elif backend == "cupy":
         import cupy
 
@@ -161,6 +163,8 @@ def newLatticeFieldData(latt_info: LatticeInfo, field: str):
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
         elif field == "Clover":
             return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), "<f8")
+        elif field == "Mom":
+            return cupy.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, 10), "<f8")
     elif backend == "torch":
         import torch
 
@@ -178,6 +182,8 @@ def newLatticeFieldData(latt_info: LatticeInfo, field: str):
             return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128)
         elif field == "Clover":
             return torch.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), dtype=torch.float64)
+        elif field == "Mom":
+            return torch.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, 10), dtype=torch.float64)
 
 
 def newMultiLatticeFieldData(latt_info: LatticeInfo, L5: int, field: str):
@@ -604,7 +610,7 @@ class LatticeGauge(LatticeField):
         """
         self.ensurePureGauge()
         self.pure_gauge.loadGauge(self)
-        self.pure_gauge.gauss(seed, sigma)
+        self.pure_gauge.gaussGauge(seed, sigma)
         self.pure_gauge.saveGauge(self)
         self.pure_gauge.freeGauge()
 
@@ -677,6 +683,40 @@ class LatticeGauge(LatticeField):
         """
         self.ensurePureGauge()
         self.pure_gauge.fixingFFT(self, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta)
+
+
+class LatticeMom(LatticeField):
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info)
+        Lx, Ly, Lz, Lt = latt_info.size
+        if value is None:
+            self.setData(newLatticeFieldData(latt_info, "Mom"))
+        else:
+            self.setData(value.reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, 10))
+        self.pure_gauge = None
+
+    @property
+    def data_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(-1), True)
+
+    @property
+    def data_ptrs(self) -> Pointers:
+        return ndarrayPointer(self.data.reshape(4, -1), True)
+
+    def lexico(self):
+        return lexico(self.getHost(), [1, 2, 3, 4, 5])
+
+    def ensurePureGauge(self):
+        if self.pure_gauge is None:
+            from .dirac.pure_gauge import PureGauge
+
+            self.pure_gauge = PureGauge(self.latt_info)
+
+    def gauss(self, seed: int, sigma: float):
+        self.ensurePureGauge()
+        self.pure_gauge.loadMom(self)
+        self.pure_gauge.gaussMom(seed, sigma)
+        self.pure_gauge.saveFreeMom(self)
 
 
 class LatticeClover(LatticeField):
