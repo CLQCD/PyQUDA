@@ -5,7 +5,7 @@ import numpy as np
 from check_pyquda import test_dir
 
 from pyquda import init
-from pyquda.hmc import HMC, O2Nf1Ng0V
+from pyquda.hmc import HMC, O4Nf5Ng0V
 from pyquda.action import wilson_gauge
 from pyquda.field import LatticeInfo, LatticeGauge
 
@@ -17,7 +17,7 @@ monomials = [
 ]
 gauge = LatticeGauge(latt_info)
 
-hmc = HMC(latt_info, monomials, O2Nf1Ng0V)
+hmc = HMC(latt_info, monomials, O4Nf5Ng0V)
 hmc.setVerbosity(0)
 hmc.initialize(gauge)
 
