@@ -23,12 +23,9 @@ class _MPILogger:
         stderr_handler = logging.StreamHandler()
         stderr_handler.setFormatter(formatter)
         stderr_handler.setLevel(logging.WARNING)
-        logging.basicConfig(
-            level=logging.DEBUG,
-            handlers=[stdout_handler, stderr_handler],
-            encoding="utf-8",
-        )
         self.logger = logging.getLogger("PyQUDA")
+        self.logger.level = logging.DEBUG
+        self.logger.handlers = [stdout_handler, stderr_handler]
 
     def debug(self, msg: str):
         if _MPI_RANK == self.root:
@@ -268,8 +265,8 @@ def getLogger():
     return _MPI_LOGGER
 
 
-def setLoggerLevel(level: int):
-    _MPI_LOGGER.logger.setLevel(level)
+def setLoggerLevel(level: Literal["debug", "info", "warning", "error", "critical"]):
+    _MPI_LOGGER.logger.setLevel(level.upper())
 
 
 def getMPIComm():

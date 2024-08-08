@@ -10,9 +10,12 @@ from hmc import HMC
 
 init(resource_path=".cache")
 latt_info = LatticeInfo([16, 16, 16, 32])
+hmc = HMC(latt_info)
+hmc.initialize()
+gauge = LatticeGauge(latt_info)
 
 u_0 = 0.855453
-beta = 6.20 * u_0**4
+beta = 6.20
 input_path = [
     [0, 1, 4, 5],
     [0, 2, 4, 6],
@@ -21,15 +24,14 @@ input_path = [
     [1, 3, 5, 7],
     [2, 3, 6, 7],
 ]
-input_coeff_ = [
-    1 / u_0**4,
-    1 / u_0**4,
-    1 / u_0**4,
-    1 / u_0**4,
-    1 / u_0**4,
-    1 / u_0**4,
+input_coeff = [
+    -beta / Nc,
+    -beta / Nc,
+    -beta / Nc,
+    -beta / Nc,
+    -beta / Nc,
+    -beta / Nc,
 ]
-input_coeff = [-beta / Nc * val for val in input_coeff_]
 
 input_path2 = [
     [
@@ -65,15 +67,14 @@ input_path2 = [
         [3, 2, 7, 6],
     ],
 ]
-input_coeff2_ = [
-    -1 / u_0**4,
-    -1 / u_0**4,
-    -1 / u_0**4,
-    -1 / u_0**4,
-    -1 / u_0**4,
-    -1 / u_0**4,
+input_coeff2 = [
+    beta / Nc,
+    beta / Nc,
+    beta / Nc,
+    beta / Nc,
+    beta / Nc,
+    beta / Nc,
 ]
-input_coeff2 = [-beta / Nc * val for val in input_coeff2_]
 
 start = 0
 stop = 2000
@@ -82,12 +83,7 @@ save = 5
 t = 1.0
 n_steps = 100
 
-hmc = HMC(latt_info)
-hmc.initialize()
-
 print("\n" f"Trajectory {start}:\n" f"plaquette = {hmc.plaquette()}\n")
-
-gauge = LatticeGauge(latt_info)
 
 for i in range(start, stop):
     s = perf_counter()
