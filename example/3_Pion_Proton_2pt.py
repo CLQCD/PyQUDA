@@ -1,15 +1,12 @@
-import sys
 from itertools import permutations
 import numpy as np
 import cupy as cp
 from opt_einsum import contract
 from matplotlib import pyplot as plt
 
-sys.path.insert(1, "/home/jiangxy/PyQUDA/")
 from pyquda import init, core, LatticeInfo
 from pyquda.utils import io, gamma
 
-plt.set_loglevel(level="warning")
 init([1, 1, 1, 2], resource_path=".cache")
 
 latt_info = LatticeInfo([24, 24, 24, 72], -1, 1.0)
@@ -34,7 +31,6 @@ proton = cp.zeros((len(t_src_list), latt_info.Lt), "<c16")
 
 for t_idx, t_src in enumerate(t_src_list):
     propag = core.invert(dirac, "wall", t_src)
-    diquark = cp.zeros_like(propag.data)
 
     pion[t_idx] += contract(
         "wtzyxjiba,jk,wtzyxklba,li->t",

@@ -187,6 +187,7 @@ def writeXQCDPropagatorFast(filename: str, propagator: LatticePropagator):
 def readNPYGauge(filename: str):
     from .npy import readGauge as read
 
+    filename = filename if filename.endswith(".npy") else filename + ".npy"
     latt_size, gauge_raw = read(filename)
     return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
 
@@ -194,6 +195,7 @@ def readNPYGauge(filename: str):
 def writeNPYGauge(filename: str, gauge: LatticeGauge):
     from .npy import writeGauge as write
 
+    filename = filename if filename.endswith(".npy") else filename + ".npy"
     write(filename, gauge.lexico(), gauge.latt_info.global_size)
 
 

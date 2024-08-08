@@ -1,14 +1,11 @@
-import sys
 import numpy as np
 import cupy as cp
 from opt_einsum import contract
 from matplotlib import pyplot as plt
 
-sys.path.insert(1, "/home/jiangxy/PyQUDA/")
 from pyquda import init, core, LatticeInfo
 from pyquda.utils import io, gamma, phase
 
-plt.set_loglevel(level="warning")
 init([1, 1, 1, 2], resource_path=".cache")
 
 latt_info = LatticeInfo([24, 24, 24, 72], -1, 1.0)
