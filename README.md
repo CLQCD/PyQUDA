@@ -2,9 +2,34 @@
 
 Python wrapper for [QUDA](https://github.com/lattice/quda) written in Cython.
 
-This project aims to benefit from the optimized linear algebra library [CuPy](https://github.com/cupy/cupy) in Python based on CUDA. CuPy and QUDA will allow us to perform most lattice QCD research operations with high performance. [PyTorch](https://github.com/pytorch/pytorch) is an alternative option.
+This project aims to benefit from the optimized linear algebra library [CuPy](https://cupy.dev/) in Python based on CUDA. CuPy and QUDA will allow us to perform most lattice QCD research operations with high performance. [PyTorch](https://pytorch.org/) is an alternative option.
 
-This project is based on the latest QUDA `develop` branch. PyQUDA should be compatible with any commit of QUDA after May 2023, but leave some features disabled.
+This project is based on the latest QUDA `develop` branch. PyQUDA should be compatible with any commit of QUDA after 2024, but leave some features disabled.
+
+## Feature
+
+- Multi-GPU supported
+  - with [MPI for Python](https://mpi4py.readthedocs.io/en/stable/) package
+- Quark propagator
+  - Isotropic/anisotropic Wilson fermion action with multigrid support
+  - Isotropic/anisotropic Clover fermion action with multigrid support
+  - Isotropic HISQ fermion action
+- HMC
+  - Isotropic Wilson gauge action
+  - Isotropic Symanzik gauge action
+  - 1-flavor isotropic clover fermion action
+  - 2-flavor isotropic clover fermion action
+- Gauge fixing
+  - Rotation field with over-relaxation method (waiting for QUDA merge)
+- Gauge smearing
+  - 3D/4D APE smearing
+  - 3D/4D stout smearing
+  - 3D/4D HYP smearing
+- Fermion smearing
+  - Gaussian smearing
+- Gradient flow
+  - Wilson flow
+  - Symanzik flow
 
 ## Installation
 
@@ -13,6 +38,10 @@ Refer to https://github.com/CLQCD/PyQUDA/wiki/Installation for detailed instruct
 ## Benchmark
 
 Refer to https://github.com/CLQCD/PyQUDA/wiki/Benchmark for detailed instruction to run PyQUDA benchmark.
+
+## Documentation (draft)
+
+https://github.com/CLQCD/PyQUDA/wiki/Documentation
 
 ## Development
 
