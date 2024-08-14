@@ -10,6 +10,12 @@ This project is based on the latest QUDA `develop` branch. PyQUDA should be comp
 
 - Multi-GPU supported
   - with [MPI for Python](https://mpi4py.readthedocs.io/en/stable/) package
+- File I/O
+  - Read gauge and propagator in Chroma format
+  - Read gauge and propagator in MILC format
+  - Read/write gauge and propagator in KYU format
+  - Read/write gauge and propagator in XQCD format
+  - Read/write gauge and propagator in NPY format (numpy)
 - Quark propagator
   - Isotropic/anisotropic Wilson fermion action with multigrid support
   - Isotropic/anisotropic Clover fermion action with multigrid support
@@ -33,11 +39,11 @@ This project is based on the latest QUDA `develop` branch. PyQUDA should be comp
 
 ## Installation
 
-Refer to https://github.com/CLQCD/PyQUDA/wiki/Installation for detailed instruction to install PyQUDA from source.
+Refer to https://github.com/CLQCD/PyQUDA/wiki/Installation for detailed instructions to install PyQUDA from the source.
 
 ## Benchmark
 
-Refer to https://github.com/CLQCD/PyQUDA/wiki/Benchmark for detailed instruction to run PyQUDA benchmark.
+Refer to https://github.com/CLQCD/PyQUDA/wiki/Benchmark for detailed instructions to run the PyQUDA benchmark.
 
 ## Documentation (draft)
 
