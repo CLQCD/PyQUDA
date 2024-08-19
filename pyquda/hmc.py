@@ -16,7 +16,7 @@ from .pyquda import (
 )
 from .enum_quda import QudaTboundary, QudaVerbosity
 from .field import Nc, Ns, LatticeInfo, LatticeGauge, LatticeMom, LatticeFermion
-from .dirac.pure_gauge import PureGauge
+from .dirac.wilson import Wilson
 from .action import FermionAction, GaugeAction
 
 nullptr = Pointers("void", 0)
@@ -113,8 +113,8 @@ class HMC:
         self.latt_info = latt_info
         self._monomials = monomials
         self._integrator = integrator
-        self._pure_gauge = PureGauge(latt_info)
-        self.gauge_param = self._pure_gauge.gauge_param
+        self._wilson = Wilson(latt_info, 0, 0.125, 0, 0)
+        self.gauge_param = self._wilson.gauge_param
 
     def setVerbosity(self, verbosity: QudaVerbosity):
         setVerbosityQuda(verbosity, b"\0")
