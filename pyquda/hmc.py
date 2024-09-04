@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import List, Union
 
 from . import getCUDABackend
@@ -23,8 +23,11 @@ nullptr = Pointers("void", 0)
 
 
 class Integrator(ABC):
-    @classmethod
-    def integrate(cls, hmc: "HMC", t: float, n_steps: int):
+    def __init__(self, n_steps: int) -> None:
+        self.n_steps = n_steps
+
+    @abstractmethod
+    def integrate(self, updateGauge, updateMom, t: float):
         raise NotImplementedError
 
 
@@ -32,26 +35,28 @@ class O2Nf1Ng0V(Integrator):
     R"""https://doi.org/10.1016/S0010-4655(02)00754-3
     BAB: Eq.(23), \xi=0"""
 
-    @classmethod
-    def integrate(cls, hmc: "HMC", t: float, n_steps: int):
-        dt = t / n_steps
-        for _ in range(n_steps):
-            hmc.updateMom(dt / 2)
-            hmc.updateGauge(dt)
-            hmc.updateMom(dt / 2)
+    def integrate(self, updateGauge, updateMom, t: float):
+        dt = t / self.n_steps
+        updateMom(dt / 2)
+        for _ in range(self.n_steps - 1):
+            updateGauge(dt)
+            updateMom(dt)
+        updateGauge(dt)
+        updateMom(dt / 2)
 
 
 class O2Nf1Ng0P(Integrator):
     R"""https://doi.org/10.1016/S0010-4655(02)00754-3
     ABA: Eq.(24), \xi=0"""
 
-    @classmethod
-    def integrate(cls, hmc: "HMC", t: float, n_steps: int):
-        dt = t / n_steps
-        for _ in range(n_steps):
-            hmc.updateGauge(dt / 2)
-            hmc.updateMom(dt)
-            hmc.updateGauge(dt / 2)
+    def integrate(self, updateGauge, updateMom, t: float):
+        dt = t / self.n_steps
+        updateGauge(dt / 2)
+        for _ in range(self.n_steps - 1):
+            updateMom(dt)
+            updateGauge(dt)
+        updateMom(dt)
+        updateGauge(dt / 2)
 
 
 class O4Nf5Ng0V(Integrator):
@@ -63,21 +68,30 @@ class O4Nf5Ng0V(Integrator):
     vartheta_ = 0.08398315262876693
     lambda_ = 0.6822365335719091
 
-    @classmethod
-    def integrate(cls, hmc: "HMC", t: float, n_steps: int):
-        dt = t / n_steps
-        for _ in range(n_steps):
-            hmc.updateMom(cls.vartheta_ * dt)
-            hmc.updateGauge(cls.rho_ * dt)
-            hmc.updateMom(cls.lambda_ * dt)
-            hmc.updateGauge(cls.theta_ * dt)
-            hmc.updateMom((1 - 2 * (cls.lambda_ + cls.vartheta_)) * dt / 2)
-            hmc.updateGauge((1 - 2 * (cls.theta_ + cls.rho_)) * dt)
-            hmc.updateMom((1 - 2 * (cls.lambda_ + cls.vartheta_)) * dt / 2)
-            hmc.updateGauge(cls.theta_ * dt)
-            hmc.updateMom(cls.lambda_ * dt)
-            hmc.updateGauge(cls.rho_ * dt)
-            hmc.updateMom(cls.vartheta_ * dt)
+    def integrate(self, updateGauge, updateMom, t: float):
+        dt = t / self.n_steps
+        updateMom(self.vartheta_ * dt)
+        for _ in range(self.n_steps - 1):
+            updateGauge(self.rho_ * dt)
+            updateMom(self.lambda_ * dt)
+            updateGauge(self.theta_ * dt)
+            updateMom((1 - 2 * (self.lambda_ + self.vartheta_)) * dt / 2)
+            updateGauge((1 - 2 * (self.theta_ + self.rho_)) * dt)
+            updateMom((1 - 2 * (self.lambda_ + self.vartheta_)) * dt / 2)
+            updateGauge(self.theta_ * dt)
+            updateMom(self.lambda_ * dt)
+            updateGauge(self.rho_ * dt)
+            updateMom(2 * self.vartheta_ * dt)
+        updateGauge(self.rho_ * dt)
+        updateMom(self.lambda_ * dt)
+        updateGauge(self.theta_ * dt)
+        updateMom((1 - 2 * (self.lambda_ + self.vartheta_)) * dt / 2)
+        updateGauge((1 - 2 * (self.theta_ + self.rho_)) * dt)
+        updateMom((1 - 2 * (self.lambda_ + self.vartheta_)) * dt / 2)
+        updateGauge(self.theta_ * dt)
+        updateMom(self.lambda_ * dt)
+        updateGauge(self.rho_ * dt)
+        updateMom(self.vartheta_ * dt)
 
 
 class O4Nf5Ng0P(Integrator):
@@ -90,29 +104,44 @@ class O4Nf5Ng0P(Integrator):
     lambda_ = 0.3549000571574260
 
     @classmethod
-    def integrate(cls, hmc: "HMC", t: float, n_steps: int):
-        dt = t / n_steps
-        for _ in range(n_steps):
-            hmc.updateGauge(cls.rho_ * dt)
-            hmc.updateMom(cls.vartheta_ * dt)
-            hmc.updateGauge(cls.theta_ * dt)
-            hmc.updateMom(cls.lambda_ * dt)
-            hmc.updateGauge((1 - 2 * (cls.theta_ + cls.rho_)) * dt / 2)
-            hmc.updateMom((1 - 2 * (cls.lambda_ + cls.vartheta_)) * dt)
-            hmc.updateGauge((1 - 2 * (cls.theta_ + cls.rho_)) * dt / 2)
-            hmc.updateMom(cls.lambda_ * dt)
-            hmc.updateGauge(cls.theta_ * dt)
-            hmc.updateMom(cls.vartheta_ * dt)
-            hmc.updateGauge(cls.rho_ * dt)
+    def integrate(self, updateGauge, updateMom, t: float):
+        dt = t / self.n_steps
+        updateGauge(self.rho_ * dt)
+        for _ in range(self.n_steps - 1):
+            updateMom(self.vartheta_ * dt)
+            updateGauge(self.theta_ * dt)
+            updateMom(self.lambda_ * dt)
+            updateGauge((1 - 2 * (self.theta_ + self.rho_)) * dt / 2)
+            updateMom((1 - 2 * (self.lambda_ + self.vartheta_)) * dt)
+            updateGauge((1 - 2 * (self.theta_ + self.rho_)) * dt / 2)
+            updateMom(self.lambda_ * dt)
+            updateGauge(self.theta_ * dt)
+            updateMom(self.vartheta_ * dt)
+            updateGauge(2 * self.rho_ * dt)
+        updateMom(self.vartheta_ * dt)
+        updateGauge(self.theta_ * dt)
+        updateMom(self.lambda_ * dt)
+        updateGauge((1 - 2 * (self.theta_ + self.rho_)) * dt / 2)
+        updateMom((1 - 2 * (self.lambda_ + self.vartheta_)) * dt)
+        updateGauge((1 - 2 * (self.theta_ + self.rho_)) * dt / 2)
+        updateMom(self.lambda_ * dt)
+        updateGauge(self.theta_ * dt)
+        updateMom(self.vartheta_ * dt)
+        updateGauge(self.rho_ * dt)
 
 
 class HMC:
     def __init__(
-        self, latt_info: LatticeInfo, monomials: List[Union[GaugeAction, FermionAction]], integrator: Integrator
+        self,
+        latt_info: LatticeInfo,
+        monomials: List[Union[GaugeAction, FermionAction]],
+        integrator: Integrator,
+        hmc_inner: "HMC" = None,
     ) -> None:
         self.latt_info = latt_info
         self._monomials = monomials
         self._integrator = integrator
+        self._hmc_inner = hmc_inner
         self._wilson = Wilson(latt_info, 0, 0.125, 0, 0)
         self.gauge_param = self._wilson.gauge_param
 
@@ -131,7 +160,7 @@ class HMC:
         self.loadMom(mom)
 
     def actionGauge(self) -> float:
-        action = 0
+        action = 0 if self._hmc_inner is None else self._hmc_inner.actionGauge()
         for monomial in self._monomials:
             if isinstance(monomial, FermionAction):
                 action += monomial.action(True)
@@ -153,8 +182,10 @@ class HMC:
             elif isinstance(monomial, GaugeAction):
                 monomial.force(dt)
 
-    def integrate(self, t: float, n_steps: int):
-        self._integrator.integrate(self, t, n_steps)
+    def integrate(self, t: float):
+        self._integrator.integrate(
+            self.updateGauge if self._hmc_inner is None else self._hmc_inner.integrate, self.updateMom, t
+        )
 
     def samplePhi(self, seed: int):
         def _seed(seed: int):
@@ -162,17 +193,20 @@ class HMC:
             if backend == "numpy":
                 import numpy
 
-                numpy.random.seed(seed)
+                if seed is not None:
+                    numpy.random.seed(seed)
                 return numpy, numpy.random.random, numpy.float64
             elif backend == "cupy":
                 import cupy
 
-                cupy.random.seed(seed)
+                if seed is not None:
+                    cupy.random.seed(seed)
                 return cupy, cupy.random.random, cupy.float64
             elif backend == "torch":
                 import torch
 
-                torch.random.manual_seed(seed)
+                if seed is not None:
+                    torch.random.manual_seed(seed)
                 return torch, torch.rand, torch.float64
 
         def _noise(backend, random, float64):
@@ -185,6 +219,9 @@ class HMC:
         for monomial in self._monomials:
             if isinstance(monomial, FermionAction):
                 monomial.sample(LatticeFermion(self.latt_info, _noise(backend, random, float64)), True)
+
+        if self._hmc_inner is not None:
+            self._hmc_inner.samplePhi(None)
 
     def loadGauge(self, gauge: LatticeGauge):
         gauge_in = gauge.copy()

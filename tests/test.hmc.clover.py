@@ -14,7 +14,7 @@ mass_l, mass_s = 0.3, 0.5
 clover_csw = 1.17
 tol, maxiter = 1e-12, 1000
 start, stop, warm, save = 0, 2000, 500, 5
-t, n_steps = 1.0, 10
+t = 1.0
 
 init(resource_path=".cache")
 latt_info = core.LatticeInfo([4, 4, 4, 8], t_boundary=-1, anisotropy=1.0)
@@ -25,7 +25,9 @@ monomials = [
     one_flavor_clover.OneFlavorClover(latt_info, mass_s, tol, maxiter, clover_csw),
 ]
 
-hmc = HMC(latt_info, monomials, O4Nf5Ng0V)
+# hmc_inner = HMC(latt_info, monomials[:1], O4Nf5Ng0V(4))
+# hmc = HMC(latt_info, monomials[1:], O4Nf5Ng0V(3), hmc_inner)
+hmc = HMC(latt_info, monomials, O4Nf5Ng0V(5))
 gauge = core.LatticeGauge(latt_info)
 hmc.initialize(gauge)
 
@@ -39,7 +41,7 @@ for i in range(start, stop):
     kinetic_old, potential_old = hmc.actionMom(), hmc.actionGauge()
     energy_old = kinetic_old + potential_old
 
-    hmc.integrate(t, n_steps)
+    hmc.integrate(t)
     hmc.reunitGauge(1e-15)
 
     kinetic, potential = hmc.actionMom(), hmc.actionGauge()
