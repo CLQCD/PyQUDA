@@ -405,6 +405,17 @@ class LatticeGauge(LatticeField):
         self.pure_gauge.freeGauge()
         return b
 
+    def shift(self, shift_mu: List[int]) -> "LatticeGauge":
+        unit = LatticeGauge(self.latt_info)
+        x = LatticeFermion(self.latt_info)
+        self.ensurePureGauge()
+        self.pure_gauge.loadGauge(unit)
+        for mu, covdev_mu in enumerate(shift_mu):
+            x.data[:, :, :, :, :, :Nc, :Nc] = self.data[mu]
+            unit.data[mu] = self.pure_gauge.covDev(x, covdev_mu).data[:, :, :, :, :, :Nc, :Nc]
+        self.pure_gauge.freeGauge()
+        return unit
+
     def staggeredPhase(self):
         self.ensurePureGauge()
         self.pure_gauge.staggeredPhase(self)
