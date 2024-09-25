@@ -288,6 +288,19 @@ class LatticeField:
         elif location == "torch":
             return self.data.cpu().numpy()
 
+    def norm(self):
+        location = self.location
+        if location == "numpy":
+            return numpy.linalg.norm(self.data)
+        elif location == "cupy":
+            import cupy
+
+            return cupy.linalg.norm(self.data)
+        elif location == "torch":
+            import torch
+
+            return torch.linalg.norm(self.data)
+
     def __add__(self, other):
         assert self.__class__ == other.__class__ and self.location == other.location
         return self.__class__(self.latt_info, self.data + other.data)

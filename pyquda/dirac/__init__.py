@@ -15,7 +15,7 @@ from ..pyquda import (
     updateMultigridQuda,
     destroyMultigridQuda,
 )
-from ..enum_quda import QudaBoolean, QudaPrecision, QudaReconstructType
+from ..enum_quda import QudaBoolean, QudaPrecision, QudaReconstructType, QudaSolverNormalization
 from ..field import LatticeInfo, LatticeGauge, LatticeFermion, LatticeStaggeredFermion
 
 
@@ -190,9 +190,11 @@ class Dirac(Gauge):
 
     def invertRestart(self, b: LatticeFermion, restart: int):
         x = self.invert(b)
+        self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_SOURCE_NORMALIZATION
         for _ in range(restart):
             r = b - self.mat(x)
             x += self.invert(r)
+        self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
         return x
 
     def mat(self, x: LatticeFermion):

@@ -106,12 +106,21 @@ def _initEnvironWarn(**kwargs):
         _setEnviron(f"QUDA_{key.upper()}", key, kwargs[key])
 
 
+def initQUDA(grid_size, gpuid):
+    import atexit
+
+    quda.initCommsGridQuda(4, _GRID_SIZE)
+    quda.initQuda(_GPUID)
+    atexit.register(quda.endQuda)
+
+
 def init(
     grid_size: List[int] = None,
     latt_size: List[int] = None,
     t_boundary: Literal[1, -1] = None,
     anisotropy: float = None,
     backend: Literal["numpy", "cupy", "torch"] = "cupy",
+    init_quda: bool = True,
     *,
     resource_path: str = "",
     rank_verbosity: List[int] = [0],
@@ -144,7 +153,6 @@ def init(
     """
     global _GRID_SIZE, _GRID_COORD
     if _GRID_SIZE is None:
-        import atexit
         from platform import node as gethostname
 
         Gx, Gy, Gz, Gt = grid_size if grid_size is not None else [1, 1, 1, 1]
@@ -254,9 +262,8 @@ def init(
             _COMPUTE_CAPABILITY = _ComputeCapability(int(props["major"]), int(props["minor"]))
 
         cudaSetDevice(_GPUID)
-        quda.initCommsGridQuda(4, _GRID_SIZE)
-        quda.initQuda(_GPUID)
-        atexit.register(quda.endQuda)
+        if init_quda:
+            initQUDA(_GRID_SIZE, _GPUID)
     else:
         _MPI_LOGGER.warning("PyQUDA is already initialized", RuntimeWarning)
 
