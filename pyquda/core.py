@@ -266,6 +266,20 @@ def getClover(
     return CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_csw, clover_xi, multigrid)
 
 
+def getStaggered(
+    latt_info: LatticeInfo,
+    mass: float,
+    tol: float,
+    maxiter: int,
+):
+    assert latt_info.anisotropy == 1.0
+    kappa = 1 / 2
+
+    from .dirac.staggered import Staggered
+
+    return Staggered(latt_info, mass, kappa, tol, maxiter, 1.0, None)
+
+
 def getHISQ(
     latt_info: LatticeInfo,
     mass: float,

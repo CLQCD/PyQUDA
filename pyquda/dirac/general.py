@@ -16,6 +16,7 @@ from ..pyquda import (
     dslashQuda,
     cloverQuda,
     computeKSLinkQuda,
+    staggeredPhaseQuda,
 )
 from ..field import (
     LatticeInfo,
@@ -443,6 +444,24 @@ def loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
         gauge_in.setAntiPeriodicT()
     if gauge_param.anisotropy != 1.0:
         gauge_in.setAnisotropy(gauge_param.anisotropy)
+    gauge_param.use_resident_gauge = 0
+    loadGaugeQuda(gauge_in.data_ptrs, gauge_param)
+    gauge_param.use_resident_gauge = 1
+
+
+def loadStaggeredGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
+    gauge_in = gauge.copy()
+
+    gauge_param.use_resident_gauge = 0
+    gauge_param.make_resident_gauge = 0
+    gauge_param.return_result_gauge = 1
+    gauge_param.staggered_phase_applied = 0
+    staggeredPhaseQuda(gauge_in.data_ptrs, gauge_param)
+    gauge_param.use_resident_gauge = 1
+    gauge_param.make_resident_gauge = 0
+    gauge_param.return_result_gauge = 0
+    gauge_param.staggered_phase_applied = 1
+
     gauge_param.use_resident_gauge = 0
     loadGaugeQuda(gauge_in.data_ptrs, gauge_param)
     gauge_param.use_resident_gauge = 1

@@ -17,6 +17,7 @@ from .pyquda import (
 from .enum_quda import QudaTboundary, QudaVerbosity
 from .field import Nc, Ns, LatticeInfo, LatticeGauge, LatticeMom, LatticeFermion
 from .dirac.wilson import Wilson
+from .dirac.hisq import HISQ
 from .action import FermionAction, GaugeAction
 
 nullptr = Pointers("void", 0)
@@ -153,9 +154,9 @@ class HMC:
             self.loadGauge(gauge)
         else:
             unit = LatticeGauge(self.latt_info)
-            self.loadGauge(unit)
             if gauge is not None:
-                self.gaussGauge(gauge)
+                unit.gauss(gauge, 1.0)
+            self.loadGauge(unit)
         mom = LatticeMom(self.latt_info)
         self.loadMom(mom)
 
@@ -236,9 +237,6 @@ class HMC:
         if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
             gauge.setAntiPeriodicT()
 
-    def gaussGauge(self, seed: int):
-        gaussGaugeQuda(seed, 1.0)
-
     def loadMom(self, mom: LatticeMom):
         momResidentQuda(mom.data_ptrs, self.gauge_param)
 
@@ -261,3 +259,31 @@ class HMC:
 
     def plaquette(self):
         return plaqQuda()[0]
+
+
+class StaggeredHMC(HMC):
+    def __init__(
+        self,
+        latt_info: LatticeInfo,
+        monomials: List[Union[GaugeAction, FermionAction]],
+        integrator: Integrator,
+        hmc_inner: "HMC" = None,
+    ) -> None:
+        super().__init__(latt_info, monomials, integrator, hmc_inner)
+        self._hisq = HISQ(latt_info, 0, 0.5, 0, 0)
+        self.gauge_param = self._hisq.gauge_param
+
+    def loadGauge(self, gauge: LatticeGauge):
+        gauge_in = gauge.copy()
+        gauge_in.staggeredPhase()
+        if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
+            gauge_in.setAntiPeriodicT()
+        self.gauge_param.use_resident_gauge = 0
+        loadGaugeQuda(gauge_in.data_ptrs, self.gauge_param)
+        self.gauge_param.use_resident_gauge = 1
+
+    def saveGauge(self, gauge: LatticeGauge):
+        saveGaugeQuda(gauge.data_ptrs, self.gauge_param)
+        if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
+            gauge.setAntiPeriodicT()
+        gauge.staggeredPhase(True)

@@ -151,16 +151,17 @@ class HMC:
 
     def reunitGaugeField(self, tol: float):
         gauge = LatticeGauge(self.latt_info, None)
-        t_boundary = self.gauge_param.t_boundary
-        reconstruct = self.gauge_param.reconstruct
+        # t_boundary = self.gauge_param.t_boundary
+        # reconstruct = self.gauge_param.reconstruct
         self.saveGauge(gauge)
-        self.gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
-        self.gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
-        self.loadGauge(gauge)
-        projectSU3Quda(nullptr, tol, self.gauge_param)
-        self.saveGauge(gauge)
-        self.gauge_param.t_boundary = t_boundary
-        self.gauge_param.reconstruct = reconstruct
+        gauge.projectSU3(tol)
+        # self.gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
+        # self.gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
+        # self.loadGauge(gauge)
+        # projectSU3Quda(nullptr, tol, self.gauge_param)
+        # self.saveGauge(gauge)
+        # self.gauge_param.t_boundary = t_boundary
+        # self.gauge_param.reconstruct = reconstruct
         self.loadGauge(gauge)
 
     def gaussMom(self, seed: int):

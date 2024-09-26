@@ -40,7 +40,7 @@ from . import Gauge, general
 
 class PureGauge(Gauge):
     def __init__(self, latt_info: LatticeInfo) -> None:
-        super().__init__(latt_info)
+        super().__init__(LatticeInfo(latt_info.global_size))  # Keep periodic t boundary and isotropic
         # Use QUDA_RECONSTRUCT_NO to ensure slight deviations from SU(3) can be preserved
         self._setReconstruct(
             cuda=max(self.reconstruct.cuda, QudaReconstructType.QUDA_RECONSTRUCT_NO),
@@ -129,15 +129,16 @@ class PureGauge(Gauge):
         performWuppertalnStep(b.data_ptr, x.data_ptr, self.invert_param, n_steps, alpha)
         return b
 
-    def staggeredPhase(self, gauge: LatticeGauge):
+    def staggeredPhase(self, gauge: LatticeGauge, applied: bool = False):
         self.gauge_param.use_resident_gauge = 0
         self.gauge_param.make_resident_gauge = 0
         self.gauge_param.return_result_gauge = 1
+        self.gauge_param.staggered_phase_applied = int(applied)
         staggeredPhaseQuda(gauge.data_ptrs, self.gauge_param)
-        self.gauge_param.staggered_phase_applied = 1 - self.gauge_param.staggered_phase_applied
         self.gauge_param.use_resident_gauge = 1
         self.gauge_param.make_resident_gauge = 1
         self.gauge_param.return_result_gauge = 0
+        self.gauge_param.staggered_phase_applied = int(not applied)
 
     def projectSU3(self, gauge: LatticeGauge, tol: float):
         self.gauge_param.use_resident_gauge = 0

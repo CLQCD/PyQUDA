@@ -429,9 +429,9 @@ class LatticeGauge(LatticeField):
         self.pure_gauge.freeGauge()
         return unit
 
-    def staggeredPhase(self):
+    def staggeredPhase(self, applied: bool = False):
         self.ensurePureGauge()
-        self.pure_gauge.staggeredPhase(self)
+        self.pure_gauge.staggeredPhase(self, applied)
 
     def projectSU3(self, tol: float):
         self.ensurePureGauge()
