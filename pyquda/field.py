@@ -336,6 +336,10 @@ class LatticeField:
         self._data /= other
         return self
 
+    def __neg__(self):
+        self.data *= -1
+        return self
+
 
 class MultiLatticeField(LatticeField):
     def __init__(self, latt_info: LatticeInfo, L5: int) -> None:

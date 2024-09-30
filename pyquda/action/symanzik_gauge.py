@@ -119,8 +119,10 @@ class SymanzikGauge(GaugeAction):
             self.flengths,
             self.fcoeffs,
         ) = path_force(input_path, input_coeffs)
-        self.coeffs *= beta * (5 / 3) / u_0**4 / Nc
-        self.fcoeffs *= beta * (5 / 3) / u_0**4 / Nc
+        # self.coeffs *= beta * (5 / 3) / u_0**4 / Nc
+        # self.fcoeffs *= beta * (5 / 3) / u_0**4 / Nc
+        self.coeffs *= beta / Nc
+        self.fcoeffs *= beta / Nc
 
     def action(self) -> float:
         traces = numpy.zeros((self.num_paths), "<c16")

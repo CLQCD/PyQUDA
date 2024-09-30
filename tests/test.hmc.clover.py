@@ -16,7 +16,7 @@ tol, maxiter = 1e-12, 1000
 start, stop, warm, save = 0, 2000, 500, 5
 t = 1.0
 
-init(resource_path=".cache")
+init(resource_path=".cache", enable_force_monitor=True)
 latt_info = core.LatticeInfo([4, 4, 4, 8], t_boundary=-1, anisotropy=1.0)
 
 monomials = [

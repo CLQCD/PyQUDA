@@ -185,7 +185,7 @@ def newQudaMultigridParam(
     mg_inv_param.inv_type = QudaInverterType.QUDA_GCR_INVERTER
     mg_inv_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
     mg_inv_param.solve_type = QudaSolveType.QUDA_DIRECT_SOLVE
-    mg_inv_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
+    mg_inv_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
     mg_inv_param.dagger = QudaDagType.QUDA_DAG_NO
     mg_inv_param.mass_normalization = QudaMassNormalization.QUDA_ASYMMETRIC_MASS_NORMALIZATION
     mg_inv_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
@@ -302,7 +302,7 @@ def newQudaInvertParam(
     invert_param.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
     invert_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
     invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE
-    invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
+    invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
     invert_param.dagger = QudaDagType.QUDA_DAG_NO
     invert_param.mass_normalization = QudaMassNormalization.QUDA_ASYMMETRIC_MASS_NORMALIZATION
     invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
@@ -310,7 +310,7 @@ def newQudaInvertParam(
 
     invert_param.tol = tol
     invert_param.tol_restart = 5e3 * tol
-    invert_param.tol_hq = tol
+    invert_param.tol_hq = 0.0
     invert_param.residual_type = QudaResidualType.QUDA_L2_RELATIVE_RESIDUAL
     invert_param.maxiter = maxiter
     invert_param.reliable_delta = 1e-1 if mg_param is None else 1e-5
@@ -350,10 +350,6 @@ def newQudaInvertParam(
         invert_param.compute_clover_inverse = 1
         invert_param.return_clover = 0
         invert_param.return_clover_inverse = 0
-
-    # invert_param.num_offset = 1
-    invert_param.tol_offset = [invert_param.tol] * QUDA_MAX_MULTI_SHIFT
-    invert_param.tol_hq_offset = [invert_param.tol_hq] * QUDA_MAX_MULTI_SHIFT
 
     if mg_param is not None:
         invert_param.inv_type = QudaInverterType.QUDA_GCR_INVERTER
@@ -545,6 +541,7 @@ def matDagMatStaggered(x: LatticeStaggeredFermion, invert_param: QudaInvertParam
 def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
     kappa = invert_param.kappa
     invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
+    invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
 
     latt_info = b.latt_info
     x = LatticeFermion(latt_info)
@@ -570,6 +567,7 @@ def invertCloverPC(b: LatticeFermion, invert_param: QudaInvertParam):
 def invertStaggeredPC(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
     mass = invert_param.mass
     invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
+    invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
 
     latt_info = b.latt_info
     x = LatticeStaggeredFermion(latt_info)

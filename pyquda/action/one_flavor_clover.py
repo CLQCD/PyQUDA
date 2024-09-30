@@ -20,9 +20,9 @@ nullptr = Pointers("void", 0)
 
 from . import FermionAction
 
-
-const_fourth_root = 6.10610118771501
-residue_fourth_root = [
+# forth root
+const_pseudo_fermion = 6.10610118771501
+residue_pseudo_fermion = [
     -5.90262826538435e-06,
     -2.63363387226834e-05,
     -8.62160355606352e-05,
@@ -39,7 +39,7 @@ residue_fourth_root = [
     -46.55440910469,
     -1281.70053339288,
 ]
-offset_fourth_root = [
+offset_pseudo_fermion = [
     0.000109335909283339,
     0.000584211769074023,
     0.00181216713967916,
@@ -56,7 +56,8 @@ offset_fourth_root = [
     53.7484938194392,
     402.99686403222,
 ]
-residue_inv_square_root = [
+# inverse square root
+residue_molecular_dynamics = [
     0.00943108618345698,
     0.0122499930158508,
     0.0187308029056777,
@@ -70,7 +71,7 @@ residue_inv_square_root = [
     1.8819154073627,
     6.96033769739192,
 ]
-offset_inv_square_root = [
+offset_molecular_dynamics = [
     5.23045292201785e-05,
     0.000569214182255549,
     0.00226724207135389,
@@ -118,14 +119,9 @@ class OneFlavorClover(FermionAction):
         self.invert_param.compute_clover_trlog = 1
         self.updateClover(new_gauge)
         self.invert_param.compute_clover_trlog = 0
-        num_offset = len(offset_inv_square_root)
-        self.invert_param.num_offset = num_offset
-        self.invert_param.offset = offset_inv_square_root + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
-        self.invert_param.residue = residue_inv_square_root + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
-        xx = MultiLatticeFermion(self.phi.latt_info, num_offset)
         self.invert_param.compute_action = 1
-        invertMultiShiftQuda(xx.even_ptrs, self.phi.odd_ptr, self.invert_param)
-        self.dirac.invert_param.compute_action = 0
+        self.dirac.invertMultiShiftPC(self.phi, offset_molecular_dynamics, residue_molecular_dynamics)
+        self.invert_param.compute_action = 0
         return (
             self.invert_param.action[0]
             - self.latt_info.volume_cb2 * Ns * Nc
@@ -134,19 +130,15 @@ class OneFlavorClover(FermionAction):
 
     def force(self, dt, new_gauge: bool):
         self.updateClover(new_gauge)
-        num_offset = len(offset_inv_square_root)
-        self.invert_param.num_offset = num_offset
-        self.invert_param.offset = offset_inv_square_root + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
-        self.invert_param.residue = residue_inv_square_root + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
-        xx = MultiLatticeFermion(self.phi.latt_info, num_offset)
-        invertMultiShiftQuda(xx.even_ptrs, self.phi.odd_ptr, self.invert_param)
+        num_offset = len(offset_molecular_dynamics)
+        xx = self.dirac.invertMultiShiftPC(self.phi, offset_molecular_dynamics, residue_molecular_dynamics)
         # Some conventions force the dagger to be YES here
         self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
         computeCloverForceQuda(
             nullptr,
             dt,
             xx.even_ptrs,
-            numpy.array(residue_inv_square_root, "<f8"),
+            numpy.array(residue_molecular_dynamics, "<f8"),
             self.kappa2,
             self.ck,
             num_offset,
@@ -158,13 +150,6 @@ class OneFlavorClover(FermionAction):
 
     def sample(self, noise: LatticeFermion, new_gauge: bool):
         self.updateClover(new_gauge)
-        num_offset = len(offset_fourth_root)
-        self.invert_param.num_offset = num_offset
-        self.invert_param.offset = offset_fourth_root + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
-        self.invert_param.residue = residue_fourth_root + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
-        xx = MultiLatticeFermion(noise.latt_info, num_offset)
-        invertMultiShiftQuda(xx.even_ptrs, noise.even_ptr, self.invert_param)
-        self.phi.even = noise.even
-        self.phi.odd = const_fourth_root * noise.even
-        for i in range(num_offset):
-            self.phi.data[1] += residue_fourth_root[i] * xx.data[i, 0]
+        x = self.dirac.invertMultiShiftPC(noise, offset_pseudo_fermion, residue_pseudo_fermion, const_pseudo_fermion)
+        self.phi.odd = noise.even
+        self.phi.even = x.even

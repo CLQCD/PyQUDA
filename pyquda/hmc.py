@@ -5,7 +5,6 @@ from . import getCUDABackend
 from .pointer import Pointers
 from .pyquda import (
     setVerbosityQuda,
-    gaussGaugeQuda,
     gaussMomQuda,
     loadGaugeQuda,
     saveGaugeQuda,
@@ -15,7 +14,7 @@ from .pyquda import (
     updateGaugeFieldQuda,
 )
 from .enum_quda import QudaTboundary, QudaVerbosity
-from .field import Nc, Ns, LatticeInfo, LatticeGauge, LatticeMom, LatticeFermion
+from .field import Nc, Ns, LatticeInfo, LatticeGauge, LatticeMom, LatticeFermion, LatticeStaggeredFermion
 from .dirac.wilson import Wilson
 from .dirac.hisq import HISQ
 from .action import FermionAction, GaugeAction
@@ -29,7 +28,7 @@ class Integrator(ABC):
 
     @abstractmethod
     def integrate(self, updateGauge, updateMom, t: float):
-        raise NotImplementedError
+        raise NotImplementedError("The integrator is not implemented yet")
 
 
 class O2Nf1Ng0V(Integrator):
@@ -58,6 +57,46 @@ class O2Nf1Ng0P(Integrator):
             updateGauge(dt)
         updateMom(dt)
         updateGauge(dt / 2)
+
+
+class O2Nf2Ng0V(Integrator):
+    R"""https://doi.org/10.1016/S0010-4655(02)00754-3
+    BABAB: Eq.(25), Eq.(31)"""
+
+    lambda_ = 0.1931833275037836
+
+    def integrate(self, updateGauge, updateMom, t: float):
+        dt = t / self.n_steps
+        updateMom(self.lambda_ * dt)
+        for _ in range(self.n_steps - 1):
+            updateGauge(dt / 2)
+            updateMom((1 - 2 * self.lambda_) * dt)
+            updateGauge(dt / 2)
+            updateMom(2 * self.lambda_ * dt)
+        updateGauge(dt / 2)
+        updateMom((1 - 2 * self.lambda_) * dt)
+        updateGauge(dt / 2)
+        updateMom(self.lambda_ * dt)
+
+
+class O2Nf2Ng0P(Integrator):
+    R"""https://doi.org/10.1016/S0010-4655(02)00754-3
+    ABABA: Eq.(32), Eq.(31)"""
+
+    lambda_ = 0.1931833275037836
+
+    def integrate(self, updateGauge, updateMom, t: float):
+        dt = t / self.n_steps
+        updateGauge(self.lambda_ * dt)
+        for _ in range(self.n_steps - 1):
+            updateMom(dt / 2)
+            updateGauge((1 - 2 * self.lambda_) * dt)
+            updateMom(dt / 2)
+            updateGauge(2 * self.lambda_ * dt)
+        updateMom(dt / 2)
+        updateGauge((1 - 2 * self.lambda_) * dt)
+        updateMom(dt / 2)
+        updateGauge(self.lambda_ * dt)
 
 
 class O4Nf5Ng0V(Integrator):
@@ -104,7 +143,6 @@ class O4Nf5Ng0P(Integrator):
     vartheta_ = -0.08442961950707149
     lambda_ = 0.3549000571574260
 
-    @classmethod
     def integrate(self, updateGauge, updateMom, t: float):
         dt = t / self.n_steps
         updateGauge(self.rho_ * dt)
@@ -267,7 +305,7 @@ class StaggeredHMC(HMC):
         latt_info: LatticeInfo,
         monomials: List[Union[GaugeAction, FermionAction]],
         integrator: Integrator,
-        hmc_inner: "HMC" = None,
+        hmc_inner: HMC = None,
     ) -> None:
         super().__init__(latt_info, monomials, integrator, hmc_inner)
         self._hisq = HISQ(latt_info, 0, 0.5, 0, 0)
@@ -287,3 +325,39 @@ class StaggeredHMC(HMC):
         if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
             gauge.setAntiPeriodicT()
         gauge.staggeredPhase(True)
+
+    def samplePhi(self, seed: int):
+        def _seed(seed: int):
+            backend = getCUDABackend()
+            if backend == "numpy":
+                import numpy
+
+                if seed is not None:
+                    numpy.random.seed(seed)
+                return numpy, numpy.random.random, numpy.float64
+            elif backend == "cupy":
+                import cupy
+
+                if seed is not None:
+                    cupy.random.seed(seed)
+                return cupy, cupy.random.random, cupy.float64
+            elif backend == "torch":
+                import torch
+
+                if seed is not None:
+                    torch.random.manual_seed(seed)
+                return torch, torch.rand, torch.float64
+
+        def _noise(backend, random, float64):
+            phi = 2 * backend.pi * random((self.latt_info.volume, Nc), dtype=float64)
+            r = random((self.latt_info.volume, Nc), dtype=float64)
+            noise_raw = backend.sqrt(-backend.log(r)) * (backend.cos(phi) + 1j * backend.sin(phi))
+            return noise_raw
+
+        backend, random, float64 = _seed(seed)
+        for monomial in self._monomials:
+            if isinstance(monomial, FermionAction):
+                monomial.sample(LatticeStaggeredFermion(self.latt_info, _noise(backend, random, float64)), True)
+
+        if self._hmc_inner is not None:
+            self._hmc_inner.samplePhi(None)

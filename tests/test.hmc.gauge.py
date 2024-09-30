@@ -5,22 +5,22 @@ from time import perf_counter
 from check_pyquda import test_dir
 
 from pyquda import init, core
-from pyquda.hmc import HMC, O4Nf5Ng0V
-from pyquda.action import wilson_gauge
+from pyquda.hmc import HMC, O4Nf5Ng0P
+from pyquda.action import symanzik_gauge
 from pyquda.utils.io import writeNPYGauge
 
-beta, u_0 = 6.0, 1.0
-start, stop, warm, save = 0, 2000, 500, 5
-t = 1.0
+beta, u_0 = 7.4 , 0.890
+start, stop, warm, save = 0, 2000, 500, 500
+t = 0.2
 
-init(resource_path=".cache")
-latt_info = core.LatticeInfo([4, 4, 4, 8], t_boundary=1, anisotropy=1.0)
+init(resource_path=".cache", enable_force_monitor=True)
+latt_info = core.LatticeInfo([6, 6, 6, 6], t_boundary=1, anisotropy=1.0)
 
 monomials = [
-    wilson_gauge.WilsonGauge(latt_info, beta, u_0),
+    symanzik_gauge.SymanzikGauge(latt_info, beta, u_0),
 ]
 
-hmc = HMC(latt_info, monomials, O4Nf5Ng0V(5))
+hmc = HMC(latt_info, monomials, O4Nf5Ng0P(5))
 gauge = core.LatticeGauge(latt_info)
 hmc.initialize(gauge)
 

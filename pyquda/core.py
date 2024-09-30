@@ -271,13 +271,14 @@ def getStaggered(
     mass: float,
     tol: float,
     maxiter: int,
+    tadpole_coeff: float = 1.0,
 ):
     assert latt_info.anisotropy == 1.0
     kappa = 1 / 2
 
     from .dirac.staggered import Staggered
 
-    return Staggered(latt_info, mass, kappa, tol, maxiter, 1.0, None)
+    return Staggered(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, None)
 
 
 def getHISQ(

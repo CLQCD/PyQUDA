@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import NamedTuple
+from typing import List, NamedTuple
 
 from ..pointer import Pointer
 from ..pyquda import (
@@ -9,14 +9,31 @@ from ..pyquda import (
     QudaGaugeSmearParam,
     QudaGaugeObservableParam,
     invertQuda,
+    invertMultiShiftQuda,
     MatQuda,
     MatDagMatQuda,
+    dslashQuda,
     newMultigridQuda,
     updateMultigridQuda,
     destroyMultigridQuda,
 )
-from ..enum_quda import QudaBoolean, QudaPrecision, QudaReconstructType, QudaSolverNormalization
-from ..field import LatticeInfo, LatticeGauge, LatticeFermion, LatticeStaggeredFermion
+from ..enum_quda import (
+    QUDA_MAX_MULTI_SHIFT,
+    QudaBoolean,
+    QudaMatPCType,
+    QudaParity,
+    QudaPrecision,
+    QudaReconstructType,
+    QudaSolverNormalization,
+)
+from ..field import (
+    LatticeInfo,
+    LatticeGauge,
+    LatticeFermion,
+    MultiLatticeFermion,
+    LatticeStaggeredFermion,
+    MultiLatticeStaggeredFermion,
+)
 
 
 class Precision(NamedTuple):
@@ -207,6 +224,50 @@ class Dirac(Gauge):
         MatDagMatQuda(b.data_ptr, x.data_ptr, self.invert_param)
         return b
 
+    def dslash(self, x: LatticeFermion, parity: QudaParity):
+        b = LatticeFermion(x.latt_info)
+        dslashQuda(b.data_ptr, x.data_ptr, self.invert_param, parity)
+        return b
+
+    def invertMultiShiftPC(self, b: LatticeFermion, offset: List[float], residue: List[float], const: float = None):
+        assert len(offset) == len(residue)
+        num_offset = len(offset)
+        tol = self.invert_param.tol
+        self.invert_param.num_offset = num_offset
+        self.invert_param.offset = offset + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
+        self.invert_param.residue = residue + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
+        self.invert_param.tol_offset = [
+            max(tol * abs(residue[0] / residue[i]), 2e-16 * self.latt_info.Lt**0.5) for i in range(num_offset)
+        ] + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
+        xx = MultiLatticeFermion(self.latt_info, num_offset)
+        x = None
+        if (
+            self.invert_param.matpc_type == QudaMatPCType.QUDA_MATPC_EVEN_EVEN
+            or self.invert_param.matpc_type == QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
+        ):
+            invertMultiShiftQuda(xx.even_ptrs, b.even_ptr, self.invert_param)
+            if const is None:
+                return xx
+            else:
+                x = LatticeFermion(self.latt_info)
+                x.even = const * b.even
+                for i in range(num_offset):
+                    x.even += residue[i] * xx[i].even
+                return x
+        elif (
+            self.invert_param.matpc_type == QudaMatPCType.QUDA_MATPC_ODD_ODD
+            or self.invert_param.matpc_type == QudaMatPCType.QUDA_MATPC_ODD_ODD_ASYMMETRIC
+        ):
+            invertMultiShiftQuda(xx.odd_ptrs, b.odd_ptr, self.invert_param)
+            if const is None:
+                return xx
+            else:
+                x = LatticeFermion(self.latt_info)
+                x.odd = const * b.odd
+                for i in range(num_offset):
+                    x.odd += residue[i] * xx[i].odd
+                return x
+
     def newMultigrid(self):
         if self.multigrid.param is not None:
             self.multigrid.new()
@@ -245,3 +306,49 @@ class StaggeredDirac(Dirac):
         b = LatticeStaggeredFermion(x.latt_info)
         MatDagMatQuda(b.data_ptr, x.data_ptr, self.invert_param)
         return b
+
+    def dslash(self, x: LatticeStaggeredFermion, parity: QudaParity):
+        b = LatticeStaggeredFermion(x.latt_info)
+        dslashQuda(b.data_ptr, x.data_ptr, self.invert_param, parity)
+        return b
+
+    def invertMultiShiftPC(
+        self, b: LatticeStaggeredFermion, offset: List[float], residue: List[float], const: float = None
+    ):
+        assert len(offset) == len(residue)
+        num_offset = len(offset)
+        tol = self.invert_param.tol
+        self.invert_param.num_offset = num_offset
+        self.invert_param.offset = offset + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
+        self.invert_param.residue = residue + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
+        self.invert_param.tol_offset = [
+            max(tol * abs(residue[0] / residue[i]), 2e-16 * self.latt_info.Lt**0.5) for i in range(num_offset)
+        ] + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
+        xx = MultiLatticeStaggeredFermion(self.latt_info, num_offset)
+        x = None
+        if (
+            self.invert_param.matpc_type == QudaMatPCType.QUDA_MATPC_EVEN_EVEN
+            or self.invert_param.matpc_type == QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
+        ):
+            invertMultiShiftQuda(xx.even_ptrs, b.even_ptr, self.invert_param)
+            if const is None:
+                return xx
+            else:
+                x = LatticeStaggeredFermion(self.latt_info)
+                x.even = const * b.even
+                for i in range(num_offset):
+                    x.even += residue[i] * xx[i].even
+                return x
+        elif (
+            self.invert_param.matpc_type == QudaMatPCType.QUDA_MATPC_ODD_ODD
+            or self.invert_param.matpc_type == QudaMatPCType.QUDA_MATPC_ODD_ODD_ASYMMETRIC
+        ):
+            invertMultiShiftQuda(xx.odd_ptrs, b.odd_ptr, self.invert_param)
+            if const is None:
+                return xx
+            else:
+                x = LatticeStaggeredFermion(self.latt_info)
+                x.odd = const * b.odd
+                for i in range(num_offset):
+                    x.odd += residue[i] * xx[i].odd
+                return x

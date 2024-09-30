@@ -14,6 +14,7 @@ class Staggered(StaggeredDirac):
         kappa: float,
         tol: float,
         maxiter: int,
+        tadpole_coeff: float = 1.0,
         multigrid: Union[List[List[int]], Multigrid] = None,
     ) -> None:
         super().__init__(latt_info)
@@ -26,12 +27,12 @@ class Staggered(StaggeredDirac):
             precondition=max(self.reconstruct.precondition, QudaReconstructType.QUDA_RECONSTRUCT_NO),
             eigensolver=max(self.reconstruct.eigensolver, QudaReconstructType.QUDA_RECONSTRUCT_NO),
         )
-        self.newQudaGaugeParam()
+        self.newQudaGaugeParam(tadpole_coeff)
         self.newQudaMultigridParam(multigrid, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
         self.newQudaInvertParam(mass, kappa, tol, maxiter)
 
-    def newQudaGaugeParam(self):
-        gauge_param = general.newQudaGaugeParam(self.latt_info, 1.0, 0.0, self.precision, self.reconstruct)
+    def newQudaGaugeParam(self, tadpole_coeff: float):
+        gauge_param = general.newQudaGaugeParam(self.latt_info, tadpole_coeff, 0.0, self.precision, self.reconstruct)
         gauge_param.staggered_phase_applied = 1
         self.gauge_param = gauge_param
 

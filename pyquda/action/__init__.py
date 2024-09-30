@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
+from typing import Union
 
-from ..field import LatticeInfo, LatticeFermion
+from ..field import LatticeInfo, LatticeFermion, LatticeStaggeredFermion
 
 
 class GaugeAction(ABC):
@@ -33,5 +34,5 @@ class FermionAction(ABC):
         pass
 
     @abstractmethod
-    def sample(self, noise: LatticeFermion, new_gauge: bool):
+    def sample(self, noise: Union[LatticeFermion, LatticeStaggeredFermion], new_gauge: bool):
         pass
