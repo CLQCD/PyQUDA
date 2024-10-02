@@ -217,7 +217,7 @@ class HMC:
     def actionGauge(self) -> float:
         action = 0 if self._hmc_inner is None else self._hmc_inner.actionGauge()
         for monomial in self._monomials:
-            if isinstance(monomial, FermionAction):
+            if isinstance(monomial, FermionAction) or isinstance(monomial, StaggeredFermionAction):
                 action += monomial.action(True)
             elif isinstance(monomial, GaugeAction):
                 action += monomial.action()
@@ -232,7 +232,7 @@ class HMC:
 
     def updateMom(self, dt: float):
         for monomial in self._monomials:
-            if isinstance(monomial, FermionAction):
+            if isinstance(monomial, FermionAction) or isinstance(monomial, StaggeredFermionAction):
                 monomial.force(dt, True)
             elif isinstance(monomial, GaugeAction):
                 monomial.force(dt)

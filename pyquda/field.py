@@ -1,4 +1,4 @@
-from typing import List, Literal, Union
+from typing import Any, List, Literal, Sequence, Union
 
 import numpy
 
@@ -124,92 +124,50 @@ def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
     return data_cb2.reshape(*shape[: axes[0]], 2, Lt, Lz, Ly, Lx // 2, *shape[axes[-1] + 1 :])
 
 
-def newLatticeFieldData(latt_info: LatticeInfo, field: str):
+def newLatticeFieldData(latt_info: LatticeInfo, shape: Sequence[int], dtype: Literal["<c16", "<f8", "<i4"]):
     from . import getCUDABackend
 
     backend = getCUDABackend()
     Lx, Ly, Lz, Lt = latt_info.size
     if backend == "numpy":
-        if field == "Gauge":
-            ret = numpy.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
-            ret[:] = numpy.identity(Nc)
-            return ret
-        elif field == "Fermion":
-            return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
-        elif field == "Propagator":
-            return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), "<c16")
-        elif field == "StaggeredFermion":
-            return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
-        elif field == "StaggeredPropagator":
-            return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
-        elif field == "Clover":
-            return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), "<f8")
-        elif field == "Mom":
-            return numpy.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, 10), "<f8")
+        return numpy.zeros((2, Lt, Lz, Ly, Lx // 2, *shape), dtype)
     elif backend == "cupy":
         import cupy
 
-        if field == "Gauge":
-            ret = cupy.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
-            ret[:] = cupy.identity(Nc)
-            return ret
-        elif field == "Fermion":
-            return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
-        elif field == "Propagator":
-            return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), "<c16")
-        elif field == "StaggeredFermion":
-            return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
-        elif field == "StaggeredPropagator":
-            return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), "<c16")
-        elif field == "Clover":
-            return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), "<f8")
-        elif field == "Mom":
-            return cupy.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, 10), "<f8")
+        return cupy.zeros((2, Lt, Lz, Ly, Lx // 2, *shape), dtype)
     elif backend == "torch":
         import torch
 
-        if field == "Gauge":
-            ret = torch.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128)
-            ret[:] = torch.eye(Nc)
-            return ret
-        elif field == "Fermion":
-            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=torch.complex128)
-        elif field == "Propagator":
-            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc), dtype=torch.complex128)
-        elif field == "StaggeredFermion":
-            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128)
-        elif field == "StaggeredPropagator":
-            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype=torch.complex128)
-        elif field == "Clover":
-            return torch.zeros((2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2), dtype=torch.float64)
-        elif field == "Mom":
-            return torch.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, 10), dtype=torch.float64)
+        if dtype == "<c16":
+            dtype = torch.complex128
+        elif dtype == "<f8":
+            dtype = torch.float64
+        elif dtype == "<i4":
+            dtype = torch.int32
+        return torch.zeros((2, Lt, Lz, Ly, Lx // 2, *shape), dtype=dtype)
 
 
-def newMultiLatticeFieldData(latt_info: LatticeInfo, L5: int, field: str):
+def newMultiLatticeFieldData(latt_info: LatticeInfo, L5: int, shape: List[int], dtype: Literal["<c16", "<f8", "<i4"]):
     from . import getCUDABackend
 
     backend = getCUDABackend()
     Lx, Ly, Lz, Lt = latt_info.size
     if backend == "numpy":
-        if field == "Fermion":
-            return numpy.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
-        elif field == "StaggeredFermion":
-            return numpy.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
+        return numpy.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, *shape), dtype)
     elif backend == "cupy":
         import cupy
 
-        if field == "Fermion":
-            return cupy.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc), "<c16")
-        elif field == "StaggeredFermion":
-            return cupy.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, Nc), "<c16")
+        return cupy.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, *shape), dtype)
     elif backend == "torch":
         import torch
 
-        if field == "Fermion":
-            return torch.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc), dtype=torch.complex128)
-        elif field == "StaggeredFermion":
-            return torch.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, Nc), dtype=torch.complex128)
+        if dtype == "<c16":
+            dtype = torch.complex128
+        elif dtype == "<f8":
+            dtype = torch.float64
+        elif dtype == "<i4":
+            dtype = torch.int32
+        return torch.zeros((L5, 2, Lt, Lz, Ly, Lx // 2, *shape), dtype=dtype)
 
 
 class LatticeField:
@@ -218,7 +176,7 @@ class LatticeField:
 
         self.latt_info = latt_info
         self._data = None
-        self.backend = getCUDABackend()
+        self.backend: Literal["numpy", "cupy", "torch"] = getCUDABackend()
 
     @property
     def data(self):
@@ -236,14 +194,39 @@ class LatticeField:
             self._data = value.contiguous()
 
     @property
+    def even(self):
+        return self.data[0]
+
+    @even.setter
+    def even(self, value):
+        self.data[0] = value
+
+    @property
+    def odd(self):
+        return self.data[1]
+
+    @odd.setter
+    def odd(self, value):
+        self.data[1] = value
+
+    @property
+    def data_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(-1), True)
+
+    @property
+    def even_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(2, -1)[0], True)
+
+    @property
+    def odd_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(2, -1)[1], True)
+
+    @property
     def location(self) -> Literal["numpy", "cupy", "torch"]:
         if isinstance(self.data, numpy.ndarray):
             return "numpy"
         else:
             return self.backend
-
-    def setData(self, data):
-        self.data = data
 
     def backup(self):
         location = self.location
@@ -287,6 +270,9 @@ class LatticeField:
             return self.data.get()
         elif location == "torch":
             return self.data.cpu().numpy()
+
+    def lexico(self):
+        return lexico(self.getHost(), [0, 1, 2, 3, 4])
 
     def norm(self):
         location = self.location
@@ -346,8 +332,38 @@ class MultiLatticeField(LatticeField):
         super().__init__(latt_info)
         self.L5 = L5
 
+    def even(self, index: int):
+        return self.data[index, 0]
+
+    def odd(self, index: int):
+        return self.data[index, 1]
+
+    def data_ptr(self, index: int = 0) -> Pointer:
+        return ndarrayPointer(self.data.reshape(self.L5, -1)[index], True)
+
+    def even_ptr(self, index: int) -> Pointer:
+        return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[index, 0], True)
+
+    def odd_ptr(self, index: int) -> Pointer:
+        return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[index, 1], True)
+
+    @property
+    def data_ptrs(self) -> Pointers:
+        return ndarrayPointer(self.data.reshape(self.L5, -1), True)
+
+    @property
+    def even_ptrs(self) -> Pointers:
+        return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[:, 0], True)
+
+    @property
+    def odd_ptrs(self) -> Pointers:
+        return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[:, 1], True)
+
     def copy(self):
         return self.__class__(self.latt_info, self.L5, self.backup())
+
+    def lexico(self):
+        return lexico(self.getHost(), [1, 2, 3, 4, 5])
 
     def __add__(self, other):
         assert self.__class__ == other.__class__ and self.location == other.location
@@ -367,14 +383,58 @@ class MultiLatticeField(LatticeField):
         return self.__class__(self.latt_info, self.L5, self.data / other)
 
 
-class LatticeGauge(LatticeField):
+class LatticeInt32(LatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info)
         Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.setData(newLatticeFieldData(latt_info, "Gauge"))
+            self.data = newLatticeFieldData(latt_info, [], "<i4")
         else:
-            self.setData(value.reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc))
+            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2)
+
+
+class LatticeFloat64(LatticeField):
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info)
+        Lx, Ly, Lz, Lt = latt_info.size
+        if value is None:
+            self.data = newLatticeFieldData(latt_info, [], "<f8")
+        else:
+            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2)
+
+
+class LatticeComplex128(LatticeField):
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info)
+        Lx, Ly, Lz, Lt = latt_info.size
+        if value is None:
+            self.data = newLatticeFieldData(latt_info, [], "<c16")
+        else:
+            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2)
+
+
+class LatticeGauge(MultiLatticeField):
+    def __init__(self, latt_info: LatticeInfo, L5: Union[int, Any] = Nd, value=None) -> None:
+        """`L5` can be `value` here"""
+        if not isinstance(L5, int):
+            value = L5
+            L5 = Nd
+        super().__init__(latt_info, Nd)
+        Lx, Ly, Lz, Lt = latt_info.size
+        if value is None:
+            self.data = newMultiLatticeFieldData(latt_info, Nd, [Nc, Nc], "<c16")
+            if self.backend == "numpy":
+                self.data[:] = numpy.identity(Nc)
+            elif self.backend == "cupy":
+                import cupy
+
+                self.data[:] = cupy.identity(Nc)
+            elif self.backend == "torch":
+                import torch
+
+                self.data[:] = torch.eye(Nc)
+        else:
+            self.data = value.reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc)
         self.pure_gauge = None
 
     def setAntiPeriodicT(self):
@@ -383,17 +443,6 @@ class LatticeGauge(LatticeField):
 
     def setAnisotropy(self, anisotropy: float):
         self.data[: Nd - 1] /= anisotropy
-
-    @property
-    def data_ptr(self) -> Pointer:
-        return ndarrayPointer(self.data.reshape(-1), True)
-
-    @property
-    def data_ptrs(self) -> Pointers:
-        return ndarrayPointer(self.data.reshape(4, -1), True)
-
-    def lexico(self):
-        return lexico(self.getHost(), [1, 2, 3, 4, 5])
 
     def ensurePureGauge(self):
         if self.pure_gauge is None:
@@ -713,23 +762,19 @@ class LatticeGauge(LatticeField):
         self.pure_gauge.fixingFFT(self, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta)
 
 
-class LatticeMom(LatticeField):
-    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
-        super().__init__(latt_info)
+class LatticeMom(MultiLatticeField):
+    def __init__(self, latt_info: LatticeInfo, L5: Union[int, Any] = Nd, value=None) -> None:
+        """`L5` can be `value` here"""
+        if not isinstance(L5, int):
+            value = L5
+            L5 = Nd
+        super().__init__(latt_info, L5)
         Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.setData(newLatticeFieldData(latt_info, "Mom"))
+            self.data = newMultiLatticeFieldData(latt_info, L5, [10], "<f8")
         else:
-            self.setData(value.reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, 10))
+            self.data = value.reshape(L5, 2, Lt, Lz, Ly, Lx // 2, 10)
         self.pure_gauge = None
-
-    @property
-    def data_ptr(self) -> Pointer:
-        return ndarrayPointer(self.data.reshape(-1), True)
-
-    @property
-    def data_ptrs(self) -> Pointers:
-        return ndarrayPointer(self.data.reshape(4, -1), True)
 
     def lexico(self):
         return lexico(self.getHost(), [1, 2, 3, 4, 5])
@@ -752,13 +797,9 @@ class LatticeClover(LatticeField):
         super().__init__(latt_info)
         Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.setData(newLatticeFieldData(latt_info, "Clover"))
+            self.data = newLatticeFieldData(latt_info, [2, ((Ns // 2) * Nc) ** 2], "<f8")
         else:
-            self.setData(value.reshape(2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2))
-
-    @property
-    def data_ptr(self) -> Pointer:
-        return ndarrayPointer(self.data.reshape(-1), True)
+            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, 2, ((Ns // 2) * Nc) ** 2)
 
 
 class LatticeFermion(LatticeField):
@@ -766,40 +807,9 @@ class LatticeFermion(LatticeField):
         super().__init__(latt_info)
         Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.setData(newLatticeFieldData(latt_info, "Fermion"))
+            self.data = newLatticeFieldData(latt_info, [Ns, Nc], "<c16")
         else:
-            self.setData(value.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
-
-    @property
-    def even(self):
-        return self.data[0]
-
-    @even.setter
-    def even(self, value):
-        self.data[0] = value
-
-    @property
-    def odd(self):
-        return self.data[1]
-
-    @odd.setter
-    def odd(self, value):
-        self.data[1] = value
-
-    @property
-    def data_ptr(self) -> Pointer:
-        return ndarrayPointer(self.data.reshape(-1), True)
-
-    @property
-    def even_ptr(self) -> Pointer:
-        return ndarrayPointer(self.data.reshape(2, -1)[0], True)
-
-    @property
-    def odd_ptr(self) -> Pointer:
-        return ndarrayPointer(self.data.reshape(2, -1)[1], True)
-
-    def lexico(self):
-        return lexico(self.getHost(), [0, 1, 2, 3, 4])
+            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
 
     def timeslice(self, t: int):
         Lt = self.latt_info.Lt
@@ -815,21 +825,9 @@ class MultiLatticeFermion(MultiLatticeField):
         super().__init__(latt_info, L5)
         Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.setData(newMultiLatticeFieldData(latt_info, L5, "Fermion"))
+            self.data = newMultiLatticeFieldData(latt_info, L5, [Ns, Nc], "<c16")
         else:
-            self.setData(value.reshape(L5, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc))
-
-    @property
-    def data_ptrs(self) -> Pointers:
-        return ndarrayPointer(self.data.reshape(self.L5, -1), True)
-
-    @property
-    def even_ptrs(self) -> Pointers:
-        return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[:, 0], True)
-
-    @property
-    def odd_ptrs(self) -> Pointers:
-        return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[:, 1], True)
+            self.data = value.reshape(L5, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
 
     def __getitem__(self, index: int) -> LatticeFermion:
         return LatticeFermion(self.latt_info, self.data[index])
@@ -837,21 +835,15 @@ class MultiLatticeFermion(MultiLatticeField):
     def __setitem__(self, index: int, value: LatticeFermion):
         self.data[index] = value.data
 
-    def lexico(self):
-        return lexico(self.getHost(), [1, 2, 3, 4, 5])
-
 
 class LatticePropagator(LatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info)
         Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.setData(newLatticeFieldData(latt_info, "Propagator"))
+            self.data = newLatticeFieldData(latt_info, [Ns, Ns, Nc, Nc], "<c16")
         else:
-            self.setData(value.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc))
-
-    def lexico(self):
-        return lexico(self.getHost(), [0, 1, 2, 3, 4])
+            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Ns, Ns, Nc, Nc)
 
     def transpose(self):
         return self.data.transpose(0, 1, 2, 3, 4, 6, 5, 8, 7).copy()
@@ -876,40 +868,9 @@ class LatticeStaggeredFermion(LatticeField):
         super().__init__(latt_info)
         Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.setData(newLatticeFieldData(latt_info, "StaggeredFermion"))
+            self.data = newLatticeFieldData(latt_info, [Nc], "<c16")
         else:
-            self.setData(value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc))
-
-    @property
-    def even(self):
-        return self.data[0]
-
-    @even.setter
-    def even(self, value):
-        self.data[0] = value
-
-    @property
-    def odd(self):
-        return self.data[1]
-
-    @odd.setter
-    def odd(self, value):
-        self.data[1] = value
-
-    @property
-    def data_ptr(self) -> Pointer:
-        return ndarrayPointer(self.data.reshape(-1), True)
-
-    @property
-    def even_ptr(self) -> Pointer:
-        return ndarrayPointer(self.data.reshape(2, -1)[0], True)
-
-    @property
-    def odd_ptr(self) -> Pointer:
-        return ndarrayPointer(self.data.reshape(2, -1)[1], True)
-
-    def lexico(self):
-        return lexico(self.getHost(), [0, 1, 2, 3, 4])
+            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc)
 
     def timeslice(self, t: int):
         Lt = self.latt_info.Lt
@@ -925,21 +886,9 @@ class MultiLatticeStaggeredFermion(MultiLatticeField):
         super().__init__(latt_info, L5)
         Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.setData(newMultiLatticeFieldData(latt_info, L5, "StaggeredFermion"))
+            self.data = newMultiLatticeFieldData(latt_info, L5, [Nc], "<c16")
         else:
-            self.setData(value.reshape(L5, 2, Lt, Lz, Ly, Lx // 2, Nc))
-
-    @property
-    def data_ptrs(self) -> Pointers:
-        return ndarrayPointer(self.data.reshape(self.L5, -1), True)
-
-    @property
-    def even_ptrs(self) -> Pointers:
-        return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[:, 0], True)
-
-    @property
-    def odd_ptrs(self) -> Pointers:
-        return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[:, 1], True)
+            self.data = value.reshape(L5, 2, Lt, Lz, Ly, Lx // 2, Nc)
 
     def __getitem__(self, index: int) -> LatticeStaggeredFermion:
         return LatticeStaggeredFermion(self.latt_info, self.data[index])
@@ -947,21 +896,15 @@ class MultiLatticeStaggeredFermion(MultiLatticeField):
     def __setitem__(self, index: int, value: LatticeStaggeredFermion):
         self.data[index] = value.data
 
-    def lexico(self):
-        return lexico(self.getHost(), [1, 2, 3, 4, 5])
-
 
 class LatticeStaggeredPropagator(LatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info)
         Lx, Ly, Lz, Lt = latt_info.size
         if value is None:
-            self.setData(newLatticeFieldData(latt_info, "StaggeredPropagator"))
+            self.data = newLatticeFieldData(latt_info, [Nc, Nc], "<c16")
         else:
-            self.setData(value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc, Nc))
-
-    def lexico(self):
-        return lexico(self.getHost(), [0, 1, 2, 3, 4])
+            self.data = value.reshape(2, Lt, Lz, Ly, Lx // 2, Nc, Nc)
 
     def transpose(self):
         return self.data.transpose(0, 1, 2, 3, 4, 6, 5).copy()
