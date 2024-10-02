@@ -2,9 +2,8 @@ import numpy
 
 from .. import getLogger
 from ..pointer import Pointers
-from ..pyquda import computeCloverForceQuda, invertMultiShiftQuda, loadCloverQuda, loadGaugeQuda
+from ..pyquda import computeCloverForceQuda, loadCloverQuda, loadGaugeQuda
 from ..enum_quda import (
-    QUDA_MAX_MULTI_SHIFT,
     QudaDagType,
     QudaInverterType,
     QudaMassNormalization,
@@ -13,12 +12,12 @@ from ..enum_quda import (
     QudaSolveType,
     QudaVerbosity,
 )
-from ..field import Nd, Nc, Ns, LatticeInfo, LatticeFermion, MultiLatticeFermion
+from ..field import Nd, Nc, Ns, LatticeInfo, LatticeFermion
 from ..dirac.clover_wilson import CloverWilson
 
 nullptr = Pointers("void", 0)
 
-from . import FermionAction
+from .abstract import FermionAction
 
 # forth root
 const_pseudo_fermion = 6.10610118771501
@@ -130,7 +129,6 @@ class OneFlavorClover(FermionAction):
 
     def force(self, dt, new_gauge: bool):
         self.updateClover(new_gauge)
-        num_offset = len(offset_molecular_dynamics)
         xx = self.dirac.invertMultiShiftPC(self.phi, offset_molecular_dynamics, residue_molecular_dynamics)
         # Some conventions force the dagger to be YES here
         self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
@@ -141,7 +139,7 @@ class OneFlavorClover(FermionAction):
             numpy.array(residue_molecular_dynamics, "<f8"),
             self.kappa2,
             self.ck,
-            num_offset,
+            len(offset_molecular_dynamics),
             self.num_flavor,
             self.gauge_param,
             self.invert_param,

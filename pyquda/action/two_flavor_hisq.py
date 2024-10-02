@@ -25,7 +25,7 @@ from ..dirac.hisq import HISQ
 
 nullptr = Pointers("void", 0)
 
-from . import FermionAction
+from .abstract import StaggeredFermionAction
 
 
 const_pseudo_fermion = 6.6008968113477318e00
@@ -96,7 +96,7 @@ offset_fermion_action = [
 ]
 
 
-class TwoFlavorHISQ(FermionAction):
+class TwoFlavorHISQ(StaggeredFermionAction):
     def __init__(
         self,
         latt_info: LatticeInfo,

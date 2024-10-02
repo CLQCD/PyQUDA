@@ -1,28 +1,29 @@
 from math import exp
-from random import random
+from random import seed, random, randint
 from time import perf_counter
 
 from check_pyquda import test_dir
 
 from pyquda import init, core
 from pyquda.hmc import HMC, O4Nf5Ng0V
-from pyquda.action import symanzik_gauge, two_flavor_clover, one_flavor_clover
+from pyquda.action import SymanzikTreeGauge, TwoFlavorClover, OneFlavorClover
 from pyquda.utils.io import writeNPYGauge
 
-beta, u_0 = 4.8665, 0.949
+beta, u_0 = 7.4, 0.890
 mass_l, mass_s = 0.3, 0.5
-clover_csw = 1.17
-tol, maxiter = 1e-12, 1000
+clover_csw = 1.4185
+tol, maxiter = 1e-6, 1000
 start, stop, warm, save = 0, 2000, 500, 5
 t = 1.0
+seed(10086)
 
 init(resource_path=".cache", enable_force_monitor=True)
 latt_info = core.LatticeInfo([4, 4, 4, 8], t_boundary=-1, anisotropy=1.0)
 
 monomials = [
-    symanzik_gauge.SymanzikGauge(latt_info, beta, u_0),
-    two_flavor_clover.TwoFlavorClover(latt_info, mass_l, tol, maxiter, clover_csw),
-    one_flavor_clover.OneFlavorClover(latt_info, mass_s, tol, maxiter, clover_csw),
+    SymanzikTreeGauge(latt_info, beta, u_0),
+    TwoFlavorClover(latt_info, mass_l, tol, maxiter, clover_csw),
+    OneFlavorClover(latt_info, mass_s, tol, maxiter, clover_csw),
 ]
 
 # hmc_inner = HMC(latt_info, monomials[:1], O4Nf5Ng0V(4))
@@ -35,8 +36,8 @@ print("\n" f"Trajectory {start}:\n" f"Plaquette = {hmc.plaquette()}\n")
 for i in range(start, stop):
     s = perf_counter()
 
-    hmc.gaussMom(i)
-    hmc.samplePhi(i)
+    hmc.gaussMom(randint(0, 2147483647))
+    hmc.samplePhi(randint(0, 2147483647))
 
     kinetic_old, potential_old = hmc.actionMom(), hmc.actionGauge()
     energy_old = kinetic_old + potential_old

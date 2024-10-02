@@ -7,7 +7,7 @@ from ..dirac.pure_gauge import PureGauge
 
 nullptr = Pointers("void", 0)
 
-from . import GaugeAction
+from .abstract import GaugeAction
 
 
 def loop_ndarray(path, num_paths, max_length):

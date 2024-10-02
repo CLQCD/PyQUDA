@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Union
 
 from ..pointer import Pointer
 from ..pyquda import (
@@ -229,7 +229,9 @@ class Dirac(Gauge):
         dslashQuda(b.data_ptr, x.data_ptr, self.invert_param, parity)
         return b
 
-    def invertMultiShiftPC(self, b: LatticeFermion, offset: List[float], residue: List[float], const: float = None):
+    def invertMultiShiftPC(
+        self, b: LatticeFermion, offset: List[float], residue: List[float], const: float = None
+    ) -> Union[LatticeFermion, MultiLatticeFermion]:
         assert len(offset) == len(residue)
         num_offset = len(offset)
         tol = self.invert_param.tol
@@ -314,7 +316,7 @@ class StaggeredDirac(Dirac):
 
     def invertMultiShiftPC(
         self, b: LatticeStaggeredFermion, offset: List[float], residue: List[float], const: float = None
-    ):
+    ) -> Union[LatticeStaggeredFermion, MultiLatticeStaggeredFermion]:
         assert len(offset) == len(residue)
         num_offset = len(offset)
         tol = self.invert_param.tol

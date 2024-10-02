@@ -17,7 +17,7 @@ from ..dirac.clover_wilson import CloverWilson
 
 nullptr = Pointers("void", 0)
 
-from . import FermionAction
+from .abstract import FermionAction
 
 
 class TwoFlavorClover(FermionAction):
@@ -53,7 +53,7 @@ class TwoFlavorClover(FermionAction):
         self.updateClover(new_gauge)
         self.invert_param.compute_clover_trlog = 0
         self.invert_param.compute_action = 1
-        invertQuda(self.phi.even_ptr, self.phi.odd_ptr, self.invert_param)
+        invertQuda(self.phi.odd_ptr, self.phi.even_ptr, self.invert_param)
         self.dirac.invert_param.compute_action = 0
         return (
             self.invert_param.action[0]
@@ -63,13 +63,13 @@ class TwoFlavorClover(FermionAction):
 
     def force(self, dt, new_gauge: bool):
         self.updateClover(new_gauge)
-        invertQuda(self.phi.even_ptr, self.phi.odd_ptr, self.invert_param)
+        invertQuda(self.phi.odd_ptr, self.phi.even_ptr, self.invert_param)
         # Some conventions force the dagger to be YES here
         self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
         computeCloverForceQuda(
             nullptr,
             dt,
-            ndarrayPointer(self.phi.even.reshape(1, -1), True),
+            ndarrayPointer(self.phi.odd.reshape(1, -1), True),
             numpy.array([1.0], "<f8"),
             self.kappa2,
             self.ck,
@@ -83,6 +83,6 @@ class TwoFlavorClover(FermionAction):
     def sample(self, noise: LatticeFermion, new_gauge: bool):
         self.updateClover(new_gauge)
         self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
-        MatQuda(self.phi.odd_ptr, noise.even_ptr, self.invert_param)
+        MatQuda(self.phi.even_ptr, noise.even_ptr, self.invert_param)
         self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
-        self.phi.even = noise.even
+        self.phi.odd = noise.even

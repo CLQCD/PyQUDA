@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Union
 
-from . import getCUDABackend
+from . import getLogger, getCUDABackend
 from .pointer import Pointers
 from .pyquda import (
     setVerbosityQuda,
@@ -17,7 +17,7 @@ from .enum_quda import QudaTboundary, QudaVerbosity
 from .field import Nc, Ns, LatticeInfo, LatticeGauge, LatticeMom, LatticeFermion, LatticeStaggeredFermion
 from .dirac.wilson import Wilson
 from .dirac.hisq import HISQ
-from .action import FermionAction, GaugeAction
+from .action.abstract import GaugeAction, FermionAction, StaggeredFermionAction
 
 nullptr = Pointers("void", 0)
 
@@ -173,7 +173,7 @@ class HMC:
     def __init__(
         self,
         latt_info: LatticeInfo,
-        monomials: List[Union[GaugeAction, FermionAction]],
+        monomials: List[Union[GaugeAction, FermionAction, StaggeredFermionAction]],
         integrator: Integrator,
         hmc_inner: "HMC" = None,
     ) -> None:
@@ -181,8 +181,24 @@ class HMC:
         self._monomials = monomials
         self._integrator = integrator
         self._hmc_inner = hmc_inner
-        self._wilson = Wilson(latt_info, 0, 0.125, 0, 0)
-        self.gauge_param = self._wilson.gauge_param
+        self.staggered = None
+        for monomial in monomials:
+            if isinstance(monomial, GaugeAction):
+                continue
+            if self.staggered is None:
+                self.staggered = isinstance(monomial, StaggeredFermionAction)
+                continue
+            if (isinstance(monomial, FermionAction) and self.staggered) or (
+                isinstance(monomial, StaggeredFermionAction) and not self.staggered
+            ):
+                getLogger().critical(
+                    "FermionAction and StaggeredFermionAction cannot be used at the same time", ValueError
+                )
+        if not self.staggered:
+            self._dirac = Wilson(latt_info, 0, 0.125, 0, 0)
+        else:
+            self._dirac = HISQ(latt_info, 0, 0.5, 0, 0)
+        self.gauge_param = self._dirac.gauge_param
 
     def setVerbosity(self, verbosity: QudaVerbosity):
         setVerbosityQuda(verbosity, b"\0")
@@ -249,8 +265,12 @@ class HMC:
                 return torch, torch.rand, torch.float64
 
         def _noise(backend, random, float64):
-            phi = 2 * backend.pi * random((self.latt_info.volume, Ns, Nc), dtype=float64)
-            r = random((self.latt_info.volume, Ns, Nc), dtype=float64)
+            if not self.staggered:
+                phi = 2 * backend.pi * random((self.latt_info.volume, Ns, Nc), dtype=float64)
+                r = random((self.latt_info.volume, Ns, Nc), dtype=float64)
+            else:
+                phi = 2 * backend.pi * random((self.latt_info.volume, Nc), dtype=float64)
+                r = random((self.latt_info.volume, Nc), dtype=float64)
             noise_raw = backend.sqrt(-backend.log(r)) * (backend.cos(phi) + 1j * backend.sin(phi))
             return noise_raw
 
@@ -258,12 +278,16 @@ class HMC:
         for monomial in self._monomials:
             if isinstance(monomial, FermionAction):
                 monomial.sample(LatticeFermion(self.latt_info, _noise(backend, random, float64)), True)
+            elif isinstance(monomial, StaggeredFermionAction):
+                monomial.sample(LatticeStaggeredFermion(self.latt_info, _noise(backend, random, float64)), True)
 
         if self._hmc_inner is not None:
             self._hmc_inner.samplePhi(None)
 
     def loadGauge(self, gauge: LatticeGauge):
         gauge_in = gauge.copy()
+        if self.staggered:
+            gauge_in.staggeredPhase()
         if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
             gauge_in.setAntiPeriodicT()
         self.gauge_param.use_resident_gauge = 0
@@ -274,6 +298,8 @@ class HMC:
         saveGaugeQuda(gauge.data_ptrs, self.gauge_param)
         if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
             gauge.setAntiPeriodicT()
+        if self.staggered:
+            gauge.staggeredPhase(True)
 
     def loadMom(self, mom: LatticeMom):
         momResidentQuda(mom.data_ptrs, self.gauge_param)
@@ -297,67 +323,3 @@ class HMC:
 
     def plaquette(self):
         return plaqQuda()[0]
-
-
-class StaggeredHMC(HMC):
-    def __init__(
-        self,
-        latt_info: LatticeInfo,
-        monomials: List[Union[GaugeAction, FermionAction]],
-        integrator: Integrator,
-        hmc_inner: HMC = None,
-    ) -> None:
-        super().__init__(latt_info, monomials, integrator, hmc_inner)
-        self._hisq = HISQ(latt_info, 0, 0.5, 0, 0)
-        self.gauge_param = self._hisq.gauge_param
-
-    def loadGauge(self, gauge: LatticeGauge):
-        gauge_in = gauge.copy()
-        gauge_in.staggeredPhase()
-        if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
-            gauge_in.setAntiPeriodicT()
-        self.gauge_param.use_resident_gauge = 0
-        loadGaugeQuda(gauge_in.data_ptrs, self.gauge_param)
-        self.gauge_param.use_resident_gauge = 1
-
-    def saveGauge(self, gauge: LatticeGauge):
-        saveGaugeQuda(gauge.data_ptrs, self.gauge_param)
-        if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
-            gauge.setAntiPeriodicT()
-        gauge.staggeredPhase(True)
-
-    def samplePhi(self, seed: int):
-        def _seed(seed: int):
-            backend = getCUDABackend()
-            if backend == "numpy":
-                import numpy
-
-                if seed is not None:
-                    numpy.random.seed(seed)
-                return numpy, numpy.random.random, numpy.float64
-            elif backend == "cupy":
-                import cupy
-
-                if seed is not None:
-                    cupy.random.seed(seed)
-                return cupy, cupy.random.random, cupy.float64
-            elif backend == "torch":
-                import torch
-
-                if seed is not None:
-                    torch.random.manual_seed(seed)
-                return torch, torch.rand, torch.float64
-
-        def _noise(backend, random, float64):
-            phi = 2 * backend.pi * random((self.latt_info.volume, Nc), dtype=float64)
-            r = random((self.latt_info.volume, Nc), dtype=float64)
-            noise_raw = backend.sqrt(-backend.log(r)) * (backend.cos(phi) + 1j * backend.sin(phi))
-            return noise_raw
-
-        backend, random, float64 = _seed(seed)
-        for monomial in self._monomials:
-            if isinstance(monomial, FermionAction):
-                monomial.sample(LatticeStaggeredFermion(self.latt_info, _noise(backend, random, float64)), True)
-
-        if self._hmc_inner is not None:
-            self._hmc_inner.samplePhi(None)

@@ -7,7 +7,7 @@ from ..dirac.pure_gauge import PureGauge
 
 nullptr = Pointers("void", 0)
 
-from . import GaugeAction
+from .abstract import GaugeAction
 
 
 def loop_ndarray(path, num_paths, max_length):
@@ -60,7 +60,11 @@ def path_force(path, coeffs):
     return path, num_paths, max_length, lengths, coeffs, fpath, num_fpaths, max_flength, flengths, fcoeffs
 
 
-class SymanzikGauge(GaugeAction):
+class SymanzikTreeGauge(GaugeAction):
+    R"""
+    \beta' = \beta * (5 / 3) / u_0**4
+    """
+
     def __init__(self, latt_info: LatticeInfo, beta: float, u_0: float):
         super().__init__(latt_info)
 
@@ -119,8 +123,6 @@ class SymanzikGauge(GaugeAction):
             self.flengths,
             self.fcoeffs,
         ) = path_force(input_path, input_coeffs)
-        # self.coeffs *= beta * (5 / 3) / u_0**4 / Nc
-        # self.fcoeffs *= beta * (5 / 3) / u_0**4 / Nc
         self.coeffs *= beta / Nc
         self.fcoeffs *= beta / Nc
 
