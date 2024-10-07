@@ -28,7 +28,7 @@ nullptr = Pointers("void", 0)
 from .abstract import StaggeredFermionAction
 
 
-const_pseudo_fermion = 6.6008968113477318e00
+norm_pseudo_fermion = 6.6008968113477318e00
 residue_pseudo_fermion = [
     -4.5244529588728673e-04,
     -2.7913286193527722e-03,
@@ -51,7 +51,7 @@ offset_pseudo_fermion = [
     6.1963910644237338e01,
     5.3566592269333353e02,
 ]
-const_molecular_dynamics = 2.6567771557480493e-02
+norm_molecular_dynamics = 2.6567771557480493e-02
 residue_molecular_dynamics = [
     5.4415326175599146e-02,
     9.0370308484060427e-02,
@@ -71,7 +71,7 @@ offset_molecular_dynamics = [
     1.1696719959399913e02,
 ]
 coeff_molecular_dynamics = numpy.array([[2 * res, -1 / 24 * 2 * res] for res in residue_molecular_dynamics], "<f8")
-const_fermion_action = 1.5149456635663205e-01
+norm_fermion_action = 1.5149456635663205e-01
 residue_fermion_action = [
     6.0458038124269137e-03,
     1.5247824256426594e-02,
@@ -119,10 +119,10 @@ class TwoFlavorHISQ(StaggeredFermionAction):
         self.invert_param = self.dirac.invert_param
 
         self.invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
-        self.invert_param.mass_normalization = QudaMassNormalization.QUDA_MASS_NORMALIZATION
-        self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
-        self.invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE  # This is set to compute action
+        self.invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE
+        self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
+        self.invert_param.mass_normalization = QudaMassNormalization.QUDA_MASS_NORMALIZATION
         self.invert_param.verbosity = QudaVerbosity.QUDA_SILENT
 
     def updateFatAndLong(self, return_v_link: bool):
@@ -172,10 +172,8 @@ class TwoFlavorHISQ(StaggeredFermionAction):
         return self.action2()
 
     def action2(self):
-        import cupy as cp
-
-        x = self.dirac.invertMultiShiftPC(self.phi, offset_fermion_action, residue_fermion_action, const_fermion_action)
-        return cp.linalg.norm(x.even) ** 2  # - const_molecular_dynamics * cp.linalg.norm(self.phi.odd) ** 2
+        x = self.dirac.invertMultiShiftPC(self.phi, offset_fermion_action, residue_fermion_action, norm_fermion_action)
+        return x.even.norm() ** 2  # - norm_molecular_dynamics * cp.linalg.norm(self.phi.odd) ** 2
 
     def force(self, dt, new_gauge: bool):
         u_link, v_link, w_link = self.updateFatAndLong(True)
@@ -200,6 +198,6 @@ class TwoFlavorHISQ(StaggeredFermionAction):
 
     def sample(self, noise: LatticeStaggeredFermion, new_gauge: bool):
         self.updateFatAndLong(False)
-        x = self.dirac.invertMultiShiftPC(noise, offset_pseudo_fermion, residue_pseudo_fermion, const_pseudo_fermion)
+        x = self.dirac.invertMultiShiftPC(noise, offset_pseudo_fermion, residue_pseudo_fermion, norm_pseudo_fermion)
         self.phi.odd = noise.even
         self.phi.even = x.even

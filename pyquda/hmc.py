@@ -264,22 +264,21 @@ class HMC:
                     torch.random.manual_seed(seed)
                 return torch, torch.rand, torch.float64
 
-        def _noise(backend, random, float64):
-            if not self.staggered:
-                phi = 2 * backend.pi * random((self.latt_info.volume, Ns, Nc), dtype=float64)
-                r = random((self.latt_info.volume, Ns, Nc), dtype=float64)
-            else:
-                phi = 2 * backend.pi * random((self.latt_info.volume, Nc), dtype=float64)
-                r = random((self.latt_info.volume, Nc), dtype=float64)
+        def _noise(backend, random, shape, float64):
+            phi = 2 * backend.pi * random(shape, dtype=float64)
+            r = random(shape, dtype=float64)
             noise_raw = backend.sqrt(-backend.log(r)) * (backend.cos(phi) + 1j * backend.sin(phi))
             return noise_raw
 
         backend, random, float64 = _seed(seed)
+        shape = (self.latt_info.volume, Ns, Nc) if not self.staggered else (self.latt_info.volume, Nc)
         for monomial in self._monomials:
             if isinstance(monomial, FermionAction):
-                monomial.sample(LatticeFermion(self.latt_info, _noise(backend, random, float64)), True)
+                noise = _noise(backend, random, shape, float64)
+                monomial.sample(LatticeFermion(self.latt_info, noise), True)
             elif isinstance(monomial, StaggeredFermionAction):
-                monomial.sample(LatticeStaggeredFermion(self.latt_info, _noise(backend, random, float64)), True)
+                noise = _noise(backend, random, shape, float64)
+                monomial.sample(LatticeStaggeredFermion(self.latt_info, noise), True)
 
         if self._hmc_inner is not None:
             self._hmc_inner.samplePhi(None)

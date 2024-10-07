@@ -20,7 +20,7 @@ nullptr = Pointers("void", 0)
 from .abstract import FermionAction
 
 # forth root
-const_pseudo_fermion = 6.10610118771501
+norm_pseudo_fermion = 6.10610118771501
 residue_pseudo_fermion = [
     -5.90262826538435e-06,
     -2.63363387226834e-05,
@@ -148,6 +148,6 @@ class OneFlavorClover(FermionAction):
 
     def sample(self, noise: LatticeFermion, new_gauge: bool):
         self.updateClover(new_gauge)
-        x = self.dirac.invertMultiShiftPC(noise, offset_pseudo_fermion, residue_pseudo_fermion, const_pseudo_fermion)
+        x = self.dirac.invertMultiShiftPC(noise, offset_pseudo_fermion, residue_pseudo_fermion, norm_pseudo_fermion)
         self.phi.odd = noise.even
         self.phi.even = x.even

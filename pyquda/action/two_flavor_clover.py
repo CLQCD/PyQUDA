@@ -1,7 +1,7 @@
 import numpy
 
 from .. import getLogger
-from ..pointer import Pointers, ndarrayPointer
+from ..pointer import Pointers
 from ..pyquda import MatQuda, computeCloverForceQuda, invertQuda, loadCloverQuda, loadGaugeQuda
 from ..enum_quda import (
     QudaDagType,
@@ -63,13 +63,13 @@ class TwoFlavorClover(FermionAction):
 
     def force(self, dt, new_gauge: bool):
         self.updateClover(new_gauge)
-        invertQuda(self.phi.odd_ptr, self.phi.even_ptr, self.invert_param)
+        xx = self.dirac.invertMultiShiftPC(self.phi, [0.0], [1.0])
         # Some conventions force the dagger to be YES here
         self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
         computeCloverForceQuda(
             nullptr,
             dt,
-            ndarrayPointer(self.phi.odd.reshape(1, -1), True),
+            xx.even_ptrs,
             numpy.array([1.0], "<f8"),
             self.kappa2,
             self.ck,
