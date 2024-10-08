@@ -4,17 +4,27 @@ from typing import List, Union
 from . import getLogger, getCUDABackend
 from .pointer import Pointers
 from .pyquda import (
+    QudaGaugeObservableParam,
+    gaugeObservablesQuda,
     setVerbosityQuda,
     gaussMomQuda,
     loadGaugeQuda,
     saveGaugeQuda,
     momResidentQuda,
     momActionQuda,
-    plaqQuda,
     updateGaugeFieldQuda,
 )
-from .enum_quda import QudaTboundary, QudaVerbosity
-from .field import Nc, Ns, LatticeInfo, LatticeGauge, LatticeMom, LatticeFermion, LatticeStaggeredFermion
+from .enum_quda import QudaBoolean, QudaTboundary, QudaVerbosity
+from .field import (
+    Nc,
+    Ns,
+    LatticeInfo,
+    LatticeGauge,
+    LatticeMom,
+    LatticeFermion,
+    LatticeStaggeredFermion,
+    LatticeFloat64,
+)
 from .dirac.wilson import Wilson
 from .dirac.hisq import HISQ
 from .action.abstract import GaugeAction, FermionAction, StaggeredFermionAction
@@ -199,6 +209,8 @@ class HMC:
         else:
             self._dirac = HISQ(latt_info, 0, 0.5, 0, 0)
         self.gauge_param = self._dirac.gauge_param
+        self.obs_param = QudaGaugeObservableParam()
+        self.obs_param.remove_staggered_phase = QudaBoolean(self.staggered)
 
     def setVerbosity(self, verbosity: QudaVerbosity):
         setVerbosityQuda(verbosity, b"\0")
@@ -321,4 +333,33 @@ class HMC:
         self.loadGauge(gauge)
 
     def plaquette(self):
-        return plaqQuda()[0]
+        self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_TRUE
+        gaugeObservablesQuda(self.obs_param)
+        self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_FALSE
+        return self.obs_param.plaquette
+
+    def polyakovLoop(self):
+        self.obs_param.compute_polyakov_loop = QudaBoolean.QUDA_BOOLEAN_TRUE
+        gaugeObservablesQuda(self.obs_param)
+        self.obs_param.compute_polyakov_loop = QudaBoolean.QUDA_BOOLEAN_FALSE
+        return self.obs_param.ploop
+
+    def energy(self):
+        self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_TRUE
+        gaugeObservablesQuda(self.obs_param)
+        self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
+        return self.obs_param.energy
+
+    def qcharge(self):
+        self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_TRUE
+        gaugeObservablesQuda(self.obs_param)
+        self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
+        return self.obs_param.qcharge
+
+    def qchargeDensity(self):
+        qcharge_density = LatticeFloat64(self.latt_info)
+        self.obs_param.qcharge_density = qcharge_density.data_ptr
+        self.obs_param.compute_qcharge_density = QudaBoolean.QUDA_BOOLEAN_TRUE
+        gaugeObservablesQuda(self.obs_param)
+        self.obs_param.compute_qcharge_density = QudaBoolean.QUDA_BOOLEAN_TRUE
+        return qcharge_density

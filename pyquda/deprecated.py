@@ -121,6 +121,7 @@ def getStaggeredDslash(
     anti_periodic_t: bool = True,
 ):
     getLogger().warning("Use getStaggeredDirac instead", DeprecationWarning)
+    assert tadpole_coeff == 1.0
     Gx, Gy, Gz, Gt = getGridSize()
     Lx, Ly, Lz, Lt = latt_size
     Lx, Ly, Lz, Lt = Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt
@@ -134,4 +135,4 @@ def getStaggeredDslash(
 
     from .dirac.hisq import HISQ
 
-    return HISQ(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, None)
+    return HISQ(latt_info, mass, kappa, tol, maxiter, naik_epsilon, None)

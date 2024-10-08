@@ -1,5 +1,3 @@
-import numpy
-
 from .. import getLogger
 from ..pointer import Pointers
 from ..pyquda import computeCloverForceQuda, loadCloverQuda, loadGaugeQuda
@@ -17,77 +15,14 @@ from ..dirac.clover_wilson import CloverWilson
 
 nullptr = Pointers("void", 0)
 
+from . import rhmc_param
 from .abstract import FermionAction
 
-# forth root
-norm_pseudo_fermion = 6.10610118771501
-residue_pseudo_fermion = [
-    -5.90262826538435e-06,
-    -2.63363387226834e-05,
-    -8.62160355606352e-05,
-    -0.000263984258286453,
-    -0.000792810319715722,
-    -0.00236581977385576,
-    -0.00704746125114149,
-    -0.0210131715847004,
-    -0.0629242233443976,
-    -0.190538104129215,
-    -0.592816342814611,
-    -1.96992441194278,
-    -7.70705574740274,
-    -46.55440910469,
-    -1281.70053339288,
-]
-offset_pseudo_fermion = [
-    0.000109335909283339,
-    0.000584211769074023,
-    0.00181216713967916,
-    0.00478464392272826,
-    0.0119020708754186,
-    0.0289155646996088,
-    0.0695922442548162,
-    0.166959610676697,
-    0.400720136243831,
-    0.965951931276981,
-    2.35629923417205,
-    5.92110728201649,
-    16.0486180482883,
-    53.7484938194392,
-    402.99686403222,
-]
-# inverse square root
-residue_molecular_dynamics = [
-    0.00943108618345698,
-    0.0122499930158508,
-    0.0187308029056777,
-    0.0308130330025528,
-    0.0521206555919226,
-    0.0890870585774984,
-    0.153090120000215,
-    0.26493803350899,
-    0.466760251501358,
-    0.866223656646014,
-    1.8819154073627,
-    6.96033769739192,
-]
-offset_molecular_dynamics = [
-    5.23045292201785e-05,
-    0.000569214182255549,
-    0.00226724207135389,
-    0.00732861083302471,
-    0.0222608882919378,
-    0.0662886891030569,
-    0.196319420401789,
-    0.582378159903323,
-    1.74664271771668,
-    5.42569216297222,
-    18.850085313508,
-    99.6213166072174,
-]
 
-
-class OneFlavorClover(FermionAction):
-    def __init__(self, latt_info: LatticeInfo, mass: float, tol: float, maxiter: int, clover_csw: float) -> None:
+class CloverWilsonFermion(FermionAction):
+    def __init__(
+        self, latt_info: LatticeInfo, mass: float, num_flavor: int, tol: float, maxiter: int, clover_csw: float
+    ) -> None:
         super().__init__(latt_info)
         if latt_info.anisotropy != 1.0:
             getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
@@ -95,12 +30,14 @@ class OneFlavorClover(FermionAction):
         kappa = 1 / (2 * (mass + Nd))
         self.kappa2 = -(kappa**2)
         self.ck = -kappa * clover_csw / 8
-        self.num_flavor = 1
+        self.num_flavor = num_flavor
 
         self.dirac = CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_csw, 1, None)
         self.phi = LatticeFermion(latt_info)
         self.gauge_param = self.dirac.gauge_param
         self.invert_param = self.dirac.invert_param
+        self.rhmc_param = rhmc_param.clover_wilson[num_flavor]
+        self.coeff = self.dirac.forceCoeff(self.rhmc_param.residue_molecular_dynamics)
 
         self.invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION
@@ -119,7 +56,11 @@ class OneFlavorClover(FermionAction):
         self.updateClover(new_gauge)
         self.invert_param.compute_clover_trlog = 0
         self.invert_param.compute_action = 1
-        self.dirac.invertMultiShiftPC(self.phi, offset_molecular_dynamics, residue_molecular_dynamics)
+        self.dirac.invertMultiShiftPC(
+            self.phi,
+            self.rhmc_param.offset_molecular_dynamics,
+            self.rhmc_param.residue_molecular_dynamics,
+        )
         self.invert_param.compute_action = 0
         return (
             self.invert_param.action[0]
@@ -129,17 +70,22 @@ class OneFlavorClover(FermionAction):
 
     def force(self, dt, new_gauge: bool):
         self.updateClover(new_gauge)
-        xx = self.dirac.invertMultiShiftPC(self.phi, offset_molecular_dynamics, residue_molecular_dynamics)
+        nvector = len(self.rhmc_param.offset_molecular_dynamics)
+        xx = self.dirac.invertMultiShiftPC(
+            self.phi,
+            self.rhmc_param.offset_molecular_dynamics,
+            self.rhmc_param.residue_molecular_dynamics,
+        )
         # Some conventions force the dagger to be YES here
         self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
         computeCloverForceQuda(
             nullptr,
             dt,
             xx.even_ptrs,
-            numpy.array(residue_molecular_dynamics, "<f8"),
+            self.coeff,
             self.kappa2,
             self.ck,
-            len(offset_molecular_dynamics),
+            nvector,
             self.num_flavor,
             self.gauge_param,
             self.invert_param,
@@ -148,6 +94,11 @@ class OneFlavorClover(FermionAction):
 
     def sample(self, noise: LatticeFermion, new_gauge: bool):
         self.updateClover(new_gauge)
-        x = self.dirac.invertMultiShiftPC(noise, offset_pseudo_fermion, residue_pseudo_fermion, norm_pseudo_fermion)
-        self.phi.odd = noise.even
+        x = self.dirac.invertMultiShiftPC(
+            noise,
+            self.rhmc_param.offset_pseudo_fermion,
+            self.rhmc_param.residue_pseudo_fermion,
+            self.rhmc_param.norm_pseudo_fermion,
+        )
         self.phi.even = x.even
+        self.phi.odd = noise.even

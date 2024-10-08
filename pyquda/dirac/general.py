@@ -445,40 +445,130 @@ def loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     gauge_param.use_resident_gauge = 1
 
 
-def loadStaggeredGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
-    gauge_in = gauge.copy()
+def newPathCoeff(tadpole_coeff: float):
+    u1 = 1.0 / tadpole_coeff
+    u2 = u1 * u1
+    u4 = u2 * u2
+    u6 = u4 * u2
+
+    # First path: create V, W links
+    path_coeff_1 = [
+        (1.0 / 8.0),  # one link
+        u2 * (0.0),  # Naik
+        u2 * (-1.0 / 8.0) * 0.5,  # simple staple
+        u4 * (1.0 / 8.0) * 0.25 * 0.5,  # displace link in two directions
+        u6 * (-1.0 / 8.0) * 0.125 * (1.0 / 6.0),  # displace link in three directions
+        u4 * (0.0),  # Lepage term
+    ]
+
+    # Second path: create X, long links
+    path_coeff_2 = [
+        ((1.0 / 8.0) + (2.0 * 6.0 / 16.0) + (1.0 / 8.0)),  # one link
+        # One link is 1/8 as in fat7 + 2*3/8 for Lepage + 1/8 for Naik
+        (-1.0 / 24.0),  # Naik
+        (-1.0 / 8.0) * 0.5,  # simple staple
+        (1.0 / 8.0) * 0.25 * 0.5,  # displace link in two directions
+        (-1.0 / 8.0) * 0.125 * (1.0 / 6.0),  # displace link in three directions
+        (-2.0 / 16.0),  # Lepage term, correct O(a^2) 2x ASQTAD
+    ]
+
+    # Paths for epsilon corrections. Not used if n_naiks = 1.
+    path_coeff_3 = [
+        (1.0 / 8.0),  # one link b/c of Naik
+        (-1.0 / 24.0),  # Naik
+        0.0,  # simple staple
+        0.0,  # displace link in two directions
+        0.0,  # displace link in three directions
+        0.0,  # Lepage term
+    ]
+
+    return numpy.array(path_coeff_1, "<f8"), numpy.array(path_coeff_2, "<f8"), numpy.array(path_coeff_3, "<f8")
+
+
+def computeULink(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
+    u_link = gauge.copy()
 
     gauge_param.use_resident_gauge = 0
     gauge_param.make_resident_gauge = 0
     gauge_param.return_result_gauge = 1
     gauge_param.staggered_phase_applied = 0
-    staggeredPhaseQuda(gauge_in.data_ptrs, gauge_param)
+    staggeredPhaseQuda(u_link.data_ptrs, gauge_param)
     gauge_param.use_resident_gauge = 1
     gauge_param.make_resident_gauge = 0
     gauge_param.return_result_gauge = 0
     gauge_param.staggered_phase_applied = 1
 
+    return u_link
+
+
+def computeWLink(
+    u_link: LatticeGauge, return_v_link: bool, path_coeff: NDArray[numpy.float64], gauge_param: QudaGaugeParam
+):
+    v_link = LatticeGauge(u_link.latt_info) if return_v_link else None
+    w_link = LatticeGauge(u_link.latt_info)
+
+    computeKSLinkQuda(
+        v_link.data_ptrs if return_v_link else nullptrs,
+        nullptrs,
+        w_link.data_ptrs,
+        u_link.data_ptrs,
+        path_coeff,
+        gauge_param,
+    )
+
+    return v_link, w_link
+
+
+def computeXLink(
+    w_link: LatticeGauge,
+    path_coeff: NDArray[numpy.float64],
+    path_coeff_epsilon: NDArray[numpy.float64],
+    naik_epsilon: float,
+    gauge_param: QudaGaugeParam,
+):
+    fatlink = LatticeGauge(w_link.latt_info)
+    longlink = LatticeGauge(w_link.latt_info)
+    fatlink_epsilon = LatticeGauge(w_link.latt_info) if naik_epsilon != 0 else None
+    longlink_epsilon = LatticeGauge(w_link.latt_info) if naik_epsilon != 0 else None
+
+    computeKSLinkQuda(
+        fatlink.data_ptrs,
+        longlink.data_ptrs,
+        nullptrs,
+        w_link.data_ptrs,
+        path_coeff,
+        gauge_param,
+    )
+    if naik_epsilon != 0:
+        computeKSLinkQuda(
+            fatlink_epsilon.data_ptrs,
+            longlink_epsilon.data_ptrs,
+            nullptrs,
+            w_link.data_ptrs,
+            path_coeff_epsilon,
+            gauge_param,
+        )
+        fatlink_epsilon *= naik_epsilon
+        longlink_epsilon *= naik_epsilon
+        fatlink += fatlink_epsilon
+        longlink += longlink_epsilon
+
+    return fatlink, longlink
+
+
+def loadStaggeredGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
+    u_link = computeULink(gauge, gauge_param)
     gauge_param.use_resident_gauge = 0
-    loadGaugeQuda(gauge_in.data_ptrs, gauge_param)
+    loadGaugeQuda(u_link.data_ptrs, gauge_param)
     gauge_param.use_resident_gauge = 1
 
 
 def loadFatLongGauge(
-    gauge: LatticeGauge,
-    fat7_coeff: NDArray[numpy.float64],
-    level2_coeff: NDArray[numpy.float64],
+    fatlink: LatticeGauge,
+    longlink: LatticeGauge,
     gauge_param: QudaGaugeParam,
 ):
     staggered_phase_type = gauge_param.staggered_phase_type
-
-    inlink = gauge.copy()
-    ulink = LatticeGauge(gauge.latt_info)
-    fatlink = LatticeGauge(gauge.latt_info)
-    longlink = LatticeGauge(gauge.latt_info)
-
-    inlink.staggeredPhase()
-    computeKSLinkQuda(nullptrs, nullptrs, ulink.data_ptrs, inlink.data_ptrs, fat7_coeff, gauge_param)
-    computeKSLinkQuda(fatlink.data_ptrs, longlink.data_ptrs, nullptrs, ulink.data_ptrs, level2_coeff, gauge_param)
 
     gauge_param.use_resident_gauge = 0
     gauge_param.type = QudaLinkType.QUDA_ASQTAD_FAT_LINKS

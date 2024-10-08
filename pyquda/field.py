@@ -234,18 +234,22 @@ class HalfLatticeField:
         elif location == "torch":
             return self.data.cpu().numpy()
 
-    def norm(self):
+    def norm2(self, all_reduce=True) -> float:
         location = self.location
         if location == "numpy":
-            return numpy.linalg.norm(self.data)
+            norm2 = numpy.linalg.norm(self.data).item() ** 2
         elif location == "cupy":
             import cupy
 
-            return cupy.linalg.norm(self.data)
+            norm2 = cupy.linalg.norm(self.data).item() ** 2
         elif location == "torch":
             import torch
 
-            return torch.linalg.norm(self.data)
+            norm2 = torch.linalg.norm(self.data).item() ** 2
+        if all_reduce:
+            return self.latt_info.mpi_comm.allreduce(norm2)
+        else:
+            return norm2
 
     def __add__(self, other):
         assert self.__class__ == other.__class__ and self.location == other.location

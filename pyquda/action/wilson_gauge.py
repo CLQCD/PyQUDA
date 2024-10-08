@@ -61,6 +61,10 @@ def path_force(path, coeffs):
 
 
 class WilsonGauge(GaugeAction):
+    R"""
+    \beta' = \beta / u_0**4
+    """
+
     def __init__(self, latt_info: LatticeInfo, beta: float, u_0: float):
         super().__init__(latt_info)
 
@@ -70,8 +74,8 @@ class WilsonGauge(GaugeAction):
         input_path = [
             [0, 1, 7, 6],
             [0, 2, 7, 5],
-            [1, 2, 6, 5],
             [0, 3, 7, 4],
+            [1, 2, 6, 5],
             [1, 3, 6, 4],
             [2, 3, 5, 4],
         ]
@@ -95,8 +99,8 @@ class WilsonGauge(GaugeAction):
             self.flengths,
             self.fcoeffs,
         ) = path_force(input_path, input_coeffs)
-        self.coeffs *= beta / u_0**4 / Nc
-        self.fcoeffs *= beta / u_0**4 / Nc
+        self.coeffs *= beta / Nc
+        self.fcoeffs *= beta / Nc
 
     def action(self) -> float:
         traces = numpy.zeros((self.num_paths), "<c16")

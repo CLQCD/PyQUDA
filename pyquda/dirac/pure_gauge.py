@@ -2,7 +2,6 @@ from typing import List, Literal, Union
 
 import numpy
 
-from ..pointer import ndarrayPointer
 from ..pyquda import (
     QudaGaugeSmearParam,
     QudaGaugeObservableParam,
@@ -24,7 +23,7 @@ from ..pyquda import (
     computeGaugeFixingOVRQuda,
     computeGaugeFixingFFTQuda,
 )
-from ..field import LatticeInfo, LatticeGauge, LatticeMom, LatticeFermion, LatticeStaggeredFermion
+from ..field import LatticeInfo, LatticeGauge, LatticeMom, LatticeFermion, LatticeStaggeredFermion, LatticeFloat64
 from ..enum_quda import (
     QudaBoolean,
     QudaDslashType,
@@ -356,13 +355,12 @@ class PureGauge(Gauge):
         return self.obs_param.qcharge
 
     def qchargeDensity(self):
-        qcharge_density = numpy.zeros((self.latt_info.volume), "<f8")
-        self.obs_param.qcharge_density = ndarrayPointer(qcharge_density, True)
+        qcharge_density = LatticeFloat64(self.latt_info)
+        self.obs_param.qcharge_density = qcharge_density.data_ptr
         self.obs_param.compute_qcharge_density = QudaBoolean.QUDA_BOOLEAN_TRUE
         gaugeObservablesQuda(self.obs_param)
         self.obs_param.compute_qcharge_density = QudaBoolean.QUDA_BOOLEAN_TRUE
-        Lx, Ly, Lz, Lt = self.latt_info.size
-        return qcharge_density.reshape(2, Lt, Lz, Ly, Lx // 2)
+        return qcharge_density
 
     def gaussGauge(self, seed: int, sigma: float):
         gaussGaugeQuda(seed, sigma)

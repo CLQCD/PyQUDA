@@ -5,8 +5,7 @@ from .wilson_gauge import WilsonGauge
 from .symanzik_tree_gauge import SymanzikTreeGauge
 
 # FermionAction
-from .one_flavor_clover import OneFlavorClover
-from .two_flavor_clover import TwoFlavorClover
+from .clover_wilson import CloverWilsonFermion
 
 # StaggeredFermionAction
-from .two_flavor_hisq import TwoFlavorHISQ
+from .hisq import HISQFermion

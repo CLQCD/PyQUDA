@@ -214,7 +214,7 @@ def getStaggeredDirac(
 
     from .dirac.hisq import HISQ
 
-    return HISQ(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, None)
+    return HISQ(latt_info, mass, kappa, tol, maxiter, naik_epsilon, None)
 
 
 def getWilson(
@@ -287,7 +287,6 @@ def getHISQ(
     mass: float,
     tol: float,
     maxiter: int,
-    tadpole_coeff: float = 1.0,
     naik_epsilon: float = 0.0,
 ):
     assert latt_info.anisotropy == 1.0
@@ -295,7 +294,7 @@ def getHISQ(
 
     from .dirac.hisq import HISQ
 
-    return HISQ(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, naik_epsilon, None)
+    return HISQ(latt_info, mass, kappa, tol, maxiter, naik_epsilon, None)
 
 
 def getDefaultDirac(

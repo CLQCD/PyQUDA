@@ -16,11 +16,11 @@ class HISQ(StaggeredDirac):
         kappa: float,
         tol: float,
         maxiter: int,
-        tadpole_coeff: float = 1.0,
         naik_epsilon: float = 0.0,
         multigrid: Union[List[List[int]], Multigrid] = None,
     ) -> None:
         super().__init__(latt_info)
+        self.naik_epsilon = naik_epsilon
         # Using half with multigrid doesn't work
         if multigrid is not None:
             self._setPrecision(sloppy=max(self.precision.sloppy, QudaPrecision.QUDA_SINGLE_PRECISION))
@@ -30,55 +30,16 @@ class HISQ(StaggeredDirac):
             precondition=max(self.reconstruct.precondition, QudaReconstructType.QUDA_RECONSTRUCT_NO),
             eigensolver=max(self.reconstruct.eigensolver, QudaReconstructType.QUDA_RECONSTRUCT_NO),
         )
-        self.newCoeff(tadpole_coeff)
-        self.newQudaGaugeParam(tadpole_coeff, naik_epsilon)
+        self.newPathCoeff()
+        self.newQudaGaugeParam(naik_epsilon)
         self.newQudaMultigridParam(multigrid, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
         self.newQudaInvertParam(mass, kappa, tol, maxiter)
 
-    def newCoeff(self, tadpole_coeff: float):
-        u1 = 1.0 / tadpole_coeff
-        u2 = u1 * u1
-        u4 = u2 * u2
-        u6 = u4 * u2
-        self.fat7_coeff = numpy.asarray(
-            [  # First path: create V, W links
-                (1.0 / 8.0),  # one link
-                u2 * (0.0),  # Naik
-                u2 * (-1.0 / 8.0) * 0.5,  # simple staple
-                u4 * (1.0 / 8.0) * 0.25 * 0.5,  # displace link in two directions
-                u6 * (-1.0 / 8.0) * 0.125 * (1.0 / 6.0),  # displace link in three directions
-                u4 * (0.0),  # Lepage term
-            ],
-            "<f8",
-        )
-        self.level2_coeff = numpy.asarray(
-            [  # Second path: create X, long links
-                ((1.0 / 8.0) + (2.0 * 6.0 / 16.0) + (1.0 / 8.0)),  # one link
-                # One link is 1/8 as in fat7 + 2*3/8 for Lepage + 1/8 for Naik
-                (-1.0 / 24.0),  # Naik
-                (-1.0 / 8.0) * 0.5,  # simple staple
-                (1.0 / 8.0) * 0.25 * 0.5,  # displace link in two directions
-                (-1.0 / 8.0) * 0.125 * (1.0 / 6.0),  # displace link in three directions
-                (-2.0 / 16.0),  # Lepage term, correct O(a^2) 2x ASQTAD
-            ],
-            "<f8",
-        )
-        self.level3_coeff = numpy.asarray(
-            [  # Paths for epsilon corrections. Not used if n_naiks = 1.
-                (1.0 / 8.0),  # one link b/c of Naik
-                (-1.0 / 24.0),  # Naik
-                0.0,  # simple staple
-                0.0,  # displace link in two directions
-                0.0,  # displace link in three directions
-                0.0,  # Lepage term
-            ],
-            "<f8",
-        )
+    def newPathCoeff(self):
+        self.path_coeff_1, self.path_coeff_2, self.path_coeff_3 = general.newPathCoeff(1.0)
 
-    def newQudaGaugeParam(self, tadpole_coeff: float, naik_epsilon: float):
-        gauge_param = general.newQudaGaugeParam(
-            self.latt_info, tadpole_coeff, naik_epsilon, self.precision, self.reconstruct
-        )
+    def newQudaGaugeParam(self, naik_epsilon: float):
+        gauge_param = general.newQudaGaugeParam(self.latt_info, 1.0, naik_epsilon, self.precision, self.reconstruct)
         gauge_param.staggered_phase_applied = 1
         self.gauge_param = gauge_param
 
@@ -124,8 +85,23 @@ class HISQ(StaggeredDirac):
             invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
         self.invert_param = invert_param
 
+    def computeULink(self, gauge: LatticeGauge):
+        return general.computeULink(gauge, self.gauge_param)
+
+    def computeWLink(self, u_link: LatticeGauge, return_v_link: bool):
+        return general.computeWLink(u_link, return_v_link, self.path_coeff_1, self.gauge_param)
+
+    def computeXLink(self, w_link: LatticeGauge):
+        return general.computeXLink(w_link, self.path_coeff_2, self.path_coeff_3, self.naik_epsilon, self.gauge_param)
+
+    def loadFatLongGauge(self, fatlink: LatticeGauge, longlink: LatticeGauge):
+        general.loadFatLongGauge(fatlink, longlink, self.gauge_param)
+
     def loadGauge(self, gauge: LatticeGauge, thin_update_only: bool = False):
-        general.loadFatLongGauge(gauge, self.fat7_coeff, self.level2_coeff, self.gauge_param)
+        u_link = self.computeULink(gauge)
+        v_link, w_link = self.computeWLink(u_link, False)
+        fatlink, longlink = self.computeXLink(w_link)
+        self.loadFatLongGauge(fatlink, longlink)
         if self.multigrid.instance is None:
             self.newMultigrid()
         else:
@@ -134,42 +110,14 @@ class HISQ(StaggeredDirac):
     def destroy(self):
         self.destroyMultigrid()
 
-    # def computeFatLong(self, gauge: LatticeGauge):
-    #     from ..pointer import Pointers
-    #     from ..pyquda import computeKSLinkQuda
-
-    #     nullptr = Pointers("void", 0)
-    #     inlink = gauge.copy()
-    #     ulink = LatticeGauge(gauge.latt_info)
-    #     fatlink = LatticeGauge(gauge.latt_info)
-    #     longlink = LatticeGauge(gauge.latt_info)
-
-    #     # gauge_param.use_resident_gauge = 0
-    #     # loadGaugeQuda(inlink.data_ptrs, gauge_param)  # Save the original gauge for the smeared source.
-    #     # gauge_param.use_resident_gauge = 1
-
-    #     # t boundary will be applied by the staggered phase.
-    #     inlink.staggeredPhase()
-    #     self.gauge_param.staggered_phase_applied = 1
-
-    #     # Chroma uses periodic boundary condition to do the SU(3) projection.
-    #     # But I think it's wrong.
-    #     # gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
-    #     computeKSLinkQuda(
-    #         nullptr,
-    #         nullptr,
-    #         ulink.data_ptrs,
-    #         inlink.data_ptrs,
-    #         self.fat7_coeff,
-    #         self.gauge_param,
-    #     )
-    #     computeKSLinkQuda(
-    #         fatlink.data_ptrs,
-    #         longlink.data_ptrs,
-    #         nullptr,
-    #         ulink.data_ptrs,
-    #         self.level2_coeff,
-    #         self.gauge_param,
-    #     )
-
-    #     return fatlink, longlink
+    def forceCoeff(self, residue_molecular_dynamics: List[float]):
+        coeff = [[2 * res, self.path_coeff_2[1] * 2 * res] for res in residue_molecular_dynamics]
+        if self.naik_epsilon != 0.0:
+            coeff += [
+                [
+                    self.path_coeff_3[0] * self.naik_epsilon * 2 * res,
+                    self.path_coeff_3[1] * self.naik_epsilon * 2 * res,
+                ]
+                for res in residue_molecular_dynamics
+            ]
+        return numpy.array(coeff, "<f8")
