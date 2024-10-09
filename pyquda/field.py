@@ -1,4 +1,4 @@
-from typing import Any, List, Literal, Sequence, Union
+from typing import Any, List, Literal, Sequence, Tuple, Union
 
 import numpy
 
@@ -155,7 +155,8 @@ class HalfLatticeField:
 
     def setField(self, field_shape: Sequence[int], field_dtype: Literal["<c16", "<f8", "<i4"]):
         self.field_shape = tuple(field_shape)
-        self.field_dtype = numpy.dtype(field_dtype)
+        self.field_size = int(numpy.prod(field_shape).item())
+        self.field_dtype = field_dtype
         Lx, Ly, Lz, Lt = self.latt_info.size
         self.lattice_shape = [2, Lt, Lz, Ly, Lx // 2] if self.full_lattice else [Lt, Lz, Ly, Lx // 2]
         self.shape = (
@@ -326,6 +327,36 @@ class EvenOddField:
     def lexico(self):
         return lexico(self.getHost(), [0, 1, 2, 3, 4])
 
+    def _checksum(self, data) -> Tuple[int, int]:
+        import zlib
+        from mpi4py import MPI
+
+        gx, gy, gz, gt = self.latt_info.grid_coord
+        Lx, Ly, Lz, Lt = self.latt_info.size
+        gLx, gLy, gLz, gLt = gx * Lx, gy * Ly, gz * Lz, gt * Lt
+        GLx, GLy, GLz, GLt = self.latt_info.global_size
+        work = numpy.empty((self.latt_info.volume), "<u4")
+        for i in range(self.latt_info.volume):
+            work[i] = zlib.crc32(data[i])
+        rank = (
+            numpy.arange(self.latt_info.global_volume, dtype="<u4")
+            .reshape(GLt, GLz, GLy, GLx)[gLt : gLt + Lt, gLz : gLz + Lz, gLy : gLy + Ly, gLx : gLx + Lx]
+            .reshape(-1)
+        )
+        rank29 = rank % 29
+        rank31 = rank % 31
+        sum29 = self.latt_info.mpi_comm.allreduce(
+            numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)).item(), MPI.BXOR
+        )
+        sum31 = self.latt_info.mpi_comm.allreduce(
+            numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)).item(), MPI.BXOR
+        )
+        return sum29, sum31
+
+    def checksum(self, big_endian: bool = False) -> Tuple[int, int]:
+        data = self.lexico() if not big_endian else self.lexico().astype(f">{self.field_dtype[1:]}")
+        return self._checksum(data)
+
 
 class MultiField:
     def __init__(self, latt_info: LatticeInfo, L5: int) -> None:
@@ -378,6 +409,27 @@ class MultiField:
 
     def lexico(self):
         return lexico(self.getHost(), [1, 2, 3, 4, 5])
+
+    def checksum(self, big_endian: bool = False) -> Tuple[int, int]:
+        assert self.full_lattice
+        data = (
+            (
+                self.lexico()
+                .reshape(self.L5, self.latt_info.volume, self.field_size)
+                .transpose(1, 0, 2)
+                .reshape(self.latt_info.volume, self.L5 * self.field_size)
+                .copy()
+            )
+            if not big_endian
+            else (
+                self.lexico()
+                .reshape(self.L5, self.latt_info.volume, self.field_size)
+                .transpose(1, 0, 2)
+                .reshape(self.latt_info.volume, self.L5 * self.field_size)
+                .astype(f">{self.field_dtype[1:]}")
+            )
+        )
+        return self._checksum(data)
 
     def __add__(self, other):
         assert self.__class__ == other.__class__ and self.location == other.location
