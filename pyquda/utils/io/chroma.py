@@ -10,7 +10,7 @@ Nd, Ns, Nc = 4, 4, 3
 _precision_map = {"D": 8, "F": 4, "S": 4}
 
 
-def checksum(latt_size: List[int], data):
+def checksum_qio(latt_size: List[int], data):
     import zlib
     import numpy
     from mpi4py import MPI
@@ -35,7 +35,7 @@ def checksum(latt_size: List[int], data):
     return sum29, sum31
 
 
-def readQIOGauge(filename: str):
+def readQIOGauge(filename: str, checksum: bool = True):
     filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
         meta: Dict[str, Tuple[int, int]] = {}
@@ -75,10 +75,11 @@ def readQIOGauge(filename: str):
     dtype = f">c{2*precision}"
 
     gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
-    assert checksum(latt_size, gauge.reshape(Lt * Lz * Ly * Lx, Nd * Nc * Nc)) == (
-        int(scidac_checksum_xml.find("suma").text, 16),
-        int(scidac_checksum_xml.find("sumb").text, 16),
-    ), f"Bad checksum for {filename}"
+    if checksum:
+        assert checksum_qio(latt_size, gauge.reshape(Lt * Lz * Ly * Lx, Nd * Nc * Nc)) == (
+            int(scidac_checksum_xml.find("suma").text, 16),
+            int(scidac_checksum_xml.find("sumb").text, 16),
+        ), f"Bad checksum for {filename}"
     gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
     return latt_size, gauge
 
@@ -93,7 +94,7 @@ def readILDGBinGauge(filename: str, dtype: str, latt_size: List[int]):
     return gauge
 
 
-def readQIOPropagator(filename: str):
+def readQIOPropagator(filename: str, checksum: bool = True):
     filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
         meta: Dict[str, Tuple[int, int]] = {}
@@ -140,16 +141,18 @@ def readQIOPropagator(filename: str):
 
     if not staggered:
         propagator = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc), (3, 2, 1, 0))
-        assert checksum(latt_size, propagator.reshape(Lt * Lz * Ly * Lx, Ns * Ns * Nc * Nc)) == (
-            int(scidac_checksum_xml.find("suma").text, 16),
-            int(scidac_checksum_xml.find("sumb").text, 16),
-        ), f"Bad checksum for {filename}"
+        if checksum:
+            assert checksum_qio(latt_size, propagator.reshape(Lt * Lz * Ly * Lx, Ns * Ns * Nc * Nc)) == (
+                int(scidac_checksum_xml.find("suma").text, 16),
+                int(scidac_checksum_xml.find("sumb").text, 16),
+            ), f"Bad checksum for {filename}"
         propagator = propagator.astype("<c16")
     else:
         propagator = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nc, Nc), (3, 2, 1, 0))
-        assert checksum(latt_size, propagator.reshape(Lt * Lz * Ly * Lx, Nc * Nc)) == (
-            int(scidac_checksum_xml.find("suma").text, 16),
-            int(scidac_checksum_xml.find("sumb").text, 16),
-        ), f"Bad checksum for {filename}"
+        if checksum:
+            assert checksum_qio(latt_size, propagator.reshape(Lt * Lz * Ly * Lx, Nc * Nc)) == (
+                int(scidac_checksum_xml.find("suma").text, 16),
+                int(scidac_checksum_xml.find("sumb").text, 16),
+            ), f"Bad checksum for {filename}"
         propagator = propagator.astype("<c16")
     return latt_size, staggered, propagator

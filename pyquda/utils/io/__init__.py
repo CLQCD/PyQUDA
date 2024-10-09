@@ -69,10 +69,10 @@ def rotateToDeGrandRossi(propagator: LatticePropagator):
     )
 
 
-def readChromaQIOGauge(filename: str):
+def readChromaQIOGauge(filename: str, checksum: bool = True):
     from .chroma import readQIOGauge as read
 
-    latt_size, gauge_raw = read(filename)
+    latt_size, gauge_raw = read(filename, checksum)
     return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
 
 
@@ -83,20 +83,20 @@ def readILDGBinGauge(filename: str, dtype: str, latt_size: List[int]):
     return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
 
 
-def readChromaQIOPropagator(filename: str):
+def readChromaQIOPropagator(filename: str, checksum: bool = True):
     from .chroma import readQIOPropagator as read
 
-    latt_size, staggered, propagator_raw = read(filename)
+    latt_size, staggered, propagator_raw = read(filename, checksum)
     if not staggered:
         return LatticePropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
     else:
         return LatticeStaggeredPropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
 
 
-def readMILCGauge(filename: str):
+def readMILCGauge(filename: str, checksum: bool = True):
     from .milc import readGauge as read
 
-    latt_size, gauge_raw = read(filename)
+    latt_size, gauge_raw = read(filename, checksum)
     return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
 
 

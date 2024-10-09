@@ -12,7 +12,7 @@ Nd, Ns, Nc = 4, 4, 3
 _precision_map = {"D": 8, "F": 4, "S": 4}
 
 
-def checksum(latt_size: List[int], data):
+def checksum_milc(latt_size: List[int], data):
     import numpy
     from mpi4py import MPI
     from ... import getMPIComm, getMPISize, getGridCoord
@@ -35,7 +35,32 @@ def checksum(latt_size: List[int], data):
     return sum29, sum31
 
 
-def readGauge(filename: str):
+def checksum_qio(latt_size: List[int], data):
+    import zlib
+    import numpy
+    from mpi4py import MPI
+    from ... import getMPIComm, getGridCoord
+
+    gx, gy, gz, gt = getGridCoord()
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
+    gLx, gLy, gLz, gLt = gx * Lx, gy * Ly, gz * Lz, gt * Lt
+    GLx, GLy, GLz, GLt = latt_size
+    work = numpy.empty((Lt * Lz * Ly * Lx), "<u4")
+    for i in range(Lt * Lz * Ly * Lx):
+        work[i] = zlib.crc32(data[i])
+    rank = (
+        numpy.arange(GLt * GLz * GLy * GLx, dtype="<u4")
+        .reshape(GLt, GLz, GLy, GLx)[gLt : gLt + Lt, gLz : gLz + Lz, gLy : gLy + Ly, gLx : gLx + Lx]
+        .reshape(-1)
+    )
+    rank29 = rank % 29
+    rank31 = rank % 31
+    sum29 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)).item(), MPI.BXOR)
+    sum31 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)).item(), MPI.BXOR)
+    return sum29, sum31
+
+
+def readGauge(filename: str, checksum: bool = True):
     filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
         magic = f.read(4)
@@ -53,7 +78,8 @@ def readGauge(filename: str):
     dtype = f"{endian}c8"
 
     gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
-    assert checksum(latt_size, gauge.reshape(-1)) == (sum29, sum31), f"Bad checksum for {filename}"
+    if checksum:
+        assert checksum_milc(latt_size, gauge.reshape(-1)) == (sum29, sum31), f"Bad checksum for {filename}"
     gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
     return latt_size, gauge
 
