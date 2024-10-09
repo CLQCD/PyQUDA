@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Sequence, Union
 
 import numpy
 
@@ -27,7 +27,8 @@ class HISQFermion(StaggeredFermionAction):
     def __init__(
         self,
         latt_info: LatticeInfo,
-        mass: float,
+        mass: Union[float, Sequence[float]],
+        flavor: Union[int, Sequence[int]],
         tol: float,
         maxiter: int,
         naik_epsilon: float = 0.0,
@@ -35,12 +36,15 @@ class HISQFermion(StaggeredFermionAction):
         super().__init__(latt_info)
         if latt_info.anisotropy != 1.0:
             getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
+        mass = (mass,) if not hasattr(mass, "__iter__") else tuple(mass)
+        flavor = (flavor,) if not hasattr(flavor, "__iter__") else tuple(flavor)
+        assert len(mass) == len(flavor)
 
         self.dirac = HISQ(latt_info, 0.0, 1 / 2, tol, maxiter, naik_epsilon, None)
         self.phi = LatticeStaggeredFermion(latt_info)
         self.gauge_param = self.dirac.gauge_param
         self.invert_param = self.dirac.invert_param
-        self.rhmc_param = rhmc_param.hisq[mass]
+        self.rhmc_param = rhmc_param.staggered[(mass, flavor)]
 
         self.invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION

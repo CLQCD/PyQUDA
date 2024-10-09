@@ -36,8 +36,7 @@ class CloverWilsonFermion(FermionAction):
         self.phi = LatticeFermion(latt_info)
         self.gauge_param = self.dirac.gauge_param
         self.invert_param = self.dirac.invert_param
-        self.rhmc_param = rhmc_param.clover_wilson[num_flavor]
-        self.coeff = self.dirac.forceCoeff(self.rhmc_param.residue_molecular_dynamics)
+        self.rhmc_param = rhmc_param.wilson[num_flavor]
 
         self.invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION
@@ -45,6 +44,8 @@ class CloverWilsonFermion(FermionAction):
         self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
         self.invert_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
         self.invert_param.verbosity = QudaVerbosity.QUDA_SILENT
+
+        self.coeff = self.dirac.forceCoeff(self.rhmc_param.residue_molecular_dynamics)
 
     def updateClover(self, new_gauge: bool):
         if new_gauge:

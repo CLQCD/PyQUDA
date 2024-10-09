@@ -13,7 +13,7 @@ class RHMCParam(NamedTuple):
     offset_fermion_action: List[float] = [0.0]
 
 
-clover_wilson = {
+wilson = {
     2: RHMCParam(
         residue_molecular_dynamics=[
             1.0,
@@ -96,8 +96,8 @@ clover_wilson = {
     ),
 }
 
-hisq = {
-    0.500: RHMCParam(
+staggered = {
+    ((0.5,), (1,)): RHMCParam(
         norm_molecular_dynamics=1.3325011583706989e-01,
         residue_molecular_dynamics=[
             1.2669186056995732e-01,
@@ -164,7 +164,7 @@ hisq = {
             8.7553100280824765e02,
         ],
     ),
-    0.050: RHMCParam(
+    ((0.05,), (2,)): RHMCParam(
         norm_molecular_dynamics=2.6567771557480493e-02,
         residue_molecular_dynamics=[
             5.4415326175599146e-02,
@@ -231,7 +231,7 @@ hisq = {
             2.6570653748247554e02,
         ],
     ),
-    0.0012: RHMCParam(
+    ((0.0012, 0.0323, 0.2), (2, 1, -3)): RHMCParam(
         norm_molecular_dynamics=1.0000021155336281e00,
         residue_molecular_dynamics=[
             1.0939886112519286e-03,
@@ -310,7 +310,7 @@ hisq = {
             1.2246254212695042e-01,
         ],
     ),
-    0.2: RHMCParam(
+    ((0.2,), (1,)): RHMCParam(
         norm_molecular_dynamics=1.4922969612472456e-01,
         residue_molecular_dynamics=[
             4.6061009721530329e-02,
@@ -377,7 +377,7 @@ hisq = {
             5.4606225005034105e02,
         ],
     ),
-    0.432: RHMCParam(
+    ((0.432,), (1,)): RHMCParam(
         norm_molecular_dynamics=1.3593606896652125e-01,
         residue_molecular_dynamics=[
             1.0825758523125259e-01,
