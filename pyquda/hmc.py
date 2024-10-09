@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from math import exp
+from random import Random
 from typing import List, Union
 
 from . import getLogger, getCUDABackend
@@ -26,7 +28,7 @@ from .field import (
     LatticeFloat64,
 )
 from .dirac.wilson import Wilson
-from .dirac.hisq import HISQ
+from .dirac.staggered import Staggered
 from .action.abstract import GaugeAction, FermionAction, StaggeredFermionAction
 
 nullptr = Pointers("void", 0)
@@ -39,6 +41,33 @@ class Integrator(ABC):
     @abstractmethod
     def integrate(self, updateGauge, updateMom, t: float):
         raise NotImplementedError("The integrator is not implemented yet")
+
+
+class INT_3G1F(Integrator):
+    alpha_ = 0.1
+    beta_ = 0.1
+
+    def integrate(self, updateGauge, updateMom, t: float):
+        assert self.n_steps % 2 == 0
+        dt = t / self.n_steps
+        for _ in range(0, self.n_steps, 2):
+            updateGauge(dt * (1 / 6 - self.alpha_ / 3))
+            updateMom(dt / 3, fermion=False)
+            updateGauge(dt * (1 / 3 + self.alpha_ / 3 - self.beta_))
+            updateMom(dt, gauge=False)
+            updateGauge(dt * (self.alpha_ / 3 + self.beta_))
+            updateMom(dt / 3, fermion=False)
+            updateGauge(dt * (1 / 3 - self.alpha_ * 2 / 3))
+            updateMom(dt / 3, fermion=False)
+            updateGauge(dt * (1 / 3 + self.alpha_ * 2 / 3))
+            updateMom(dt / 3, fermion=False)
+            updateGauge(dt * (1 / 3 - self.alpha_ * 2 / 3))
+            updateMom(dt / 3, fermion=False)
+            updateGauge(dt * (self.alpha_ / 3 + self.beta_))
+            updateMom(dt, gauge=False)
+            updateGauge(dt * (1 / 3 + self.alpha_ / 3 - self.beta_))
+            updateMom(dt / 3, fermion=False)
+            updateGauge(dt * (1 / 6 - self.alpha_ / 3))
 
 
 class O2Nf1Ng0V(Integrator):
@@ -188,13 +217,12 @@ class HMC:
         hmc_inner: "HMC" = None,
     ) -> None:
         self.latt_info = latt_info
-        self._monomials = monomials
+        self._gauge_monomials = [monomial for monomial in monomials if isinstance(monomial, GaugeAction)]
+        self._fermion_monomials = [monomial for monomial in monomials if not isinstance(monomial, GaugeAction)]
         self._integrator = integrator
         self._hmc_inner = hmc_inner
         self.staggered = None
-        for monomial in monomials:
-            if isinstance(monomial, GaugeAction):
-                continue
+        for monomial in self._fermion_monomials:
             if self.staggered is None:
                 self.staggered = isinstance(monomial, StaggeredFermionAction)
                 continue
@@ -207,32 +235,50 @@ class HMC:
         if not self.staggered:
             self._dirac = Wilson(latt_info, 0, 0.125, 0, 0)
         else:
-            self._dirac = HISQ(latt_info, 0, 0.5, 0, 0)
+            self._dirac = Staggered(latt_info, 0, 0.5, 0, 0)
         self.gauge_param = self._dirac.gauge_param
         self.obs_param = QudaGaugeObservableParam()
-        self.obs_param.remove_staggered_phase = QudaBoolean(self.staggered)
+        self.obs_param.remove_staggered_phase = QudaBoolean(not not self.staggered)
+        self.fuseFermionAction()
+
+    def fuseFermionAction(self):
+        if self.staggered:
+            from .action.hisq import HISQFermion, MultiHISQFermion
+
+            hisq_monomials = [monomial for monomial in self._fermion_monomials if isinstance(monomial, HISQFermion)]
+            if hisq_monomials != []:
+                hisq_monomials = [MultiHISQFermion(self.latt_info, hisq_monomials)]
+            self._fermion_monomials = hisq_monomials + [
+                monomial for monomial in self._fermion_monomials if not isinstance(monomial, HISQFermion)
+            ]
 
     def setVerbosity(self, verbosity: QudaVerbosity):
         setVerbosityQuda(verbosity, b"\0")
 
-    def initialize(self, gauge: Union[LatticeGauge, int, None] = None):
-        if isinstance(gauge, LatticeGauge):
-            self.loadGauge(gauge)
-        else:
-            unit = LatticeGauge(self.latt_info)
-            if gauge is not None:
-                unit.gauss(gauge, 1.0)
-            self.loadGauge(unit)
+    def initializeRNG(self, seed: int):
+        self.random = Random(seed * self.latt_info.volume + self.latt_info.mpi_rank)
+        self.random.setstate(
+            (
+                self.random.VERSION,
+                tuple(self.random.randrange(2**32) if i < 624 else self.random.randrange(625) for i in range(625)),
+                None,
+            )
+        )
+
+    def initialize(self, seed: int, gauge: LatticeGauge):
+        self.initializeRNG(seed)
+        self.loadGauge(gauge)
         mom = LatticeMom(self.latt_info)
         self.loadMom(mom)
 
-    def actionGauge(self) -> float:
-        action = 0 if self._hmc_inner is None else self._hmc_inner.actionGauge()
-        for monomial in self._monomials:
-            if isinstance(monomial, FermionAction) or isinstance(monomial, StaggeredFermionAction):
-                action += monomial.action(True)
-            elif isinstance(monomial, GaugeAction):
+    def actionGauge(self, gauge: bool = True, fermion: bool = True) -> float:
+        action = 0 if self._hmc_inner is None else self._hmc_inner.actionGauge(gauge, fermion)
+        if gauge:
+            for monomial in self._gauge_monomials:
                 action += monomial.action()
+        if fermion:
+            for monomial in self._fermion_monomials:
+                action += monomial.action(True)
         return action
 
     def actionMom(self) -> float:
@@ -242,38 +288,31 @@ class HMC:
         updateGaugeFieldQuda(nullptr, nullptr, dt, False, True, self.gauge_param)
         loadGaugeQuda(nullptr, self.gauge_param)
 
-    def updateMom(self, dt: float):
-        for monomial in self._monomials:
-            if isinstance(monomial, FermionAction) or isinstance(monomial, StaggeredFermionAction):
-                monomial.force(dt, True)
-            elif isinstance(monomial, GaugeAction):
+    def updateMom(self, dt: float, gauge: bool = True, fermion: bool = True):
+        if gauge:
+            for monomial in self._gauge_monomials:
                 monomial.force(dt)
+        if fermion:
+            for monomial in self._fermion_monomials:
+                monomial.force(dt, True)
 
-    def integrate(self, t: float):
-        self._integrator.integrate(
-            self.updateGauge if self._hmc_inner is None else self._hmc_inner.integrate, self.updateMom, t
-        )
-
-    def samplePhi(self, seed: int):
+    def samplePhi(self):
         def _seed(seed: int):
             backend = getCUDABackend()
             if backend == "numpy":
                 import numpy
 
-                if seed is not None:
-                    numpy.random.seed(seed)
+                numpy.random.seed(seed)
                 return numpy, numpy.random.random, numpy.float64
             elif backend == "cupy":
                 import cupy
 
-                if seed is not None:
-                    cupy.random.seed(seed)
+                cupy.random.seed(seed)
                 return cupy, cupy.random.random, cupy.float64
             elif backend == "torch":
                 import torch
 
-                if seed is not None:
-                    torch.random.manual_seed(seed)
+                torch.random.manual_seed(seed)
                 return torch, torch.rand, torch.float64
 
         def _noise(backend, random, shape, float64):
@@ -282,18 +321,24 @@ class HMC:
             noise_raw = backend.sqrt(-backend.log(r)) * (backend.cos(phi) + 1j * backend.sin(phi))
             return noise_raw
 
-        backend, random, float64 = _seed(seed)
+        backend, random, float64 = _seed(self.random.randrange(2**64))
         shape = (self.latt_info.volume, Ns, Nc) if not self.staggered else (self.latt_info.volume, Nc)
-        for monomial in self._monomials:
+        for monomial in self._fermion_monomials:
             if isinstance(monomial, FermionAction):
-                noise = _noise(backend, random, shape, float64)
-                monomial.sample(LatticeFermion(self.latt_info, noise), True)
+                noise = LatticeFermion(self.latt_info, _noise(backend, random, shape, float64))
+                monomial.sample(noise, True)
             elif isinstance(monomial, StaggeredFermionAction):
-                noise = _noise(backend, random, shape, float64)
-                monomial.sample(LatticeStaggeredFermion(self.latt_info, noise), True)
+                if hasattr(monomial, "pseudo_fermions"):
+                    noise = [
+                        LatticeStaggeredFermion(self.latt_info, _noise(backend, random, shape, float64))
+                        for _ in range(len(monomial.pseudo_fermions))
+                    ]
+                else:
+                    noise = LatticeStaggeredFermion(self.latt_info, _noise(backend, random, shape, float64))
+                monomial.sample(noise, True)
 
         if self._hmc_inner is not None:
-            self._hmc_inner.samplePhi(None)
+            self._hmc_inner.samplePhi()
 
     def loadGauge(self, gauge: LatticeGauge):
         gauge_in = gauge.copy()
@@ -323,14 +368,24 @@ class HMC:
         self.gauge_param.return_result_mom = 0
         momResidentQuda(mom.data_ptrs, self.gauge_param)  # keep momResident
 
-    def gaussMom(self, seed: int):
-        gaussMomQuda(seed, 1.0)
+    def gaussMom(self):
+        gaussMomQuda(self.random.randrange(2**64), 1.0)
 
-    def reunitGauge(self, tol: float):
+    def projectSU3(self, tol: float):
         gauge = LatticeGauge(self.latt_info)
         self.saveGauge(gauge)
         gauge.projectSU3(tol)
         self.loadGauge(gauge)
+
+    def integrate(self, t: float, project_tol: float = None):
+        self._integrator.integrate(
+            self.updateGauge if self._hmc_inner is None else self._hmc_inner.integrate, self.updateMom, t
+        )
+        if project_tol is not None:
+            self.projectSU3(project_tol)
+
+    def accept(self, delta_s):
+        return self.latt_info.mpi_comm.bcast(self.random.random() < exp(-delta_s))
 
     def plaquette(self):
         self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_TRUE

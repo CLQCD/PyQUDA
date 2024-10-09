@@ -522,14 +522,10 @@ def computeWLink(
 def computeXLink(
     w_link: LatticeGauge,
     path_coeff: NDArray[numpy.float64],
-    path_coeff_epsilon: NDArray[numpy.float64],
-    naik_epsilon: float,
     gauge_param: QudaGaugeParam,
 ):
     fatlink = LatticeGauge(w_link.latt_info)
     longlink = LatticeGauge(w_link.latt_info)
-    fatlink_epsilon = LatticeGauge(w_link.latt_info) if naik_epsilon != 0 else None
-    longlink_epsilon = LatticeGauge(w_link.latt_info) if naik_epsilon != 0 else None
 
     computeKSLinkQuda(
         fatlink.data_ptrs,
@@ -539,21 +535,37 @@ def computeXLink(
         path_coeff,
         gauge_param,
     )
+
+    return fatlink, longlink
+
+
+def computeXLinkEpsilon(
+    fatlink: LatticeGauge,
+    longlink: LatticeGauge,
+    w_link: LatticeGauge,
+    path_coeff: NDArray[numpy.float64],
+    naik_epsilon: float,
+    gauge_param: QudaGaugeParam,
+):
+    fatlink_epsilon = LatticeGauge(w_link.latt_info) if naik_epsilon != 0 else None
+    longlink_epsilon = LatticeGauge(w_link.latt_info) if naik_epsilon != 0 else None
+
     if naik_epsilon != 0:
         computeKSLinkQuda(
             fatlink_epsilon.data_ptrs,
             longlink_epsilon.data_ptrs,
             nullptrs,
             w_link.data_ptrs,
-            path_coeff_epsilon,
+            path_coeff,
             gauge_param,
         )
         fatlink_epsilon *= naik_epsilon
         longlink_epsilon *= naik_epsilon
-        fatlink += fatlink_epsilon
-        longlink += longlink_epsilon
-
-    return fatlink, longlink
+        fatlink_epsilon += fatlink
+        longlink_epsilon += longlink
+        return fatlink_epsilon, longlink_epsilon
+    else:
+        return fatlink, longlink
 
 
 def loadStaggeredGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):

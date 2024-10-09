@@ -92,7 +92,12 @@ class HISQ(StaggeredDirac):
         return general.computeWLink(u_link, return_v_link, self.path_coeff_1, self.gauge_param)
 
     def computeXLink(self, w_link: LatticeGauge):
-        return general.computeXLink(w_link, self.path_coeff_2, self.path_coeff_3, self.naik_epsilon, self.gauge_param)
+        return general.computeXLink(w_link, self.path_coeff_2, self.gauge_param)
+
+    def computeXLinkEpsilon(self, fatlink: LatticeGauge, longlink: LatticeGauge, w_link: LatticeGauge):
+        return general.computeXLinkEpsilon(
+            fatlink, longlink, w_link, self.path_coeff_3, self.naik_epsilon, self.gauge_param
+        )
 
     def loadFatLongGauge(self, fatlink: LatticeGauge, longlink: LatticeGauge):
         general.loadFatLongGauge(fatlink, longlink, self.gauge_param)
@@ -101,6 +106,7 @@ class HISQ(StaggeredDirac):
         u_link = self.computeULink(gauge)
         v_link, w_link = self.computeWLink(u_link, False)
         fatlink, longlink = self.computeXLink(w_link)
+        fatlink, longlink = self.computeXLinkEpsilon(fatlink, longlink, w_link)
         self.loadFatLongGauge(fatlink, longlink)
         if self.multigrid.instance is None:
             self.newMultigrid()

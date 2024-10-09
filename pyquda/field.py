@@ -336,10 +336,10 @@ class MultiField:
             s.__init__(latt_info)
         self.L5 = L5
 
-    def __getitem__(self, index: int):
+    def __getitem__(self, index: Union[int, slice]):
         return super(MultiField, self).__field_class__(self.latt_info, self.data[index])
 
-    def __setitem__(self, index: int, value):
+    def __setitem__(self, index: Union[int, slice], value):
         self.data[index] = value.data
 
     def even(self, index: int):
