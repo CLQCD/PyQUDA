@@ -21,7 +21,14 @@ from .abstract import FermionAction
 
 class CloverWilsonFermion(FermionAction):
     def __init__(
-        self, latt_info: LatticeInfo, mass: float, num_flavor: int, tol: float, maxiter: int, clover_csw: float
+        self,
+        latt_info: LatticeInfo,
+        mass: float,
+        num_flavor: int,
+        tol: float,
+        maxiter: int,
+        clover_csw: float,
+        verbosity: QudaVerbosity = QudaVerbosity.QUDA_SILENT,
     ) -> None:
         super().__init__(latt_info)
         if latt_info.anisotropy != 1.0:
@@ -43,7 +50,7 @@ class CloverWilsonFermion(FermionAction):
         self.invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE  # This is set to compute action
         self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
         self.invert_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
-        self.invert_param.verbosity = QudaVerbosity.QUDA_SILENT
+        self.invert_param.verbosity = verbosity
 
         self.coeff = self.dirac.forceCoeff(self.rhmc_param.residue_molecular_dynamics)
 

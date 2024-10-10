@@ -8,7 +8,6 @@ from .pointer import Pointers
 from .pyquda import (
     QudaGaugeObservableParam,
     gaugeObservablesQuda,
-    setVerbosityQuda,
     gaussMomQuda,
     loadGaugeQuda,
     saveGaugeQuda,
@@ -16,7 +15,7 @@ from .pyquda import (
     momActionQuda,
     updateGaugeFieldQuda,
 )
-from .enum_quda import QudaBoolean, QudaTboundary, QudaVerbosity
+from .enum_quda import QudaBoolean, QudaTboundary
 from .field import (
     Nc,
     Ns,
@@ -251,9 +250,6 @@ class HMC:
             self._fermion_monomials = hisq_monomials + [
                 monomial for monomial in self._fermion_monomials if not isinstance(monomial, HISQFermion)
             ]
-
-    def setVerbosity(self, verbosity: QudaVerbosity):
-        setVerbosityQuda(verbosity, b"\0")
 
     def initializeRNG(self, seed: int):
         self.random = Random(seed * self.latt_info.volume + self.latt_info.mpi_rank)

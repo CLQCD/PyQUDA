@@ -9,8 +9,7 @@ from pyquda.action import SymanzikTreeGauge, CloverWilsonFermion
 from pyquda.utils.io import writeNPYGauge
 
 beta, u_0 = 7.4, 0.890
-mass_l, mass_s = 0.3, 0.5
-clover_csw = 1.4185
+clover_csw = 1 / u_0**3
 tol, maxiter = 1e-6, 1000
 start, stop, warm, save = 0, 2000, 500, 5
 t = 1.0
@@ -20,8 +19,8 @@ latt_info = core.LatticeInfo([4, 4, 4, 8], t_boundary=-1, anisotropy=1.0)
 
 monomials = [
     SymanzikTreeGauge(latt_info, beta, u_0),
-    CloverWilsonFermion(latt_info, mass_l, 2, tol, maxiter, clover_csw),
-    CloverWilsonFermion(latt_info, mass_s, 1, tol, maxiter, clover_csw),
+    CloverWilsonFermion(latt_info, 0.3, 2, tol, maxiter, clover_csw),
+    CloverWilsonFermion(latt_info, 0.5, 1, tol, maxiter, clover_csw),
 ]
 
 # hmc_inner = HMC(latt_info, monomials[:1], O4Nf5Ng0V(4))

@@ -18,11 +18,11 @@ latt_info = core.LatticeInfo([4, 4, 4, 8], t_boundary=-1, anisotropy=1.0)
 
 monomials = [
     SymanzikTreeGauge(latt_info, beta, u_0),
-    HISQFermion(latt_info, [0.0012, 0.0323, 0.2], [2, 1, -3], 1e-4, maxiter),
-    HISQFermion(latt_info, 0.2, 1, 1e-6, maxiter),
-    HISQFermion(latt_info, 0.2, 1, 1e-6, maxiter),
-    HISQFermion(latt_info, 0.2, 1, 1e-6, maxiter),
-    HISQFermion(latt_info, 0.432, 1, 1e-6, maxiter, naik_epsilon=-0.116203),
+    HISQFermion(latt_info, [0.0012, 0.0323, 0.2], [2, 1, -3], 100 * tol, maxiter),
+    HISQFermion(latt_info, 0.2, 1, tol, maxiter),
+    HISQFermion(latt_info, 0.2, 1, tol, maxiter),
+    HISQFermion(latt_info, 0.2, 1, tol, maxiter),
+    HISQFermion(latt_info, 0.432, 1, tol, maxiter, naik_epsilon=-0.116203),
 ]
 
 hmc = HMC(latt_info, monomials, INT_3G1F(24))
@@ -33,7 +33,7 @@ gauge = core.LatticeGauge(latt_info)
 hmc.initialize(10086, gauge)
 
 plaq = hmc.plaquette()
-getLogger().info("\n" f"Trajectory {start}:\n" f"Plaquette = {plaq}\n")
+getLogger().info(f"Trajectory {start}:\n" f"Plaquette = {plaq}\n")
 for i in range(start, stop):
     s = perf_counter()
 

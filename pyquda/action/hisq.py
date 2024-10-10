@@ -32,6 +32,7 @@ class HISQFermion(StaggeredFermionAction):
         tol: float,
         maxiter: int,
         naik_epsilon: float = 0.0,
+        verbosity: QudaVerbosity = QudaVerbosity.QUDA_SILENT,
     ) -> None:
         super().__init__(latt_info)
         if latt_info.anisotropy != 1.0:
@@ -51,7 +52,7 @@ class HISQFermion(StaggeredFermionAction):
         self.invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE
         self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
         self.invert_param.mass_normalization = QudaMassNormalization.QUDA_MASS_NORMALIZATION
-        self.invert_param.verbosity = QudaVerbosity.QUDA_SILENT
+        self.invert_param.verbosity = verbosity
 
         self.num = len(self.rhmc_param.offset_molecular_dynamics)
         self.num_naik = 0 if naik_epsilon == 0.0 else self.num
@@ -131,17 +132,8 @@ class MultiHISQFermion(StaggeredFermionAction):
         if latt_info.anisotropy != 1.0:
             getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
 
-        self.dirac = HISQ(latt_info, 0.0, 0.5, 0, 0, 0.0, None)
+        self.dirac = pseudo_fermions[0].dirac
         self.gauge_param = self.dirac.gauge_param
-        self.invert_param = self.dirac.invert_param
-
-        self.invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
-        self.invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
-        self.invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE
-        self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
-        self.invert_param.mass_normalization = QudaMassNormalization.QUDA_MASS_NORMALIZATION
-        self.invert_param.verbosity = QudaVerbosity.QUDA_SILENT
-
         self.pseudo_fermions = pseudo_fermions
 
         num_total = 0
