@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from functools import partial
 from math import exp
 from random import Random
 from typing import List, Union
@@ -299,38 +300,38 @@ class HMC:
                 import numpy
 
                 numpy.random.seed(seed)
-                return numpy, numpy.random.random, numpy.float64
+                return numpy, numpy.random.random
             elif backend == "cupy":
                 import cupy
 
                 cupy.random.seed(seed)
-                return cupy, cupy.random.random, cupy.float64
+                return cupy, partial(cupy.random.random, dtype=cupy.float64)
             elif backend == "torch":
                 import torch
 
                 torch.random.manual_seed(seed)
-                return torch, torch.rand, torch.float64
+                return torch, partial(torch.rand, dtype=torch.float64)
 
-        def _noise(backend, random, shape, float64):
-            phi = 2 * backend.pi * random(shape, dtype=float64)
-            r = random(shape, dtype=float64)
+        def _noise(backend, random, shape):
+            phi = 2 * backend.pi * random(shape)
+            r = random(shape)
             noise_raw = backend.sqrt(-backend.log(r)) * (backend.cos(phi) + 1j * backend.sin(phi))
             return noise_raw
 
-        backend, random, float64 = _seed(self.random.randrange(2**64))
+        backend, random = _seed(self.random.randrange(2**32))
         shape = (self.latt_info.volume, Ns, Nc) if not self.staggered else (self.latt_info.volume, Nc)
         for monomial in self._fermion_monomials:
             if isinstance(monomial, FermionAction):
-                noise = LatticeFermion(self.latt_info, _noise(backend, random, shape, float64))
+                noise = LatticeFermion(self.latt_info, _noise(backend, random, shape))
                 monomial.sample(noise, True)
             elif isinstance(monomial, StaggeredFermionAction):
                 if hasattr(monomial, "pseudo_fermions"):
                     noise = [
-                        LatticeStaggeredFermion(self.latt_info, _noise(backend, random, shape, float64))
+                        LatticeStaggeredFermion(self.latt_info, _noise(backend, random, shape))
                         for _ in range(len(monomial.pseudo_fermions))
                     ]
                 else:
-                    noise = LatticeStaggeredFermion(self.latt_info, _noise(backend, random, shape, float64))
+                    noise = LatticeStaggeredFermion(self.latt_info, _noise(backend, random, shape))
                 monomial.sample(noise, True)
 
         if self._hmc_inner is not None:
@@ -365,7 +366,7 @@ class HMC:
         momResidentQuda(mom.data_ptrs, self.gauge_param)  # keep momResident
 
     def gaussMom(self):
-        gaussMomQuda(self.random.randrange(2**64), 1.0)
+        gaussMomQuda(self.random.randrange(2**32), 1.0)
 
     def projectSU3(self, tol: float):
         gauge = LatticeGauge(self.latt_info)

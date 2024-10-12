@@ -23,7 +23,15 @@ from ..pyquda import (
     computeGaugeFixingOVRQuda,
     computeGaugeFixingFFTQuda,
 )
-from ..field import LatticeInfo, LatticeGauge, LatticeMom, LatticeFermion, LatticeStaggeredFermion, LatticeFloat64
+from ..field import (
+    LatticeInfo,
+    LaplaceLatticeInfo,
+    LatticeGauge,
+    LatticeMom,
+    LatticeFermion,
+    LatticeStaggeredFermion,
+    LatticeFloat64,
+)
 from ..enum_quda import (
     QudaBoolean,
     QudaDslashType,
@@ -38,8 +46,8 @@ from . import Gauge, general
 
 
 class PureGauge(Gauge):
-    def __init__(self, latt_info: LatticeInfo) -> None:
-        super().__init__(LatticeInfo(latt_info.global_size))  # Keep periodic t boundary and isotropic
+    def __init__(self, latt_info: Union[LatticeInfo, LaplaceLatticeInfo]) -> None:
+        super().__init__(latt_info.__class__(latt_info.global_size))  # Keep periodic t boundary and isotropic
         # Use QUDA_RECONSTRUCT_NO to ensure slight deviations from SU(3) can be preserved
         self._setReconstruct(
             cuda=max(self.reconstruct.cuda, QudaReconstructType.QUDA_RECONSTRUCT_NO),

@@ -228,7 +228,6 @@ def gaussian(x: Union[LatticeFermion, LatticeStaggeredFermion], gauge: LatticeGa
 def gaussian12(x12: LatticePropagator, gauge: LatticeGauge, rho: float, n_steps: int):
     alpha = 1 / (4 * n_steps / rho**2 - 6)
     b12 = LatticePropagator(x12.latt_info)
-    gauge.ensurePureGauge()
     pure_gauge = gauge.pure_gauge
     pure_gauge.loadGauge(gauge)
     for spin in range(Ns):
@@ -242,7 +241,6 @@ def gaussian12(x12: LatticePropagator, gauge: LatticeGauge, rho: float, n_steps:
 def gaussian3(x3: LatticeStaggeredPropagator, gauge: LatticeGauge, rho: float, n_steps: int):
     alpha = 1 / (4 * n_steps / rho**2 - 6)
     b3 = LatticeStaggeredPropagator(x3.latt_info)
-    gauge.ensurePureGauge()
     pure_gauge = gauge.pure_gauge
     pure_gauge.loadGauge(gauge)
     for color in range(Nc):
