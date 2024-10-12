@@ -4,7 +4,7 @@ Python wrapper for [QUDA](https://github.com/lattice/quda) written in Cython.
 
 This project aims to benefit from the optimized linear algebra library [CuPy](https://cupy.dev/) in Python based on CUDA. CuPy and QUDA will allow us to perform most lattice QCD research operations with high performance. [PyTorch](https://pytorch.org/) is an alternative option.
 
-This project is based on the latest QUDA `develop` branch. PyQUDA should be compatible with any commit of QUDA after 2024, but leave some features disabled.
+This project is based on the latest QUDA `develop` branch. PyQUDA should be compatible with any commit of QUDA after https://github.com/lattice/quda/pull/1489, but leave some features disabled.
 
 ## Feature
 

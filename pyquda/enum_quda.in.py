@@ -27,14 +27,9 @@ Maximum number of shifts supported by the multi-shift solver.
 This number may be changed if need be.
 """
 
-QUDA_MAX_BLOCK_SRC = 64
+QUDA_MAX_MULTI_SRC = 128
 """
-Maximum number of sources that can be supported by the block solver
-"""
-
-QUDA_MAX_ARRAY_SIZE = max(QUDA_MAX_MULTI_SHIFT, QUDA_MAX_BLOCK_SRC)
-"""
-Maximum array length used in QudaInvertParam arrays
+Maximum number of sources that can be supported by the multi-src solver
 """
 
 QUDA_MAX_DWF_LS = 32
@@ -97,6 +92,11 @@ class QudaGaugeFixed(IntEnum):
 
 
 class QudaDslashType(IntEnum):
+    """
+    Note: make sure QudaDslashType has corresponding entries in
+    tests/utils/misc.cpp
+    """
+
     pass
 
 

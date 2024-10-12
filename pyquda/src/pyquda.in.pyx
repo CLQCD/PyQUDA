@@ -251,9 +251,8 @@ def eigensolveQuda(Pointers h_evecs, ndarray[double_complex, ndim=1] h_evals, Qu
 def invertQuda(Pointer h_x, Pointer h_b, QudaInvertParam param):
     quda.invertQuda(h_x.ptr, h_b.ptr, &param.param)
 
-# def invertMultiSrcQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, Pointer h_gauge, QudaGaugeParam gauge_param)
-# def invertMultiSrcStaggeredQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, Pointer milc_fatlinks, Pointer milc_longlinks, QudaGaugeParam gauge_param)
-# def invertMultiSrcCloverQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, Pointer h_gauge, QudaGaugeParam gauge_param, Pointer h_clover, Pointer h_clovinv)
+def invertMultiSrcQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param):
+    quda.invertMultiSrcQuda(_hp_x.ptrs, _hp_b.ptrs, &param.param)
 
 def invertMultiShiftQuda(Pointers _hp_x, Pointer _hp_b, QudaInvertParam param):
     quda.invertMultiShiftQuda(_hp_x.ptrs, _hp_b.ptr, &param.param)
@@ -276,9 +275,8 @@ def dumpMultigridQuda(Pointer mg_instance, QudaMultigridParam param):
 def dslashQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param, quda.QudaParity parity):
     quda.dslashQuda(h_out.ptr, h_in.ptr, &inv_param.param, parity)
 
-# def dslashMultiSrcQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, QudaParity parity, Pointer h_gauge, QudaGaugeParam gauge_param)
-# def dslashMultiSrcStaggeredQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, QudaParity parity, Pointers milc_fatlinks, Pointers milc_longlinks, QudaGaugeParam gauge_param)
-# def dslashMultiSrcCloverQuda(Pointers_hp_x, Pointers_hp_b, QudaInvertParam param, QudaParity parity, Pointer h_gauge, QudaGaugeParam gauge_param, Pointer h_clover, Pointer h_clovinv)
+def dslashMultiSrcQuda(Pointers _hp_x, Pointers _hp_b, QudaInvertParam param, quda.QudaParity parity):
+    quda.dslashMultiSrcQuda(_hp_x.ptrs, _hp_b.ptrs, &param.param, parity)
 
 def cloverQuda(Pointer h_out, Pointer h_in, QudaInvertParam inv_param, quda.QudaParity parity, int inverse):
     quda.cloverQuda(h_out.ptr, h_in.ptr, &inv_param.param, parity, inverse)

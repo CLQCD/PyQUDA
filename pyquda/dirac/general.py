@@ -232,6 +232,7 @@ def newQudaMultigridParam(
     mg_param.n_block_ortho = [1] * QUDA_MAX_MG_LEVEL
 
     mg_param.setup_inv_type = [QudaInverterType.QUDA_CGNR_INVERTER] * QUDA_MAX_MG_LEVEL
+    mg_param.n_vec_batch = [1] * QUDA_MAX_MG_LEVEL
     mg_param.num_setup_iter = [1] * QUDA_MAX_MG_LEVEL
     mg_param.setup_tol = [setup_tol] * QUDA_MAX_MG_LEVEL
     mg_param.setup_maxiter = [setup_maxiter] * QUDA_MAX_MG_LEVEL

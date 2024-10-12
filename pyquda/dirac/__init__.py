@@ -9,10 +9,12 @@ from ..pyquda import (
     QudaGaugeSmearParam,
     QudaGaugeObservableParam,
     invertQuda,
+    invertMultiSrcQuda,
     invertMultiShiftQuda,
     MatQuda,
     MatDagMatQuda,
     dslashQuda,
+    dslashMultiSrcQuda,
     newMultigridQuda,
     updateMultigridQuda,
     destroyMultigridQuda,
@@ -232,6 +234,19 @@ class Dirac(Gauge):
         dslashQuda(b.data_ptr, x.data_ptr, self.invert_param, parity)
         return b
 
+    def invertMultiSrc(self, b: MultiLatticeFermion):
+        self.invert_param.num_src = b.L5
+        x = MultiLatticeFermion(b.latt_info, b.L5)
+        invertMultiSrcQuda(x.data_ptrs, b.data_ptrs, self.invert_param)
+        self.performance()
+        return x
+
+    def dslashMultiSrc(self, x: MultiLatticeFermion, parity: QudaParity):
+        self.invert_param.num_src = x.L5
+        b = MultiLatticeFermion(x.latt_info, x.L5)
+        dslashMultiSrcQuda(b.data_ptrs, x.data_ptrs, self.invert_param, parity)
+        return b
+
     def _invertMultiShiftParam(self, offset: List[float], residue: List[float], norm: float = None):
         assert len(offset) == len(residue)
         num_offset = len(offset)
@@ -347,6 +362,19 @@ class StaggeredDirac(Dirac):
     def dslash(self, x: LatticeStaggeredFermion, parity: QudaParity):
         b = LatticeStaggeredFermion(x.latt_info)
         dslashQuda(b.data_ptr, x.data_ptr, self.invert_param, parity)
+        return b
+
+    def invertMultiSrc(self, b: MultiLatticeStaggeredFermion):
+        self.invert_param.num_src = b.L5
+        x = MultiLatticeStaggeredFermion(b.latt_info, b.L5)
+        invertMultiSrcQuda(x.data_ptrs, b.data_ptrs, self.invert_param)
+        self.performance()
+        return x
+
+    def dslashMultiSrc(self, x: MultiLatticeStaggeredFermion, parity: QudaParity):
+        self.invert_param.num_src = x.L5
+        b = MultiLatticeStaggeredFermion(x.latt_info, x.L5)
+        dslashMultiSrcQuda(b.data_ptrs, x.data_ptrs, self.invert_param, parity)
         return b
 
     def invertMultiShiftPC(

@@ -15,8 +15,7 @@ from .enum_quda import (  # noqa: F401
     QUDA_MAX_DIM,
     QUDA_MAX_GEOMETRY,
     QUDA_MAX_MULTI_SHIFT,
-    QUDA_MAX_BLOCK_SRC,
-    QUDA_MAX_ARRAY_SIZE,
+    QUDA_MAX_MULTI_SRC,
     QUDA_MAX_DWF_LS,
     QUDA_MAX_MG_LEVEL,
     qudaError_t,
@@ -277,10 +276,10 @@ class QudaInvertParam:
 
     compute_true_res: int
     """Whether to compute the true residual post solve"""
-    true_res: double
-    """Actual L2 residual norm achieved in solver"""
-    true_res_hq: double
-    """Actual heavy quark residual norm achieved in solver"""
+    true_res: List[double, QUDA_MAX_MULTI_SRC]
+    """Actual L2 residual norm achieved in the solver"""
+    true_res_hq: List[double, QUDA_MAX_MULTI_SRC]
+    """Actual heavy quark residual norm achieved in the solver"""
     maxiter: int
     """Maximum number of iterations in the linear solver"""
     reliable_delta: double
@@ -473,6 +472,14 @@ class QudaInvertParam:
     """The Gflops rate of the solver"""
     secs: double
     """The time taken by the solver"""
+    energy: double
+    """The energy consumed by the solver"""
+    power: double
+    """The mean power of the solver"""
+    temp: double
+    """The mean temperature of the device for the duration of the solve"""
+    clock: double
+    """The mean clock frequency of the device for the duration of the solve"""
 
     tune: QudaTune
     """Enable auto-tuning? (default = QUDA_TUNE_YES)"""
@@ -763,6 +770,8 @@ class QudaEigParam:
     """For the Ritz rotation, the maximal number of extra vectors the solver may allocate"""
     block_size: int
     """For block method solvers, the block size"""
+    compute_evals_batch_size: int
+    """The batch size used when computing eigenvalues"""
     max_ortho_attempts: int
     """For block method solvers, quit after n attempts at block orthonormalisation"""
     ortho_block_size: int
@@ -815,12 +824,6 @@ class QudaEigParam:
     partfile: QudaBoolean
     """Whether to save eigenvectors in QIO singlefile or partfile format"""
 
-    gflops: double
-    """The Gflops rate of the eigensolver setup"""
-
-    secs: double
-    """The time taken by the eigensolver setup"""
-
     extlib_type: QudaExtLibType
     """Which external library to use in the deflation operations (Eigen)"""
 
@@ -867,6 +870,9 @@ class QudaMultigridParam:
 
     setup_inv_type: List[QudaInverterType, QUDA_MAX_MG_LEVEL]
     """Inverter to use in the setup phase"""
+
+    n_vec_batch: List[int, QUDA_MAX_MG_LEVEL]
+    """Solver batch size to use in the setup phase"""
 
     num_setup_iter: List[int, QUDA_MAX_MG_LEVEL]
     """Number of setup iterations"""
@@ -1021,12 +1027,6 @@ class QudaMultigridParam:
 
     preserve_deflation: QudaBoolean
     """Whether to preserve the deflation space during MG update"""
-
-    gflops: double
-    """The Gflops rate of the multigrid solver setup"""
-
-    secs: double
-    """The time taken by the multigrid solver setup"""
 
     mu_factor: List[double, QUDA_MAX_MG_LEVEL]
     """Multiplicative factor for the mu parameter"""
@@ -1364,6 +1364,25 @@ def invertQuda(h_x: Pointer, h_b: Pointer, param: QudaInvertParam) -> None:
         Contains all metadata regarding host and device
         storage and solver parameters
     """
+
+def invertMultiSrcQuda(_hp_x: Pointers, _hp_b: Pointers, param: QudaInvertParam) -> None:
+    """
+    Perform the solve like @invertQuda but for multiple rhs by spliting the comm grid into
+    sub-partitions: each sub-partition invert one or more rhs'.
+    The QudaInvertParam object specifies how the solve should be performed on each sub-partition.
+    Unlike @invertQuda, the interface also takes the host side gauge as input. The gauge pointer and
+    gauge_param are used if for inv_param split_grid[0] * split_grid[1] * split_grid[2] * split_grid[3]
+    is larger than 1, in which case gauge field is not required to be loaded beforehand; otherwise
+    this interface would just work as @invertQuda, which requires gauge field to be loaded beforehand,
+    and the gauge field pointer and gauge_param are not used.
+
+    @param _hp_x:
+        Array of solution spinor fields
+    @param _hp_b:
+        Array of source spinor fields
+    @param param:
+        Contains all metadata regarding host and device storage and solver parameters
+    """
     ...
 
 def invertMultiShiftQuda(_hp_x: Pointers, _hp_b: Pointer, param: QudaInvertParam) -> None:
@@ -1455,6 +1474,24 @@ def dslashQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam, parity
         The destination parity of the field
     """
     ...
+
+def dslashMultiSrcQuda(_hp_x: Pointers, _hp_b: Pointers, param: QudaInvertParam, parity: QudaParity) -> None:
+    """
+    Perform the solve like @dslashQuda but for multiple rhs by spliting the comm grid into
+    sub-partitions: each sub-partition does one or more rhs'.
+    The QudaInvertParam object specifies how the solve should be performed on each sub-partition.
+    Unlike @invertQuda, the interface also takes the host side gauge as
+    input - gauge field is not required to be loaded beforehand.
+
+    @param _hp_x:
+        Array of solution spinor fields
+    @param _hp_b:
+        Array of source spinor fields
+    @param param:
+        Contains all metadata regarding host and device storage and solver parameters
+    @param parity:
+        Parity to apply dslash on
+    """
 
 def cloverQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam, parity: QudaParity, inverse: int) -> None:
     """
@@ -2074,6 +2111,14 @@ class QudaQuarkSmearParam:
     """Time taken for the smearing operations"""
     gflops: double
     """Flops count for the smearing operations"""
+    energy: double
+    """The energy consumed by the smearing operations"""
+    power: double
+    """The mean power of the smearing operations"""
+    temp: double
+    """The mean temperature of the device for the duration of the smearing operations"""
+    clock: double
+    """The mean clock frequency of the device for the duration of the smearing operations"""
 
 def performTwoLinkGaussianSmearNStep(h_in: Pointer, smear_param: QudaQuarkSmearParam) -> None:
     """
