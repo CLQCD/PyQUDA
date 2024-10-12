@@ -490,7 +490,7 @@ class LatticeGauge(MultiField, LatticeColorMatrix):
         if not isinstance(L5, int):
             value = L5
             L5 = Nd
-        super().__init__(latt_info, Nd)
+        super().__init__(latt_info, L5)
         self.setField([Nc, Nc], "<c16")
         self.initData(value)
         if value is None:
