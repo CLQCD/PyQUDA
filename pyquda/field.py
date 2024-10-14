@@ -294,7 +294,7 @@ class HalfLatticeField:
 class EvenOddField:
     def __init__(self, latt_info: LatticeInfo) -> None:
         s = super(EvenOddField, self)
-        if hasattr(s, "__filed_class__"):
+        if hasattr(s, "__field_class__"):
             s.__field_class__.__base__.__init__(self, latt_info)
         else:
             s.__init__(latt_info)
@@ -367,11 +367,44 @@ class MultiField:
             s.__init__(latt_info)
         self.L5 = L5
 
-    def __getitem__(self, index: Union[int, slice]):
-        return super(MultiField, self).__field_class__(self.latt_info, self.data[index])
+    @property
+    def data(self):
+        return self._data
 
-    def __setitem__(self, index: Union[int, slice], value):
-        self.data[index] = value.data
+    @data.setter
+    def data(self, value):
+        contiguous = True
+        for index in range(self.L5):
+            if isinstance(value, numpy.ndarray) or self.backend == "numpy":
+                contiguous &= value[index].flags.c_contiguous
+            elif self.backend == "cupy":
+                contiguous &= value[index].flags.c_contiguous
+            elif self.backend == "torch":
+                contiguous = value[index].is_contiguous()
+        if contiguous:
+            self._data = value
+        else:
+            if isinstance(value, numpy.ndarray) or self.backend == "numpy":
+                self._data = numpy.ascontiguousarray(value)
+            elif self.backend == "cupy":
+                import cupy
+
+                self._data = cupy.ascontiguousarray(value)
+            elif self.backend == "torch":
+                self._data = value.contiguous()
+
+    def __getitem__(self, key: Union[int, list, tuple, slice]):
+        if isinstance(key, int):
+            return super(MultiField, self).__field_class__(self.latt_info, self.data[key])
+        elif isinstance(key, list):
+            return self.__class__(self.latt_info, len(key), self.data[key])
+        elif isinstance(key, tuple):
+            return self.__class__(self.latt_info, len(key), self.data[list(key)])
+        elif isinstance(key, slice):
+            return self.__class__(self.latt_info, len(range(*key.indices(self.L5))), self.data[key])
+
+    def __setitem__(self, key: Union[int, list, tuple, slice], value):
+        self.data[key] = value.data
 
     def even(self, index: int):
         return super(EvenOddField, self).__field_class__(self.latt_info, self.data[index, 0])
