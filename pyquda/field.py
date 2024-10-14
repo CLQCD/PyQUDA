@@ -380,7 +380,7 @@ class MultiField:
             elif self.backend == "cupy":
                 contiguous &= value[index].flags.c_contiguous
             elif self.backend == "torch":
-                contiguous = value[index].is_contiguous()
+                contiguous &= value[index].is_contiguous()
         if contiguous:
             self._data = value
         else:
@@ -923,6 +923,13 @@ class MultiLatticeFermion(MultiField, LatticeFermion):
         self.setField([Ns, Nc], "<c16")
         self.initData(value)
 
+    def toPropagator(self) -> "LatticePropagator":
+        assert self.L5 == Ns * Nc
+        return LatticePropagator(
+            self.latt_info,
+            self.data.reshape(Ns, Nc, *self.lattice_shape, Ns, Nc).transpose(2, 3, 4, 5, 6, 7, 0, 8, 1),
+        )
+
 
 class LatticePropagator(EvenOddField, HalfLatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
@@ -930,14 +937,18 @@ class LatticePropagator(EvenOddField, HalfLatticeField):
         self.setField([Ns, Ns, Nc, Nc], "<c16")
         self.initData(value)
 
-    def transpose(self):
-        return self.data.transpose(0, 1, 2, 3, 4, 6, 5, 8, 7).copy()
-
     def setFermion(self, fermion: LatticeFermion, spin: int, color: int):
         self.data[:, :, :, :, :, :, spin, :, color] = fermion.data
 
     def getFermion(self, spin: int, color: int):
         return LatticeFermion(self.latt_info, self.data[:, :, :, :, :, :, spin, :, color])
+
+    def toMultiFermion(self) -> MultiLatticeFermion:
+        return MultiLatticeFermion(
+            self.latt_info,
+            Ns * Nc,
+            self.data.transpose(6, 8, 0, 1, 2, 3, 4, 5, 7).reshape(Ns * Nc, *self.lattice_shape, Ns, Nc),
+        )
 
     def timeslice(self, t: int):
         Lt = self.latt_info.Lt
@@ -991,6 +1002,13 @@ class MultiLatticeStaggeredFermion(MultiField, LatticeStaggeredFermion):
         self.setField([Nc], "<c16")
         self.initData(value)
 
+    def toPropagator(self) -> "LatticeStaggeredPropagator":
+        assert self.L5 == Nc
+        return LatticeStaggeredPropagator(
+            self.latt_info,
+            self.data.reshape(Nc, *self.lattice_shape, Nc).transpose(1, 2, 3, 4, 5, 6, 0),
+        )
+
 
 class LatticeStaggeredPropagator(EvenOddField, HalfLatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
@@ -998,14 +1016,18 @@ class LatticeStaggeredPropagator(EvenOddField, HalfLatticeField):
         self.setField([Nc, Nc], "<c16")
         self.initData(value)
 
-    def transpose(self):
-        return self.data.transpose(0, 1, 2, 3, 4, 6, 5).copy()
-
     def setFermion(self, fermion: LatticeStaggeredFermion, color: int):
         self.data[:, :, :, :, :, :, color] = fermion.data
 
-    def getFermion(self, color: int):
+    def getFermion(self, color: int) -> LatticeStaggeredFermion:
         return LatticeStaggeredFermion(self.latt_info, self.data[:, :, :, :, :, :, color])
+
+    def toMultiFermion(self) -> MultiLatticeStaggeredFermion:
+        return MultiLatticeStaggeredFermion(
+            self.latt_info,
+            Nc,
+            self.data.transpose(6, 0, 1, 2, 3, 4, 5).reshape(Nc, *self.lattice_shape, Nc),
+        )
 
     def timeslice(self, t: int):
         Lt = self.latt_info.Lt
