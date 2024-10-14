@@ -294,7 +294,7 @@ class HalfLatticeField:
 class EvenOddField:
     def __init__(self, latt_info: LatticeInfo) -> None:
         s = super(EvenOddField, self)
-        if hasattr(s, "__filed_class__"):
+        if hasattr(s, "__field_class__"):
             s.__field_class__.__base__.__init__(self, latt_info)
         else:
             s.__init__(latt_info)
