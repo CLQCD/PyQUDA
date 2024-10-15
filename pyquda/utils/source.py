@@ -273,27 +273,27 @@ def gaussianSmear(
     n_steps: int,
 ):
     alpha = 1 / (4 * n_steps / rho**2 - 6)
-    gauge.pure_gauge.loadGauge(gauge)
+    gauge.gauge_dirac.loadGauge(gauge)
     if isinstance(x, LatticeFermion) or isinstance(x, LatticeStaggeredFermion):
-        b = gauge.pure_gauge.wuppertalSmear(x, alpha)
+        b = gauge.gauge_dirac.wuppertalSmear(x, alpha)
     elif isinstance(x, MultiLatticeFermion):
         b = MultiLatticeFermion(x.latt_info, x.L5)
         for index in range(x.L5):
-            b[index] = gauge.pure_gauge.wuppertalSmear(x[index], alpha)
+            b[index] = gauge.gauge_dirac.wuppertalSmear(x[index], alpha)
     elif isinstance(x, MultiLatticeStaggeredFermion):
         b = MultiLatticeStaggeredFermion(x.latt_info, x.L5)
         for index in range(x.L5):
-            b[index] = gauge.pure_gauge.wuppertalSmear(x[index], alpha)
+            b[index] = gauge.gauge_dirac.wuppertalSmear(x[index], alpha)
     elif isinstance(x, LatticePropagator):
         b = LatticePropagator(x.latt_info)
         for spin in range(Ns):
             for color in range(Nc):
-                b.setFermion(gauge.pure_gauge.wuppertalSmear(x.getFermion(spin, color), n_steps, alpha), spin, color)
+                b.setFermion(gauge.gauge_dirac.wuppertalSmear(x.getFermion(spin, color), n_steps, alpha), spin, color)
     elif isinstance(x, LatticeStaggeredPropagator):
         b = LatticeStaggeredPropagator(x.latt_info)
         for color in range(Nc):
-            b.setFermion(gauge.pure_gauge.wuppertalSmear(x.getFermion(color), n_steps, alpha), color)
-    gauge.pure_gauge.loadGauge(gauge)
+            b.setFermion(gauge.gauge_dirac.wuppertalSmear(x.getFermion(color), n_steps, alpha), color)
+    gauge.gauge_dirac.loadGauge(gauge)
     return b
 
 
@@ -305,11 +305,11 @@ def gaussian(x: Union[LatticeFermion, LatticeStaggeredFermion], gauge: LatticeGa
 def gaussian12(x12: LatticePropagator, gauge: LatticeGauge, rho: float, n_steps: int):
     alpha = 1 / (4 * n_steps / rho**2 - 6)
     b12 = LatticePropagator(x12.latt_info)
-    gauge.pure_gauge.loadGauge(gauge)
+    gauge.gauge_dirac.loadGauge(gauge)
     for spin in range(Ns):
         for color in range(Nc):
-            b12.setFermion(gauge.pure_gauge.wuppertalSmear(x12.getFermion(spin, color), n_steps, alpha), spin, color)
-    gauge.pure_gauge.freeGauge()
+            b12.setFermion(gauge.gauge_dirac.wuppertalSmear(x12.getFermion(spin, color), n_steps, alpha), spin, color)
+    gauge.gauge_dirac.freeGauge()
 
     return b12
 
@@ -317,10 +317,10 @@ def gaussian12(x12: LatticePropagator, gauge: LatticeGauge, rho: float, n_steps:
 def gaussian3(x3: LatticeStaggeredPropagator, gauge: LatticeGauge, rho: float, n_steps: int):
     alpha = 1 / (4 * n_steps / rho**2 - 6)
     b3 = LatticeStaggeredPropagator(x3.latt_info)
-    gauge.pure_gauge.loadGauge(gauge)
+    gauge.gauge_dirac.loadGauge(gauge)
     for color in range(Nc):
-        b3.setFermion(gauge.pure_gauge.wuppertalSmear(x3.getFermion(color), n_steps, alpha), color)
-    gauge.pure_gauge.freeGauge()
+        b3.setFermion(gauge.gauge_dirac.wuppertalSmear(x3.getFermion(color), n_steps, alpha), color)
+    gauge.gauge_dirac.freeGauge()
 
     return b3
 

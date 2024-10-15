@@ -4,10 +4,10 @@ from ..field import LatticeInfo, LatticeGauge
 from ..enum_quda import QudaDslashType, QudaInverterType, QudaReconstructType, QudaPrecision
 
 from . import general
-from .abstract import Multigrid, StaggeredDirac
+from .abstract import Multigrid, StaggeredFermionDirac
 
 
-class Staggered(StaggeredDirac):
+class StaggeredDirac(StaggeredFermionDirac):
     def __init__(
         self,
         latt_info: LatticeInfo,

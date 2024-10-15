@@ -70,9 +70,9 @@ evals, evecs = linalg.eigsh(A, n_ev, which="SA", tol=tol)
 print(f"{perf_counter() - s:.3f} secs")
 print(evals)
 
-gauge_tmp._pure_gauge.loadGauge(gauge_tmp)
+gauge_tmp._gauge_dirac.loadGauge(gauge_tmp)
 eig_param = quda.QudaEigParam()
-eig_param.invert_param = gauge_tmp._pure_gauge.invert_param
+eig_param.invert_param = gauge_tmp._gauge_dirac.invert_param
 eig_param.eig_type = enum_quda.QudaEigType.QUDA_EIG_TR_LANCZOS
 eig_param.use_dagger = enum_quda.QudaBoolean.QUDA_BOOLEAN_FALSE
 eig_param.use_norm_op = enum_quda.QudaBoolean.QUDA_BOOLEAN_FALSE

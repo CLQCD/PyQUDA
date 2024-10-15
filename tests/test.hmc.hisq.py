@@ -6,7 +6,7 @@ from check_pyquda import test_dir
 from pyquda import init, getLogger, core
 from pyquda.hmc import HMC, INT_3G1F
 from pyquda.hmc_param import gauge_loop_param, staggered_rational_param
-from pyquda.action import PureGauge, HISQFermion
+from pyquda.action import GaugeAction, HISQAction
 from pyquda.utils.io import readMILCGauge, writeNPYGauge
 
 beta, u_0 = 7.3, 0.880
@@ -18,12 +18,12 @@ init([1, 1, 1, 1], resource_path=".cache", enable_force_monitor=True)
 latt_info = core.LatticeInfo([4, 4, 4, 8], t_boundary=-1, anisotropy=1.0)
 
 monomials = [
-    PureGauge(latt_info, gauge_loop_param("symanzik_tree", u_0), beta, u_0),
-    HISQFermion(latt_info, staggered_rational_param[((0.0012, 0.0323, 0.2), (2, 1, -3))], 100 * tol, maxiter),
-    HISQFermion(latt_info, staggered_rational_param[((0.2,), (1,))], tol, maxiter),
-    HISQFermion(latt_info, staggered_rational_param[((0.2,), (1,))], tol, maxiter),
-    HISQFermion(latt_info, staggered_rational_param[((0.2,), (1,))], tol, maxiter),
-    HISQFermion(latt_info, staggered_rational_param[((0.432,), (1,))], tol, maxiter, naik_epsilon=-0.116203),
+    GaugeAction(latt_info, gauge_loop_param("symanzik_tree", u_0), beta, u_0),
+    HISQAction(latt_info, staggered_rational_param[((0.0012, 0.0323, 0.2), (2, 1, -3))], 100 * tol, maxiter),
+    HISQAction(latt_info, staggered_rational_param[((0.2,), (1,))], tol, maxiter),
+    HISQAction(latt_info, staggered_rational_param[((0.2,), (1,))], tol, maxiter),
+    HISQAction(latt_info, staggered_rational_param[((0.2,), (1,))], tol, maxiter),
+    HISQAction(latt_info, staggered_rational_param[((0.432,), (1,))], tol, maxiter, naik_epsilon=-0.116203),
 ]
 
 hmc = HMC(latt_info, monomials, INT_3G1F(24))

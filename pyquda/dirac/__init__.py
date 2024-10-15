@@ -3,12 +3,12 @@
 from .abstract import setPrecision, setReconstruct
 
 # Gauge
-from .pure_gauge import PureGauge
+from .gauge import GaugeDirac
 
 # Dirac
-from .wilson import Wilson
-from .clover_wilson import CloverWilson
+from .wilson import WilsonDirac
+from .clover_wilson import CloverWilsonDirac
 
 # StaggeredDirac
-from .staggered import Staggered
-from .hisq import HISQ
+from .staggered import StaggeredDirac
+from .hisq import HISQDirac

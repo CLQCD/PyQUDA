@@ -2,7 +2,7 @@ from typing import List
 
 from . import getLogger, getGridSize, quda, enum_quda
 from .field import LatticeFermion, LatticeGauge, LatticeInfo, LatticePropagator, Nc, Nd, Ns
-from .dirac.abstract import Dirac
+from .dirac.abstract import FermionDirac
 
 
 def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
@@ -44,7 +44,7 @@ def smear4(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):
     quda.saveGaugeQuda(gauge.data_ptrs, dslash.gauge_param)
 
 
-def invert12(b12: LatticePropagator, dslash: Dirac):
+def invert12(b12: LatticePropagator, dslash: FermionDirac):
     getLogger().warning("Use core.invert instead", DeprecationWarning)
     latt_info = b12.latt_info
     Vol = latt_info.volume
@@ -102,13 +102,13 @@ def getDslash(
     latt_info = LatticeInfo([Lx, Ly, Lz, Lt], t_boundary, xi)
 
     if clover_csw != 0.0:
-        from .dirac.clover_wilson import CloverWilson
+        from .dirac.clover_wilson import CloverWilsonDirac
 
-        return CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_csw, clover_xi, geo_block_size)
+        return CloverWilsonDirac(latt_info, mass, kappa, tol, maxiter, clover_csw, clover_xi, geo_block_size)
     else:
-        from .dirac.wilson import Wilson
+        from .dirac.wilson import WilsonDirac
 
-        return Wilson(latt_info, mass, kappa, tol, maxiter, geo_block_size)
+        return WilsonDirac(latt_info, mass, kappa, tol, maxiter, geo_block_size)
 
 
 def getStaggeredDslash(
@@ -133,6 +133,6 @@ def getStaggeredDslash(
         t_boundary = 1
     latt_info = LatticeInfo([Lx, Ly, Lz, Lt], t_boundary, 1.0)
 
-    from .dirac.hisq import HISQ
+    from .dirac.hisq import HISQDirac
 
-    return HISQ(latt_info, mass, kappa, tol, maxiter, naik_epsilon, None)
+    return HISQDirac(latt_info, mass, kappa, tol, maxiter, naik_epsilon, None)

@@ -15,15 +15,15 @@ from ..enum_quda import (
     QudaVerbosity,
 )
 from ..field import LatticeInfo, LatticeGauge, LatticeStaggeredFermion, MultiLatticeStaggeredFermion
-from ..dirac import HISQ
+from ..dirac import HISQDirac
 
 nullptr = Pointers("void", 0)
 
 from .abstract import RationalParam, StaggeredFermionAction
 
 
-class HISQFermion(StaggeredFermionAction):
-    dirac: HISQ
+class HISQAction(StaggeredFermionAction):
+    dirac: HISQDirac
 
     def __init__(
         self,
@@ -36,7 +36,7 @@ class HISQFermion(StaggeredFermionAction):
     ) -> None:
         if latt_info.anisotropy != 1.0:
             getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
-        super().__init__(latt_info, HISQ(latt_info, 0.0, 1 / 2, tol, maxiter, naik_epsilon, None))
+        super().__init__(latt_info, HISQDirac(latt_info, 0.0, 1 / 2, tol, maxiter, naik_epsilon, None))
 
         self.phi = LatticeStaggeredFermion(latt_info)
         self.eta = LatticeStaggeredFermion(latt_info)
@@ -117,10 +117,10 @@ class HISQFermion(StaggeredFermionAction):
         )
 
 
-class MultiHISQFermion(StaggeredFermionAction):
-    dirac: HISQ
+class MultiHISQAction(StaggeredFermionAction):
+    dirac: HISQDirac
 
-    def __init__(self, latt_info: LatticeInfo, pseudo_fermions: List[HISQFermion]) -> None:
+    def __init__(self, latt_info: LatticeInfo, pseudo_fermions: List[HISQAction]) -> None:
         if latt_info.anisotropy != 1.0:
             getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
         super().__init__(latt_info, pseudo_fermions[0].dirac)
@@ -157,7 +157,7 @@ class MultiHISQFermion(StaggeredFermionAction):
 
         return u_link, v_link, w_link
 
-    def updateFatLong(self, pseudo_fermion: HISQFermion):
+    def updateFatLong(self, pseudo_fermion: HISQAction):
         fatlink, longlink = pseudo_fermion.dirac.computeXLinkEpsilon(self.fatlink, self.longlink, self.w_link)
         pseudo_fermion.dirac.loadFatLongGauge(fatlink, longlink)
 

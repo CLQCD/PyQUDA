@@ -530,15 +530,19 @@ class LatticeGauge(MultiField, EvenOddField, HalfLatticeField):
                 import torch
 
                 self.data[:] = torch.eye(Nc)
-        self._pure_gauge = None
+        self._gauge_dirac = None
+
+    @property
+    def gauge_dirac(self):
+        if self._gauge_dirac is None:
+            from .dirac import GaugeDirac
+
+            self._gauge_dirac = GaugeDirac(self.latt_info)
+        return self._gauge_dirac
 
     @property
     def pure_gauge(self):
-        if self._pure_gauge is None:
-            from .dirac import PureGauge
-
-            self._pure_gauge = PureGauge(self.latt_info)
-        return self._pure_gauge
+        return self.gauge_dirac
 
     def setAntiPeriodicT(self):
         if self.latt_info.gt == self.latt_info.Gt - 1:
@@ -551,98 +555,98 @@ class LatticeGauge(MultiField, EvenOddField, HalfLatticeField):
         pass
 
     def covDev(self, x: "LatticeFermion", covdev_mu: int):
-        self.pure_gauge.loadGauge(self)
-        b = self._pure_gauge.covDev(x, covdev_mu)
-        self._pure_gauge.freeGauge()
+        self.gauge_dirac.loadGauge(self)
+        b = self._gauge_dirac.covDev(x, covdev_mu)
+        self._gauge_dirac.freeGauge()
         return b
 
     def laplace(self, x: "LatticeStaggeredFermion", laplace3D: int):
-        self.pure_gauge.loadGauge(self)
-        b = self._pure_gauge.laplace(x, laplace3D)
-        self._pure_gauge.freeGauge()
+        self.gauge_dirac.loadGauge(self)
+        b = self._gauge_dirac.laplace(x, laplace3D)
+        self._gauge_dirac.freeGauge()
         return b
 
     def wuppertalSmear(self, x: Union["LatticeFermion", "LatticeStaggeredFermion"], n_steps: int, alpha: float):
-        self.pure_gauge.loadGauge(self)
-        b = self._pure_gauge.wuppertalSmear(x, n_steps, alpha)
-        self._pure_gauge.freeGauge()
+        self.gauge_dirac.loadGauge(self)
+        b = self._gauge_dirac.wuppertalSmear(x, n_steps, alpha)
+        self._gauge_dirac.freeGauge()
         return b
 
     def shift(self, shift_mu: List[int]):
         unit = LatticeGauge(self.latt_info)
         x = LatticeFermion(self.latt_info)
-        self.pure_gauge.loadGauge(unit)
+        self.gauge_dirac.loadGauge(unit)
         for mu, covdev_mu in enumerate(shift_mu):
             x.data[:, :, :, :, :, :Nc, :Nc] = self.data[mu]
-            unit.data[mu] = self._pure_gauge.covDev(x, covdev_mu).data[:, :, :, :, :, :Nc, :Nc]
-        self._pure_gauge.freeGauge()
+            unit.data[mu] = self._gauge_dirac.covDev(x, covdev_mu).data[:, :, :, :, :, :Nc, :Nc]
+        self._gauge_dirac.freeGauge()
         return unit
 
     def staggeredPhase(self, applied: bool = False):
-        self.pure_gauge.staggeredPhase(self, applied)
+        self.gauge_dirac.staggeredPhase(self, applied)
 
     def projectSU3(self, tol: float):
-        self.pure_gauge.projectSU3(self, tol)
+        self.gauge_dirac.projectSU3(self, tol)
 
     def path(self, paths: List[List[int]]):
-        return self.pure_gauge.path(self, paths)
+        return self.gauge_dirac.path(self, paths)
 
     def loop(self, loops: List[List[List[int]]], coeff: List[float]):
-        return self.pure_gauge.loop(self, loops, coeff)
+        return self.gauge_dirac.loop(self, loops, coeff)
 
     def loopTrace(self, loops: List[List[int]]):
-        self.pure_gauge.loadGauge(self)
-        traces = self._pure_gauge.loopTrace(loops)
-        self._pure_gauge.freeGauge()
+        self.gauge_dirac.loadGauge(self)
+        traces = self._gauge_dirac.loopTrace(loops)
+        self._gauge_dirac.freeGauge()
         return traces
 
     def apeSmear(self, n_steps: int, alpha: float, dir_ignore: int):
-        self.pure_gauge.loadGauge(self)
-        self._pure_gauge.apeSmear(n_steps, alpha, dir_ignore)
-        self._pure_gauge.saveSmearedGauge(self)
-        self._pure_gauge.freeGauge()
-        self._pure_gauge.freeSmearedGauge()
+        self.gauge_dirac.loadGauge(self)
+        self._gauge_dirac.apeSmear(n_steps, alpha, dir_ignore)
+        self._gauge_dirac.saveSmearedGauge(self)
+        self._gauge_dirac.freeGauge()
+        self._gauge_dirac.freeSmearedGauge()
 
     def stoutSmear(self, n_steps: int, rho: float, dir_ignore: int):
-        self.pure_gauge.loadGauge(self)
-        self._pure_gauge.stoutSmear(n_steps, rho, dir_ignore)
-        self._pure_gauge.saveSmearedGauge(self)
-        self._pure_gauge.freeGauge()
-        self._pure_gauge.freeSmearedGauge()
+        self.gauge_dirac.loadGauge(self)
+        self._gauge_dirac.stoutSmear(n_steps, rho, dir_ignore)
+        self._gauge_dirac.saveSmearedGauge(self)
+        self._gauge_dirac.freeGauge()
+        self._gauge_dirac.freeSmearedGauge()
 
     def hypSmear(self, n_steps: int, alpha1: float, alpha2: float, alpha3: float, dir_ignore: int):
-        self.pure_gauge.loadGauge(self)
-        self._pure_gauge.hypSmear(n_steps, alpha1, alpha2, alpha3, dir_ignore)
-        self._pure_gauge.saveSmearedGauge(self)
-        self._pure_gauge.freeGauge()
-        self._pure_gauge.freeSmearedGauge()
+        self.gauge_dirac.loadGauge(self)
+        self._gauge_dirac.hypSmear(n_steps, alpha1, alpha2, alpha3, dir_ignore)
+        self._gauge_dirac.saveSmearedGauge(self)
+        self._gauge_dirac.freeGauge()
+        self._gauge_dirac.freeSmearedGauge()
 
     def wilsonFlow(self, n_steps: int, epsilon: float):
-        self.pure_gauge.loadGauge(self)
-        self._pure_gauge.wilsonFlow(1, epsilon, 0, False)
-        energy = [self._pure_gauge.obs_param.energy]
+        self.gauge_dirac.loadGauge(self)
+        self._gauge_dirac.wilsonFlow(1, epsilon, 0, False)
+        energy = [self._gauge_dirac.obs_param.energy]
         for step in range(1, n_steps):
-            self._pure_gauge.wilsonFlow(1, epsilon, step * epsilon, True)
-            energy.append(self._pure_gauge.obs_param.energy)
-        self._pure_gauge.saveSmearedGauge(self)  # Save before the last step
-        self._pure_gauge.wilsonFlow(1, epsilon, n_steps * epsilon, True)
-        energy.append(self._pure_gauge.obs_param.energy)
-        self._pure_gauge.freeGauge()
-        self._pure_gauge.freeSmearedGauge()
+            self._gauge_dirac.wilsonFlow(1, epsilon, step * epsilon, True)
+            energy.append(self._gauge_dirac.obs_param.energy)
+        self._gauge_dirac.saveSmearedGauge(self)  # Save before the last step
+        self._gauge_dirac.wilsonFlow(1, epsilon, n_steps * epsilon, True)
+        energy.append(self._gauge_dirac.obs_param.energy)
+        self._gauge_dirac.freeGauge()
+        self._gauge_dirac.freeSmearedGauge()
         return energy
 
     def wilsonFlowScale(self, max_steps: int, epsilon: float):
         from . import getLogger
 
-        self.pure_gauge.loadGauge(self)
-        self._pure_gauge.wilsonFlow(1, epsilon, 0, False)
+        self.gauge_dirac.loadGauge(self)
+        self._gauge_dirac.wilsonFlow(1, epsilon, 0, False)
         t2E, tdt2E = 0, 0
         t0, w0 = 0, 0
         for step in range(1, max_steps + 1):
             if t2E >= 0.3 and tdt2E >= 0.3:
                 break
-            self._pure_gauge.wilsonFlow(1, epsilon, step * epsilon, True)
-            t2E_old, t2E = t2E, (step * epsilon) ** 2 * self._pure_gauge.obs_param.energy[0]
+            self._gauge_dirac.wilsonFlow(1, epsilon, step * epsilon, True)
+            t2E_old, t2E = t2E, (step * epsilon) ** 2 * self._gauge_dirac.obs_param.energy[0]
             tdt2E_old, tdt2E = tdt2E, (step - 0.5) * (t2E - t2E_old)
             if t0 == 0 and t2E >= 0.3:
                 t0 = (step - (t2E - 0.3) / (t2E - t2E_old)) * epsilon
@@ -653,36 +657,36 @@ class LatticeGauge(MultiField, EvenOddField, HalfLatticeField):
             getLogger().error(
                 f"Wilson flow scale doesn't exceed 0.3 at max_steps*epsilon={max_steps*epsilon}", RuntimeError
             )
-        self._pure_gauge.freeGauge()
-        self._pure_gauge.freeSmearedGauge()
+        self._gauge_dirac.freeGauge()
+        self._gauge_dirac.freeSmearedGauge()
         return t0, w0
 
     def symanzikFlow(self, n_steps: int, epsilon: float):
-        self.pure_gauge.loadGauge(self)
-        self._pure_gauge.symanzikFlow(1, epsilon, 0, False)
-        energy = [self._pure_gauge.obs_param.energy]
+        self.gauge_dirac.loadGauge(self)
+        self._gauge_dirac.symanzikFlow(1, epsilon, 0, False)
+        energy = [self._gauge_dirac.obs_param.energy]
         for step in range(1, n_steps):
-            self._pure_gauge.symanzikFlow(1, epsilon, step * epsilon, True)
-            energy.append(self._pure_gauge.obs_param.energy)
-        self._pure_gauge.saveSmearedGauge(self)  # Save before the last step
-        self._pure_gauge.symanzikFlow(1, epsilon, n_steps * epsilon, True)
-        energy.append(self._pure_gauge.obs_param.energy)
-        self._pure_gauge.freeGauge()
-        self._pure_gauge.freeSmearedGauge()
+            self._gauge_dirac.symanzikFlow(1, epsilon, step * epsilon, True)
+            energy.append(self._gauge_dirac.obs_param.energy)
+        self._gauge_dirac.saveSmearedGauge(self)  # Save before the last step
+        self._gauge_dirac.symanzikFlow(1, epsilon, n_steps * epsilon, True)
+        energy.append(self._gauge_dirac.obs_param.energy)
+        self._gauge_dirac.freeGauge()
+        self._gauge_dirac.freeSmearedGauge()
         return energy
 
     def symanzikFlowScale(self, max_steps: int, epsilon: float):
         from . import getLogger
 
-        self.pure_gauge.loadGauge(self)
-        self._pure_gauge.symanzikFlow(1, epsilon, 0, False)
+        self.gauge_dirac.loadGauge(self)
+        self._gauge_dirac.symanzikFlow(1, epsilon, 0, False)
         t2E, tdt2E = 0, 0
         t0, w0 = 0, 0
         for step in range(1, max_steps + 1):
             if t2E >= 0.3 and tdt2E >= 0.3:
                 break
-            self._pure_gauge.symanzikFlow(1, epsilon, step * epsilon, True)
-            t2E_old, t2E = t2E, (step * epsilon) ** 2 * self._pure_gauge.obs_param.energy[0]
+            self._gauge_dirac.symanzikFlow(1, epsilon, step * epsilon, True)
+            t2E_old, t2E = t2E, (step * epsilon) ** 2 * self._gauge_dirac.obs_param.energy[0]
             tdt2E_old, tdt2E = tdt2E, (step - 0.5) * (t2E - t2E_old)
             if t0 == 0 and t2E >= 0.3:
                 t0 = (step - (t2E - 0.3) / (t2E - t2E_old)) * epsilon
@@ -693,8 +697,8 @@ class LatticeGauge(MultiField, EvenOddField, HalfLatticeField):
             getLogger().error(
                 f"Symanzik flow scale doesn't exceed 0.3 at max_steps*epsilon={max_steps*epsilon}", RuntimeError
             )
-        self._pure_gauge.freeGauge()
-        self._pure_gauge.freeSmearedGauge()
+        self._gauge_dirac.freeGauge()
+        self._gauge_dirac.freeSmearedGauge()
         return t0, w0
 
     def smearAPE(self, n_steps: int, factor: float, dir_ignore: int):
@@ -721,33 +725,33 @@ class LatticeGauge(MultiField, EvenOddField, HalfLatticeField):
         return self.symanzikFlowScale(100000, epsilon)
 
     def plaquette(self):
-        self.pure_gauge.loadGauge(self)
-        plaquette = self._pure_gauge.plaquette()
-        self._pure_gauge.freeGauge()
+        self.gauge_dirac.loadGauge(self)
+        plaquette = self._gauge_dirac.plaquette()
+        self._gauge_dirac.freeGauge()
         return plaquette
 
     def polyakovLoop(self):
-        self.pure_gauge.loadGauge(self)
-        polyakovLoop = self._pure_gauge.polyakovLoop()
-        self._pure_gauge.freeGauge()
+        self.gauge_dirac.loadGauge(self)
+        polyakovLoop = self._gauge_dirac.polyakovLoop()
+        self._gauge_dirac.freeGauge()
         return polyakovLoop
 
     def energy(self):
-        self.pure_gauge.loadGauge(self)
-        energy = self._pure_gauge.energy()
-        self._pure_gauge.freeGauge()
+        self.gauge_dirac.loadGauge(self)
+        energy = self._gauge_dirac.energy()
+        self._gauge_dirac.freeGauge()
         return energy
 
     def qcharge(self):
-        self.pure_gauge.loadGauge(self)
-        qcharge = self._pure_gauge.qcharge()
-        self._pure_gauge.freeGauge()
+        self.gauge_dirac.loadGauge(self)
+        qcharge = self._gauge_dirac.qcharge()
+        self._gauge_dirac.freeGauge()
         return qcharge
 
     def qchargeDensity(self):
-        self.pure_gauge.loadGauge(self)
-        qcharge_density = self._pure_gauge.qchargeDensity()
-        self._pure_gauge.freeGauge()
+        self.gauge_dirac.loadGauge(self)
+        qcharge_density = self._gauge_dirac.qchargeDensity()
+        self._gauge_dirac.freeGauge()
         return qcharge_density
 
     def gauss(self, seed: int, sigma: float):
@@ -764,10 +768,10 @@ class LatticeGauge(MultiField, EvenOddField, HalfLatticeField):
         sigma: float
             Width of Gaussian distrubution
         """
-        self.pure_gauge.loadGauge(self)
-        self._pure_gauge.gaussGauge(seed, sigma)
-        self._pure_gauge.saveGauge(self)
-        self._pure_gauge.freeGauge()
+        self.gauge_dirac.loadGauge(self)
+        self._gauge_dirac.gaussGauge(seed, sigma)
+        self._gauge_dirac.saveGauge(self)
+        self._gauge_dirac.freeGauge()
 
     def fixingOVR(
         self,
@@ -800,7 +804,7 @@ class LatticeGauge(MultiField, EvenOddField, HalfLatticeField):
         stopWtheta: int
             0 for MILC criterion and 1 to use the theta value
         """
-        self.pure_gauge.fixingOVR(
+        self.gauge_dirac.fixingOVR(
             self, gauge_dir, Nsteps, verbose_interval, relax_boost, tolerance, reunit_interval, stopWtheta
         )
 
@@ -835,7 +839,7 @@ class LatticeGauge(MultiField, EvenOddField, HalfLatticeField):
         stopWtheta: int
             0 for MILC criterion and 1 to use the theta value
         """
-        self.pure_gauge.fixingFFT(self, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta)
+        self.gauge_dirac.fixingFFT(self, gauge_dir, Nsteps, verbose_interval, alpha, autotune, tolerance, stopWtheta)
 
 
 class LatticeMom(MultiField, EvenOddField, HalfLatticeField):
@@ -847,23 +851,23 @@ class LatticeMom(MultiField, EvenOddField, HalfLatticeField):
         super().__init__(latt_info, L5)
         self.setField([10], "<f8")
         self.initData(value)
-        self._pure_gauge = None
+        self._gauge_dirac = None
 
     @property
-    def pure_gauge(self):
-        if self._pure_gauge is None:
-            from .dirac import PureGauge
+    def gauge_dirac(self):
+        if self._gauge_dirac is None:
+            from .dirac import GaugeDirac
 
-            self._pure_gauge = PureGauge(self.latt_info)
-        return self._pure_gauge
+            self._gauge_dirac = GaugeDirac(self.latt_info)
+        return self._gauge_dirac
 
     def lexico(self):
         return lexico(self.getHost(), [1, 2, 3, 4, 5])
 
     def gauss(self, seed: int, sigma: float):
-        self.pure_gauge.loadMom(self)
-        self._pure_gauge.gaussMom(seed, sigma)
-        self._pure_gauge.saveFreeMom(self)
+        self.gauge_dirac.loadMom(self)
+        self._gauge_dirac.gaussMom(seed, sigma)
+        self._gauge_dirac.saveFreeMom(self)
 
 
 class LatticeClover(EvenOddField, HalfLatticeField):

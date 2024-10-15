@@ -18,7 +18,7 @@ from pyquda.pyquda import (
 )
 from pyquda.enum_quda import QudaTboundary, QudaVerbosity
 from pyquda.field import LatticeInfo, LatticeGauge, LatticeMom
-from pyquda.dirac.pure_gauge import PureGauge
+from pyquda.dirac import GaugeDirac
 
 nullptr = Pointers("void", 0)
 
@@ -53,8 +53,8 @@ class HMC:
     def __init__(self, latt_info: LatticeInfo) -> None:
         assert latt_info.anisotropy == 1.0
         self.latt_info = latt_info
-        self._pure_gauge = PureGauge(latt_info)
-        self.gauge_param = self._pure_gauge.gauge_param
+        self._gauge_dirac = GaugeDirac(latt_info)
+        self.gauge_param = self._gauge_dirac.gauge_param
 
     def setVerbosity(self, verbosity: QudaVerbosity):
         setVerbosityQuda(verbosity, b"\0")

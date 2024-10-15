@@ -4,10 +4,10 @@ from ..field import LatticeInfo, LatticeGauge, LatticeClover
 from ..enum_quda import QudaDslashType, QudaPrecision
 
 from . import general
-from .abstract import Multigrid, Dirac
+from .abstract import Multigrid, FermionDirac
 
 
-class CloverWilson(Dirac):
+class CloverWilsonDirac(FermionDirac):
     def __init__(
         self,
         latt_info: LatticeInfo,

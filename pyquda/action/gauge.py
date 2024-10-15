@@ -6,11 +6,11 @@ from numpy.typing import NDArray
 from ..pointer import Pointers
 from ..pyquda import computeGaugeLoopTraceQuda, computeGaugeForceQuda
 from ..field import Nc, LatticeInfo
-from ..dirac import PureGauge as Pure
+from ..dirac import GaugeDirac
 
 nullptr = Pointers("void", 0)
 
-from .abstract import LoopParam, GaugeAction
+from .abstract import LoopParam, Action
 
 
 class PathParam(NamedTuple):
@@ -87,11 +87,11 @@ def forcePath(action_path: PathParam):
     return PathParam(input_path_buf, path_length, loop_coeff, num_paths, max_length)
 
 
-class PureGauge(GaugeAction):
-    dirac: Pure
+class GaugeAction(Action):
+    dirac: GaugeDirac
 
     def __init__(self, latt_info: LatticeInfo, loop_param: LoopParam, beta: float, u_0: float):
-        super().__init__(latt_info, Pure(latt_info))
+        super().__init__(latt_info, GaugeDirac(latt_info))
 
         # S=\frac{\beta}{N_c}\sum_{i}c_i\mathrm{ReTr}(I-W_i)
         self.action_path = actionPath(loop_param.path, [-beta / Nc * coeff for coeff in loop_param.coeff])

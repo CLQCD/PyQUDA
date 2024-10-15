@@ -95,7 +95,7 @@ def setReconstruct(
     )
 
 
-class Gauge(ABC):
+class Dirac(ABC):
     latt_info: LatticeInfo
     precision: Precision
     reconstruct: Reconstruct
@@ -175,7 +175,7 @@ class Multigrid:
         self.instance = None
 
 
-class Dirac(Gauge):
+class FermionDirac(Dirac):
     multigrid: Multigrid
 
     def __init__(self, latt_info: LatticeInfo) -> None:
@@ -241,7 +241,7 @@ class Dirac(Gauge):
             self.multigrid.destroy()
 
 
-class StaggeredDirac(Dirac):
+class StaggeredFermionDirac(FermionDirac):
     def invert(self, b: LatticeStaggeredFermion):
         x = LatticeStaggeredFermion(b.latt_info)
         invertQuda(x.data_ptr, b.data_ptr, self.invert_param)

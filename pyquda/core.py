@@ -17,13 +17,13 @@ from .field import (
     lexico,
     cb2,
 )
-from .dirac.abstract import Multigrid, Dirac, StaggeredDirac
+from .dirac.abstract import Multigrid, FermionDirac, StaggeredFermionDirac
 from .utils import source
 from .deprecated import smear, smear4, invert12, getDslash, getStaggeredDslash
 
 
 def invert(
-    dirac: Dirac,
+    dirac: FermionDirac,
     source_type: Literal["point", "wall", "volume", "momentum", "colorvector"],
     t_srce: Union[List[int], int, None],
     source_phase=None,
@@ -42,7 +42,7 @@ def invert(
 
 
 def invertPropagator(
-    dirac: Dirac,
+    dirac: FermionDirac,
     source_propag: LatticePropagator,
     restart: int = 0,
 ):
@@ -59,7 +59,7 @@ def invertPropagator(
 
 
 def invertStaggered(
-    dirac: StaggeredDirac,
+    dirac: StaggeredFermionDirac,
     source_type: Literal["point", "wall", "volume", "momentum", "colorvector"],
     t_srce: Union[List[int], int, None],
     source_phase=None,
@@ -77,7 +77,7 @@ def invertStaggered(
 
 
 def invertStaggeredPropagator(
-    dirac: StaggeredDirac,
+    dirac: StaggeredFermionDirac,
     source_propag: LatticeStaggeredPropagator,
     restart: int = 0,
 ):
@@ -192,9 +192,9 @@ def getDirac(
             multigrid = [[2, 2, 2, 2], [4, 4, 4, 4]]
 
     if clover_csw != 0.0:
-        return fermion.CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_csw, clover_xi, multigrid)
+        return fermion.CloverWilsonDirac(latt_info, mass, kappa, tol, maxiter, clover_csw, clover_xi, multigrid)
     else:
-        return fermion.Wilson(latt_info, mass, kappa, tol, maxiter, multigrid)
+        return fermion.WilsonDirac(latt_info, mass, kappa, tol, maxiter, multigrid)
 
 
 def getStaggeredDirac(
@@ -208,7 +208,7 @@ def getStaggeredDirac(
     assert latt_info.anisotropy == 1.0
     kappa = 1 / 2
 
-    return fermion.HISQ(latt_info, mass, kappa, tol, maxiter, naik_epsilon, None)
+    return fermion.HISQDirac(latt_info, mass, kappa, tol, maxiter, naik_epsilon, None)
 
 
 def getWilson(
@@ -226,7 +226,7 @@ def getWilson(
         if not isinstance(multigrid, list) and not isinstance(multigrid, Multigrid):
             multigrid = [[2, 2, 2, 2], [4, 4, 4, 4]]
 
-    return fermion.Wilson(latt_info, mass, kappa, tol, maxiter, multigrid)
+    return fermion.WilsonDirac(latt_info, mass, kappa, tol, maxiter, multigrid)
 
 
 def getClover(
@@ -254,7 +254,7 @@ def getClover(
         if not isinstance(multigrid, list) and not isinstance(multigrid, Multigrid):
             multigrid = [[2, 2, 2, 2], [4, 4, 4, 4]]
 
-    return fermion.CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_csw, clover_xi, multigrid)
+    return fermion.CloverWilsonDirac(latt_info, mass, kappa, tol, maxiter, clover_csw, clover_xi, multigrid)
 
 
 def getStaggered(
@@ -267,7 +267,7 @@ def getStaggered(
     assert latt_info.anisotropy == 1.0
     kappa = 1 / 2
 
-    return fermion.Staggered(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, None)
+    return fermion.StaggeredDirac(latt_info, mass, kappa, tol, maxiter, tadpole_coeff, None)
 
 
 def getHISQ(
@@ -280,7 +280,7 @@ def getHISQ(
     assert latt_info.anisotropy == 1.0
     kappa = 1 / 2  # to be compatible with mass normalization
 
-    return fermion.HISQ(latt_info, mass, kappa, tol, maxiter, naik_epsilon, None)
+    return fermion.HISQDirac(latt_info, mass, kappa, tol, maxiter, naik_epsilon, None)
 
 
 def getDefaultDirac(
