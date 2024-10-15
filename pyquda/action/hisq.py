@@ -45,6 +45,7 @@ class HISQFermion(StaggeredFermionAction):
         assert len(mass) == len(flavor)
 
         self.phi = LatticeStaggeredFermion(latt_info)
+        self.eta = LatticeStaggeredFermion(latt_info)
         self.rhmc_param = rhmc_param.staggered[(mass, flavor)]
 
         self.invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
@@ -68,22 +69,27 @@ class HISQFermion(StaggeredFermionAction):
 
         return u_link, v_link, w_link
 
+    def sample(self, new_gauge: bool):
+        self.sampleEta()
+        self.updateFatLong(False)
+        self.invertMultiShift("pseudo_fermion")
+
     def action(self, new_gauge: bool) -> float:
         self.updateFatLong(False)
         self.invert_param.compute_action = 1
-        self.invertMultiShift(self.phi, "molecular_dynamics")
+        self.invertMultiShift("molecular_dynamics")
         self.invert_param.compute_action = 0
         return self.invert_param.action[0]
 
     def action2(self) -> float:
-        x = self.invertMultiShift(self.phi, "fermion_action")
-        return x.even.norm2()  # - norm_molecular_dynamics * self.phi.even.norm2()
+        self.invertMultiShift("fermion_action")
+        return self.eta.even.norm2()  # - norm_molecular_dynamics * self.phi.even.norm2()
 
     def force(self, dt, new_gauge: bool):
         u_link, v_link, w_link = self.updateFatLong(True)
         num = len(self.rhmc_param.offset_molecular_dynamics)
         num_naik = 0 if self.dirac.naik_epsilon == 0.0 else num
-        xx = self.invertMultiShift(self.phi, "molecular_dynamics")
+        xx = self.invertMultiShift("molecular_dynamics")
         for i in range(num):
             dslashQuda(xx[i].odd_ptr, xx[i].even_ptr, self.invert_param, QudaParity.QUDA_ODD_PARITY)
         computeHISQForceQuda(
@@ -100,12 +106,6 @@ class HISQFermion(StaggeredFermionAction):
             self.coeff,
             self.gauge_param,
         )
-
-    def sample(self, noise: LatticeStaggeredFermion, new_gauge: bool):
-        self.updateFatLong(False)
-        x = self.invertMultiShift(noise, "pseudo_fermion")
-        self.phi.even = x.even
-        self.phi.odd = noise.even
 
 
 class MultiHISQFermion(StaggeredFermionAction):
@@ -150,13 +150,20 @@ class MultiHISQFermion(StaggeredFermionAction):
         fatlink, longlink = pseudo_fermion.dirac.computeXLinkEpsilon(self.fatlink, self.longlink, self.w_link)
         pseudo_fermion.dirac.loadFatLongGauge(fatlink, longlink)
 
+    def sample(self, new_gauge: bool):
+        self.prepareFatLong(False)
+        for pseudo_fermion in self.pseudo_fermions:
+            pseudo_fermion.sampleEta()
+            self.updateFatLong(pseudo_fermion)
+            pseudo_fermion.invertMultiShift("pseudo_fermion")
+
     def action(self, new_gauge: bool) -> float:
         action = 0
         self.prepareFatLong(False)
         for pseudo_fermion in self.pseudo_fermions:
             self.updateFatLong(pseudo_fermion)
             pseudo_fermion.invert_param.compute_action = 1
-            pseudo_fermion.invertMultiShift(pseudo_fermion.phi, "molecular_dynamics")
+            pseudo_fermion.invertMultiShift("molecular_dynamics")
             pseudo_fermion.invert_param.compute_action = 0
             action += pseudo_fermion.invert_param.action[0]
         return action
@@ -166,8 +173,8 @@ class MultiHISQFermion(StaggeredFermionAction):
         self.prepareFatLong(False)
         for pseudo_fermion in self.pseudo_fermions:
             self.updateFatLong(pseudo_fermion)
-            x = pseudo_fermion.invertMultiShift(pseudo_fermion.phi, "fermion_action")
-            action += x.even.norm2()
+            pseudo_fermion.invertMultiShift("fermion_action")
+            action += self.eta.even.norm2()
         return action
 
     def force(self, dt, new_gauge: bool):
@@ -176,7 +183,7 @@ class MultiHISQFermion(StaggeredFermionAction):
         xx_all = MultiLatticeStaggeredFermion(self.latt_info, self.num)
         for pseudo_fermion in self.pseudo_fermions:
             self.updateFatLong(pseudo_fermion)
-            xx = pseudo_fermion.invertMultiShift(pseudo_fermion.phi, "molecular_dynamics")
+            xx = pseudo_fermion.invertMultiShift("molecular_dynamics")
             for i in range(pseudo_fermion.num):
                 dslashQuda(xx[i].odd_ptr, xx[i].even_ptr, pseudo_fermion.invert_param, QudaParity.QUDA_ODD_PARITY)
                 xx_all[num_current + i] = xx[i]
@@ -195,11 +202,3 @@ class MultiHISQFermion(StaggeredFermionAction):
             self.coeff,
             self.gauge_param,
         )
-
-    def sample(self, noise: List[LatticeStaggeredFermion], new_gauge: bool):
-        self.prepareFatLong(False)
-        for idx, pseudo_fermion in enumerate(self.pseudo_fermions):
-            self.updateFatLong(pseudo_fermion)
-            x = pseudo_fermion.invertMultiShift(noise[idx], "pseudo_fermion")
-            pseudo_fermion.phi.even = x.even
-            pseudo_fermion.phi.odd = noise[idx].even

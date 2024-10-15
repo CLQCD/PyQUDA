@@ -266,13 +266,15 @@ class HMC:
         self.loadMom(mom)
 
     def actionGauge(self, gauge: bool = True, fermion: bool = True) -> float:
-        action = 0 if self._hmc_inner is None else self._hmc_inner.actionGauge(gauge, fermion)
+        action = 0
         if gauge:
             for monomial in self._gauge_monomials:
                 action += monomial.action()
         if fermion:
             for monomial in self._fermion_monomials:
                 action += monomial.action(True)
+        if self._hmc_inner is not None:
+            action += self._hmc_inner.actionGauge(gauge, fermion)
         return action
 
     def actionMom(self) -> float:
@@ -290,49 +292,44 @@ class HMC:
             for monomial in self._fermion_monomials:
                 monomial.force(dt, True)
 
-    def samplePhi(self):
-        def _seed(seed: int):
-            backend = getCUDABackend()
-            if backend == "numpy":
-                import numpy
+    def seed(self, state):
+        seed = self.random.randrange(2**32)
+        backend = getCUDABackend()
+        if backend == "numpy":
+            import numpy
 
+            if state is None:
+                state = numpy.random.get_state()
                 numpy.random.seed(seed)
-                return numpy, numpy.random.random
-            elif backend == "cupy":
-                import cupy
-
-                cupy.random.seed(seed)
-                return cupy, partial(cupy.random.random, dtype=cupy.float64)
-            elif backend == "torch":
-                import torch
-
-                torch.random.manual_seed(seed)
-                return torch, partial(torch.rand, dtype=torch.float64)
-
-        def _noise(backend, random, shape):
-            phi = 2 * backend.pi * random(shape)
-            r = random(shape)
-            noise_raw = backend.sqrt(-backend.log(r)) * (backend.cos(phi) + 1j * backend.sin(phi))
-            return noise_raw
-
-        backend, random = _seed(self.random.randrange(2**32))
-        shape = (self.latt_info.volume, Ns, Nc) if not self.is_staggered else (self.latt_info.volume, Nc)
-        for monomial in self._fermion_monomials:
-            if not monomial.is_staggered:
-                noise = LatticeFermion(self.latt_info, _noise(backend, random, shape))
-                monomial.sample(noise, True)
             else:
-                if hasattr(monomial, "pseudo_fermions"):
-                    noise = [
-                        LatticeStaggeredFermion(self.latt_info, _noise(backend, random, shape))
-                        for _ in range(len(monomial.pseudo_fermions))
-                    ]
-                else:
-                    noise = LatticeStaggeredFermion(self.latt_info, _noise(backend, random, shape))
-                monomial.sample(noise, True)
+                numpy.random.set_state(state)
+        elif backend == "cupy":
+            import cupy
 
+            if state is None:
+                state = cupy.random.get_random_state()
+                cupy.random.seed(seed)
+            else:
+                cupy.random.set_random_state(state)
+        elif backend == "torch":
+            import torch
+
+            if state is None:
+                state = torch.random.get_rng_state()
+                torch.random.manual_seed(seed)
+            else:
+                torch.random.set_rng_state(state)
+        return state
+
+    def samplePhi(self):
+        state = self.seed(None)
+
+        for monomial in self._fermion_monomials:
+            monomial.sample(True)
         if self._hmc_inner is not None:
             self._hmc_inner.samplePhi()
+
+        self.seed(state)
 
     def loadGauge(self, gauge: LatticeGauge):
         gauge_in = gauge.copy()

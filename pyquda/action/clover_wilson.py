@@ -42,6 +42,7 @@ class CloverWilsonFermion(FermionAction):
         self.num_flavor = num_flavor
 
         self.phi = LatticeFermion(latt_info)
+        self.eta = LatticeFermion(latt_info)
         self.rhmc_param = rhmc_param.wilson[num_flavor]
 
         self.invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
@@ -58,12 +59,17 @@ class CloverWilsonFermion(FermionAction):
             loadGaugeQuda(nullptr, self.gauge_param)
             loadCloverQuda(nullptr, nullptr, self.invert_param)
 
+    def sample(self, new_gauge: bool):
+        self.sampleEta()
+        self.updateClover(new_gauge)
+        self.invertMultiShift("pseudo_fermion")
+
     def action(self, new_gauge: bool) -> float:
         self.invert_param.compute_clover_trlog = 1
         self.updateClover(new_gauge)
         self.invert_param.compute_clover_trlog = 0
         self.invert_param.compute_action = 1
-        self.invertMultiShift(self.phi, "molecular_dynamics")
+        self.invertMultiShift("molecular_dynamics")
         self.invert_param.compute_action = 0
         return (
             self.invert_param.action[0]
@@ -74,7 +80,7 @@ class CloverWilsonFermion(FermionAction):
     def force(self, dt, new_gauge: bool):
         self.updateClover(new_gauge)
         nvector = len(self.rhmc_param.offset_molecular_dynamics)
-        xx = self.invertMultiShift(self.phi, "molecular_dynamics")
+        xx = self.invertMultiShift("molecular_dynamics")
         # Some conventions force the dagger to be YES here
         self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
         computeCloverForceQuda(
@@ -90,9 +96,3 @@ class CloverWilsonFermion(FermionAction):
             self.invert_param,
         )
         self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
-
-    def sample(self, noise: LatticeFermion, new_gauge: bool):
-        self.updateClover(new_gauge)
-        x = self.invertMultiShift(noise, "pseudo_fermion")
-        self.phi.even = x.even
-        self.phi.odd = noise.even
