@@ -17,8 +17,8 @@ from .pyquda import (
 )
 from .enum_quda import QudaBoolean, QudaTboundary
 from .field import LatticeInfo, LatticeGauge, LatticeMom, LatticeFloat64
-from .dirac import Wilson, Staggered
-from .action.abstract import GaugeAction, FermionAction, StaggeredFermionAction
+from .dirac import WilsonDirac, StaggeredDirac
+from .action.abstract import Action, FermionAction, StaggeredFermionAction
 
 nullptr = Pointers("void", 0)
 
@@ -201,7 +201,7 @@ class HMC:
     def __init__(
         self,
         latt_info: LatticeInfo,
-        monomials: List[Union[GaugeAction, FermionAction, StaggeredFermionAction]],
+        monomials: List[Union[Action, FermionAction, StaggeredFermionAction]],
         integrator: Integrator,
         hmc_inner: "HMC" = None,
     ) -> None:
@@ -220,9 +220,9 @@ class HMC:
                     "FermionAction and StaggeredFermionAction cannot be used at the same time", ValueError
                 )
         if not self.is_staggered:
-            self._dirac = Wilson(latt_info, 0, 0.125, 0, 0)
+            self._dirac = WilsonDirac(latt_info, 0, 0.125, 0, 0)
         else:
-            self._dirac = Staggered(latt_info, 0, 0.5, 0, 0)
+            self._dirac = StaggeredDirac(latt_info, 0, 0.5, 0, 0)
         self.gauge_param = self._dirac.gauge_param
         self.obs_param = QudaGaugeObservableParam()
         self.obs_param.remove_staggered_phase = QudaBoolean(not not self.is_staggered)
@@ -230,13 +230,13 @@ class HMC:
 
     def fuseFermionAction(self):
         if self.is_staggered:
-            from .action.hisq import HISQFermion, MultiHISQFermion
+            from .action.hisq import HISQAction, MultiHISQAction
 
-            hisq_monomials = [monomial for monomial in self._fermion_monomials if isinstance(monomial, HISQFermion)]
+            hisq_monomials = [monomial for monomial in self._fermion_monomials if isinstance(monomial, HISQAction)]
             if hisq_monomials != []:
-                hisq_monomials = [MultiHISQFermion(self.latt_info, hisq_monomials)]
+                hisq_monomials = [MultiHISQAction(self.latt_info, hisq_monomials)]
             self._fermion_monomials = hisq_monomials + [
-                monomial for monomial in self._fermion_monomials if not isinstance(monomial, HISQFermion)
+                monomial for monomial in self._fermion_monomials if not isinstance(monomial, HISQAction)
             ]
 
     def initializeRNG(self, seed: int):

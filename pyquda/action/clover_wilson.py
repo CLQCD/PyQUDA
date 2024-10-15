@@ -13,15 +13,15 @@ from ..enum_quda import (
     QudaVerbosity,
 )
 from ..field import Nd, Nc, Ns, LatticeInfo, LatticeFermion
-from ..dirac import CloverWilson
+from ..dirac import CloverWilsonDirac
 
 nullptr = Pointers("void", 0)
 
 from .abstract import RationalParam, FermionAction
 
 
-class CloverWilsonFermion(FermionAction):
-    dirac: CloverWilson
+class CloverWilsonAction(FermionAction):
+    dirac: CloverWilsonDirac
 
     def __init__(
         self,
@@ -37,7 +37,7 @@ class CloverWilsonFermion(FermionAction):
         kappa = 1 / (2 * (mass + Nd))
         if latt_info.anisotropy != 1.0:
             getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
-        super().__init__(latt_info, CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_csw, 1, None))
+        super().__init__(latt_info, CloverWilsonDirac(latt_info, mass, kappa, tol, maxiter, clover_csw, 1, None))
 
         self.phi = LatticeFermion(latt_info)
         self.eta = LatticeFermion(latt_info)

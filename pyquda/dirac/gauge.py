@@ -43,10 +43,10 @@ from ..enum_quda import (
 )
 
 from . import general
-from .abstract import Gauge
+from .abstract import Dirac
 
 
-class PureGauge(Gauge):
+class GaugeDirac(Dirac):
     def __init__(self, latt_info: Union[LatticeInfo, LaplaceLatticeInfo]) -> None:
         super().__init__(latt_info.__class__(latt_info.global_size))  # Keep periodic t boundary and isotropic
         # Use QUDA_RECONSTRUCT_NO to ensure slight deviations from SU(3) can be preserved
@@ -176,12 +176,12 @@ class PureGauge(Gauge):
     ):
         gauge_path = LatticeGauge(gauge.latt_info)
         num_paths = 1
-        input_path_buf_x, path_length = PureGauge._getPath(paths[0])
+        input_path_buf_x, path_length = GaugeDirac._getPath(paths[0])
         input_path_buf = numpy.zeros((4, 1, path_length + 1), "<i4")
         input_path_buf[0, 0, 0] = 7
         input_path_buf[0, 0, 1:] = input_path_buf_x
         for d in range(1, 4):
-            input_path_buf_, path_length_ = PureGauge._getPath(paths[d])
+            input_path_buf_, path_length_ = GaugeDirac._getPath(paths[d])
             assert path_length_ == path_length, "paths in all directions should have the same shape"
             input_path_buf[d, 0, 0] = 7 - d
             input_path_buf[d, 0, 1:] = input_path_buf_
@@ -237,12 +237,12 @@ class PureGauge(Gauge):
         coeff: List[float],
     ):
         gauge_loop = LatticeGauge(gauge.latt_info)
-        input_path_buf_x, path_length, num_paths, max_length = PureGauge._getLoops(loops[0])
+        input_path_buf_x, path_length, num_paths, max_length = GaugeDirac._getLoops(loops[0])
         input_path_buf = numpy.zeros((4, num_paths, max_length + 1), "<i4")
         input_path_buf[0, :, 0] = 7
         input_path_buf[0, :, 1:] = input_path_buf_x
         for d in range(1, 4):
-            input_path_buf_, path_length_, num_paths_, max_length_ = PureGauge._getLoops(loops[d])
+            input_path_buf_, path_length_, num_paths_, max_length_ = GaugeDirac._getLoops(loops[d])
             assert (path_length_ == path_length).all(), "paths in all directions should have the same shape"
             input_path_buf[d, :, 0] = 7 - d
             input_path_buf[d, :, 1:] = input_path_buf_
@@ -267,7 +267,7 @@ class PureGauge(Gauge):
         return gauge_loop
 
     def loopTrace(self, loops: List[List[int]]):
-        input_path_buf, path_length, num_paths, max_length = PureGauge._getLoops(loops)
+        input_path_buf, path_length, num_paths, max_length = GaugeDirac._getLoops(loops)
         traces = numpy.zeros((num_paths), "<c16")
         loop_coeff = numpy.ones((num_paths), "<f8")
         computeGaugeLoopTraceQuda(

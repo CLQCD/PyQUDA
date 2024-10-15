@@ -1,10 +1,10 @@
 # flake8: noqa
 
 # GaugeAction
-from .pure_gauge import PureGauge
+from .gauge import GaugeAction
 
 # FermionAction
-from .clover_wilson import CloverWilsonFermion
+from .clover_wilson import CloverWilsonAction
 
 # StaggeredFermionAction
-from .hisq import HISQFermion
+from .hisq import HISQAction

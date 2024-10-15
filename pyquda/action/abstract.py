@@ -5,7 +5,7 @@ from typing import List, Literal, NamedTuple, Union
 from .. import getCUDABackend
 from ..enum_quda import QUDA_MAX_MULTI_SHIFT, QudaDagType, QudaMatPCType
 from ..pyquda import QudaGaugeParam, QudaInvertParam, invertQuda, MatQuda, invertMultiShiftQuda
-from ..dirac.abstract import Gauge, Dirac, StaggeredDirac
+from ..dirac.abstract import Dirac, FermionDirac, StaggeredFermionDirac
 from ..field import (
     LatticeInfo,
     LatticeFermion,
@@ -20,13 +20,13 @@ class LoopParam(NamedTuple):
     coeff: List[float]
 
 
-class GaugeAction(ABC):
+class Action(ABC):
     latt_info: LatticeInfo
-    dirac: Gauge
+    dirac: Dirac
     gauge_param: QudaGaugeParam
     loop_param: LoopParam
 
-    def __init__(self, latt_info: LatticeInfo, dirac: Gauge) -> None:
+    def __init__(self, latt_info: LatticeInfo, dirac: Dirac) -> None:
         self.latt_info = latt_info
         self.dirac = dirac
         self.gauge_param = self.dirac.gauge_param
@@ -54,14 +54,14 @@ class RationalParam(NamedTuple):
     offset_fermion_action: List[float] = [0.0]
 
 
-class FermionAction(GaugeAction):
-    dirac: Dirac
+class FermionAction(Action):
+    dirac: FermionDirac
     invert_param: QudaInvertParam
     rational_param: RationalParam
     phi: LatticeFermion
     eta: LatticeFermion
 
-    def __init__(self, latt_info: LatticeInfo, dirac: Dirac) -> None:
+    def __init__(self, latt_info: LatticeInfo, dirac: FermionDirac) -> None:
         super().__init__(latt_info, dirac)
         self.invert_param = self.dirac.invert_param
         self.is_fermion = True
@@ -198,11 +198,11 @@ class FermionAction(GaugeAction):
 
 
 class StaggeredFermionAction(FermionAction):
-    dirac: StaggeredDirac
+    dirac: StaggeredFermionDirac
     phi: LatticeStaggeredFermion
     eta: LatticeStaggeredFermion
 
-    def __init__(self, latt_info: LatticeInfo, dirac: StaggeredDirac) -> None:
+    def __init__(self, latt_info: LatticeInfo, dirac: StaggeredFermionDirac) -> None:
         super().__init__(latt_info, dirac)
         self.is_staggered = True
 
