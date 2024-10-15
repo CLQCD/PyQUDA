@@ -1,13 +1,43 @@
 from abc import ABC, abstractmethod
+from typing import List, Literal, NamedTuple, Union
 
-from ..field import LatticeInfo, LatticeFermion, LatticeStaggeredFermion
+from ..enum_quda import QUDA_MAX_MULTI_SHIFT, QudaDagType, QudaMatPCType
+from ..pyquda import QudaGaugeParam, QudaInvertParam, invertQuda, MatQuda, invertMultiShiftQuda
+from ..dirac.abstract import Gauge, Dirac, StaggeredDirac
+from ..field import (
+    HalfLatticeFermion,
+    HalfLatticeStaggeredFermion,
+    LatticeInfo,
+    LatticeFermion,
+    LatticeStaggeredFermion,
+    MultiLatticeFermion,
+    MultiLatticeStaggeredFermion,
+)
+
+
+class RHMCParam(NamedTuple):
+    norm_molecular_dynamics: float = 0.0
+    residue_molecular_dynamics: List[float] = [1.0]
+    offset_molecular_dynamics: List[float] = [0.0]
+    norm_pseudo_fermion: float = 0.0
+    residue_pseudo_fermion: List[float] = [1.0]
+    offset_pseudo_fermion: List[float] = [0.0]
+    norm_fermion_action: float = 0.0
+    residue_fermion_action: List[float] = [1.0]
+    offset_fermion_action: List[float] = [0.0]
 
 
 class GaugeAction(ABC):
     latt_info: LatticeInfo
+    dirac: Gauge
+    gauge_param: QudaGaugeParam
 
-    def __init__(self, latt_info: LatticeInfo) -> None:
+    def __init__(self, latt_info: LatticeInfo, dirac: Gauge) -> None:
         self.latt_info = latt_info
+        self.dirac = dirac
+        self.gauge_param = self.dirac.gauge_param
+        self.is_fermion = False
+        self.is_staggered = False
 
     @abstractmethod
     def action(self) -> float:
@@ -18,11 +48,16 @@ class GaugeAction(ABC):
         pass
 
 
-class FermionAction(ABC):
-    latt_info: LatticeInfo
+class FermionAction(GaugeAction):
+    dirac: Dirac
+    invert_param: QudaInvertParam
+    rhmc_param: RHMCParam
+    phi: Union[HalfLatticeFermion, LatticeFermion]
 
-    def __init__(self, latt_info: LatticeInfo) -> None:
-        self.latt_info = latt_info
+    def __init__(self, latt_info: LatticeInfo, dirac: Dirac) -> None:
+        super().__init__(latt_info, dirac)
+        self.invert_param = self.dirac.invert_param
+        self.is_fermion = True
 
     @abstractmethod
     def action(self, new_gauge: bool) -> float:
@@ -36,12 +71,105 @@ class FermionAction(ABC):
     def sample(self, noise: LatticeFermion, new_gauge: bool):
         pass
 
+    def _invertMultiShiftParam(self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]):
+        if mode == "pseudo_fermion":
+            offset, residue, norm = (
+                self.rhmc_param.offset_pseudo_fermion,
+                self.rhmc_param.residue_pseudo_fermion,
+                self.rhmc_param.norm_pseudo_fermion,
+            )
+        elif mode == "molecular_dynamics":
+            offset, residue, norm = (
+                self.rhmc_param.offset_molecular_dynamics,
+                self.rhmc_param.residue_molecular_dynamics,
+                None,
+            )
+        elif mode == "fermion_action":
+            offset, residue, norm = (
+                self.rhmc_param.offset_fermion_action,
+                self.rhmc_param.residue_fermion_action,
+                self.rhmc_param.norm_fermion_action,
+            )
+        assert len(offset) == len(residue)
+        num_offset = len(offset)
+        if num_offset > 1:
+            tol = self.invert_param.tol
+            self.invert_param.num_offset = num_offset
+            self.invert_param.offset = offset + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
+            self.invert_param.residue = residue + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
+            self.invert_param.tol_offset = [
+                max(tol * abs(residue[0] / residue[i]), 2e-16 * (self.latt_info.Gt * self.latt_info.Lt) ** 0.5)
+                for i in range(num_offset)
+            ] + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
+        else:
+            assert offset == [0.0] and residue == [1.0] and (norm is None or norm == 0.0)
+        return num_offset, residue, norm
 
-class StaggeredFermionAction(ABC):
-    latt_info: LatticeInfo
+    def _invertMultiShift(
+        self,
+        xx: Union[MultiLatticeFermion, MultiLatticeStaggeredFermion],
+        x: Union[LatticeFermion, LatticeStaggeredFermion],
+        b: Union[LatticeFermion, LatticeStaggeredFermion],
+        residue: List[float],
+        norm: float,
+    ):
+        num_offset = len(residue)
+        if (
+            self.invert_param.matpc_type == QudaMatPCType.QUDA_MATPC_EVEN_EVEN
+            or self.invert_param.matpc_type == QudaMatPCType.QUDA_MATPC_EVEN_EVEN_ASYMMETRIC
+        ):
+            if num_offset > 1:
+                invertMultiShiftQuda(xx.even_ptrs, b.even_ptr, self.invert_param)
+                self.dirac.performance()
+                if norm is not None:
+                    x.even = norm * b.even
+                    for i in range(num_offset):
+                        x.even += residue[i] * xx[i].even
+            else:
+                if norm is None:
+                    invertQuda(xx[0].even_ptr, b.even_ptr, self.invert_param)
+                    self.dirac.performance()
+                else:
+                    self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
+                    MatQuda(x.even_ptr, b.even_ptr, self.invert_param)
+                    self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
+        elif (
+            self.invert_param.matpc_type == QudaMatPCType.QUDA_MATPC_ODD_ODD
+            or self.invert_param.matpc_type == QudaMatPCType.QUDA_MATPC_ODD_ODD_ASYMMETRIC
+        ):
+            if num_offset > 1:
+                invertMultiShiftQuda(xx.odd_ptrs, b.odd_ptr, self.invert_param)
+                self.dirac.performance()
+                if norm is not None:
+                    x.odd = norm * b.odd
+                    for i in range(num_offset):
+                        x.odd += residue[i] * xx[i].odd
+            else:
+                if norm is None:
+                    invertQuda(xx[0].odd_ptr, b.odd_ptr, self.invert_param)
+                    self.dirac.performance()
+                else:
+                    self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
+                    MatQuda(x.odd_ptr, b.odd_ptr, self.invert_param)
+                    self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
 
-    def __init__(self, latt_info: LatticeInfo) -> None:
-        self.latt_info = latt_info
+    def invertMultiShift(
+        self, b: LatticeFermion, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]
+    ) -> Union[LatticeFermion, MultiLatticeFermion]:
+        num_offset, residue, norm = self._invertMultiShiftParam(mode)
+        xx = MultiLatticeFermion(self.latt_info, num_offset) if norm is None or num_offset > 1 else None
+        x = LatticeFermion(self.latt_info) if norm is not None else None
+        self._invertMultiShift(xx, x, b, residue, norm)
+        return xx if norm is None else x
+
+
+class StaggeredFermionAction(FermionAction):
+    dirac: StaggeredDirac
+    phi: Union[HalfLatticeStaggeredFermion, LatticeStaggeredFermion]
+
+    def __init__(self, latt_info: LatticeInfo, dirac: StaggeredDirac) -> None:
+        super().__init__(latt_info, dirac)
+        self.is_staggered = True
 
     @abstractmethod
     def action(self, new_gauge: bool) -> float:
@@ -54,3 +182,12 @@ class StaggeredFermionAction(ABC):
     @abstractmethod
     def sample(self, noise: LatticeStaggeredFermion, new_gauge: bool):
         pass
+
+    def invertMultiShift(
+        self, b: LatticeStaggeredFermion, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]
+    ) -> Union[LatticeStaggeredFermion, MultiLatticeStaggeredFermion]:
+        num_offset, residue, norm = self._invertMultiShiftParam(mode)
+        xx = MultiLatticeStaggeredFermion(self.latt_info, num_offset) if norm is None or num_offset > 1 else None
+        x = LatticeStaggeredFermion(self.latt_info) if norm is not None else None
+        self._invertMultiShift(xx, x, b, residue, norm)
+        return xx if norm is None else x

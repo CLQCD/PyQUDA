@@ -42,7 +42,8 @@ from ..enum_quda import (
     QudaSolveType,
 )
 
-from . import Gauge, general
+from . import general
+from .abstract import Gauge
 
 
 class PureGauge(Gauge):

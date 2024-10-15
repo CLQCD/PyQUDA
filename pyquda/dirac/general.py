@@ -94,7 +94,7 @@ from ..enum_quda import (  # noqa: F401
 nullptr = Pointer("void")
 nullptrs = Pointers("void", 0)
 
-from . import Precision, Reconstruct
+from .abstract import Precision, Reconstruct
 
 
 def _fieldLocation():

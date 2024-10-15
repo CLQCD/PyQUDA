@@ -3,7 +3,7 @@ import numpy
 from ..pointer import Pointers
 from ..pyquda import computeGaugeLoopTraceQuda, computeGaugeForceQuda
 from ..field import Nc, LatticeInfo
-from ..dirac.pure_gauge import PureGauge
+from ..dirac import PureGauge
 
 nullptr = Pointers("void", 0)
 
@@ -66,10 +66,7 @@ class SymanzikTreeGauge(GaugeAction):
     """
 
     def __init__(self, latt_info: LatticeInfo, beta: float, u_0: float):
-        super().__init__(latt_info)
-
-        self.pure_gauge = PureGauge(latt_info)
-        self.gauge_param = self.pure_gauge.gauge_param
+        super().__init__(latt_info, PureGauge(latt_info))
 
         input_path = [
             [0, 1, 7, 6],

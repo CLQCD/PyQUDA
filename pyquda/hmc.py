@@ -27,8 +27,7 @@ from .field import (
     LatticeStaggeredFermion,
     LatticeFloat64,
 )
-from .dirac.wilson import Wilson
-from .dirac.staggered import Staggered
+from .dirac import Wilson, Staggered
 from .action.abstract import GaugeAction, FermionAction, StaggeredFermionAction
 
 nullptr = Pointers("void", 0)
@@ -217,32 +216,30 @@ class HMC:
         hmc_inner: "HMC" = None,
     ) -> None:
         self.latt_info = latt_info
-        self._gauge_monomials = [monomial for monomial in monomials if isinstance(monomial, GaugeAction)]
-        self._fermion_monomials = [monomial for monomial in monomials if not isinstance(monomial, GaugeAction)]
+        self._gauge_monomials = [monomial for monomial in monomials if not monomial.is_fermion]
+        self._fermion_monomials = [monomial for monomial in monomials if monomial.is_fermion]
         self._integrator = integrator
         self._hmc_inner = hmc_inner
-        self.staggered = None
+        self.is_staggered = None
         for monomial in self._fermion_monomials:
-            if self.staggered is None:
-                self.staggered = isinstance(monomial, StaggeredFermionAction)
+            if self.is_staggered is None:
+                self.is_staggered = monomial.is_staggered
                 continue
-            if (isinstance(monomial, FermionAction) and self.staggered) or (
-                isinstance(monomial, StaggeredFermionAction) and not self.staggered
-            ):
+            if (not monomial.is_staggered and self.is_staggered) or (monomial.is_staggered and not self.is_staggered):
                 getLogger().critical(
                     "FermionAction and StaggeredFermionAction cannot be used at the same time", ValueError
                 )
-        if not self.staggered:
+        if not self.is_staggered:
             self._dirac = Wilson(latt_info, 0, 0.125, 0, 0)
         else:
             self._dirac = Staggered(latt_info, 0, 0.5, 0, 0)
         self.gauge_param = self._dirac.gauge_param
         self.obs_param = QudaGaugeObservableParam()
-        self.obs_param.remove_staggered_phase = QudaBoolean(not not self.staggered)
+        self.obs_param.remove_staggered_phase = QudaBoolean(not not self.is_staggered)
         self.fuseFermionAction()
 
     def fuseFermionAction(self):
-        if self.staggered:
+        if self.is_staggered:
             from .action.hisq import HISQFermion, MultiHISQFermion
 
             hisq_monomials = [monomial for monomial in self._fermion_monomials if isinstance(monomial, HISQFermion)]
@@ -319,12 +316,12 @@ class HMC:
             return noise_raw
 
         backend, random = _seed(self.random.randrange(2**32))
-        shape = (self.latt_info.volume, Ns, Nc) if not self.staggered else (self.latt_info.volume, Nc)
+        shape = (self.latt_info.volume, Ns, Nc) if not self.is_staggered else (self.latt_info.volume, Nc)
         for monomial in self._fermion_monomials:
-            if isinstance(monomial, FermionAction):
+            if not monomial.is_staggered:
                 noise = LatticeFermion(self.latt_info, _noise(backend, random, shape))
                 monomial.sample(noise, True)
-            elif isinstance(monomial, StaggeredFermionAction):
+            else:
                 if hasattr(monomial, "pseudo_fermions"):
                     noise = [
                         LatticeStaggeredFermion(self.latt_info, _noise(backend, random, shape))
@@ -339,7 +336,7 @@ class HMC:
 
     def loadGauge(self, gauge: LatticeGauge):
         gauge_in = gauge.copy()
-        if self.staggered:
+        if self.is_staggered:
             gauge_in.staggeredPhase()
         if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
             gauge_in.setAntiPeriodicT()
@@ -351,7 +348,7 @@ class HMC:
         saveGaugeQuda(gauge.data_ptrs, self.gauge_param)
         if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
             gauge.setAntiPeriodicT()
-        if self.staggered:
+        if self.is_staggered:
             gauge.staggeredPhase(True)
 
     def loadMom(self, mom: LatticeMom):

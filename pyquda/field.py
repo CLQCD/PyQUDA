@@ -171,8 +171,9 @@ class HalfLatticeField:
             self.dtype = numpy_to_torch_dtype(self.dtype)
 
     def initData(self, value):
+        backend, value = (value, None) if isinstance(value, str) else (None, value)
         if value is None:
-            if self.backend == "numpy":
+            if backend == "numpy" or self.backend == "numpy":
                 self.data = numpy.zeros(self.shape, self.dtype)
             elif self.backend == "cupy":
                 import cupy
@@ -509,18 +510,7 @@ class LatticeComplex128(EvenOddField, HalfLatticeField):
         self.initData(value)
 
 
-class LatticeColorMatrix(EvenOddField, HalfLatticeField):
-    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
-        super().__init__(latt_info)
-        self.setField([Nc, Nc], "<c16")
-        self.initData(value)
-
-    @property
-    def __field_class__(self):
-        return LatticeColorMatrix
-
-
-class LatticeGauge(MultiField, LatticeColorMatrix):
+class LatticeGauge(MultiField, EvenOddField, HalfLatticeField):
     def __init__(self, latt_info: LatticeInfo, L5: Union[int, Any] = Nd, value=None) -> None:
         """`L5` can be `value` here"""
         if not isinstance(L5, int):
@@ -545,7 +535,7 @@ class LatticeGauge(MultiField, LatticeColorMatrix):
     @property
     def pure_gauge(self):
         if self._pure_gauge is None:
-            from .dirac.pure_gauge import PureGauge
+            from .dirac import PureGauge
 
             self._pure_gauge = PureGauge(self.latt_info)
         return self._pure_gauge
@@ -560,13 +550,13 @@ class LatticeGauge(MultiField, LatticeColorMatrix):
     def ensurePureGauge(self):
         pass
 
-    def covDev(self, x: "LatticeFermion", covdev_mu: int) -> "LatticeFermion":
+    def covDev(self, x: "LatticeFermion", covdev_mu: int):
         self.pure_gauge.loadGauge(self)
         b = self._pure_gauge.covDev(x, covdev_mu)
         self._pure_gauge.freeGauge()
         return b
 
-    def laplace(self, x: "LatticeStaggeredFermion", laplace3D: int) -> "LatticeStaggeredFermion":
+    def laplace(self, x: "LatticeStaggeredFermion", laplace3D: int):
         self.pure_gauge.loadGauge(self)
         b = self._pure_gauge.laplace(x, laplace3D)
         self._pure_gauge.freeGauge()
@@ -578,7 +568,7 @@ class LatticeGauge(MultiField, LatticeColorMatrix):
         self._pure_gauge.freeGauge()
         return b
 
-    def shift(self, shift_mu: List[int]) -> "LatticeGauge":
+    def shift(self, shift_mu: List[int]):
         unit = LatticeGauge(self.latt_info)
         x = LatticeFermion(self.latt_info)
         self.pure_gauge.loadGauge(unit)
@@ -862,7 +852,7 @@ class LatticeMom(MultiField, EvenOddField, HalfLatticeField):
     @property
     def pure_gauge(self):
         if self._pure_gauge is None:
-            from .dirac.pure_gauge import PureGauge
+            from .dirac import PureGauge
 
             self._pure_gauge = PureGauge(self.latt_info)
         return self._pure_gauge
@@ -926,7 +916,7 @@ class MultiLatticeFermion(MultiField, LatticeFermion):
         self.setField([Ns, Nc], "<c16")
         self.initData(value)
 
-    def toPropagator(self) -> "LatticePropagator":
+    def toPropagator(self):
         assert self.L5 == Ns * Nc
         return LatticePropagator(
             self.latt_info,
@@ -946,7 +936,7 @@ class LatticePropagator(EvenOddField, HalfLatticeField):
     def getFermion(self, spin: int, color: int):
         return LatticeFermion(self.latt_info, self.data[:, :, :, :, :, :, spin, :, color])
 
-    def toMultiFermion(self) -> MultiLatticeFermion:
+    def toMultiFermion(self):
         return MultiLatticeFermion(
             self.latt_info,
             Ns * Nc,
@@ -1005,7 +995,7 @@ class MultiLatticeStaggeredFermion(MultiField, LatticeStaggeredFermion):
         self.setField([Nc], "<c16")
         self.initData(value)
 
-    def toPropagator(self) -> "LatticeStaggeredPropagator":
+    def toPropagator(self):
         assert self.L5 == Nc
         return LatticeStaggeredPropagator(
             self.latt_info,
@@ -1025,7 +1015,7 @@ class LatticeStaggeredPropagator(EvenOddField, HalfLatticeField):
     def getFermion(self, color: int) -> LatticeStaggeredFermion:
         return LatticeStaggeredFermion(self.latt_info, self.data[:, :, :, :, :, :, color])
 
-    def toMultiFermion(self) -> MultiLatticeStaggeredFermion:
+    def toMultiFermion(self):
         return MultiLatticeStaggeredFermion(
             self.latt_info,
             Nc,
