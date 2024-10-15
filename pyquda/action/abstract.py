@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
+from functools import partial
 from typing import List, Literal, NamedTuple, Union
 
+from .. import getCUDABackend
 from ..enum_quda import QUDA_MAX_MULTI_SHIFT, QudaDagType, QudaMatPCType
 from ..pyquda import QudaGaugeParam, QudaInvertParam, invertQuda, MatQuda, invertMultiShiftQuda
 from ..dirac.abstract import Gauge, Dirac, StaggeredDirac
 from ..field import (
-    HalfLatticeFermion,
-    HalfLatticeStaggeredFermion,
     LatticeInfo,
     LatticeFermion,
     LatticeStaggeredFermion,
@@ -52,12 +52,42 @@ class FermionAction(GaugeAction):
     dirac: Dirac
     invert_param: QudaInvertParam
     rhmc_param: RHMCParam
-    phi: Union[HalfLatticeFermion, LatticeFermion]
+    phi: LatticeFermion
+    eta: LatticeFermion
 
     def __init__(self, latt_info: LatticeInfo, dirac: Dirac) -> None:
         super().__init__(latt_info, dirac)
         self.invert_param = self.dirac.invert_param
         self.is_fermion = True
+
+    def sampleEta(self):
+        def _backend():
+            backend = getCUDABackend()
+            if backend == "numpy":
+                import numpy
+
+                return numpy, numpy.random.random
+            elif backend == "cupy":
+                import cupy
+
+                return cupy, partial(cupy.random.random, dtype=cupy.float64)
+            elif backend == "torch":
+                import torch
+
+                return torch, partial(torch.rand, dtype=torch.float64)
+
+        def _normal(backend, random, shape):
+            theta = 2 * backend.pi * random(shape)
+            r = backend.sqrt(-backend.log(random(shape)))
+            z = r * (backend.cos(theta) + 1j * backend.sin(theta))
+            return z
+
+        backend, random = _backend()
+        self.eta.data = _normal(backend, random, self.phi.shape)
+
+    @abstractmethod
+    def sample(self, new_gauge: bool):
+        pass
 
     @abstractmethod
     def action(self, new_gauge: bool) -> float:
@@ -65,10 +95,6 @@ class FermionAction(GaugeAction):
 
     @abstractmethod
     def force(self, dt: float, new_gauge: bool):
-        pass
-
-    @abstractmethod
-    def sample(self, noise: LatticeFermion, new_gauge: bool):
         pass
 
     def _invertMultiShiftParam(self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]):
@@ -154,22 +180,29 @@ class FermionAction(GaugeAction):
                     self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
 
     def invertMultiShift(
-        self, b: LatticeFermion, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]
+        self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]
     ) -> Union[LatticeFermion, MultiLatticeFermion]:
         num_offset, residue, norm = self._invertMultiShiftParam(mode)
         xx = MultiLatticeFermion(self.latt_info, num_offset) if norm is None or num_offset > 1 else None
-        x = LatticeFermion(self.latt_info) if norm is not None else None
-        self._invertMultiShift(xx, x, b, residue, norm)
-        return xx if norm is None else x
+        if mode == "pseudo_fermion":
+            self._invertMultiShift(xx, self.phi, self.eta, residue, norm)
+        else:
+            self._invertMultiShift(xx, self.eta, self.phi, residue, norm)
+        return xx
 
 
 class StaggeredFermionAction(FermionAction):
     dirac: StaggeredDirac
-    phi: Union[HalfLatticeStaggeredFermion, LatticeStaggeredFermion]
+    phi: LatticeStaggeredFermion
+    eta: LatticeStaggeredFermion
 
     def __init__(self, latt_info: LatticeInfo, dirac: StaggeredDirac) -> None:
         super().__init__(latt_info, dirac)
         self.is_staggered = True
+
+    @abstractmethod
+    def sample(self, noise: LatticeStaggeredFermion, new_gauge: bool):
+        pass
 
     @abstractmethod
     def action(self, new_gauge: bool) -> float:
@@ -179,15 +212,13 @@ class StaggeredFermionAction(FermionAction):
     def force(self, dt: float, new_gauge: bool):
         pass
 
-    @abstractmethod
-    def sample(self, noise: LatticeStaggeredFermion, new_gauge: bool):
-        pass
-
     def invertMultiShift(
-        self, b: LatticeStaggeredFermion, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]
+        self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]
     ) -> Union[LatticeStaggeredFermion, MultiLatticeStaggeredFermion]:
         num_offset, residue, norm = self._invertMultiShiftParam(mode)
         xx = MultiLatticeStaggeredFermion(self.latt_info, num_offset) if norm is None or num_offset > 1 else None
-        x = LatticeStaggeredFermion(self.latt_info) if norm is not None else None
-        self._invertMultiShift(xx, x, b, residue, norm)
-        return xx if norm is None else x
+        if mode == "pseudo_fermion":
+            self._invertMultiShift(xx, self.phi, self.eta, residue, norm)
+        else:
+            self._invertMultiShift(xx, self.eta, self.phi, residue, norm)
+        return xx
