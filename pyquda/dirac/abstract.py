@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, NamedTuple, Union
+from typing import NamedTuple
 
 from ..pointer import Pointer
 from ..pyquda import (
@@ -10,7 +10,6 @@ from ..pyquda import (
     QudaGaugeObservableParam,
     invertQuda,
     invertMultiSrcQuda,
-    invertMultiShiftQuda,
     MatQuda,
     MatDagMatQuda,
     dslashQuda,
@@ -20,10 +19,7 @@ from ..pyquda import (
     destroyMultigridQuda,
 )
 from ..enum_quda import (
-    QUDA_MAX_MULTI_SHIFT,
     QudaBoolean,
-    QudaDagType,
-    QudaMatPCType,
     QudaParity,
     QudaPrecision,
     QudaReconstructType,

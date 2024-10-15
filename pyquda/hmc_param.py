@@ -1,20 +1,75 @@
-from typing import List, NamedTuple
+from typing import Literal
+
+from .action.abstract import LoopParam, RationalParam
 
 
-class RHMCParam(NamedTuple):
-    norm_molecular_dynamics: float = 0.0
-    residue_molecular_dynamics: List[float] = [1.0]
-    offset_molecular_dynamics: List[float] = [0.0]
-    norm_pseudo_fermion: float = 0.0
-    residue_pseudo_fermion: List[float] = [1.0]
-    offset_pseudo_fermion: List[float] = [0.0]
-    norm_fermion_action: float = 0.0
-    residue_fermion_action: List[float] = [1.0]
-    offset_fermion_action: List[float] = [0.0]
+def gauge_loop_param(type: Literal["wilson", "symanzik_tree"], u_0: float):
+    if type == "wilson":
+        return LoopParam(
+            path=[
+                [0, 1, 4, 5],
+                [0, 2, 4, 6],
+                [0, 3, 4, 7],
+                [1, 2, 5, 6],
+                [1, 3, 5, 7],
+                [2, 3, 6, 7],
+            ],
+            coeff=[
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+            ],
+        )
+    elif type == "symanzik_tree":
+        return LoopParam(
+            path=[
+                [0, 1, 4, 5],
+                [0, 2, 4, 6],
+                [0, 3, 4, 7],
+                [1, 2, 5, 6],
+                [1, 3, 5, 7],
+                [2, 3, 6, 7],
+                [0, 0, 1, 4, 4, 5],
+                [0, 0, 2, 4, 4, 6],
+                [0, 0, 3, 4, 4, 7],
+                [1, 1, 0, 5, 5, 4],
+                [1, 1, 2, 5, 5, 6],
+                [1, 1, 3, 5, 5, 7],
+                [2, 2, 0, 6, 6, 4],
+                [2, 2, 1, 6, 6, 5],
+                [2, 2, 3, 6, 6, 7],
+                [3, 3, 0, 7, 7, 4],
+                [3, 3, 1, 7, 7, 5],
+                [3, 3, 2, 7, 7, 6],
+            ],
+            coeff=[
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                -1 / 20 / u_0**2,
+                -1 / 20 / u_0**2,
+                -1 / 20 / u_0**2,
+                -1 / 20 / u_0**2,
+                -1 / 20 / u_0**2,
+                -1 / 20 / u_0**2,
+                -1 / 20 / u_0**2,
+                -1 / 20 / u_0**2,
+                -1 / 20 / u_0**2,
+                -1 / 20 / u_0**2,
+                -1 / 20 / u_0**2,
+                -1 / 20 / u_0**2,
+            ],
+        )
 
 
-wilson = {
-    2: RHMCParam(
+wilson_rational_param = {
+    2: RationalParam(
         residue_molecular_dynamics=[
             1.0,
         ],
@@ -29,7 +84,7 @@ wilson = {
             0.0,
         ],
     ),
-    1: RHMCParam(
+    1: RationalParam(
         residue_molecular_dynamics=[
             0.00943108618345698,
             0.0122499930158508,
@@ -96,8 +151,8 @@ wilson = {
     ),
 }
 
-staggered = {
-    ((0.5,), (1,)): RHMCParam(
+staggered_rational_param = {
+    ((0.5,), (1,)): RationalParam(
         norm_molecular_dynamics=1.3325011583706989e-01,
         residue_molecular_dynamics=[
             1.2669186056995732e-01,
@@ -164,7 +219,7 @@ staggered = {
             8.7553100280824765e02,
         ],
     ),
-    ((0.05,), (2,)): RHMCParam(
+    ((0.05,), (2,)): RationalParam(
         norm_molecular_dynamics=2.6567771557480493e-02,
         residue_molecular_dynamics=[
             5.4415326175599146e-02,
@@ -231,7 +286,7 @@ staggered = {
             2.6570653748247554e02,
         ],
     ),
-    ((0.0012, 0.0323, 0.2), (2, 1, -3)): RHMCParam(
+    ((0.0012, 0.0323, 0.2), (2, 1, -3)): RationalParam(
         norm_molecular_dynamics=1.0000021155336281e00,
         residue_molecular_dynamics=[
             1.0939886112519286e-03,
@@ -310,7 +365,7 @@ staggered = {
             1.2246254212695042e-01,
         ],
     ),
-    ((0.2,), (1,)): RHMCParam(
+    ((0.2,), (1,)): RationalParam(
         norm_molecular_dynamics=1.4922969612472456e-01,
         residue_molecular_dynamics=[
             4.6061009721530329e-02,
@@ -377,7 +432,7 @@ staggered = {
             5.4606225005034105e02,
         ],
     ),
-    ((0.432,), (1,)): RHMCParam(
+    ((0.432,), (1,)): RationalParam(
         norm_molecular_dynamics=1.3593606896652125e-01,
         residue_molecular_dynamics=[
             1.0825758523125259e-01,

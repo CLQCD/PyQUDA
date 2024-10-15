@@ -155,7 +155,7 @@ class HalfLatticeField:
 
     def setField(self, field_shape: Sequence[int], field_dtype: Literal["<c16", "<f8", "<i4"]):
         self.field_shape = tuple(field_shape)
-        self.field_size = int(numpy.prod(field_shape).item())
+        self.field_size = int(numpy.prod(field_shape))
         self.field_dtype = field_dtype
         Lx, Ly, Lz, Lt = self.latt_info.size
         self.lattice_shape = [2, Lt, Lz, Ly, Lx // 2] if self.full_lattice else [Lt, Lz, Ly, Lx // 2]

@@ -1,7 +1,5 @@
 from typing import List, Union
 
-import numpy
-
 from ..field import LatticeInfo, LatticeGauge, LatticeClover
 from ..enum_quda import QudaDslashType, QudaPrecision
 
@@ -98,6 +96,3 @@ class CloverWilson(Dirac):
 
     def destroy(self):
         self.destroyMultigrid()
-
-    def forceCoeff(self, residue_molecular_dynamics: List[float]):
-        return numpy.array(residue_molecular_dynamics, "<f8")

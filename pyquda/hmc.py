@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from functools import partial
 from math import exp
 from random import Random
 from typing import List, Union
@@ -17,16 +16,7 @@ from .pyquda import (
     updateGaugeFieldQuda,
 )
 from .enum_quda import QudaBoolean, QudaTboundary
-from .field import (
-    Nc,
-    Ns,
-    LatticeInfo,
-    LatticeGauge,
-    LatticeMom,
-    LatticeFermion,
-    LatticeStaggeredFermion,
-    LatticeFloat64,
-)
+from .field import LatticeInfo, LatticeGauge, LatticeMom, LatticeFloat64
 from .dirac import Wilson, Staggered
 from .action.abstract import GaugeAction, FermionAction, StaggeredFermionAction
 

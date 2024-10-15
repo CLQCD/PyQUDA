@@ -1,4 +1,4 @@
-from typing import List, Sequence, Union
+from typing import List
 
 import numpy
 
@@ -19,8 +19,7 @@ from ..dirac import HISQ
 
 nullptr = Pointers("void", 0)
 
-from . import rhmc_param
-from .abstract import StaggeredFermionAction
+from .abstract import RationalParam, StaggeredFermionAction
 
 
 class HISQFermion(StaggeredFermionAction):
@@ -29,8 +28,7 @@ class HISQFermion(StaggeredFermionAction):
     def __init__(
         self,
         latt_info: LatticeInfo,
-        mass: Union[float, Sequence[float]],
-        flavor: Union[int, Sequence[int]],
+        rational_param: RationalParam,
         tol: float,
         maxiter: int,
         naik_epsilon: float = 0.0,
@@ -40,13 +38,10 @@ class HISQFermion(StaggeredFermionAction):
             getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
         super().__init__(latt_info, HISQ(latt_info, 0.0, 1 / 2, tol, maxiter, naik_epsilon, None))
 
-        mass = (mass,) if not hasattr(mass, "__iter__") else tuple(mass)
-        flavor = (flavor,) if not hasattr(flavor, "__iter__") else tuple(flavor)
-        assert len(mass) == len(flavor)
-
         self.phi = LatticeStaggeredFermion(latt_info)
         self.eta = LatticeStaggeredFermion(latt_info)
-        self.rhmc_param = rhmc_param.staggered[(mass, flavor)]
+        self.rational_param = rational_param
+        self.setForceParam()
 
         self.invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
@@ -55,9 +50,25 @@ class HISQFermion(StaggeredFermionAction):
         self.invert_param.mass_normalization = QudaMassNormalization.QUDA_MASS_NORMALIZATION
         self.invert_param.verbosity = verbosity
 
-        self.num = len(self.rhmc_param.offset_molecular_dynamics)
-        self.num_naik = 0 if naik_epsilon == 0.0 else self.num
-        self.coeff = self.dirac.forceCoeff(self.rhmc_param.residue_molecular_dynamics)
+    def setForceParam(self):
+        coeff = [
+            [
+                2 * res,
+                self.dirac.path_coeff_2[1] * 2 * res,
+            ]
+            for res in self.rational_param.residue_molecular_dynamics
+        ]
+        if self.dirac.naik_epsilon != 0.0:
+            coeff += [
+                [
+                    self.dirac.path_coeff_3[0] * self.dirac.naik_epsilon * 2 * res,
+                    self.dirac.path_coeff_3[1] * self.dirac.naik_epsilon * 2 * res,
+                ]
+                for res in self.rational_param.residue_molecular_dynamics
+            ]
+        self.num = len(self.rational_param.offset_molecular_dynamics)
+        self.num_naik = 0 if self.dirac.naik_epsilon == 0.0 else self.num
+        self.coeff = numpy.array(coeff, "<f8")
 
     def updateFatLong(self, return_v_link: bool):
         u_link = LatticeGauge(self.latt_info)
@@ -87,10 +98,8 @@ class HISQFermion(StaggeredFermionAction):
 
     def force(self, dt, new_gauge: bool):
         u_link, v_link, w_link = self.updateFatLong(True)
-        num = len(self.rhmc_param.offset_molecular_dynamics)
-        num_naik = 0 if self.dirac.naik_epsilon == 0.0 else num
         xx = self.invertMultiShift("molecular_dynamics")
-        for i in range(num):
+        for i in range(self.num):
             dslashQuda(xx[i].odd_ptr, xx[i].even_ptr, self.invert_param, QudaParity.QUDA_ODD_PARITY)
         computeHISQForceQuda(
             nullptr,
@@ -101,8 +110,8 @@ class HISQFermion(StaggeredFermionAction):
             v_link.data_ptrs,
             u_link.data_ptrs,
             xx.data_ptrs,
-            num,
-            num_naik,
+            self.num,
+            self.num_naik,
             self.coeff,
             self.gauge_param,
         )
@@ -117,16 +126,18 @@ class MultiHISQFermion(StaggeredFermionAction):
         super().__init__(latt_info, pseudo_fermions[0].dirac)
 
         self.pseudo_fermions = pseudo_fermions
+        self.setForceParam()
 
+    def setForceParam(self):
         num_total = 0
         num_naik_total = 0
-        for pseudo_fermion in pseudo_fermions:
+        for pseudo_fermion in self.pseudo_fermions:
             num_total += pseudo_fermion.num
             num_naik_total += pseudo_fermion.num_naik
         coeff_all = numpy.zeros((num_total + num_naik_total, 2), "<f8")
         num_current = 0
         num_naik_current = num_total
-        for pseudo_fermion in pseudo_fermions:
+        for pseudo_fermion in self.pseudo_fermions:
             num = pseudo_fermion.num
             num_naik = pseudo_fermion.num_naik
             coeff_all[num_current : num_current + num] = pseudo_fermion.coeff[:num]
