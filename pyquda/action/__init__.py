@@ -1,8 +1,7 @@
 # flake8: noqa
 
 # GaugeAction
-from .wilson_gauge import WilsonGauge
-from .symanzik_tree_gauge import SymanzikTreeGauge
+from .pure_gauge import PureGauge
 
 # FermionAction
 from .clover_wilson import CloverWilsonFermion

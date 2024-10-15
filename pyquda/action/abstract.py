@@ -15,22 +15,16 @@ from ..field import (
 )
 
 
-class RHMCParam(NamedTuple):
-    norm_molecular_dynamics: float = 0.0
-    residue_molecular_dynamics: List[float] = [1.0]
-    offset_molecular_dynamics: List[float] = [0.0]
-    norm_pseudo_fermion: float = 0.0
-    residue_pseudo_fermion: List[float] = [1.0]
-    offset_pseudo_fermion: List[float] = [0.0]
-    norm_fermion_action: float = 0.0
-    residue_fermion_action: List[float] = [1.0]
-    offset_fermion_action: List[float] = [0.0]
+class LoopParam(NamedTuple):
+    path: List[List[int]]
+    coeff: List[float]
 
 
 class GaugeAction(ABC):
     latt_info: LatticeInfo
     dirac: Gauge
     gauge_param: QudaGaugeParam
+    loop_param: LoopParam
 
     def __init__(self, latt_info: LatticeInfo, dirac: Gauge) -> None:
         self.latt_info = latt_info
@@ -48,10 +42,22 @@ class GaugeAction(ABC):
         pass
 
 
+class RationalParam(NamedTuple):
+    norm_molecular_dynamics: float = 0.0
+    residue_molecular_dynamics: List[float] = [1.0]
+    offset_molecular_dynamics: List[float] = [0.0]
+    norm_pseudo_fermion: float = 0.0
+    residue_pseudo_fermion: List[float] = [1.0]
+    offset_pseudo_fermion: List[float] = [0.0]
+    norm_fermion_action: float = 0.0
+    residue_fermion_action: List[float] = [1.0]
+    offset_fermion_action: List[float] = [0.0]
+
+
 class FermionAction(GaugeAction):
     dirac: Dirac
     invert_param: QudaInvertParam
-    rhmc_param: RHMCParam
+    rational_param: RationalParam
     phi: LatticeFermion
     eta: LatticeFermion
 
@@ -83,7 +89,7 @@ class FermionAction(GaugeAction):
             return z
 
         backend, random = _backend()
-        self.eta.data = _normal(backend, random, self.phi.shape)
+        self.eta.data = _normal(backend, random, self.eta.shape)
 
     @abstractmethod
     def sample(self, new_gauge: bool):
@@ -100,21 +106,21 @@ class FermionAction(GaugeAction):
     def _invertMultiShiftParam(self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]):
         if mode == "pseudo_fermion":
             offset, residue, norm = (
-                self.rhmc_param.offset_pseudo_fermion,
-                self.rhmc_param.residue_pseudo_fermion,
-                self.rhmc_param.norm_pseudo_fermion,
+                self.rational_param.offset_pseudo_fermion,
+                self.rational_param.residue_pseudo_fermion,
+                self.rational_param.norm_pseudo_fermion,
             )
         elif mode == "molecular_dynamics":
             offset, residue, norm = (
-                self.rhmc_param.offset_molecular_dynamics,
-                self.rhmc_param.residue_molecular_dynamics,
+                self.rational_param.offset_molecular_dynamics,
+                self.rational_param.residue_molecular_dynamics,
                 None,
             )
         elif mode == "fermion_action":
             offset, residue, norm = (
-                self.rhmc_param.offset_fermion_action,
-                self.rhmc_param.residue_fermion_action,
-                self.rhmc_param.norm_fermion_action,
+                self.rational_param.offset_fermion_action,
+                self.rational_param.residue_fermion_action,
+                self.rational_param.norm_fermion_action,
             )
         assert len(offset) == len(residue)
         num_offset = len(offset)
@@ -201,7 +207,7 @@ class StaggeredFermionAction(FermionAction):
         self.is_staggered = True
 
     @abstractmethod
-    def sample(self, noise: LatticeStaggeredFermion, new_gauge: bool):
+    def sample(self, new_gauge: bool):
         pass
 
     @abstractmethod

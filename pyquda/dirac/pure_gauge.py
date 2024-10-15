@@ -214,7 +214,7 @@ class PureGauge(Gauge):
         for i in range(num_paths):
             path_length[i] = len(loops[i])
         max_length = int(numpy.max(path_length))
-        input_path_buf = numpy.zeros((num_paths, max_length), "<i4")
+        input_path_buf = numpy.full((num_paths, max_length), -1, "<i4")
         for i in range(num_paths):
             dx = [0, 0, 0, 0]
             for j, d in enumerate(loops[i]):

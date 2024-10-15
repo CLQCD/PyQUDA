@@ -1,7 +1,5 @@
 from typing import List, Union
 
-import numpy
-
 from ..field import LatticeInfo, LatticeGauge
 from ..enum_quda import QudaDslashType, QudaInverterType, QudaReconstructType, QudaPrecision
 
@@ -116,15 +114,3 @@ class HISQ(StaggeredDirac):
 
     def destroy(self):
         self.destroyMultigrid()
-
-    def forceCoeff(self, residue_molecular_dynamics: List[float]):
-        coeff = [[2 * res, self.path_coeff_2[1] * 2 * res] for res in residue_molecular_dynamics]
-        if self.naik_epsilon != 0.0:
-            coeff += [
-                [
-                    self.path_coeff_3[0] * self.naik_epsilon * 2 * res,
-                    self.path_coeff_3[1] * self.naik_epsilon * 2 * res,
-                ]
-                for res in residue_molecular_dynamics
-            ]
-        return numpy.array(coeff, "<f8")
