@@ -11,7 +11,7 @@ from ..enum_quda import (
     QudaVerbosity,
 )
 from ..field import Nd, Nc, Ns, LatticeInfo, LatticeFermion
-from ..dirac.clover_wilson import CloverWilson
+from ..dirac import CloverWilson
 
 nullptr = Pointers("void", 0)
 
@@ -20,6 +20,8 @@ from .abstract import FermionAction
 
 
 class CloverWilsonFermion(FermionAction):
+    dirac: CloverWilson
+
     def __init__(
         self,
         latt_info: LatticeInfo,
@@ -30,19 +32,16 @@ class CloverWilsonFermion(FermionAction):
         clover_csw: float,
         verbosity: QudaVerbosity = QudaVerbosity.QUDA_SILENT,
     ) -> None:
-        super().__init__(latt_info)
+        kappa = 1 / (2 * (mass + Nd))
         if latt_info.anisotropy != 1.0:
             getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
+        super().__init__(latt_info, CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_csw, 1, None))
 
-        kappa = 1 / (2 * (mass + Nd))
         self.kappa2 = -(kappa**2)
         self.ck = -kappa * clover_csw / 8
         self.num_flavor = num_flavor
 
-        self.dirac = CloverWilson(latt_info, mass, kappa, tol, maxiter, clover_csw, 1, None)
         self.phi = LatticeFermion(latt_info)
-        self.gauge_param = self.dirac.gauge_param
-        self.invert_param = self.dirac.invert_param
         self.rhmc_param = rhmc_param.wilson[num_flavor]
 
         self.invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
@@ -64,11 +63,7 @@ class CloverWilsonFermion(FermionAction):
         self.updateClover(new_gauge)
         self.invert_param.compute_clover_trlog = 0
         self.invert_param.compute_action = 1
-        self.dirac.invertMultiShiftPC(
-            self.phi,
-            self.rhmc_param.offset_molecular_dynamics,
-            self.rhmc_param.residue_molecular_dynamics,
-        )
+        self.invertMultiShift(self.phi, "molecular_dynamics")
         self.invert_param.compute_action = 0
         return (
             self.invert_param.action[0]
@@ -79,11 +74,7 @@ class CloverWilsonFermion(FermionAction):
     def force(self, dt, new_gauge: bool):
         self.updateClover(new_gauge)
         nvector = len(self.rhmc_param.offset_molecular_dynamics)
-        xx = self.dirac.invertMultiShiftPC(
-            self.phi,
-            self.rhmc_param.offset_molecular_dynamics,
-            self.rhmc_param.residue_molecular_dynamics,
-        )
+        xx = self.invertMultiShift(self.phi, "molecular_dynamics")
         # Some conventions force the dagger to be YES here
         self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
         computeCloverForceQuda(
@@ -102,11 +93,6 @@ class CloverWilsonFermion(FermionAction):
 
     def sample(self, noise: LatticeFermion, new_gauge: bool):
         self.updateClover(new_gauge)
-        x = self.dirac.invertMultiShiftPC(
-            noise,
-            self.rhmc_param.offset_pseudo_fermion,
-            self.rhmc_param.residue_pseudo_fermion,
-            self.rhmc_param.norm_pseudo_fermion,
-        )
+        x = self.invertMultiShift(noise, "pseudo_fermion")
         self.phi.even = x.even
         self.phi.odd = noise.even

@@ -15,7 +15,7 @@ from ..enum_quda import (
     QudaVerbosity,
 )
 from ..field import LatticeInfo, LatticeGauge, LatticeStaggeredFermion, MultiLatticeStaggeredFermion
-from ..dirac.hisq import HISQ
+from ..dirac import HISQ
 
 nullptr = Pointers("void", 0)
 
@@ -24,6 +24,8 @@ from .abstract import StaggeredFermionAction
 
 
 class HISQFermion(StaggeredFermionAction):
+    dirac: HISQ
+
     def __init__(
         self,
         latt_info: LatticeInfo,
@@ -34,17 +36,15 @@ class HISQFermion(StaggeredFermionAction):
         naik_epsilon: float = 0.0,
         verbosity: QudaVerbosity = QudaVerbosity.QUDA_SILENT,
     ) -> None:
-        super().__init__(latt_info)
         if latt_info.anisotropy != 1.0:
             getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
+        super().__init__(latt_info, HISQ(latt_info, 0.0, 1 / 2, tol, maxiter, naik_epsilon, None))
+
         mass = (mass,) if not hasattr(mass, "__iter__") else tuple(mass)
         flavor = (flavor,) if not hasattr(flavor, "__iter__") else tuple(flavor)
         assert len(mass) == len(flavor)
 
-        self.dirac = HISQ(latt_info, 0.0, 1 / 2, tol, maxiter, naik_epsilon, None)
         self.phi = LatticeStaggeredFermion(latt_info)
-        self.gauge_param = self.dirac.gauge_param
-        self.invert_param = self.dirac.invert_param
         self.rhmc_param = rhmc_param.staggered[(mass, flavor)]
 
         self.invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
@@ -71,32 +71,19 @@ class HISQFermion(StaggeredFermionAction):
     def action(self, new_gauge: bool) -> float:
         self.updateFatLong(False)
         self.invert_param.compute_action = 1
-        self.dirac.invertMultiShiftPC(
-            self.phi,
-            self.rhmc_param.offset_molecular_dynamics,
-            self.rhmc_param.residue_molecular_dynamics,
-        )
+        self.invertMultiShift(self.phi, "molecular_dynamics")
         self.invert_param.compute_action = 0
         return self.invert_param.action[0]
 
     def action2(self) -> float:
-        x = self.dirac.invertMultiShiftPC(
-            self.phi,
-            self.rhmc_param.offset_fermion_action,
-            self.rhmc_param.residue_fermion_action,
-            self.rhmc_param.norm_fermion_action,
-        )
+        x = self.invertMultiShift(self.phi, "fermion_action")
         return x.even.norm2()  # - norm_molecular_dynamics * self.phi.even.norm2()
 
     def force(self, dt, new_gauge: bool):
         u_link, v_link, w_link = self.updateFatLong(True)
         num = len(self.rhmc_param.offset_molecular_dynamics)
         num_naik = 0 if self.dirac.naik_epsilon == 0.0 else num
-        xx = self.dirac.invertMultiShiftPC(
-            self.phi,
-            self.rhmc_param.offset_molecular_dynamics,
-            self.rhmc_param.residue_molecular_dynamics,
-        )
+        xx = self.invertMultiShift(self.phi, "molecular_dynamics")
         for i in range(num):
             dslashQuda(xx[i].odd_ptr, xx[i].even_ptr, self.invert_param, QudaParity.QUDA_ODD_PARITY)
         computeHISQForceQuda(
@@ -116,24 +103,19 @@ class HISQFermion(StaggeredFermionAction):
 
     def sample(self, noise: LatticeStaggeredFermion, new_gauge: bool):
         self.updateFatLong(False)
-        x = self.dirac.invertMultiShiftPC(
-            noise,
-            self.rhmc_param.offset_pseudo_fermion,
-            self.rhmc_param.residue_pseudo_fermion,
-            self.rhmc_param.norm_pseudo_fermion,
-        )
+        x = self.invertMultiShift(noise, "pseudo_fermion")
         self.phi.even = x.even
         self.phi.odd = noise.even
 
 
 class MultiHISQFermion(StaggeredFermionAction):
+    dirac: HISQ
+
     def __init__(self, latt_info: LatticeInfo, pseudo_fermions: List[HISQFermion]) -> None:
-        super().__init__(latt_info)
         if latt_info.anisotropy != 1.0:
             getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
+        super().__init__(latt_info, pseudo_fermions[0].dirac)
 
-        self.dirac = pseudo_fermions[0].dirac
-        self.gauge_param = self.dirac.gauge_param
         self.pseudo_fermions = pseudo_fermions
 
         num_total = 0
@@ -174,11 +156,7 @@ class MultiHISQFermion(StaggeredFermionAction):
         for pseudo_fermion in self.pseudo_fermions:
             self.updateFatLong(pseudo_fermion)
             pseudo_fermion.invert_param.compute_action = 1
-            pseudo_fermion.dirac.invertMultiShiftPC(
-                pseudo_fermion.phi,
-                pseudo_fermion.rhmc_param.offset_molecular_dynamics,
-                pseudo_fermion.rhmc_param.residue_molecular_dynamics,
-            )
+            pseudo_fermion.invertMultiShift(pseudo_fermion.phi, "molecular_dynamics")
             pseudo_fermion.invert_param.compute_action = 0
             action += pseudo_fermion.invert_param.action[0]
         return action
@@ -188,12 +166,7 @@ class MultiHISQFermion(StaggeredFermionAction):
         self.prepareFatLong(False)
         for pseudo_fermion in self.pseudo_fermions:
             self.updateFatLong(pseudo_fermion)
-            x = pseudo_fermion.dirac.invertMultiShiftPC(
-                pseudo_fermion.phi,
-                pseudo_fermion.rhmc_param.offset_fermion_action,
-                pseudo_fermion.rhmc_param.residue_fermion_action,
-                pseudo_fermion.rhmc_param.norm_fermion_action,
-            )
+            x = pseudo_fermion.invertMultiShift(pseudo_fermion.phi, "fermion_action")
             action += x.even.norm2()
         return action
 
@@ -203,11 +176,7 @@ class MultiHISQFermion(StaggeredFermionAction):
         xx_all = MultiLatticeStaggeredFermion(self.latt_info, self.num)
         for pseudo_fermion in self.pseudo_fermions:
             self.updateFatLong(pseudo_fermion)
-            xx = pseudo_fermion.dirac.invertMultiShiftPC(
-                pseudo_fermion.phi,
-                pseudo_fermion.rhmc_param.offset_molecular_dynamics,
-                pseudo_fermion.rhmc_param.residue_molecular_dynamics,
-            )
+            xx = pseudo_fermion.invertMultiShift(pseudo_fermion.phi, "molecular_dynamics")
             for i in range(pseudo_fermion.num):
                 dslashQuda(xx[i].odd_ptr, xx[i].even_ptr, pseudo_fermion.invert_param, QudaParity.QUDA_ODD_PARITY)
                 xx_all[num_current + i] = xx[i]
@@ -231,11 +200,6 @@ class MultiHISQFermion(StaggeredFermionAction):
         self.prepareFatLong(False)
         for idx, pseudo_fermion in enumerate(self.pseudo_fermions):
             self.updateFatLong(pseudo_fermion)
-            x = pseudo_fermion.dirac.invertMultiShiftPC(
-                noise[idx],
-                pseudo_fermion.rhmc_param.offset_pseudo_fermion,
-                pseudo_fermion.rhmc_param.residue_pseudo_fermion,
-                pseudo_fermion.rhmc_param.norm_pseudo_fermion,
-            )
+            x = pseudo_fermion.invertMultiShift(noise[idx], "pseudo_fermion")
             pseudo_fermion.phi.even = x.even
             pseudo_fermion.phi.odd = noise[idx].even

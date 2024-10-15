@@ -3,7 +3,8 @@ from typing import List, Union
 from ..field import LatticeInfo, LatticeGauge
 from ..enum_quda import QudaDslashType, QudaPrecision
 
-from . import Multigrid, Dirac, general
+from . import general
+from .abstract import Multigrid, Dirac
 
 
 class Wilson(Dirac):

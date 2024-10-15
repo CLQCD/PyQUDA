@@ -3,7 +3,8 @@ from typing import List, Union
 from ..field import LatticeInfo, LatticeGauge
 from ..enum_quda import QudaDslashType, QudaInverterType, QudaReconstructType, QudaPrecision
 
-from . import Multigrid, StaggeredDirac, general
+from . import general
+from .abstract import Multigrid, StaggeredDirac
 
 
 class Staggered(StaggeredDirac):

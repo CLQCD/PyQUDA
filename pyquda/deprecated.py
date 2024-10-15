@@ -2,7 +2,7 @@ from typing import List
 
 from . import getLogger, getGridSize, quda, enum_quda
 from .field import LatticeFermion, LatticeGauge, LatticeInfo, LatticePropagator, Nc, Nd, Ns
-from .dirac import Dirac
+from .dirac.abstract import Dirac
 
 
 def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):

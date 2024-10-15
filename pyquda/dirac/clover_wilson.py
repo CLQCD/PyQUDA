@@ -5,7 +5,8 @@ import numpy
 from ..field import LatticeInfo, LatticeGauge, LatticeClover
 from ..enum_quda import QudaDslashType, QudaPrecision
 
-from . import Multigrid, Dirac, general
+from . import general
+from .abstract import Multigrid, Dirac
 
 
 class CloverWilson(Dirac):
