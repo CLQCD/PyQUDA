@@ -126,7 +126,7 @@ def readQIOPropagator(filename: str):
     assert int(scidac_private_file_xml.find("spacetime").text) == Nd
     latt_size = [int(L) for L in scidac_private_file_xml.find("dims").text.split()]
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
-    dtype = f">c{2*precision}"
+    dtype = f">c{2 * precision}"
 
     if not staggered:
         propagator = numpy.empty((Ns, Nc, Lt, Lz, Ly, Lx, Ns, Nc), dtype)
