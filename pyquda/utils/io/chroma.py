@@ -72,7 +72,7 @@ def readQIOGauge(filename: str, checksum: bool = True):
     assert int(scidac_private_file_xml.find("spacetime").text) == Nd
     latt_size = [int(L) for L in scidac_private_file_xml.find("dims").text.split()]
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
-    dtype = f">c{2*precision}"
+    dtype = f">c{2 * precision}"
 
     gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
     if checksum:
@@ -137,7 +137,7 @@ def readQIOPropagator(filename: str, checksum: bool = True):
     assert int(scidac_private_file_xml.find("spacetime").text) == Nd
     latt_size = [int(L) for L in scidac_private_file_xml.find("dims").text.split()]
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
-    dtype = f">c{2*precision}"
+    dtype = f">c{2 * precision}"
 
     if not staggered:
         propagator = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc), (3, 2, 1, 0))

@@ -655,7 +655,7 @@ class LatticeGauge(MultiField, EvenOddField, HalfLatticeField):
             getLogger().info(f"t2E({step * epsilon})={t2E}, tdt2E({(step - 0.5) * epsilon})={tdt2E}")
         else:
             getLogger().error(
-                f"Wilson flow scale doesn't exceed 0.3 at max_steps*epsilon={max_steps*epsilon}", RuntimeError
+                f"Wilson flow scale doesn't exceed 0.3 at max_steps*epsilon={max_steps * epsilon}", RuntimeError
             )
         self._gauge_dirac.freeGauge()
         self._gauge_dirac.freeSmearedGauge()
@@ -695,7 +695,7 @@ class LatticeGauge(MultiField, EvenOddField, HalfLatticeField):
             getLogger().info(f"t2E({step * epsilon})={t2E}, tdt2E({(step - 0.5) * epsilon})={tdt2E}")
         else:
             getLogger().error(
-                f"Symanzik flow scale doesn't exceed 0.3 at max_steps*epsilon={max_steps*epsilon}", RuntimeError
+                f"Symanzik flow scale doesn't exceed 0.3 at max_steps*epsilon={max_steps * epsilon}", RuntimeError
             )
         self._gauge_dirac.freeGauge()
         self._gauge_dirac.freeSmearedGauge()
