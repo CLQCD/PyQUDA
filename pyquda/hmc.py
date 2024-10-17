@@ -255,33 +255,6 @@ class HMC:
         mom = LatticeMom(self.latt_info)
         self.loadMom(mom)
 
-    def actionGauge(self, gauge: bool = True, fermion: bool = True) -> float:
-        action = 0
-        if gauge:
-            for monomial in self._gauge_monomials:
-                action += monomial.action()
-        if fermion:
-            for monomial in self._fermion_monomials:
-                action += monomial.action(True)
-        if self._hmc_inner is not None:
-            action += self._hmc_inner.actionGauge(gauge, fermion)
-        return action
-
-    def actionMom(self) -> float:
-        return momActionQuda(nullptr, self.gauge_param)
-
-    def updateGauge(self, dt: float):
-        updateGaugeFieldQuda(nullptr, nullptr, dt, False, True, self.gauge_param)
-        loadGaugeQuda(nullptr, self.gauge_param)
-
-    def updateMom(self, dt: float, gauge: bool = True, fermion: bool = True):
-        if gauge:
-            for monomial in self._gauge_monomials:
-                monomial.force(dt)
-        if fermion:
-            for monomial in self._fermion_monomials:
-                monomial.force(dt, True)
-
     def seed(self, state):
         seed = self.random.randrange(2**32)
         backend = getCUDABackend()
@@ -312,6 +285,11 @@ class HMC:
         return state
 
     def samplePhi(self):
+        R"""
+        \phi\sim e^{-S_f}=e^{-\phi^\dagger\mathcal{M}^{-1}\phi}
+
+        \mathcal{M}^{-\frac{1}{2}}\phi=\eta\sim e^{-\eta^\dagger\eta}
+        """
         state = self.seed(None)
 
         for monomial in self._fermion_monomials:
@@ -320,6 +298,43 @@ class HMC:
             self._hmc_inner.samplePhi()
 
         self.seed(state)
+
+    def momAction(self) -> float:
+        return momActionQuda(nullptr, self.gauge_param)
+
+    def gaugeAction(self) -> float:
+        action = 0
+        for monomial in self._gauge_monomials:
+            action += monomial.action()
+        if self._hmc_inner is not None:
+            action += self._hmc_inner.gaugeAction()
+        return action
+
+    def fermionAction(self) -> float:
+        action = 0
+        for monomial in self._fermion_monomials:
+            action += monomial.action(True)
+        if self._hmc_inner is not None:
+            action += self._hmc_inner.fermionAction()
+        return action
+
+    def gaugeForce(self, dt: float):
+        for monomial in self._gauge_monomials:
+            monomial.force(dt)
+
+    def fermionForce(self, dt: float):
+        for monomial in self._fermion_monomials:
+            monomial.force(dt, True)
+
+    def updateGauge(self, dt: float):
+        updateGaugeFieldQuda(nullptr, nullptr, dt, False, True, self.gauge_param)
+        loadGaugeQuda(nullptr, self.gauge_param)
+
+    def updateMom(self, dt: float, gauge: bool = True, fermion: bool = True):
+        if gauge:
+            self.gaugeForce(dt)
+        if fermion:
+            self.fermionForce(dt)
 
     def loadGauge(self, gauge: LatticeGauge):
         gauge_in = gauge.copy()
@@ -365,7 +380,7 @@ class HMC:
         if project_tol is not None:
             self.projectSU3(project_tol)
 
-    def accept(self, delta_s):
+    def accept(self, delta_s: float):
         return self.latt_info.mpi_comm.bcast(self.random.random() < exp(-delta_s))
 
     def plaquette(self):
