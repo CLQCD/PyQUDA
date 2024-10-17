@@ -4,7 +4,7 @@ import struct
 from typing import Dict, List, Tuple
 from xml.etree import ElementTree as ET
 
-from ... import getSublatticeSize, readMPIFile
+from ... import getSublatticeSize, getMPIComm, getGridCoord, readMPIFile
 
 Nd, Ns, Nc = 4, 4, 3
 _precision_map = {"D": 8, "F": 4, "S": 4}
@@ -14,7 +14,6 @@ def checksum_qio(latt_size: List[int], data):
     import zlib
     import numpy
     from mpi4py import MPI
-    from ... import getMPIComm, getGridCoord
 
     gx, gy, gz, gt = getGridCoord()
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
