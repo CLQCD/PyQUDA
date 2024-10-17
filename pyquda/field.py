@@ -80,6 +80,20 @@ class LaplaceLatticeInfo(LatticeInfo):
 Ns, Nc, Nd = LatticeInfo.Ns, LatticeInfo.Nc, LatticeInfo.Nd
 
 
+class _Direction(int):
+    def __new__(cls, x: int):
+        return int.__new__(cls, x)
+
+    def __neg__(self):
+        return _Direction((self + 4) % 8)
+
+
+X = _Direction(0)
+Y = _Direction(1)
+Z = _Direction(2)
+T = _Direction(3)
+
+
 def lexico(data: numpy.ndarray, axes: List[int], dtype=None):
     shape = data.shape
     Np, Lt, Lz, Ly, Lx = [shape[axis] for axis in axes]

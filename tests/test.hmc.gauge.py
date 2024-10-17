@@ -29,12 +29,12 @@ for i in range(start, stop):
     hmc.gaussMom()
     hmc.samplePhi()
 
-    kinetic_old, potential_old = hmc.actionMom(), hmc.actionGauge()
+    kinetic_old, potential_old = hmc.momAction(), hmc.gaugeAction()
     energy_old = kinetic_old + potential_old
 
     hmc.integrate(t, 2e-15)
 
-    kinetic, potential = hmc.actionMom(), hmc.actionGauge()
+    kinetic, potential = hmc.momAction(), hmc.gaugeAction()
     energy = kinetic + potential
 
     accept = hmc.accept(energy - energy_old)

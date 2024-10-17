@@ -1,5 +1,6 @@
 from typing import Literal
 
+from .field import X, Y, Z, T
 from .action.abstract import LoopParam, RationalParam
 
 
@@ -7,12 +8,12 @@ def gauge_loop_param(type: Literal["wilson", "symanzik_tree"], u_0: float):
     if type == "wilson":
         return LoopParam(
             path=[
-                [0, 1, 4, 5],
-                [0, 2, 4, 6],
-                [0, 3, 4, 7],
-                [1, 2, 5, 6],
-                [1, 3, 5, 7],
-                [2, 3, 6, 7],
+                [X, Y, -X, -Y],
+                [X, Z, -X, -Z],
+                [X, T, -X, -T],
+                [Y, Z, -Y, -Z],
+                [Y, T, -Y, -T],
+                [Z, T, -Z, -T],
             ],
             coeff=[
                 1,
@@ -26,24 +27,24 @@ def gauge_loop_param(type: Literal["wilson", "symanzik_tree"], u_0: float):
     elif type == "symanzik_tree":
         return LoopParam(
             path=[
-                [0, 1, 4, 5],
-                [0, 2, 4, 6],
-                [0, 3, 4, 7],
-                [1, 2, 5, 6],
-                [1, 3, 5, 7],
-                [2, 3, 6, 7],
-                [0, 0, 1, 4, 4, 5],
-                [0, 0, 2, 4, 4, 6],
-                [0, 0, 3, 4, 4, 7],
-                [1, 1, 0, 5, 5, 4],
-                [1, 1, 2, 5, 5, 6],
-                [1, 1, 3, 5, 5, 7],
-                [2, 2, 0, 6, 6, 4],
-                [2, 2, 1, 6, 6, 5],
-                [2, 2, 3, 6, 6, 7],
-                [3, 3, 0, 7, 7, 4],
-                [3, 3, 1, 7, 7, 5],
-                [3, 3, 2, 7, 7, 6],
+                [X, Y, -X, -Y],
+                [X, Z, -X, -Z],
+                [X, T, -X, -T],
+                [Y, Z, -Y, -Z],
+                [Y, T, -Y, -T],
+                [Z, T, -Z, -T],
+                [X, X, Y, -X, -X, -Y],
+                [X, X, Z, -X, -X, -Z],
+                [X, X, T, -X, -X, -T],
+                [Y, Y, X, -Y, -Y, -X],
+                [Y, Y, Z, -Y, -Y, -Z],
+                [Y, Y, T, -Y, -Y, -T],
+                [Z, Z, X, -Z, -Z, -X],
+                [Z, Z, Y, -Z, -Z, -Y],
+                [Z, Z, T, -Z, -Z, -T],
+                [T, T, X, -T, -T, -X],
+                [T, T, Y, -T, -T, -Y],
+                [T, T, Z, -T, -T, -Z],
             ],
             coeff=[
                 1,

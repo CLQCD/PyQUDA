@@ -92,7 +92,8 @@ class HISQAction(StaggeredFermionAction):
         self.invert_param.compute_action = 0
         return self.invert_param.action[0]
 
-    def action2(self) -> float:
+    def action2(self, new_gauge: bool) -> float:
+        self.updateFatLong(False)
         self.invertMultiShift("fermion_action")
         return self.eta.even.norm2()  # - norm_molecular_dynamics * self.phi.even.norm2()
 
@@ -179,7 +180,7 @@ class MultiHISQAction(StaggeredFermionAction):
             action += pseudo_fermion.invert_param.action[0]
         return action
 
-    def action2(self) -> float:
+    def action2(self, new_gauge: bool) -> float:
         action = 0
         self.prepareFatLong(False)
         for pseudo_fermion in self.pseudo_fermions:
