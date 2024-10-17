@@ -5,7 +5,7 @@ from check_pyquda import test_dir
 
 from pyquda import init, getLogger, core
 from pyquda.hmc import HMC, O4Nf5Ng0V
-from pyquda.hmc_param import gauge_loop_param, wilson_rational_param
+from pyquda.hmc_param import symanzik_tree_gauge, wilson_rational_param
 from pyquda.action import GaugeAction, CloverWilsonAction
 from pyquda.utils.io import writeNPYGauge
 
@@ -19,7 +19,7 @@ init([1, 1, 1, 1], resource_path=".cache", enable_force_monitor=True)
 latt_info = core.LatticeInfo([4, 4, 4, 8], t_boundary=-1, anisotropy=1.0)
 
 monomials = [
-    GaugeAction(latt_info, gauge_loop_param("symanzik_tree", u_0), beta, u_0),
+    GaugeAction(latt_info, symanzik_tree_gauge(u_0), beta, u_0),
     CloverWilsonAction(latt_info, wilson_rational_param[2], 0.3, 2, tol, maxiter, clover_csw),
     CloverWilsonAction(latt_info, wilson_rational_param[1], 0.5, 1, tol, maxiter, clover_csw),
 ]
