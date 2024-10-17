@@ -29,7 +29,7 @@ def readGauge(filename: str):
     return latt_size, gauge
 
 
-def writeGauge(filename: str, gauge: numpy.ndarray, latt_size: List[int]):
+def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray):
     filename = path.expanduser(path.expandvars(filename))
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     if getMPIRank() == 0:
@@ -53,7 +53,7 @@ def readPropagator(filename: str):
     return latt_size, propagator
 
 
-def writePropagator(filename: str, propagator: numpy.ndarray, latt_size: List[int]):
+def writePropagator(filename: str, latt_size: List[int], propagator: numpy.ndarray):
     filename = path.expanduser(path.expandvars(filename))
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     if getMPIRank() == 0:

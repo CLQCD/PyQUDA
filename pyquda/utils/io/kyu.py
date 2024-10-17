@@ -24,7 +24,7 @@ def readGauge(filename: str, latt_size: List[int]):
     return gauge
 
 
-def writeGauge(filename: str, gauge: numpy.ndarray, latt_size: List[int]):
+def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray):
     filename = path.expanduser(path.expandvars(filename))
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     dtype, offset = ">f8", 0
@@ -51,7 +51,7 @@ def readPropagator(filename: str, latt_size: List[int]):
     return propagator
 
 
-def writePropagator(filename: str, propagator: numpy.ndarray, latt_size: List[int]):
+def writePropagator(filename: str, latt_size: List[int], propagator: numpy.ndarray):
     filename = path.expanduser(path.expandvars(filename))
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     dtype, offset = ">f8", 0

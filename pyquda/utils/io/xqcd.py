@@ -24,7 +24,7 @@ def readPropagator(filename: str, latt_size: List[int], staggered: bool):
     return propagator
 
 
-def writePropagator(filename: str, propagator: numpy.ndarray, latt_size: List[int], staggered: bool):
+def writePropagator(filename: str, latt_size: List[int], propagator: numpy.ndarray, staggered: bool):
     filename = path.expanduser(path.expandvars(filename))
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     dtype, offset = "<c8", 0
@@ -49,7 +49,7 @@ def readPropagatorFast(filename: str, latt_size: List[int]):
     return propagator
 
 
-def writePropagatorFast(filename: str, propagator: numpy.ndarray, latt_size: List[int]):
+def writePropagatorFast(filename: str, latt_size: List[int], propagator: numpy.ndarray):
     filename = path.expanduser(path.expandvars(filename))
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     dtype, offset = "<c8", 0

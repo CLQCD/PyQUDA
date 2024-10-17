@@ -1,3 +1,4 @@
+from datetime import datetime
 import io
 from os import path
 import struct
@@ -6,7 +7,7 @@ from xml.etree import ElementTree as ET
 
 import numpy
 
-from ... import getSublatticeSize, readMPIFile
+from ... import getSublatticeSize, getMPIComm, getMPISize, getMPIRank, getGridCoord, readMPIFile, writeMPIFile
 
 Nd, Ns, Nc = 4, 4, 3
 _precision_map = {"D": 8, "F": 4, "S": 4}
@@ -15,7 +16,6 @@ _precision_map = {"D": 8, "F": 4, "S": 4}
 def checksum_milc(latt_size: List[int], data):
     import numpy
     from mpi4py import MPI
-    from ... import getMPIComm, getMPISize, getGridCoord
 
     gx, gy, gz, gt = getGridCoord()
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
@@ -39,7 +39,6 @@ def checksum_qio(latt_size: List[int], data):
     import zlib
     import numpy
     from mpi4py import MPI
-    from ... import getMPIComm, getGridCoord
 
     gx, gy, gz, gt = getGridCoord()
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
@@ -71,7 +70,7 @@ def readGauge(filename: str, checksum: bool = True):
             raise ValueError(f"Broken magic {magic} in MILC gauge")
         latt_size = struct.unpack(f"{endian}iiii", f.read(16))
         time_stamp = f.read(64).decode()  # noqa: F841
-        assert struct.unpack(f"{endian}i", f.read(4))[0] == 0
+        assert struct.unpack(f"{endian}i", f.read(4))[0] == 0  # order
         sum29, sum31 = struct.unpack(f"{endian}II", f.read(8))
         offset = f.tell()
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
@@ -82,6 +81,26 @@ def readGauge(filename: str, checksum: bool = True):
         assert checksum_milc(latt_size, gauge.reshape(-1)) == (sum29, sum31), f"Bad checksum for {filename}"
     gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
     return latt_size, gauge
+
+
+def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray):
+    filename = path.expanduser(path.expandvars(filename))
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
+    dtype, offset = "<c8", None
+
+    gauge = numpy.ascontiguousarray(gauge.transpose(1, 2, 3, 4, 0, 5, 6).astype(dtype))
+    sum29, sum31 = checksum_milc(latt_size, gauge.reshape(-1))
+    if getMPIRank() == 0:
+        with open(filename, "wb") as f:
+            f.write(struct.pack("<i", 20103))
+            f.write(struct.pack("<iiii", *latt_size))
+            f.write(datetime.now().strftime(R"%a %b %d %H:%M:%S %Y").encode().ljust(64, b"\x00"))
+            f.write(struct.pack("<i", 0))  # order
+            f.write(struct.pack("<II", sum29, sum31))
+            offset = f.tell()
+    offset = getMPIComm().bcast(offset)
+
+    writeMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0), gauge)
 
 
 def readQIOPropagator(filename: str):

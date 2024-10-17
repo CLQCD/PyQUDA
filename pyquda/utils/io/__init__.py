@@ -100,6 +100,12 @@ def readMILCGauge(filename: str, checksum: bool = True):
     return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
 
 
+def writeMILCGauge(filename: str, gauge: LatticeGauge):
+    from .milc import writeGauge as write
+
+    write(filename, gauge.latt_info.global_size, gauge.lexico())
+
+
 def readMILCQIOPropagator(filename: str):
     from .milc import readQIOPropagator as read
 
@@ -120,7 +126,7 @@ def readKYUGauge(filename: str, latt_size: List[int]):
 def writeKYUGauge(filename: str, gauge: LatticeGauge):
     from .kyu import writeGauge as write
 
-    write(filename, gauge.lexico(), gauge.latt_info.global_size)
+    write(filename, gauge.latt_info.global_size, gauge.lexico())
 
 
 def readKYUPropagator(filename: str, latt_size: List[int]):
@@ -133,7 +139,7 @@ def readKYUPropagator(filename: str, latt_size: List[int]):
 def writeKYUPropagator(filename: str, propagator: LatticePropagator):
     from .kyu import writePropagator as write
 
-    write(filename, rotateToDiracPauli(propagator).lexico(), propagator.latt_info.global_size)
+    write(filename, propagator.latt_info.global_size, rotateToDiracPauli(propagator).lexico())
 
 
 def readXQCDPropagator(filename: str, latt_size: List[int], staggered: bool):
@@ -152,9 +158,9 @@ def writeXQCDPropagator(filename: str, propagator: Union[LatticePropagator, Latt
     latt_size = propagator.latt_info.global_size
     staggered = isinstance(propagator, LatticeStaggeredPropagator)
     if not staggered:
-        write(filename, rotateToDiracPauli(propagator).lexico(), latt_size, staggered)
+        write(filename, latt_size, rotateToDiracPauli(propagator).lexico(), staggered)
     else:
-        write(filename, propagator.lexico(), latt_size, staggered)
+        write(filename, latt_size, propagator.lexico(), staggered)
 
 
 def readXQCDPropagatorFast(filename: str, latt_size: List[int]):
@@ -181,7 +187,7 @@ def writeXQCDPropagatorFast(filename: str, propagator: LatticePropagator):
     propagator.toHost()
     propagator.data = propagator.data.reshape(Ns, Nc, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
     propagator_raw = lexico(propagator.data, [2, 3, 4, 5, 6])
-    write(filename, propagator_raw, latt_info.global_size)
+    write(filename, latt_info.global_size, propagator_raw)
 
 
 def readNPYGauge(filename: str):
@@ -196,7 +202,7 @@ def writeNPYGauge(filename: str, gauge: LatticeGauge):
     from .npy import writeGauge as write
 
     filename = filename if filename.endswith(".npy") else filename + ".npy"
-    write(filename, gauge.lexico(), gauge.latt_info.global_size)
+    write(filename, gauge.latt_info.global_size, gauge.lexico())
 
 
 def readNPYPropagator(filename: str):
@@ -209,7 +215,7 @@ def readNPYPropagator(filename: str):
 def writeNPYPropagator(filename: str, propagator: LatticePropagator):
     from .npy import writePropagator as write
 
-    write(filename, propagator.lexico(), propagator.latt_info.global_size)
+    write(filename, propagator.latt_info.global_size, propagator.lexico())
 
 
 def readQIOGauge(filename: str):
