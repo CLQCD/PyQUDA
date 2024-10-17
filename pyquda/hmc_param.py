@@ -1,72 +1,106 @@
+from math import log
 from typing import Literal
 
 from .field import X, Y, Z, T
 from .action.abstract import LoopParam, RationalParam
 
 
-def gauge_loop_param(type: Literal["wilson", "symanzik_tree"], u_0: float):
-    if type == "wilson":
-        return LoopParam(
-            path=[
-                [X, Y, -X, -Y],
-                [X, Z, -X, -Z],
-                [X, T, -X, -T],
-                [Y, Z, -Y, -Z],
-                [Y, T, -Y, -T],
-                [Z, T, -Z, -T],
-            ],
-            coeff=[
-                1,
-                1,
-                1,
-                1,
-                1,
-                1,
-            ],
-        )
-    elif type == "symanzik_tree":
-        return LoopParam(
-            path=[
-                [X, Y, -X, -Y],
-                [X, Z, -X, -Z],
-                [X, T, -X, -T],
-                [Y, Z, -Y, -Z],
-                [Y, T, -Y, -T],
-                [Z, T, -Z, -T],
-                [X, X, Y, -X, -X, -Y],
-                [X, X, Z, -X, -X, -Z],
-                [X, X, T, -X, -X, -T],
-                [Y, Y, X, -Y, -Y, -X],
-                [Y, Y, Z, -Y, -Y, -Z],
-                [Y, Y, T, -Y, -Y, -T],
-                [Z, Z, X, -Z, -Z, -X],
-                [Z, Z, Y, -Z, -Z, -Y],
-                [Z, Z, T, -Z, -Z, -T],
-                [T, T, X, -T, -T, -X],
-                [T, T, Y, -T, -T, -Y],
-                [T, T, Z, -T, -T, -Z],
-            ],
-            coeff=[
-                1,
-                1,
-                1,
-                1,
-                1,
-                1,
-                -1 / 20 / u_0**2,
-                -1 / 20 / u_0**2,
-                -1 / 20 / u_0**2,
-                -1 / 20 / u_0**2,
-                -1 / 20 / u_0**2,
-                -1 / 20 / u_0**2,
-                -1 / 20 / u_0**2,
-                -1 / 20 / u_0**2,
-                -1 / 20 / u_0**2,
-                -1 / 20 / u_0**2,
-                -1 / 20 / u_0**2,
-                -1 / 20 / u_0**2,
-            ],
-        )
+def wilson_gauge():
+    beta_0 = 1
+    return LoopParam(
+        path=[
+            [X, Y, -X, -Y],
+            [X, Z, -X, -Z],
+            [X, T, -X, -T],
+            [Y, Z, -Y, -Z],
+            [Y, T, -Y, -T],
+            [Z, T, -Z, -T],
+        ],
+        coeff=[beta_0 for _ in range(6)],
+    )
+
+
+def symanzik_tree_gauge(u_0: float):
+    beta_0 = 1
+    beta_1 = -beta_0 / (20 * u_0**2)
+    return LoopParam(
+        path=[
+            [X, Y, -X, -Y],
+            [X, Z, -X, -Z],
+            [X, T, -X, -T],
+            [Y, Z, -Y, -Z],
+            [Y, T, -Y, -T],
+            [Z, T, -Z, -T],
+            [X, X, Y, -X, -X, -Y],
+            [X, X, Z, -X, -X, -Z],
+            [X, X, T, -X, -X, -T],
+            [Y, Y, X, -Y, -Y, -X],
+            [Y, Y, Z, -Y, -Y, -Z],
+            [Y, Y, T, -Y, -Y, -T],
+            [Z, Z, X, -Z, -Z, -X],
+            [Z, Z, Y, -Z, -Z, -Y],
+            [Z, Z, T, -Z, -Z, -T],
+            [T, T, X, -T, -T, -X],
+            [T, T, Y, -T, -T, -Y],
+            [T, T, Z, -T, -T, -Z],
+        ],
+        coeff=[beta_0 for _ in range(6)] + [beta_1 for _ in range(12)],
+    )
+
+
+def symanzik_1loop_gauge(
+    u_0: float, fermion_type: Literal["quenched", "asqtad", "hisq"] = "quenched", n_flavor: int = None
+):
+    beta_0 = 1
+    alpha_s = -4 * log(u_0) / 3.06839
+    if fermion_type == "quenched":
+        beta_1 = -beta_0 / (20 * u_0**2) * (1 + 0.4805 * alpha_s)
+        beta_2 = -beta_0 / u_0**2 * 0.03325 * alpha_s
+    elif fermion_type == "asqtad":
+        beta_1 = -beta_0 / (20 * u_0**2) * (1 + (0.4805 - 0.3637 * n_flavor) * alpha_s)
+        beta_2 = -beta_0 / u_0**2 * (0.03325 - 0.009 * n_flavor) * alpha_s
+    elif fermion_type == "hisq":
+        beta_1 = -beta_0 / (20 * u_0**2) * (1 + (0.4805 - 0.899 * n_flavor) * alpha_s)
+        beta_2 = -beta_0 / u_0**2 * (0.03325 - 0.0121 * n_flavor) * alpha_s
+    return LoopParam(
+        path=[
+            [X, Y, -X, -Y],
+            [X, Z, -X, -Z],
+            [X, T, -X, -T],
+            [Y, Z, -Y, -Z],
+            [Y, T, -Y, -T],
+            [Z, T, -Z, -T],
+            [X, X, Y, -X, -X, -Y],
+            [X, X, Z, -X, -X, -Z],
+            [X, X, T, -X, -X, -T],
+            [Y, Y, X, -Y, -Y, -X],
+            [Y, Y, Z, -Y, -Y, -Z],
+            [Y, Y, T, -Y, -Y, -T],
+            [Z, Z, X, -Z, -Z, -X],
+            [Z, Z, Y, -Z, -Z, -Y],
+            [Z, Z, T, -Z, -Z, -T],
+            [T, T, X, -T, -T, -X],
+            [T, T, Y, -T, -T, -Y],
+            [T, T, Z, -T, -T, -Z],
+            [X, Y, Z, -X, -Y, -Z],
+            [X, Y, -Z, -X, -Y, Z],
+            [X, -Y, Z, -X, Y, -Z],
+            [X, -Y, -Z, -X, Y, Z],
+            [X, Y, T, -X, -Y, -T],
+            [X, Y, -T, -X, -Y, T],
+            [X, -Y, T, -X, Y, -T],
+            [X, -Y, -T, -X, Y, T],
+            [X, Z, T, -X, -Z, -T],
+            [X, Z, -T, -X, -Z, T],
+            [X, -Z, T, -X, Z, -T],
+            [X, -Z, -T, -X, Z, T],
+            [Y, Z, T, -Y, -Z, -T],
+            [Y, Z, -T, -Y, -Z, T],
+            [Y, -Z, T, -Y, Z, -T],
+            [Y, -Z, -T, -Y, Z, T],
+        ],
+        coeff=[beta_0 for _ in range(6)] + [beta_1 for _ in range(12)] + [beta_2 for _ in range(16)],
+    )
 
 
 wilson_rational_param = {
