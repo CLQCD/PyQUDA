@@ -382,9 +382,6 @@ class MultiField:
             s.__init__(latt_info)
         self.L5 = L5
 
-    def __getitem__(self, index: Union[int, slice]):
-        return super(MultiField, self).__field_class__(self.latt_info, self.data[index])
-
     @property
     def data(self):
         return self._data
