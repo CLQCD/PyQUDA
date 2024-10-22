@@ -36,7 +36,7 @@ class HISQAction(StaggeredFermionAction):
     ) -> None:
         if latt_info.anisotropy != 1.0:
             getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
-        super().__init__(latt_info, HISQDirac(latt_info, 0.0, 1 / 2, tol, maxiter, naik_epsilon, None))
+        super().__init__(latt_info, HISQDirac(latt_info, 0.0, tol, maxiter, naik_epsilon, None))
 
         self.setForceParam(rational_param)
         self.quark = None  # For MultiHISQAction

@@ -34,11 +34,11 @@ class CloverWilsonAction(FermionAction):
         clover_csw: float,
         verbosity: QudaVerbosity = QudaVerbosity.QUDA_SILENT,
     ) -> None:
-        kappa = 1 / (2 * (mass + Nd))
         if latt_info.anisotropy != 1.0:
             getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
-        super().__init__(latt_info, CloverWilsonDirac(latt_info, mass, kappa, tol, maxiter, clover_csw, 1, None))
+        super().__init__(latt_info, CloverWilsonDirac(latt_info, mass, tol, maxiter, clover_csw, 1, None))
 
+        kappa = 1 / (2 * (mass + Nd))
         self.setForceParam(rational_param, kappa, clover_csw, n_flavor)
         self.quark = MultiLatticeFermion(self.latt_info, self.max_num_offset)
         self.phi = LatticeFermion(latt_info)

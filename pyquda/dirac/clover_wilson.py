@@ -1,6 +1,6 @@
 from typing import List, Union
 
-from ..field import LatticeInfo, LatticeGauge, LatticeClover
+from ..field import Nd, LatticeInfo, LatticeGauge, LatticeClover
 from ..enum_quda import QudaDslashType, QudaPrecision
 
 from . import general
@@ -12,13 +12,13 @@ class CloverWilsonDirac(FermionDirac):
         self,
         latt_info: LatticeInfo,
         mass: float,
-        kappa: float,
         tol: float,
         maxiter: int,
         clover_csw: float = 0.0,
         clover_xi: float = 1.0,
         multigrid: Union[List[List[int]], Multigrid] = None,
     ) -> None:
+        kappa = 1 / (2 * (mass + 1 + (Nd - 1) / latt_info.anisotropy))
         super().__init__(latt_info)
         self.clover: LatticeClover = None
         self.clover_inv: LatticeClover = None

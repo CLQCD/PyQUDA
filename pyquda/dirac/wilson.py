@@ -1,6 +1,6 @@
 from typing import List, Union
 
-from ..field import LatticeInfo, LatticeGauge
+from ..field import Nd, LatticeInfo, LatticeGauge
 from ..enum_quda import QudaDslashType, QudaPrecision
 
 from . import general
@@ -12,11 +12,11 @@ class WilsonDirac(FermionDirac):
         self,
         latt_info: LatticeInfo,
         mass: float,
-        kappa: float,
         tol: float,
         maxiter: int,
         multigrid: Union[List[List[int]], Multigrid] = None,
     ) -> None:
+        kappa = 1 / (2 * (mass + 1 + (Nd - 1) / latt_info.anisotropy))
         super().__init__(latt_info)
         self.newQudaGaugeParam()
         self.newQudaMultigridParam(multigrid, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
