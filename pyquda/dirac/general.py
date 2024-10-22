@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, NamedTuple
 
 import numpy
 from numpy.typing import NDArray
@@ -94,7 +94,76 @@ from ..enum_quda import (  # noqa: F401
 nullptr = Pointer("void")
 nullptrs = Pointers("void", 0)
 
-from .abstract import Precision, Reconstruct
+
+class Precision(NamedTuple):
+    cpu: QudaPrecision
+    cuda: QudaPrecision
+    sloppy: QudaPrecision
+    precondition: QudaPrecision
+    eigensolver: QudaPrecision
+
+
+class Reconstruct(NamedTuple):
+    cuda: QudaReconstructType
+    sloppy: QudaReconstructType
+    precondition: QudaReconstructType
+    eigensolver: QudaReconstructType
+
+
+_precision = Precision(
+    QudaPrecision.QUDA_DOUBLE_PRECISION,
+    QudaPrecision.QUDA_DOUBLE_PRECISION,
+    QudaPrecision.QUDA_HALF_PRECISION,
+    QudaPrecision.QUDA_HALF_PRECISION,
+    QudaPrecision.QUDA_SINGLE_PRECISION,
+)
+_reconstruct = Reconstruct(
+    QudaReconstructType.QUDA_RECONSTRUCT_12,
+    QudaReconstructType.QUDA_RECONSTRUCT_12,
+    QudaReconstructType.QUDA_RECONSTRUCT_12,
+    QudaReconstructType.QUDA_RECONSTRUCT_12,
+)
+
+
+def getGlobalPrecision():
+    return _precision
+
+
+def getGlobalReconstruct():
+    return _reconstruct
+
+
+def setGlobalPrecision(
+    *,
+    cuda: QudaPrecision = None,
+    sloppy: QudaPrecision = None,
+    precondition: QudaPrecision = None,
+    eigensolver: QudaPrecision = None,
+):
+    global _precision
+    _precision = Precision(
+        _precision.cpu,
+        cuda if cuda is not None else _precision.cuda,
+        sloppy if sloppy is not None else _precision.sloppy,
+        precondition if precondition is not None else _precision.precondition,
+        eigensolver if eigensolver is not None else _precision.eigensolver,
+    )
+
+
+def setGlobalReconstruct(
+    *,
+    cuda: QudaReconstructType = None,
+    sloppy: QudaReconstructType = None,
+    precondition: QudaReconstructType = None,
+    eigensolver: QudaReconstructType = None,
+):
+    global _reconstruct
+    _reconstruct = Reconstruct(
+        cuda if cuda is not None else _reconstruct.cuda,
+        sloppy if sloppy is not None else _reconstruct.sloppy,
+        precondition if precondition is not None else _reconstruct.precondition,
+        eigensolver if eigensolver is not None else _reconstruct.eigensolver,
+    )
 
 
 def _fieldLocation():
@@ -112,12 +181,65 @@ def _useMMA():
     return QudaBoolean(not isHIP() and getCUDAComputeCapability().major >= 7)
 
 
+def setPrecisionParam(
+    precision: Precision,
+    gauge_param: QudaGaugeParam = None,
+    invert_param: QudaInvertParam = None,
+    mg_param: QudaMultigridParam = None,
+    mg_inv_param: QudaInvertParam = None,
+):
+    if gauge_param is not None:
+        gauge_param.cpu_prec = precision.cpu
+        gauge_param.cuda_prec = precision.cuda
+        gauge_param.cuda_prec_sloppy = precision.sloppy
+        gauge_param.cuda_prec_refinement_sloppy = precision.sloppy
+        gauge_param.cuda_prec_precondition = precision.precondition
+        gauge_param.cuda_prec_eigensolver = precision.eigensolver
+
+    if invert_param is not None:
+        invert_param.cpu_prec = precision.cpu
+        invert_param.cuda_prec = precision.cuda
+        invert_param.cuda_prec_sloppy = precision.sloppy
+        invert_param.cuda_prec_refinement_sloppy = precision.sloppy
+        invert_param.cuda_prec_precondition = precision.precondition
+        invert_param.cuda_prec_eigensolver = precision.eigensolver
+
+        if invert_param.clover_coeff != 0.0:
+            invert_param.clover_cpu_prec = precision.cpu
+            invert_param.clover_cuda_prec = precision.cuda
+            invert_param.clover_cuda_prec_sloppy = precision.sloppy
+            invert_param.clover_cuda_prec_refinement_sloppy = precision.sloppy
+            invert_param.clover_cuda_prec_precondition = precision.precondition
+            invert_param.clover_cuda_prec_eigensolver = precision.eigensolver
+
+    if mg_inv_param is not None:
+        mg_inv_param.cpu_prec = precision.cpu
+        mg_inv_param.cuda_prec = precision.cuda
+        mg_inv_param.cuda_prec_sloppy = precision.sloppy
+        mg_inv_param.cuda_prec_precondition = precision.precondition
+
+        mg_inv_param.clover_cpu_prec = precision.cpu
+        mg_inv_param.clover_cuda_prec = precision.cuda
+        mg_inv_param.clover_cuda_prec_sloppy = precision.sloppy
+        mg_inv_param.clover_cuda_prec_precondition = precision.precondition
+
+    if mg_param is not None:
+        mg_param.precision_null = [precision.precondition] * QUDA_MAX_MG_LEVEL
+
+
+def setReconstructParam(reconstruct: Reconstruct, gauge_param: QudaGaugeParam = None):
+    if gauge_param is not None:
+        gauge_param.reconstruct = reconstruct.cuda
+        gauge_param.reconstruct_sloppy = reconstruct.sloppy
+        gauge_param.reconstruct_refinement_sloppy = reconstruct.sloppy
+        gauge_param.reconstruct_precondition = reconstruct.precondition
+        gauge_param.reconstruct_eigensolver = reconstruct.eigensolver
+
+
 def newQudaGaugeParam(
     lattice: LatticeInfo,
     tadpole_coeff: float,
     naik_epsilon: float,
-    precision: Precision,
-    reconstruct: Reconstruct,
 ):
     gauge_param = QudaGaugeParam()
 
@@ -129,19 +251,6 @@ def newQudaGaugeParam(
     gauge_param.type = QudaLinkType.QUDA_WILSON_LINKS
     gauge_param.gauge_order = QudaGaugeFieldOrder.QUDA_QDP_GAUGE_ORDER
     gauge_param.t_boundary = lattice.t_boundary
-
-    gauge_param.cpu_prec = precision.cpu
-    gauge_param.cuda_prec = precision.cuda
-    gauge_param.cuda_prec_sloppy = precision.sloppy
-    gauge_param.cuda_prec_refinement_sloppy = precision.sloppy
-    gauge_param.cuda_prec_precondition = precision.precondition
-    gauge_param.cuda_prec_eigensolver = precision.eigensolver
-
-    gauge_param.reconstruct = reconstruct.cuda
-    gauge_param.reconstruct_sloppy = reconstruct.sloppy
-    gauge_param.reconstruct_refinement_sloppy = reconstruct.sloppy
-    gauge_param.reconstruct_precondition = reconstruct.precondition
-    gauge_param.reconstruct_eigensolver = reconstruct.eigensolver
 
     gauge_param.gauge_fix = QudaGaugeFixed.QUDA_GAUGE_FIXED_NO
     gauge_param.ga_pad = lattice.ga_pad
@@ -171,7 +280,6 @@ def newQudaMultigridParam(
     setup_maxiter: int,
     nu_pre: int,
     nu_post: int,
-    precision: Precision,
 ):
     mg_param = QudaMultigridParam()
     mg_inv_param = QudaInvertParam()
@@ -198,19 +306,11 @@ def newQudaMultigridParam(
     mg_inv_param.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
 
     location: QudaFieldLocation = _fieldLocation()
-    mg_inv_param.cpu_prec = precision.cpu
-    mg_inv_param.cuda_prec = precision.cuda
-    mg_inv_param.cuda_prec_sloppy = precision.sloppy
-    mg_inv_param.cuda_prec_precondition = precision.precondition
     mg_inv_param.input_location = location
     mg_inv_param.output_location = location
     mg_inv_param.dirac_order = QudaDiracFieldOrder.QUDA_DIRAC_ORDER
     mg_inv_param.gamma_basis = QudaGammaBasis.QUDA_DEGRAND_ROSSI_GAMMA_BASIS
 
-    mg_inv_param.clover_cpu_prec = precision.cpu
-    mg_inv_param.clover_cuda_prec = precision.cuda
-    mg_inv_param.clover_cuda_prec_sloppy = precision.sloppy
-    mg_inv_param.clover_cuda_prec_precondition = precision.precondition
     mg_inv_param.clover_location = location
     mg_inv_param.clover_order = QudaCloverFieldOrder.QUDA_PACKED_CLOVER_ORDER
     mg_inv_param.clover_coeff = 1.0
@@ -228,7 +328,6 @@ def newQudaMultigridParam(
     mg_param.geo_block_size = geo_block_size
     mg_param.spin_block_size = [2] + [1] * (QUDA_MAX_MG_LEVEL - 1)
     mg_param.n_vec = [24] * QUDA_MAX_MG_LEVEL
-    mg_param.precision_null = [precision.precondition] * QUDA_MAX_MG_LEVEL
     mg_param.n_block_ortho = [1] * QUDA_MAX_MG_LEVEL
 
     mg_param.setup_inv_type = [QudaInverterType.QUDA_CGNR_INVERTER] * QUDA_MAX_MG_LEVEL
@@ -288,7 +387,6 @@ def newQudaInvertParam(
     clover_coeff: float,
     clover_anisotropy: float,
     mg_param: QudaMultigridParam,
-    precision: Precision,
 ):
     invert_param = QudaInvertParam()
 
@@ -324,24 +422,12 @@ def newQudaInvertParam(
     invert_param.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
 
     location: QudaFieldLocation = _fieldLocation()
-    invert_param.cpu_prec = precision.cpu
-    invert_param.cuda_prec = precision.cuda
-    invert_param.cuda_prec_sloppy = precision.sloppy
-    invert_param.cuda_prec_refinement_sloppy = precision.sloppy
-    invert_param.cuda_prec_precondition = precision.precondition
-    invert_param.cuda_prec_eigensolver = precision.eigensolver
     invert_param.input_location = location
     invert_param.output_location = location
     invert_param.dirac_order = QudaDiracFieldOrder.QUDA_DIRAC_ORDER
     invert_param.gamma_basis = QudaGammaBasis.QUDA_DEGRAND_ROSSI_GAMMA_BASIS
 
     if clover_coeff != 0.0:
-        invert_param.clover_cpu_prec = precision.cpu
-        invert_param.clover_cuda_prec = precision.cuda
-        invert_param.clover_cuda_prec_sloppy = precision.sloppy
-        invert_param.clover_cuda_prec_refinement_sloppy = precision.sloppy
-        invert_param.clover_cuda_prec_precondition = precision.precondition
-        invert_param.clover_cuda_prec_eigensolver = precision.eigensolver
         invert_param.clover_location = location
         invert_param.clover_order = QudaCloverFieldOrder.QUDA_PACKED_CLOVER_ORDER
         invert_param.clover_csw = clover_anisotropy  # to save clover_anisotropy, not real csw

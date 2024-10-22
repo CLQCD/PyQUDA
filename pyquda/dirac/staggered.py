@@ -19,21 +19,23 @@ class StaggeredDirac(StaggeredFermionDirac):
         multigrid: Union[List[List[int]], Multigrid] = None,
     ) -> None:
         super().__init__(latt_info)
+        self.newQudaGaugeParam(tadpole_coeff)
+        self.newQudaMultigridParam(multigrid, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
+        self.newQudaInvertParam(mass, kappa, tol, maxiter)
         # Using half with multigrid doesn't work
         if multigrid is not None:
-            self._setPrecision(sloppy=max(self.precision.sloppy, QudaPrecision.QUDA_SINGLE_PRECISION))
-        self._setReconstruct(
+            self.setPrecision(sloppy=max(self.precision.sloppy, QudaPrecision.QUDA_SINGLE_PRECISION))
+        else:
+            self.setPrecision()
+        self.setReconstruct(
             cuda=max(self.reconstruct.cuda, QudaReconstructType.QUDA_RECONSTRUCT_NO),
             sloppy=max(self.reconstruct.sloppy, QudaReconstructType.QUDA_RECONSTRUCT_NO),
             precondition=max(self.reconstruct.precondition, QudaReconstructType.QUDA_RECONSTRUCT_NO),
             eigensolver=max(self.reconstruct.eigensolver, QudaReconstructType.QUDA_RECONSTRUCT_NO),
         )
-        self.newQudaGaugeParam(tadpole_coeff)
-        self.newQudaMultigridParam(multigrid, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
-        self.newQudaInvertParam(mass, kappa, tol, maxiter)
 
     def newQudaGaugeParam(self, tadpole_coeff: float):
-        gauge_param = general.newQudaGaugeParam(self.latt_info, tadpole_coeff, 0.0, self.precision, self.reconstruct)
+        gauge_param = general.newQudaGaugeParam(self.latt_info, tadpole_coeff, 0.0)
         gauge_param.staggered_phase_applied = 1
         self.gauge_param = gauge_param
 
@@ -63,7 +65,6 @@ class StaggeredDirac(StaggeredFermionDirac):
                 setup_maxiter,
                 nu_pre,
                 nu_post,
-                self.precision,
             )
             mg_inv_param.dslash_type = QudaDslashType.QUDA_ASQTAD_DSLASH
             self.multigrid = Multigrid(mg_param, mg_inv_param)
@@ -71,9 +72,7 @@ class StaggeredDirac(StaggeredFermionDirac):
             self.multigrid = Multigrid(None, None)
 
     def newQudaInvertParam(self, mass: float, kappa: float, tol: float, maxiter: int):
-        invert_param = general.newQudaInvertParam(
-            mass, kappa, tol, maxiter, 0.0, 1.0, self.multigrid.param, self.precision
-        )
+        invert_param = general.newQudaInvertParam(mass, kappa, tol, maxiter, 0.0, 1.0, self.multigrid.param)
         invert_param.dslash_type = QudaDslashType.QUDA_STAGGERED_DSLASH
         if self.multigrid.param is None:
             invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER

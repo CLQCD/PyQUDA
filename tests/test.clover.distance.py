@@ -4,7 +4,6 @@ from check_pyquda import weak_field
 
 from pyquda import core, init
 from pyquda.utils import io
-from pyquda.dirac import setPrecision
 
 xi_0, nu = 2.464, 0.95
 kappa = 0.115
@@ -14,8 +13,8 @@ coeff_r, coeff_t = 0.91, 1.07
 
 init([1, 1, 1, 1], [4, 4, 4, 8], -1, xi_0 / nu, resource_path=".cache")
 
-setPrecision(sloppy=8)
 dslash = core.getDefaultDirac(mass, 1e-12, 1000, xi_0, coeff_t, coeff_r)
+dslash.setPrecision(sloppy=8)
 gauge = io.readQIOGauge(weak_field)
 
 dslash.loadGauge(gauge)

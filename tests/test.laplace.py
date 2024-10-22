@@ -10,10 +10,10 @@ from check_pyquda import weak_field
 from pyquda import init, core, enum_quda, quda
 from pyquda.field import LatticeGauge, LaplaceLatticeInfo, LatticeStaggeredFermion, MultiLatticeStaggeredFermion, Nc
 from pyquda.utils import io
-from pyquda.dirac import setPrecision
+from pyquda.dirac import setGlobalPrecision
 
 init(resource_path=".cache")
-setPrecision(eigensolver=8)
+setGlobalPrecision(eigensolver=8)
 
 t = 3
 
