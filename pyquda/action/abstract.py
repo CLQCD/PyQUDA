@@ -58,6 +58,7 @@ class FermionAction(Action):
     dirac: FermionDirac
     invert_param: QudaInvertParam
     rational_param: RationalParam
+    quark: MultiLatticeFermion
     phi: LatticeFermion
     eta: LatticeFermion
 
@@ -89,7 +90,7 @@ class FermionAction(Action):
             return z
 
         backend, random = _backend()
-        self.eta.data = _normal(backend, random, self.eta.shape)
+        self.eta.data[:] = _normal(backend, random, self.eta.shape)
 
     @abstractmethod
     def sample(self, new_gauge: bool):
@@ -135,7 +136,7 @@ class FermionAction(Action):
             ] + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
         else:
             assert offset == [0.0] and residue == [1.0] and (norm is None or norm == 0.0)
-        return num_offset, residue, norm
+        return residue, norm
 
     def _invertMultiShift(
         self,
@@ -188,17 +189,16 @@ class FermionAction(Action):
     def invertMultiShift(
         self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]
     ) -> Union[LatticeFermion, MultiLatticeFermion]:
-        num_offset, residue, norm = self._invertMultiShiftParam(mode)
-        xx = MultiLatticeFermion(self.latt_info, num_offset) if norm is None or num_offset > 1 else None
+        residue, norm = self._invertMultiShiftParam(mode)
         if mode == "pseudo_fermion":
-            self._invertMultiShift(xx, self.phi, self.eta, residue, norm)
+            self._invertMultiShift(self.quark, self.phi, self.eta, residue, norm)
         else:
-            self._invertMultiShift(xx, self.eta, self.phi, residue, norm)
-        return xx
+            self._invertMultiShift(self.quark, self.eta, self.phi, residue, norm)
 
 
 class StaggeredFermionAction(FermionAction):
     dirac: StaggeredFermionDirac
+    quark: MultiLatticeStaggeredFermion
     phi: LatticeStaggeredFermion
     eta: LatticeStaggeredFermion
 
@@ -221,10 +221,8 @@ class StaggeredFermionAction(FermionAction):
     def invertMultiShift(
         self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]
     ) -> Union[LatticeStaggeredFermion, MultiLatticeStaggeredFermion]:
-        num_offset, residue, norm = self._invertMultiShiftParam(mode)
-        xx = MultiLatticeStaggeredFermion(self.latt_info, num_offset) if norm is None or num_offset > 1 else None
+        residue, norm = self._invertMultiShiftParam(mode)
         if mode == "pseudo_fermion":
-            self._invertMultiShift(xx, self.phi, self.eta, residue, norm)
+            self._invertMultiShift(self.quark, self.phi, self.eta, residue, norm)
         else:
-            self._invertMultiShift(xx, self.eta, self.phi, residue, norm)
-        return xx
+            self._invertMultiShift(self.quark, self.eta, self.phi, residue, norm)

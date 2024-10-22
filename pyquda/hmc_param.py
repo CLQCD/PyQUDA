@@ -51,6 +51,13 @@ def symanzik_tree_gauge(u_0: float):
 def symanzik_1loop_gauge(
     u_0: float, fermion_type: Literal["quenched", "asqtad", "hisq"] = "quenched", n_flavor: int = None
 ):
+    """
+    Quenched: https://arxiv.org/pdf/hep-lat/9507010 Eqs. (6), (7), (8), (9)
+
+    Asqtad: https://arxiv.org/pdf/0705.4660 Eq. (41)
+
+    HISQ: https://arxiv.org/pdf/0812.0503 Eq. (36)
+    """
     beta_0 = 1
     alpha_s = -4 * log(u_0) / 3.06839
     if fermion_type == "quenched":

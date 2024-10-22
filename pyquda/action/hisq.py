@@ -38,10 +38,10 @@ class HISQAction(StaggeredFermionAction):
             getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
         super().__init__(latt_info, HISQDirac(latt_info, 0.0, 1 / 2, tol, maxiter, naik_epsilon, None))
 
+        self.setForceParam(rational_param)
+        self.quark = None  # For MultiHISQAction
         self.phi = LatticeStaggeredFermion(latt_info)
         self.eta = LatticeStaggeredFermion(latt_info)
-        self.rational_param = rational_param
-        self.setForceParam()
 
         self.invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
@@ -50,13 +50,13 @@ class HISQAction(StaggeredFermionAction):
         self.invert_param.mass_normalization = QudaMassNormalization.QUDA_MASS_NORMALIZATION
         self.invert_param.verbosity = verbosity
 
-    def setForceParam(self):
+    def setForceParam(self, rational_param: RationalParam):
         coeff = [
             [
                 2 * res,
                 self.dirac.path_coeff_2[1] * 2 * res,
             ]
-            for res in self.rational_param.residue_molecular_dynamics
+            for res in rational_param.residue_molecular_dynamics
         ]
         if self.dirac.naik_epsilon != 0.0:
             coeff += [
@@ -64,11 +64,17 @@ class HISQAction(StaggeredFermionAction):
                     self.dirac.path_coeff_3[0] * self.dirac.naik_epsilon * 2 * res,
                     self.dirac.path_coeff_3[1] * self.dirac.naik_epsilon * 2 * res,
                 ]
-                for res in self.rational_param.residue_molecular_dynamics
+                for res in rational_param.residue_molecular_dynamics
             ]
-        self.num = len(self.rational_param.offset_molecular_dynamics)
+        self.num = len(rational_param.offset_molecular_dynamics)
         self.num_naik = 0 if self.dirac.naik_epsilon == 0.0 else self.num
         self.coeff = numpy.array(coeff, "<f8")
+        self.max_num_offset = max(
+            len(rational_param.offset_molecular_dynamics),
+            len(rational_param.offset_fermion_action),
+            len(rational_param.offset_pseudo_fermion),
+        )
+        self.rational_param = rational_param
 
     def updateFatLong(self, return_v_link: bool):
         u_link = LatticeGauge(self.latt_info)
@@ -81,6 +87,8 @@ class HISQAction(StaggeredFermionAction):
         return u_link, v_link, w_link
 
     def sample(self, new_gauge: bool):
+        if self.quark is None:
+            self.quark = MultiLatticeStaggeredFermion(self.latt_info, self.max_num_offset)
         self.sampleEta()
         self.updateFatLong(False)
         self.invertMultiShift("pseudo_fermion")
@@ -99,9 +107,9 @@ class HISQAction(StaggeredFermionAction):
 
     def force(self, dt, new_gauge: bool):
         u_link, v_link, w_link = self.updateFatLong(True)
-        xx = self.invertMultiShift("molecular_dynamics")
+        self.invertMultiShift("molecular_dynamics")
         for i in range(self.num):
-            dslashQuda(xx[i].odd_ptr, xx[i].even_ptr, self.invert_param, QudaParity.QUDA_ODD_PARITY)
+            dslashQuda(self.quark[i].odd_ptr, self.quark[i].even_ptr, self.invert_param, QudaParity.QUDA_ODD_PARITY)
         computeHISQForceQuda(
             nullptr,
             dt,
@@ -110,7 +118,7 @@ class HISQAction(StaggeredFermionAction):
             w_link.data_ptrs,
             v_link.data_ptrs,
             u_link.data_ptrs,
-            xx.data_ptrs,
+            self.quark.data_ptrs,
             self.num,
             self.num_naik,
             self.coeff,
@@ -126,19 +134,19 @@ class MultiHISQAction(StaggeredFermionAction):
             getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
         super().__init__(latt_info, pseudo_fermions[0].dirac)
 
-        self.pseudo_fermions = pseudo_fermions
-        self.setForceParam()
+        self.setForceParam(pseudo_fermions)
+        self.quark = MultiLatticeStaggeredFermion(self.latt_info, self.max_num_offset)
 
-    def setForceParam(self):
+    def setForceParam(self, pseudo_fermions: List[HISQAction]):
         num_total = 0
         num_naik_total = 0
-        for pseudo_fermion in self.pseudo_fermions:
+        for pseudo_fermion in pseudo_fermions:
             num_total += pseudo_fermion.num
             num_naik_total += pseudo_fermion.num_naik
         coeff_all = numpy.zeros((num_total + num_naik_total, 2), "<f8")
         num_current = 0
         num_naik_current = num_total
-        for pseudo_fermion in self.pseudo_fermions:
+        for pseudo_fermion in pseudo_fermions:
             num = pseudo_fermion.num
             num_naik = pseudo_fermion.num_naik
             coeff_all[num_current : num_current + num] = pseudo_fermion.coeff[:num]
@@ -148,6 +156,8 @@ class MultiHISQAction(StaggeredFermionAction):
         self.num = num_total
         self.num_naik = num_naik_total
         self.coeff = coeff_all
+        self.max_num_offset = max([self.num] + [pseudo_fermion.max_num_offset for pseudo_fermion in pseudo_fermions])
+        self.pseudo_fermions = pseudo_fermions
 
     def prepareFatLong(self, return_v_link: bool):
         u_link = LatticeGauge(self.latt_info)
@@ -167,6 +177,7 @@ class MultiHISQAction(StaggeredFermionAction):
         for pseudo_fermion in self.pseudo_fermions:
             pseudo_fermion.sampleEta()
             self.updateFatLong(pseudo_fermion)
+            pseudo_fermion.quark = self.quark
             pseudo_fermion.invertMultiShift("pseudo_fermion")
 
     def action(self, new_gauge: bool) -> float:
@@ -175,6 +186,7 @@ class MultiHISQAction(StaggeredFermionAction):
         for pseudo_fermion in self.pseudo_fermions:
             self.updateFatLong(pseudo_fermion)
             pseudo_fermion.invert_param.compute_action = 1
+            pseudo_fermion.quark = self.quark
             pseudo_fermion.invertMultiShift("molecular_dynamics")
             pseudo_fermion.invert_param.compute_action = 0
             action += pseudo_fermion.invert_param.action[0]
@@ -185,6 +197,7 @@ class MultiHISQAction(StaggeredFermionAction):
         self.prepareFatLong(False)
         for pseudo_fermion in self.pseudo_fermions:
             self.updateFatLong(pseudo_fermion)
+            pseudo_fermion.quark = self.quark
             pseudo_fermion.invertMultiShift("fermion_action")
             action += pseudo_fermion.eta.even.norm2()
         return action
@@ -192,13 +205,17 @@ class MultiHISQAction(StaggeredFermionAction):
     def force(self, dt, new_gauge: bool):
         u_link, v_link, w_link = self.prepareFatLong(True)
         num_current = 0
-        xx_all = MultiLatticeStaggeredFermion(self.latt_info, self.num)
         for pseudo_fermion in self.pseudo_fermions:
             self.updateFatLong(pseudo_fermion)
-            xx = pseudo_fermion.invertMultiShift("molecular_dynamics")
+            pseudo_fermion.quark = self.quark[num_current : num_current + pseudo_fermion.num]
+            pseudo_fermion.invertMultiShift("molecular_dynamics")
             for i in range(pseudo_fermion.num):
-                dslashQuda(xx[i].odd_ptr, xx[i].even_ptr, pseudo_fermion.invert_param, QudaParity.QUDA_ODD_PARITY)
-                xx_all[num_current + i] = xx[i]
+                dslashQuda(
+                    self.quark[num_current + i].odd_ptr,
+                    self.quark[num_current + i].even_ptr,
+                    pseudo_fermion.invert_param,
+                    QudaParity.QUDA_ODD_PARITY,
+                )
             num_current += pseudo_fermion.num
         computeHISQForceQuda(
             nullptr,
@@ -208,7 +225,7 @@ class MultiHISQAction(StaggeredFermionAction):
             w_link.data_ptrs,
             v_link.data_ptrs,
             u_link.data_ptrs,
-            xx_all.data_ptrs,
+            self.quark.data_ptrs,
             self.num,
             self.num_naik,
             self.coeff,
