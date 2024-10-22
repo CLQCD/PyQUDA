@@ -12,7 +12,7 @@ from ..enum_quda import (
     QudaSolveType,
     QudaVerbosity,
 )
-from ..field import Nd, Nc, Ns, LatticeInfo, LatticeFermion
+from ..field import Nd, Nc, Ns, LatticeInfo, LatticeFermion, MultiLatticeFermion
 from ..dirac import CloverWilsonDirac
 
 nullptr = Pointers("void", 0)
@@ -39,10 +39,10 @@ class CloverWilsonAction(FermionAction):
             getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
         super().__init__(latt_info, CloverWilsonDirac(latt_info, mass, kappa, tol, maxiter, clover_csw, 1, None))
 
+        self.setForceParam(rational_param, kappa, clover_csw, n_flavor)
+        self.quark = MultiLatticeFermion(self.latt_info, self.max_num_offset)
         self.phi = LatticeFermion(latt_info)
         self.eta = LatticeFermion(latt_info)
-        self.rational_param = rational_param
-        self.setForceParam(kappa, clover_csw, n_flavor)
 
         self.invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION
@@ -51,12 +51,18 @@ class CloverWilsonAction(FermionAction):
         self.invert_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
         self.invert_param.verbosity = verbosity
 
-    def setForceParam(self, kappa: float, clover_csw: float, n_flavor: int):
-        self.coeff = numpy.array(self.rational_param.residue_molecular_dynamics, "<f8")
+    def setForceParam(self, rational_param: RationalParam, kappa: float, clover_csw: float, n_flavor: int):
+        self.coeff = numpy.array(rational_param.residue_molecular_dynamics, "<f8")
         self.kappa2 = -(kappa**2)
         self.ck = -kappa * clover_csw / 8
-        self.nvector = len(self.rational_param.offset_molecular_dynamics)
+        self.nvector = len(rational_param.offset_molecular_dynamics)
         self.multiplicity = n_flavor
+        self.max_num_offset = max(
+            len(rational_param.offset_molecular_dynamics),
+            len(rational_param.offset_fermion_action),
+            len(rational_param.offset_pseudo_fermion),
+        )
+        self.rational_param = rational_param
 
     def updateClover(self, new_gauge: bool):
         if new_gauge:
@@ -83,13 +89,13 @@ class CloverWilsonAction(FermionAction):
 
     def force(self, dt, new_gauge: bool):
         self.updateClover(new_gauge)
-        xx = self.invertMultiShift("molecular_dynamics")
+        self.invertMultiShift("molecular_dynamics")
         # Some conventions force the dagger to be YES here
         self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
         computeCloverForceQuda(
             nullptr,
             dt,
-            xx.even_ptrs,
+            self.quark.even_ptrs,
             self.coeff,
             self.kappa2,
             self.ck,

@@ -249,11 +249,13 @@ class HMC:
             )
         )
 
-    def initialize(self, seed: int, gauge: LatticeGauge):
+    def initialize(self, seed: int, gauge: LatticeGauge, mom: LatticeMom = None):
         self.initializeRNG(seed)
         self.loadGauge(gauge)
-        mom = LatticeMom(self.latt_info)
-        self.loadMom(mom)
+        if mom is None:
+            self.loadMom(gauge)
+        else:
+            self.loadMom(mom)
 
     def seed(self, state):
         seed = self.random.randrange(2**32)
