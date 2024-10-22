@@ -1,7 +1,7 @@
 from typing import List
 
 from . import getLogger, getGridSize, quda, enum_quda
-from .field import LatticeFermion, LatticeGauge, LatticeInfo, LatticePropagator, Nc, Nd, Ns
+from .field import LatticeFermion, LatticeGauge, LatticeInfo, LatticePropagator, Nc, Ns
 from .dirac.abstract import FermionDirac
 
 
@@ -81,7 +81,6 @@ def getDslash(
     Lx, Ly, Lz, Lt = Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt
 
     xi = xi_0 / nu
-    kappa = 1 / (2 * (mass + 1 + (Nd - 1) / xi))
     if xi != 1.0:
         clover_csw = xi_0 * clover_coeff_t**2 / clover_coeff_r
         clover_xi = (xi_0 * clover_coeff_t / clover_coeff_r) ** 0.5
@@ -104,11 +103,11 @@ def getDslash(
     if clover_csw != 0.0:
         from .dirac.clover_wilson import CloverWilsonDirac
 
-        return CloverWilsonDirac(latt_info, mass, kappa, tol, maxiter, clover_csw, clover_xi, geo_block_size)
+        return CloverWilsonDirac(latt_info, mass, tol, maxiter, clover_csw, clover_xi, geo_block_size)
     else:
         from .dirac.wilson import WilsonDirac
 
-        return WilsonDirac(latt_info, mass, kappa, tol, maxiter, geo_block_size)
+        return WilsonDirac(latt_info, mass, tol, maxiter, geo_block_size)
 
 
 def getStaggeredDslash(
@@ -126,7 +125,6 @@ def getStaggeredDslash(
     Lx, Ly, Lz, Lt = latt_size
     Lx, Ly, Lz, Lt = Lx * Gx, Ly * Gy, Lz * Gz, Lt * Gt
 
-    kappa = 1 / 2
     if anti_periodic_t:
         t_boundary = -1
     else:
@@ -135,4 +133,4 @@ def getStaggeredDslash(
 
     from .dirac.hisq import HISQDirac
 
-    return HISQDirac(latt_info, mass, kappa, tol, maxiter, naik_epsilon, None)
+    return HISQDirac(latt_info, mass, tol, maxiter, naik_epsilon, None)

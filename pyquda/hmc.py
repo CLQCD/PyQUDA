@@ -220,9 +220,9 @@ class HMC:
                     "FermionAction and StaggeredFermionAction cannot be used at the same time", ValueError
                 )
         if not self.is_staggered:
-            self._dirac = WilsonDirac(latt_info, 0, 0.125, 0, 0)
+            self._dirac = WilsonDirac(latt_info, 0, 0, 0)
         else:
-            self._dirac = StaggeredDirac(latt_info, 0, 0.5, 0, 0)
+            self._dirac = StaggeredDirac(latt_info, 0, 0, 0)
         self.gauge_param = self._dirac.gauge_param
         self.obs_param = QudaGaugeObservableParam()
         self.obs_param.remove_staggered_phase = QudaBoolean(not not self.is_staggered)

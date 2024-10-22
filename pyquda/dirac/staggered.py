@@ -12,12 +12,12 @@ class StaggeredDirac(StaggeredFermionDirac):
         self,
         latt_info: LatticeInfo,
         mass: float,
-        kappa: float,
         tol: float,
         maxiter: int,
         tadpole_coeff: float = 1.0,
         multigrid: Union[List[List[int]], Multigrid] = None,
     ) -> None:
+        kappa = 1 / 2
         super().__init__(latt_info)
         self.newQudaGaugeParam(tadpole_coeff)
         self.newQudaMultigridParam(multigrid, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)

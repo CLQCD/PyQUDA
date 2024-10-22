@@ -12,12 +12,12 @@ class HISQDirac(StaggeredFermionDirac):
         self,
         latt_info: LatticeInfo,
         mass: float,
-        kappa: float,
         tol: float,
         maxiter: int,
         naik_epsilon: float = 0.0,
         multigrid: Union[List[List[int]], Multigrid] = None,
     ) -> None:
+        kappa = 1 / 2  # to be compatible with mass normalization
         super().__init__(latt_info)
         self.naik_epsilon = naik_epsilon
         self.newPathCoeff()
