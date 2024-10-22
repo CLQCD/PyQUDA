@@ -49,24 +49,25 @@ from .abstract import Dirac
 class GaugeDirac(Dirac):
     def __init__(self, latt_info: Union[LatticeInfo, LaplaceLatticeInfo]) -> None:
         super().__init__(latt_info.__class__(latt_info.global_size))  # Keep periodic t boundary and isotropic
+        self.newQudaGaugeParam()
+        self.newQudaInvertParam()
+        self.newQudaGaugeSmearParam()
+        self.newQudaGaugeObservableParam()
+        self.setPrecision()
         # Use QUDA_RECONSTRUCT_NO to ensure slight deviations from SU(3) can be preserved
-        self._setReconstruct(
+        self.setReconstruct(
             cuda=max(self.reconstruct.cuda, QudaReconstructType.QUDA_RECONSTRUCT_NO),
             sloppy=max(self.reconstruct.sloppy, QudaReconstructType.QUDA_RECONSTRUCT_NO),
             precondition=max(self.reconstruct.precondition, QudaReconstructType.QUDA_RECONSTRUCT_NO),
             eigensolver=max(self.reconstruct.eigensolver, QudaReconstructType.QUDA_RECONSTRUCT_NO),
         )
-        self.newQudaGaugeParam()
-        self.newQudaInvertParam()
-        self.newQudaGaugeSmearParam()
-        self.newQudaGaugeObservableParam()
 
     def newQudaGaugeParam(self):
-        gauge_param = general.newQudaGaugeParam(self.latt_info, 1.0, 0.0, self.precision, self.reconstruct)
+        gauge_param = general.newQudaGaugeParam(self.latt_info, 1.0, 0.0)
         self.gauge_param = gauge_param
 
     def newQudaInvertParam(self):
-        invert_param = general.newQudaInvertParam(0, 1 / 8, 0, 0, 0.0, 1.0, None, self.precision)
+        invert_param = general.newQudaInvertParam(0, 1 / 8, 0, 0, 0.0, 1.0, None)
         invert_param.solve_type = QudaSolveType.QUDA_DIRECT_SOLVE
         invert_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
         self.invert_param = invert_param

@@ -22,15 +22,18 @@ class CloverWilsonDirac(FermionDirac):
         super().__init__(latt_info)
         self.clover: LatticeClover = None
         self.clover_inv: LatticeClover = None
-        # Using half with multigrid doesn't work
-        if multigrid is not None:
-            self._setPrecision(sloppy=max(self.precision.sloppy, QudaPrecision.QUDA_SINGLE_PRECISION))
         self.newQudaGaugeParam()
         self.newQudaMultigridParam(multigrid, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
         self.newQudaInvertParam(mass, kappa, tol, maxiter, clover_csw, clover_xi)
+        # Using half with multigrid doesn't work
+        if multigrid is not None:
+            self.setPrecision(sloppy=max(self.precision.sloppy, QudaPrecision.QUDA_SINGLE_PRECISION))
+        else:
+            self.setPrecision()
+        self.setReconstruct()
 
     def newQudaGaugeParam(self):
-        gauge_param = general.newQudaGaugeParam(self.latt_info, 1.0, 0.0, self.precision, self.reconstruct)
+        gauge_param = general.newQudaGaugeParam(self.latt_info, 1.0, 0.0)
         self.gauge_param = gauge_param
 
     def newQudaMultigridParam(
@@ -59,7 +62,6 @@ class CloverWilsonDirac(FermionDirac):
                 setup_maxiter,
                 nu_pre,
                 nu_post,
-                self.precision,
             )
             mg_inv_param.dslash_type = QudaDslashType.QUDA_CLOVER_WILSON_DSLASH
             self.multigrid = Multigrid(mg_param, mg_inv_param)
@@ -70,7 +72,7 @@ class CloverWilsonDirac(FermionDirac):
         self, mass: float, kappa: float, tol: float, maxiter: int, clover_csw: float, clover_xi: float
     ):
         invert_param = general.newQudaInvertParam(
-            mass, kappa, tol, maxiter, kappa * clover_csw, clover_xi, self.multigrid.param, self.precision
+            mass, kappa, tol, maxiter, kappa * clover_csw, clover_xi, self.multigrid.param
         )
         invert_param.dslash_type = QudaDslashType.QUDA_CLOVER_WILSON_DSLASH
         self.invert_param = invert_param

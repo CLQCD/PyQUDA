@@ -1,6 +1,7 @@
 # flake8: noqa
 
-from .abstract import setPrecision, setReconstruct
+from .general import setGlobalPrecision, setGlobalReconstruct
+from .general import setGlobalPrecision as setPrecision, setGlobalReconstruct as setReconstruct
 
 # Gauge
 from .gauge import GaugeDirac

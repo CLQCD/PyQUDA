@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import NamedTuple
 
 from ..pointer import Pointer
 from ..pyquda import (
@@ -35,68 +34,14 @@ from ..field import (
     MultiLatticeStaggeredFermion,
 )
 
-
-class Precision(NamedTuple):
-    cpu: QudaPrecision
-    cuda: QudaPrecision
-    sloppy: QudaPrecision
-    precondition: QudaPrecision
-    eigensolver: QudaPrecision
-
-
-class Reconstruct(NamedTuple):
-    cuda: QudaReconstructType
-    sloppy: QudaReconstructType
-    precondition: QudaReconstructType
-    eigensolver: QudaReconstructType
-
-
-_precision = Precision(
-    QudaPrecision.QUDA_DOUBLE_PRECISION,
-    QudaPrecision.QUDA_DOUBLE_PRECISION,
-    QudaPrecision.QUDA_HALF_PRECISION,
-    QudaPrecision.QUDA_HALF_PRECISION,
-    QudaPrecision.QUDA_SINGLE_PRECISION,
+from .general import (
+    Precision,
+    Reconstruct,
+    getGlobalPrecision,
+    getGlobalReconstruct,
+    setPrecisionParam,
+    setReconstructParam,
 )
-_reconstruct = Reconstruct(
-    QudaReconstructType.QUDA_RECONSTRUCT_12,
-    QudaReconstructType.QUDA_RECONSTRUCT_12,
-    QudaReconstructType.QUDA_RECONSTRUCT_12,
-    QudaReconstructType.QUDA_RECONSTRUCT_12,
-)
-
-
-def setPrecision(
-    *,
-    cuda: QudaPrecision = None,
-    sloppy: QudaPrecision = None,
-    precondition: QudaPrecision = None,
-    eigensolver: QudaPrecision = None,
-):
-    global _precision
-    _precision = Precision(
-        _precision.cpu,
-        cuda if cuda is not None else _precision.cuda,
-        sloppy if sloppy is not None else _precision.sloppy,
-        precondition if precondition is not None else _precision.precondition,
-        eigensolver if eigensolver is not None else _precision.eigensolver,
-    )
-
-
-def setReconstruct(
-    *,
-    cuda: QudaReconstructType = None,
-    sloppy: QudaReconstructType = None,
-    precondition: QudaReconstructType = None,
-    eigensolver: QudaReconstructType = None,
-):
-    global _reconstruct
-    _reconstruct = Reconstruct(
-        cuda if cuda is not None else _reconstruct.cuda,
-        sloppy if sloppy is not None else _reconstruct.sloppy,
-        precondition if precondition is not None else _reconstruct.precondition,
-        eigensolver if eigensolver is not None else _reconstruct.eigensolver,
-    )
 
 
 class Dirac(ABC):
@@ -110,14 +55,10 @@ class Dirac(ABC):
 
     def __init__(self, latt_info: LatticeInfo) -> None:
         self.latt_info = latt_info
-        self.precision = Precision(
-            _precision.cpu, _precision.cuda, _precision.sloppy, _precision.precondition, _precision.eigensolver
-        )
-        self.reconstruct = Reconstruct(
-            _reconstruct.cuda, _reconstruct.sloppy, _reconstruct.precondition, _reconstruct.eigensolver
-        )
+        self.precision = getGlobalPrecision()
+        self.reconstruct = getGlobalReconstruct()
 
-    def _setPrecision(
+    def setPrecision(
         self,
         *,
         cuda: QudaPrecision = None,
@@ -125,15 +66,17 @@ class Dirac(ABC):
         precondition: QudaPrecision = None,
         eigensolver: QudaPrecision = None,
     ):
-        self.precision = Precision(
-            self.precision.cpu,
-            cuda if cuda is not None else self.precision.cuda,
-            sloppy if sloppy is not None else self.precision.sloppy,
-            precondition if precondition is not None else self.precision.precondition,
-            eigensolver if eigensolver is not None else self.precision.eigensolver,
-        )
+        if cuda is not None or sloppy is not None or precondition is not None or eigensolver is not None:
+            self.precision = Precision(
+                self.precision.cpu,
+                cuda if cuda is not None else self.precision.cuda,
+                sloppy if sloppy is not None else self.precision.sloppy,
+                precondition if precondition is not None else self.precision.precondition,
+                eigensolver if eigensolver is not None else self.precision.eigensolver,
+            )
+        setPrecisionParam(self.precision, self.gauge_param, self.invert_param, None, None)
 
-    def _setReconstruct(
+    def setReconstruct(
         self,
         *,
         cuda: QudaReconstructType = None,
@@ -141,12 +84,14 @@ class Dirac(ABC):
         precondition: QudaReconstructType = None,
         eigensolver: QudaReconstructType = None,
     ):
-        self.reconstruct = Reconstruct(
-            cuda if cuda is not None else self.reconstruct.cuda,
-            sloppy if sloppy is not None else self.reconstruct.sloppy,
-            precondition if precondition is not None else self.reconstruct.precondition,
-            eigensolver if eigensolver is not None else self.reconstruct.eigensolver,
-        )
+        if cuda is not None or sloppy is not None or precondition is not None or eigensolver is not None:
+            self.reconstruct = Reconstruct(
+                cuda if cuda is not None else self.reconstruct.cuda,
+                sloppy if sloppy is not None else self.reconstruct.sloppy,
+                precondition if precondition is not None else self.reconstruct.precondition,
+                eigensolver if eigensolver is not None else self.reconstruct.eigensolver,
+            )
+        setReconstructParam(self.reconstruct, self.gauge_param)
 
 
 class Multigrid:
@@ -184,6 +129,17 @@ class FermionDirac(Dirac):
 
     def __init__(self, latt_info: LatticeInfo) -> None:
         super().__init__(latt_info)
+
+    def setPrecision(
+        self,
+        *,
+        cuda: QudaPrecision = None,
+        sloppy: QudaPrecision = None,
+        precondition: QudaPrecision = None,
+        eigensolver: QudaPrecision = None,
+    ):
+        super().setPrecision(cuda=cuda, sloppy=sloppy, precondition=precondition, eigensolver=eigensolver)
+        setPrecisionParam(self.precision, None, None, self.multigrid.param, self.multigrid.inv_param)
 
     @abstractmethod
     def loadGauge(self, gauge: LatticeGauge):
