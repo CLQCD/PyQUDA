@@ -138,7 +138,7 @@ class GaugeDirac(Dirac):
         performWuppertalnStep(b.data_ptr, x.data_ptr, self.invert_param, n_steps, alpha)
         return b
 
-    def staggeredPhase(self, gauge: LatticeGauge, applied: bool = False):
+    def staggeredPhase(self, gauge: LatticeGauge, applied: bool):
         self.gauge_param.use_resident_gauge = 0
         self.gauge_param.make_resident_gauge = 0
         self.gauge_param.return_result_gauge = 1

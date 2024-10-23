@@ -593,7 +593,7 @@ class LatticeGauge(MultiField, EvenOddField, HalfLatticeField):
         self._gauge_dirac.freeGauge()
         return unit
 
-    def staggeredPhase(self, applied: bool = False):
+    def staggeredPhase(self, applied: bool):
         self.gauge_dirac.staggeredPhase(self, applied)
 
     def projectSU3(self, tol: float):
