@@ -96,6 +96,87 @@ def invertStaggeredPropagator(
     return propag
 
 
+def gatherLattice2(
+    data: numpy.ndarray,
+    tzyx: List[int],
+    reduce_op: Literal["sum", "mean", "prod", "max", "min"] = "sum",
+    root: int = 0,
+):
+    from . import getMPIComm, getMPISize, getMPIRank, getGridSize, getCoordFromRank
+
+    sendobj = numpy.ascontiguousarray(data)
+    recvobj = getMPIComm().gather(sendobj, root)
+
+    if getMPIRank() == root:
+        gather_axis = [d for d in range(4)]
+        reduce_axis = [d for d in range(4) if tzyx[::-1][d] < 0]
+        grid_size = numpy.array(getGridSize())[gather_axis]
+        send_latt = numpy.array([data.shape[i] if i >= 0 else 1 for i in tzyx[::-1]])[gather_axis]
+        recv_latt = [G * L for G, L in zip(grid_size, send_latt)]
+
+        keep = tuple([i for i in tzyx if i >= 0])
+        keep = (0, -1) if keep == () else keep
+        prefix = data.shape[: keep[0]]
+        suffix = data.shape[keep[-1] + 1 :]
+        prefix_slice = [slice(None) for _ in range(len(prefix))]
+        suffix_slice = [slice(None) for _ in range(len(suffix))]
+
+        data_all = numpy.zeros((*prefix, *recv_latt[::-1], *suffix), data.dtype)
+        for rank in range(getMPISize()):
+            grid_coord = numpy.array(getCoordFromRank(rank, getGridSize()))[gather_axis]
+            recv_slice = [slice(g * L, (g + 1) * L) for g, L in zip(grid_coord, send_latt)]
+            data_all[*prefix_slice, *recv_slice[::-1], *suffix_slice] = recvobj[rank].reshape(
+                *prefix, *send_latt[::-1], *suffix
+            )
+
+        reduce_axis = tuple([len(prefix) + 3 - axis for axis in reduce_axis])
+        if reduce_op.lower() == "sum":
+            recvobj = numpy.sum(data_all, reduce_axis)
+        elif reduce_op.lower() == "mean":
+            recvobj = numpy.mean(data_all, reduce_axis)
+        elif reduce_op.lower() == "prod":
+            recvobj = numpy.prod(data_all, reduce_axis)
+        elif reduce_op.lower() == "max":
+            recvobj = numpy.amax(data_all, reduce_axis)
+        elif reduce_op.lower() == "min":
+            recvobj = numpy.amin(data_all, reduce_axis)
+        else:
+            getLogger().critical(
+                f"gatherLattice doesn't support reduce operator reduce_op={reduce_op}", NotImplementedError
+            )
+
+    return recvobj
+
+
+def scatterLattice(data: numpy.ndarray, tzyx: List[int], root: int = 0):
+    from . import getMPIComm, getMPISize, getMPIRank, getGridSize, getCoordFromRank
+
+    if getMPIRank() == root:
+        scatter_axis = [d for d in range(4) if tzyx[::-1][d] >= 0]
+        grid_size = numpy.array(getGridSize())[scatter_axis]
+        send_latt = numpy.array([data.shape[i] if i >= 0 else 1 for i in tzyx[::-1]])[scatter_axis]
+        recv_latt = [L // G for G, L in zip(grid_size, send_latt)]
+
+        keep = tuple([i for i in tzyx if i >= 0])
+        keep = (0, -1) if keep == () else keep
+        prefix = data.shape[: keep[0]]
+        suffix = data.shape[keep[-1] + 1 :]
+        prefix_slice = [slice(None) for _ in range(len(prefix))]
+        suffix_slice = [slice(None) for _ in range(len(suffix))]
+
+        sendobj = []
+        for rank in range(getMPISize()):
+            grid_coord = numpy.array(getCoordFromRank(rank, getGridSize()))[scatter_axis]
+            send_slice = [slice(g * L, (g + 1) * L) for g, L in zip(grid_coord, recv_latt)]
+            sendobj.append(numpy.ascontiguousarray(data[*prefix_slice, *send_slice[::-1], *suffix_slice]))
+    else:
+        sendobj = None
+
+    recvobj = getMPIComm().scatter(sendobj, root)
+
+    return recvobj
+
+
 def gatherLattice(data: numpy.ndarray, axes: List[int], reduce_op: Literal["sum", "mean"] = "sum", root: int = 0):
     """
     MPI gather or reduce data from all MPI subgrid onto the root process.
