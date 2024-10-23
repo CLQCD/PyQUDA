@@ -164,11 +164,15 @@ class FermionDirac(Dirac):
 
     def invertRestart(self, b: LatticeFermion, restart: int):
         x = self.invert(b)
-        self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_SOURCE_NORMALIZATION
+        # self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_SOURCE_NORMALIZATION
         for _ in range(restart):
             r = b - self.mat(x)
-            x += self.invert(r)
-        self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
+            norm = r.norm2() ** 0.5
+            r /= norm
+            r = self.invert(r)
+            r *= norm
+            x += r
+        # self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
         return x
 
     def mat(self, x: LatticeFermion):

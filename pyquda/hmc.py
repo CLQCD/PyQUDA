@@ -344,7 +344,7 @@ class HMC:
     def loadGauge(self, gauge: LatticeGauge):
         gauge_in = gauge.copy()
         if self.is_staggered:
-            gauge_in.staggeredPhase()
+            gauge_in.staggeredPhase(False)
         if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
             gauge_in.setAntiPeriodicT()
         self.gauge_param.use_resident_gauge = 0
