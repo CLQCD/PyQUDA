@@ -40,7 +40,7 @@ def allGrid(factor: List[List[Tuple[int, int, int, int]]], idx: int, sublatt_siz
         Lx, Ly, Lz, Lt = sublatt_size
         Gx, Gy, Gz, Gt = grid_size
         for x, y, z, t in factor[idx]:
-            if Lx % x == 0 and Ly % y == 0 and Lz % z == 0 and Lt % x == 0:
+            if Lx % x == 0 and Ly % y == 0 and Lz % z == 0 and Lt % t == 0:
                 yield from allGrid(
                     factor, idx + 1, [Lx // x, Ly // y, Lz // z, Lt // t], [Gx * x, Gy * y, Gz * z, Gt * t]
                 )
@@ -61,4 +61,4 @@ def getDefaultGrid(mpi_size: int, latt_size: List[int]):
     return min_grid
 
 
-print(getDefaultGrid(32, [48, 48, 48, 144]))
+print(getDefaultGrid(4 * 24, [48, 48, 48, 256]))

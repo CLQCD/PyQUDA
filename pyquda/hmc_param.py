@@ -20,6 +20,34 @@ def wilson_gauge():
     )
 
 
+def iwasaki_gauge():
+    beta_0 = 1 - 8 * (-0.331)
+    beta_1 = -0.331
+    return LoopParam(
+        path=[
+            [X, Y, -X, -Y],
+            [X, Z, -X, -Z],
+            [X, T, -X, -T],
+            [Y, Z, -Y, -Z],
+            [Y, T, -Y, -T],
+            [Z, T, -Z, -T],
+            [X, X, Y, -X, -X, -Y],
+            [X, X, Z, -X, -X, -Z],
+            [X, X, T, -X, -X, -T],
+            [Y, Y, X, -Y, -Y, -X],
+            [Y, Y, Z, -Y, -Y, -Z],
+            [Y, Y, T, -Y, -Y, -T],
+            [Z, Z, X, -Z, -Z, -X],
+            [Z, Z, Y, -Z, -Z, -Y],
+            [Z, Z, T, -Z, -Z, -T],
+            [T, T, X, -T, -T, -X],
+            [T, T, Y, -T, -T, -Y],
+            [T, T, Z, -T, -T, -Z],
+        ],
+        coeff=[beta_0 for _ in range(6)] + [beta_1 for _ in range(12)],
+    )
+
+
 def symanzik_tree_gauge(u_0: float):
     beta_0 = 1
     beta_1 = -beta_0 / (20 * u_0**2)

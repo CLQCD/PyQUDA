@@ -76,7 +76,7 @@ class MomentumPhase:
 
             self.x = torch.as_tensor(x)
 
-    def getPhase(self, mom_mode: Sequence[int]):
+    def getPhase(self, mom_mode: Sequence[int], x0: Sequence[int] = [0, 0, 0, 0]):
         from .. import getCUDABackend
 
         x = self.x
@@ -85,9 +85,11 @@ class MomentumPhase:
         if len(mom_mode) == 3:
             ip = [2j * pi * mom_mode[i] / global_size[i] for i in range(3)]
             ipx = ip[0] * x[0] + ip[1] * x[1] + ip[2] * x[2]
+            ipx0 = ip[0] * x0[0] + ip[1] * x0[1] + ip[2] * x0[2]
         elif len(mom_mode) == 4:
             ip = [2j * pi * mom_mode[i] / global_size[i] for i in range(4)]
             ipx = ip[0] * x[0] + ip[1] * x[1] + ip[2] * x[2] + ip[3] * x[3]
+            ipx0 = ip[0] * x0[0] + ip[1] * x0[1] + ip[2] * x0[2] + ip[3] * x0[3]
         else:
             from .. import getLogger
 
@@ -95,17 +97,17 @@ class MomentumPhase:
 
         backend = getCUDABackend()
         if backend == "numpy":
-            return numpy.exp(ipx)
+            return numpy.exp(ipx - ipx0)
         elif backend == "cupy":
             import cupy
 
-            return cupy.exp(ipx)
+            return cupy.exp(ipx - ipx0)
         elif backend == "torch":
             import torch
 
-            return torch.exp(ipx)
+            return torch.exp(ipx - ipx0)
 
-    def getPhases(self, mom_mode_list: Sequence[Sequence[int]]):
+    def getPhases(self, mom_mode_list: Sequence[Sequence[int]], x0: Sequence[int] = [0, 0, 0, 0]):
         from .. import getCUDABackend
 
         Lx, Ly, Lz, Lt = self.latt_info.size
