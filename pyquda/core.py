@@ -127,7 +127,8 @@ def gatherLattice2(
         for rank in range(getMPISize()):
             grid_coord = numpy.array(getCoordFromRank(rank, getGridSize()))[gather_axis]
             recv_slice = [slice(g * L, (g + 1) * L) for g, L in zip(grid_coord, send_latt)]
-            data_all[*prefix_slice, *recv_slice[::-1], *suffix_slice] = recvobj[rank].reshape(
+            all_slice = (*prefix_slice, *recv_slice[::-1], *suffix_slice)
+            data_all[all_slice] = recvobj[rank].reshape(
                 *prefix, *send_latt[::-1], *suffix
             )
 
@@ -170,7 +171,8 @@ def scatterLattice(data: numpy.ndarray, tzyx: List[int], root: int = 0):
         for rank in range(getMPISize()):
             grid_coord = numpy.array(getCoordFromRank(rank, getGridSize()))[scatter_axis]
             send_slice = [slice(g * L, (g + 1) * L) for g, L in zip(grid_coord, recv_latt)]
-            sendobj.append(numpy.ascontiguousarray(data[*prefix_slice, *send_slice[::-1], *suffix_slice]))
+            all_slice = (*prefix_slice, *send_slice[::-1], *suffix_slice)
+            sendobj.append(numpy.ascontiguousarray(data[all_slice]))
     else:
         sendobj = None
 
