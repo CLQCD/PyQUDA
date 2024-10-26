@@ -14,6 +14,19 @@ def composition4(n):
     return addend
 
 
+def composition4_v2(n):
+    """
+    Writing n as the sum of 4 natural numbers
+    """
+    addend: List[Tuple[int, int, int, int]] = []
+    for i in range(n + 1):
+        for j in range(i, n + 1):
+            for k in range(j, n + 1):
+                x, y, z, t = i, j - i, k - j, n - k
+                addend.append((x, y, z, t))
+    return addend
+
+
 def factorization4(k: int):
     """
     Writing k as the product of 4 positive numbers
@@ -31,7 +44,7 @@ def factorization4(k: int):
     return prime_factor
 
 
-def allGrid(factor: List[List[Tuple[int, int, int, int]]], idx: int, sublatt_size: List[int], grid_size: List[int]):
+def partition(factor: List[List[Tuple[int, int, int, int]]], idx: int, sublatt_size: List[int], grid_size: List[int]):
     if idx == 0:
         factor = factorization4(factor)
     if idx == len(factor):
@@ -41,7 +54,7 @@ def allGrid(factor: List[List[Tuple[int, int, int, int]]], idx: int, sublatt_siz
         Gx, Gy, Gz, Gt = grid_size
         for x, y, z, t in factor[idx]:
             if Lx % x == 0 and Ly % y == 0 and Lz % z == 0 and Lt % t == 0:
-                yield from allGrid(
+                yield from partition(
                     factor, idx + 1, [Lx // x, Ly // y, Lz // z, Lt // t], [Gx * x, Gy * y, Gz * z, Gt * t]
                 )
 
@@ -52,13 +65,13 @@ def getDefaultGrid(mpi_size: int, latt_size: List[int]):
     latt_surf = [latt_vol // latt_size[dir] for dir in range(4)]
     min_comm, min_grid = latt_vol, []
     assert latt_vol % mpi_size == 0
-    for grid_size in allGrid(mpi_size, 0, latt_size, [1, 1, 1, 1]):
+    for grid_size in partition(mpi_size, 0, latt_size, [1, 1, 1, 1]):
         comm = [latt_surf[dir] * grid_size[dir] for dir in range(4) if grid_size[dir] > 1]
         if sum(comm) < min_comm:
             min_comm, min_grid = sum(comm), [grid_size]
         elif sum(comm) == min_comm:
             min_grid.append(grid_size)
-    return min_grid
+    return min(min_grid)
 
 
-print(getDefaultGrid(4 * 24, [48, 48, 48, 256]))
+print(getDefaultGrid(1, [48, 48, 48, 256]))

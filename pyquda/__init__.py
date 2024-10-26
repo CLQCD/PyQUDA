@@ -1,7 +1,7 @@
 import logging
 from os import environ
 from sys import stdout
-from typing import Any, Callable, Dict, List, Literal, NamedTuple, Sequence, Union
+from typing import Any, Callable, Dict, List, Literal, NamedTuple, Sequence, Tuple, Union
 
 from mpi4py import MPI
 from mpi4py.util import dtlib
@@ -75,6 +75,68 @@ def getRankFromCoord(coord: List[int], grid: List[int]) -> int:
 def getCoordFromRank(rank: int, grid: List[int]) -> List[int]:
     x, y, z, t = grid
     return [rank // t // z // y, rank // t // z % y, rank // t % z, rank % t]
+
+
+def _composition4(n):
+    """
+    Writing n as the sum of 4 natural numbers
+    """
+    addend: List[Tuple[int, int, int, int]] = []
+    for i in range(n + 1):
+        for j in range(i, n + 1):
+            for k in range(j, n + 1):
+                x, y, z, t = i, j - i, k - j, n - k
+                addend.append((x, y, z, t))
+    return addend
+
+
+def _factorization4(k: int):
+    """
+    Writing k as the product of 4 positive numbers
+    """
+    prime_factor: List[List[Tuple[int, int, int, int]]] = []
+    for p in range(2, int(k**0.5) + 1):
+        n = 0
+        while k % p == 0:
+            n += 1
+            k //= p
+        if n != 0:
+            prime_factor.append([(p**x, p**y, p**z, p**t) for x, y, z, t in _composition4(n)])
+    if k != 1:
+        prime_factor.append([(k**x, k**y, k**z, k**t) for x, y, z, t in _composition4(1)])
+    return prime_factor
+
+
+def _partition(factor: List[List[Tuple[int, int, int, int]]], idx: int, sublatt_size: List[int], grid_size: List[int]):
+    if idx == 0:
+        factor = _factorization4(factor)
+    if idx == len(factor):
+        yield grid_size
+    else:
+        Lx, Ly, Lz, Lt = sublatt_size
+        Gx, Gy, Gz, Gt = grid_size
+        for x, y, z, t in factor[idx]:
+            if Lx % x == 0 and Ly % y == 0 and Lz % z == 0 and Lt % t == 0:
+                yield from _partition(
+                    factor, idx + 1, [Lx // x, Ly // y, Lz // z, Lt // t], [Gx * x, Gy * y, Gz * z, Gt * t]
+                )
+
+
+def _getDefaultGrid(mpi_size: int, latt_size: List[int]):
+    Lx, Ly, Lz, Lt = latt_size
+    latt_vol = Lx * Ly * Lz * Lt
+    latt_surf = [latt_vol // latt_size[dir] for dir in range(4)]
+    min_comm, min_grid = latt_vol, []
+    assert latt_vol % mpi_size == 0
+    for grid_size in _partition(mpi_size, 0, latt_size, [1, 1, 1, 1]):
+        comm = [latt_surf[dir] * grid_size[dir] for dir in range(4) if grid_size[dir] > 1]
+        if sum(comm) < min_comm:
+            min_comm, min_grid = sum(comm), [grid_size]
+        elif sum(comm) == min_comm:
+            min_grid.append(grid_size)
+    min_grid = min(min_grid)
+    _MPI_LOGGER.info(f"Using the default GPU grid {min_grid}")
+    return min_grid
 
 
 def _initEnviron(**kwargs):
@@ -151,16 +213,23 @@ def init(
     """
     Initialize MPI along with the QUDA library.
     """
-    global _GRID_SIZE, _GRID_COORD
+    global _GRID_SIZE, _GRID_COORD, _DEFAULT_LATTICE
     if _GRID_SIZE is None:
         from platform import node as gethostname
 
+        if grid_size is None and latt_size is not None:
+            grid_size = _getDefaultGrid(_MPI_SIZE, latt_size)
         Gx, Gy, Gz, Gt = grid_size if grid_size is not None else [1, 1, 1, 1]
         if _MPI_SIZE != Gx * Gy * Gz * Gt:
             _MPI_LOGGER.critical(f"the MPI size {_MPI_SIZE} does not match the grid size {grid_size}", ValueError)
         _GRID_SIZE = [Gx, Gy, Gz, Gt]
         _GRID_COORD = getCoordFromRank(_MPI_RANK, _GRID_SIZE)
-        _MPI_LOGGER.info(f"Using GPU grid {_GRID_SIZE}")
+        _MPI_LOGGER.info(f"Using the GPU grid {_GRID_SIZE}")
+        if latt_size is not None:
+            if t_boundary is None or anisotropy is None:
+                _MPI_LOGGER.critical("t_boundary and anisotropy should not be None if latt_size is given", ValueError)
+            _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
+            _MPI_LOGGER.info(f"Using the default LatticeInfo({latt_size}, {t_boundary}, {anisotropy})")
 
         _initEnvironWarn(resource_path=resource_path if resource_path != "" else None)
         _initEnviron(
@@ -192,13 +261,7 @@ def init(
             device_reset="1" if device_reset else None,
         )
 
-        global _DEFAULT_LATTICE, _CUDA_BACKEND, _HIP, _GPUID, _COMPUTE_CAPABILITY
-
-        if latt_size is not None:
-            if t_boundary is None or anisotropy is None:
-                _MPI_LOGGER.critical("t_boundary and anisotropy should not be None if latt_size is given", ValueError)
-            _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
-            _MPI_LOGGER.info(f"Using default LatticeInfo({latt_size}, {t_boundary}, {anisotropy})")
+        global _CUDA_BACKEND, _HIP, _GPUID, _COMPUTE_CAPABILITY
 
         if backend == "numpy":
             cudaGetDeviceCount: Callable[[], int] = lambda: 0x7FFFFFFF
