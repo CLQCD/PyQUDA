@@ -124,7 +124,7 @@ class MomentumPhase:
 
             phases = torch.zeros((len(mom_mode_list), 2, Lt, Lz, Ly, Lx // 2), dtype=torch.complex128)
         for idx, mom in enumerate(mom_mode_list):
-            phases[idx] = self.getPhase(mom)
+            phases[idx] = self.getPhase(mom, x0)
 
         return phases
 
