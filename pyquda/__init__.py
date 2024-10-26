@@ -166,11 +166,11 @@ def _initEnvironWarn(**kwargs):
         _setEnviron(f"QUDA_{key.upper()}", key, kwargs[key])
 
 
-def initQUDA(grid_size, gpuid):
+def _initQUDA(grid_size, gpuid):
     import atexit
 
-    quda.initCommsGridQuda(4, _GRID_SIZE)
-    quda.initQuda(_GPUID)
+    quda.initCommsGridQuda(4, grid_size)
+    quda.initQuda(gpuid)
     atexit.register(quda.endQuda)
 
 
@@ -326,7 +326,7 @@ def init(
 
         cudaSetDevice(_GPUID)
         if init_quda:
-            initQUDA(_GRID_SIZE, _GPUID)
+            _initQUDA(_GRID_SIZE, _GPUID)
     else:
         _MPI_LOGGER.warning("PyQUDA is already initialized", RuntimeWarning)
 
