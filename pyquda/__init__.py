@@ -134,9 +134,7 @@ def _getDefaultGrid(mpi_size: int, latt_size: List[int]):
             min_comm, min_grid = sum(comm), [grid_size]
         elif sum(comm) == min_comm:
             min_grid.append(grid_size)
-    min_grid = min(min_grid)
-    _MPI_LOGGER.info(f"Using the default GPU grid {min_grid}")
-    return min_grid
+    return min(min_grid)
 
 
 def _initEnviron(**kwargs):
@@ -217,19 +215,21 @@ def init(
     if _GRID_SIZE is None:
         from platform import node as gethostname
 
-        if grid_size is None and latt_size is not None:
+        use_default_grid = grid_size is None and latt_size is not None
+        use_default_latt = latt_size is not None and t_boundary is not None and anisotropy is not None
+        if use_default_grid:
             grid_size = _getDefaultGrid(_MPI_SIZE, latt_size)
         Gx, Gy, Gz, Gt = grid_size if grid_size is not None else [1, 1, 1, 1]
         if _MPI_SIZE != Gx * Gy * Gz * Gt:
-            _MPI_LOGGER.critical(f"the MPI size {_MPI_SIZE} does not match the grid size {grid_size}", ValueError)
+            _MPI_LOGGER.critical(f"The MPI size {_MPI_SIZE} does not match the grid size {grid_size}", ValueError)
         _GRID_SIZE = [Gx, Gy, Gz, Gt]
         _GRID_COORD = getCoordFromRank(_MPI_RANK, _GRID_SIZE)
-        _MPI_LOGGER.info(f"Using the GPU grid {_GRID_SIZE}")
-        if latt_size is not None:
-            if t_boundary is None or anisotropy is None:
-                _MPI_LOGGER.critical("t_boundary and anisotropy should not be None if latt_size is given", ValueError)
+        _MPI_LOGGER.info(f"Using the grid size {_GRID_SIZE}")
+        if use_default_grid and not use_default_latt:
+            _MPI_LOGGER.info(f"Using the lattice size {latt_size} only for getting the default grid size {_GRID_SIZE}")
+        if use_default_latt:
             _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
-            _MPI_LOGGER.info(f"Using the default LatticeInfo({latt_size}, {t_boundary}, {anisotropy})")
+            _MPI_LOGGER.info(f"Using the default lattice LatticeInfo({latt_size}, {t_boundary}, {anisotropy})")
 
         _initEnvironWarn(resource_path=resource_path if resource_path != "" else None)
         _initEnviron(
