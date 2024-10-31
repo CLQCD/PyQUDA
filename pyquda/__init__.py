@@ -128,12 +128,17 @@ def _getDefaultGrid(mpi_size: int, latt_size: List[int]):
     latt_surf = [latt_vol // latt_size[dir] for dir in range(4)]
     min_comm, min_grid = latt_vol, []
     assert latt_vol % mpi_size == 0
-    for grid_size in _partition(mpi_size, 0, latt_size, [1, 1, 1, 1]):
+    assert Lx % 2 == 0 and Ly % 2 == 0 and Lz % 2 == 0 and Lt % 2 == 0
+    for grid_size in _partition(mpi_size, 0, [Lx // 2, Ly // 2, Lz // 2, Lt // 2], [1, 1, 1, 1]):
         comm = [latt_surf[dir] * grid_size[dir] for dir in range(4) if grid_size[dir] > 1]
         if sum(comm) < min_comm:
             min_comm, min_grid = sum(comm), [grid_size]
         elif sum(comm) == min_comm:
             min_grid.append(grid_size)
+    if min_grid == []:
+        _MPI_LOGGER.critical(
+            f"Cannot get the proper GPU grid for lattice size {latt_size} with {mpi_size} MPI processes"
+        )
     return min(min_grid)
 
 
@@ -179,7 +184,7 @@ def init(
     latt_size: List[int] = None,
     t_boundary: Literal[1, -1] = None,
     anisotropy: float = None,
-    backend: Literal["numpy", "cupy", "torch"] = "cupy",
+    backend: Literal["numpy", "cupy", "torch"] = None,
     init_quda: bool = True,
     *,
     resource_path: str = "",
@@ -263,6 +268,8 @@ def init(
 
         global _CUDA_BACKEND, _HIP, _GPUID, _COMPUTE_CAPABILITY
 
+        if backend is None:
+            backend = environ["PYQUDA_BACKEND"] if "PYQUDA_BACKEND" in environ else "cupy"
         if backend == "numpy":
             cudaGetDeviceCount: Callable[[], int] = lambda: 0x7FFFFFFF
             cudaGetDeviceProperties: Callable[[int], Dict[str, Any]] = lambda device: {"major": 0, "minor": 0}
@@ -337,6 +344,10 @@ def getLogger():
 
 def setLoggerLevel(level: Literal["debug", "info", "warning", "error", "critical"]):
     _MPI_LOGGER.logger.setLevel(level.upper())
+
+
+def isInitialized():
+    return _GRID_SIZE is not None
 
 
 def getMPIComm():

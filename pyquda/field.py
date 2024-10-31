@@ -15,10 +15,10 @@ class LatticeInfo:
         self._setLattice(latt_size, t_boundary, anisotropy)
 
     def _checkLattice(self, latt_size: List[int]):
-        from . import getLogger, getGridSize
+        from . import init, isInitialized, getLogger, getGridSize
 
-        if getGridSize() is None:
-            getLogger().critical("pyquda.init() must be called before contructing LatticeInfo", RuntimeError)
+        if not isInitialized():
+            init(None, latt_size)
         Gx, Gy, Gz, Gt = getGridSize()
         Lx, Ly, Lz, Lt = latt_size
         if not (Lx % (2 * Gx) == 0 and Ly % (2 * Gy) == 0 and Lz % (2 * Gz) == 0 and Lt % (2 * Gt) == 0):
@@ -63,10 +63,10 @@ class LaplaceLatticeInfo(LatticeInfo):
         self._setLattice(latt_size, 1, 1.0)
 
     def _checkLatticeOddT(self, latt_size: List[int]):
-        from . import getLogger, getGridSize
+        from . import isInitialized, getLogger, getGridSize
 
-        if getGridSize() is None:
-            getLogger().critical("pyquda.init() must be called before contructing LatticeInfo", RuntimeError)
+        if not isInitialized():
+            getLogger().critical("pyquda.init() must be called before contructing the LaplaceLatticeInfo", RuntimeError)
         Gx, Gy, Gz, Gt = getGridSize()
         Lx, Ly, Lz, Lt = latt_size
         if not (Lx % (2 * Gx) == 0 and Ly % (2 * Gy) == 0 and Lz % (2 * Gz) == 0 and Lt % Gt == 0):
@@ -266,6 +266,38 @@ class HalfLatticeField:
             return self.latt_info.mpi_comm.allreduce(norm2)
         else:
             return norm2
+
+    def timeslice(self, start: int, stop: int = None, step: int = None, return_field: bool = True):
+        Lt = self.latt_info.Lt
+        gt = self.latt_info.gt
+        stop = (start + 1) if stop is None else stop
+        step = 1 if step is None else step
+        if step > 0:
+            s = (start - gt * Lt) % step if start < gt * Lt else 0
+            start = max(start - gt * Lt, 0) + s
+            stop = min(stop - gt * Lt, Lt)
+        elif step < 0:
+            s = ((gt + 1) * Lt - start) % step if (gt + 1) * Lt <= start else 0
+            start = min(start - gt * Lt, Lt - 1) + s
+            stop = max(stop - gt * Lt, -1)
+            start, stop = (0, Lt) if start <= stop else (start, stop)
+            stop = None if stop == -1 else stop  # Workaround for numpy slice
+        if return_field:
+            x = self.__class__(self.latt_info)
+            if self.full_lattice and self.L5 is not None:
+                x.data[:, :, start:stop:step, :, :, :] = self.data[:, :, start:stop:step, :, :, :]
+            elif self.full_lattice or self.L5 is not None:
+                x.data[:, start:stop:step, :, :, :] = self.data[:, start:stop:step, :, :, :]
+            else:
+                x.data[start:stop:step, :, :, :] = self.data[start:stop:step, :, :, :]
+            return x
+        else:
+            if self.full_lattice and self.L5 is not None:
+                return self.data[:, :, start:stop:step, :, :, :]
+            elif self.full_lattice or self.L5 is not None:
+                return self.data[:, start:stop:step, :, :, :]
+            else:
+                return self.data[start:stop:step, :, :, :]
 
     def __add__(self, other):
         assert self.__class__ == other.__class__ and self.location == other.location
@@ -521,7 +553,37 @@ class LatticeComplex128(EvenOddField, HalfLatticeField):
         self.initData(value)
 
 
-class LatticeGauge(MultiField, EvenOddField, HalfLatticeField):
+class LatticeLink(EvenOddField, HalfLatticeField):
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info)
+        self.setField([Nc, Nc], "<c16")
+        self.initData(value)
+        if value is None:
+            if self.backend == "numpy":
+                self.data[:] = numpy.identity(Nc)
+            elif self.backend == "cupy":
+                import cupy
+
+                self.data[:] = cupy.identity(Nc)
+            elif self.backend == "torch":
+                import torch
+
+                self.data[:] = torch.eye(Nc)
+
+    @property
+    def __field_class__(self):
+        return LatticeLink
+
+    def pack(self, x: "LatticeFermion"):
+        for color in range(Nc):
+            x.data[:, :, :, :, :, color, :] = self.data[:, :, :, :, :, :, color]
+
+    def unpack(self, x: "LatticeFermion"):
+        for color in range(Nc):
+            self.data[:, :, :, :, :, :, color] = x.data[:, :, :, :, :, color, :]
+
+
+class LatticeGauge(MultiField, LatticeLink):
     def __init__(self, latt_info: LatticeInfo, L5: Union[int, Any] = Nd, value=None) -> None:
         """`L5` can be `value` here"""
         if not isinstance(L5, int):
@@ -588,8 +650,11 @@ class LatticeGauge(MultiField, EvenOddField, HalfLatticeField):
         x = LatticeFermion(self.latt_info)
         self.gauge_dirac.loadGauge(unit)
         for mu, covdev_mu in enumerate(shift_mu):
-            x.data[:, :, :, :, :, :Nc, :Nc] = self.data[mu]
-            unit.data[mu] = self._gauge_dirac.covDev(x, covdev_mu).data[:, :, :, :, :, :Nc, :Nc]
+            self[mu].pack(x)
+            b = self._gauge_dirac.covDev(x, covdev_mu)
+            unit[mu].unpack(b)
+            # x.data[:, :, :, :, :, :Nc, :Nc] = self.data[mu]
+            # unit.data[mu] = self._gauge_dirac.covDev(x, covdev_mu).data[:, :, :, :, :, :Nc, :Nc]
         self._gauge_dirac.freeGauge()
         return unit
 
@@ -909,14 +974,6 @@ class LatticeFermion(EvenOddField, HalfLatticeFermion):
     def __field_class__(self):
         return LatticeFermion
 
-    def timeslice(self, t: int):
-        Lt = self.latt_info.Lt
-        gt = self.latt_info.gt
-        x = LatticeFermion(self.latt_info)
-        if gt * Lt <= t < (gt + 1) * Lt:
-            x.data[:, t - gt * Lt, :, :, :] = self.data[:, t - gt * Lt, :, :, :]
-        return x
-
 
 class MultiHalfLatticeFermion(MultiField, HalfLatticeFermion):
     def __init__(self, latt_info: LatticeInfo, L5: int, value=None) -> None:
@@ -958,14 +1015,6 @@ class LatticePropagator(EvenOddField, HalfLatticeField):
             self.data.transpose(6, 8, 0, 1, 2, 3, 4, 5, 7).reshape(Ns * Nc, *self.lattice_shape, Ns, Nc),
         )
 
-    def timeslice(self, t: int):
-        Lt = self.latt_info.Lt
-        gt = self.latt_info.gt
-        x = LatticePropagator(self.latt_info)
-        if gt * Lt <= t < (gt + 1) * Lt:
-            x.data[:, t - gt * Lt, :, :, :] = self.data[:, t - gt * Lt, :, :, :]
-        return x
-
 
 class HalfLatticeStaggeredFermion(HalfLatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
@@ -994,14 +1043,6 @@ class LatticeStaggeredFermion(EvenOddField, HalfLatticeStaggeredFermion):
     @property
     def __field_class__(self):
         return LatticeStaggeredFermion
-
-    def timeslice(self, t: int):
-        Lt = self.latt_info.Lt
-        gt = self.latt_info.gt
-        x = LatticeStaggeredFermion(self.latt_info)
-        if gt * Lt <= t < (gt + 1) * Lt:
-            x.data[:, t - gt * Lt, :, :, :] = self.data[:, t - gt * Lt, :, :, :]
-        return x
 
 
 class MultiLatticeStaggeredFermion(MultiField, LatticeStaggeredFermion):
@@ -1036,11 +1077,3 @@ class LatticeStaggeredPropagator(EvenOddField, HalfLatticeField):
             Nc,
             self.data.transpose(6, 0, 1, 2, 3, 4, 5).reshape(Nc, *self.lattice_shape, Nc),
         )
-
-    def timeslice(self, t: int):
-        Lt = self.latt_info.Lt
-        gt = self.latt_info.gt
-        x = LatticeStaggeredPropagator(self.latt_info)
-        if gt * Lt <= t < (gt + 1) * Lt:
-            x.data[:, t - gt * Lt, :, :, :] = self.data[:, t - gt * Lt, :, :, :]
-        return x

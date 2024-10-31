@@ -121,7 +121,14 @@ class Gamma:
         self.sign = sign
 
     def __repr__(self) -> str:
-        return f"{'-' if self.sign == -1 else ''}{self.index}"
+        return (
+            f"{'-' if self.sign == -1 else ''}"
+            f"{'γ₀' if not self.index else ''}"
+            f"{'γ₁' if self.index & 0b0001 else ''}"
+            f"{'γ₂' if self.index & 0b0010 else ''}"
+            f"{'γ₃' if self.index & 0b0100 else ''}"
+            f"{'γ₄' if self.index & 0b1000 else ''}"
+        )
 
     def __matmul__(self, rhs: "Gamma") -> "Gamma":
         index = self.index ^ rhs.index
@@ -145,6 +152,10 @@ class Gamma:
     @property
     def matrix(self) -> numpy.ndarray:
         return self.sign * GammaMatrix.matrix(self.index)
+
+    @property
+    def csr_matrix(self):
+        return GammaSparse.csr_matrix(self.index)
 
 
 def gamma(n: int):

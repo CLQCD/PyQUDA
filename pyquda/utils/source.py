@@ -101,7 +101,7 @@ def multiStaggeredFermion(
     t_srce: Union[List[int], int, None],
     source_phase=None,
 ):
-    b = MultiLatticeStaggeredFermion(latt_info, Ns * Nc)
+    b = MultiLatticeStaggeredFermion(latt_info, Nc)
     for color in range(Nc):
         b[color] = source(latt_info, source_type, t_srce, None, color, source_phase)
     return b

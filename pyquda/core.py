@@ -12,6 +12,7 @@ from .field import (
     Z,
     T,
     LatticeInfo,
+    LatticeLink,
     LatticeGauge,
     LatticeMom,
     LatticeFermion,
