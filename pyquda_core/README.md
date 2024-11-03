@@ -56,6 +56,8 @@ We recommend building PyQUDA using in-place mode instead of installing PyQUDA fo
 ```bash
 git clone https://github.com/CLQCD/PyQUDA.git
 cd PyQUDA
+ln -s pyquda_core/pyquda pyquda
+cd pyquda_core
 export QUDA_PATH=/path/to/quda/build/usqcd
 python3 setup.py build_ext --inplace
 ```
