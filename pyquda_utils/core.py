@@ -2,8 +2,8 @@ from typing import List, Literal, Union
 
 import numpy
 
-from . import getDefaultLattice, getLogger, dirac as fermion
-from .field import (
+from pyquda import getDefaultLattice, getLogger, dirac as fermion
+from pyquda.field import (
     Ns,
     Nc,
     Nd,
@@ -24,8 +24,9 @@ from .field import (
     lexico,
     cb2,
 )
-from .dirac.abstract import Multigrid, FermionDirac, StaggeredFermionDirac
-from .utils import source
+from pyquda.dirac.abstract import Multigrid, FermionDirac, StaggeredFermionDirac
+
+from . import source
 from .deprecated import smear, smear4, invert12, getDslash, getStaggeredDslash
 
 
@@ -129,9 +130,7 @@ def gatherLattice2(
             grid_coord = numpy.array(getCoordFromRank(rank, getGridSize()))[gather_axis]
             recv_slice = [slice(g * L, (g + 1) * L) for g, L in zip(grid_coord, send_latt)]
             all_slice = (*prefix_slice, *recv_slice[::-1], *suffix_slice)
-            data_all[all_slice] = recvobj[rank].reshape(
-                *prefix, *send_latt[::-1], *suffix
-            )
+            data_all[all_slice] = recvobj[rank].reshape(*prefix, *send_latt[::-1], *suffix)
 
         reduce_axis = tuple([len(prefix) + 3 - axis for axis in reduce_axis])
         if reduce_op.lower() == "sum":

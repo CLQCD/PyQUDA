@@ -3,7 +3,7 @@ from typing import Sequence
 
 import numpy
 
-from ..field import LatticeInfo, cb2
+from pyquda.field import LatticeInfo, cb2
 
 
 def getMomList(mom2_max, mom2_min=0):

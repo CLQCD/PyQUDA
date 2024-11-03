@@ -2,8 +2,8 @@ import cupy as cp
 
 from check_pyquda import weak_field
 
-from pyquda import core, init
-from pyquda.utils import io
+from pyquda import init
+from pyquda_utils import core, io
 
 init([1, 1, 1, 1], [4, 4, 4, 8], 1, 1.0, resource_path=".cache")
 

@@ -2,7 +2,7 @@ from typing import List, Union
 
 import numpy
 
-from ...field import Ns, Nc, LatticeInfo, LatticeGauge, LatticePropagator, LatticeStaggeredPropagator, cb2, lexico
+from pyquda.field import Ns, Nc, LatticeInfo, LatticeGauge, LatticePropagator, LatticeStaggeredPropagator, cb2, lexico
 
 # matrices to convert gamma basis bewteen DeGrand-Rossi and Dirac-Pauli
 # \psi(DP) = _DR_TO_DP \psi(DR)

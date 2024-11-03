@@ -3,8 +3,8 @@ import cupy as cp
 from check_pyquda import weak_field
 
 from pyquda import init
-from pyquda.utils import source, io
 from pyquda.field import LatticeInfo
+from pyquda_utils import source, io
 
 init([1, 1, 1, 2], resource_path=".cache")
 latt_info = LatticeInfo([4, 4, 4, 8])

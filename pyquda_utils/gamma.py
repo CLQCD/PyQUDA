@@ -3,7 +3,7 @@ from typing import List, Literal, NamedTuple, Union
 
 import numpy
 
-from .. import getCUDABackend, getLogger
+from pyquda import getCUDABackend, getLogger
 
 
 class GammaMatrix:

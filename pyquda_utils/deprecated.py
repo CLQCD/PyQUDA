@@ -1,8 +1,8 @@
 from typing import List
 
-from . import getLogger, getGridSize, quda, enum_quda
-from .field import LatticeFermion, LatticeGauge, LatticeInfo, LatticePropagator, Nc, Ns
-from .dirac.abstract import FermionDirac
+from pyquda import getLogger, getGridSize, quda, enum_quda
+from pyquda.field import LatticeFermion, LatticeGauge, LatticeInfo, LatticePropagator, Nc, Ns
+from pyquda.dirac.abstract import FermionDirac
 
 
 def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):

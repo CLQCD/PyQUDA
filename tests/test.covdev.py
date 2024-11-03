@@ -3,9 +3,9 @@ import cupy as cp
 
 from check_pyquda import weak_field
 
-from pyquda import init, core
+from pyquda import init
 from pyquda.field import LatticeGauge, LatticeFermion, Nd, Nc
-from pyquda.utils import io, source
+from pyquda_utils import core, io, source
 
 init([1, 1, 1, 1], [4, 4, 4, 8], 1, 1.0, resource_path=".cache")
 latt_info = core.getDefaultLattice()

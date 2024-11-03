@@ -1,8 +1,8 @@
 from typing import List, Literal, Union
 
-from .. import quda, getGridSize, getLogger
-from ..enum_quda import QudaDslashType, QudaParity
-from ..field import (
+from pyquda import quda, getGridSize, getLogger
+from pyquda.enum_quda import QudaDslashType, QudaParity
+from pyquda.field import (
     Ns,
     Nc,
     LatticeInfo,

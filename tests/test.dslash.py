@@ -3,9 +3,10 @@ import cupy as cp
 
 from check_pyquda import weak_field
 
-from pyquda import init, core, quda
+from pyquda import init, quda
 from pyquda.field import Ns, Nc
 from pyquda.enum_quda import QudaParity
+from pyquda_utils import core
 
 init([1, 1, 1, 1], [16, 16, 16, 32], 1, 1.0, resource_path=".cache")
 latt_info = core.getDefaultLattice()

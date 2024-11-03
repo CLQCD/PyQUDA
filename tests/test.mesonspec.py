@@ -4,8 +4,8 @@ import cupy as cp
 
 from check_pyquda import weak_field
 
-from pyquda import core, init
-from pyquda.utils import gamma, phase, io
+from pyquda import init
+from pyquda_utils import core, gamma, phase, io
 
 xi_0, nu = 4.8965, 0.86679
 mass = 0.09253

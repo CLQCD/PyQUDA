@@ -1,7 +1,7 @@
 from check_pyquda import weak_field
 
 from pyquda import init
-from pyquda.utils import io
+from pyquda_utils import io
 
 init(resource_path=".cache")
 

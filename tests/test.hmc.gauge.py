@@ -5,9 +5,9 @@ from check_pyquda import test_dir
 
 from pyquda import init, getLogger, core
 from pyquda.hmc import HMC, O4Nf5Ng0V
-from pyquda.hmc_param import symanzik_tree_gauge
 from pyquda.action import GaugeAction
-from pyquda.utils.io import writeNPYGauge
+from pyquda_utils.hmc_param import symanzik_tree_gauge
+from pyquda_utils.io import writeNPYGauge
 
 beta, u_0 = 7.4, 0.890
 start, stop, warm, save = 0, 2000, 500, 5

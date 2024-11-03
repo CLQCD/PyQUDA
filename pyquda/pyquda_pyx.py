@@ -335,7 +335,6 @@ def build_pyquda_pyx(pyquda_root, quda_path):
         f.write(pyquda_pyx)
     with open(os.path.join(pyquda_root, "pyquda", "enum_quda.py"), "w") as f:
         f.write(enum_quda_py)
-
     # with open(os.path.join(pyquda_root, "pyquda", "pyquda.pyi"), "w") as f:
     #     f.write(pyquda_pyi)
 

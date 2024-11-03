@@ -1,8 +1,8 @@
 from math import log
 from typing import Literal
 
-from .field import X, Y, Z, T
-from .action.abstract import LoopParam, RationalParam
+from pyquda.field import X, Y, Z, T
+from pyquda.action.abstract import LoopParam, RationalParam
 
 
 def wilson_gauge():

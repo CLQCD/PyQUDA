@@ -22,7 +22,7 @@ from ..enum_quda import (
     QudaParity,
     QudaPrecision,
     QudaReconstructType,
-    QudaSolverNormalization,
+    # QudaSolverNormalization,
     QudaVerbosity,
 )
 from ..field import (

@@ -7,7 +7,7 @@ from xml.etree import ElementTree as ET
 
 import numpy
 
-from ... import getSublatticeSize, getMPIComm, getMPISize, getMPIRank, getGridCoord, readMPIFile, writeMPIFile
+from pyquda import getSublatticeSize, getMPIComm, getMPISize, getMPIRank, getGridCoord, readMPIFile, writeMPIFile
 
 Nd, Ns, Nc = 4, 4, 3
 _precision_map = {"D": 8, "F": 4, "S": 4}

@@ -3,18 +3,22 @@ import sys
 from setuptools import Extension, setup
 from pyquda_pyx import build_pyquda_pyx
 
-if "QUDA_PATH" in os.environ:
+if "sdist" in sys.argv:
+    setup()
+    exit(0)
+elif "QUDA_PATH" in os.environ:
     quda_path = os.path.realpath(os.environ["QUDA_PATH"])
     build_pyquda_pyx(os.path.dirname(__file__), quda_path)
-    if os.path.exists(os.path.join(quda_path, "lib", "libquda.so")):
+    if os.path.exists(os.path.join(quda_path, "lib", "libquda.so")) or os.path.exists(
+        os.path.join(quda_path, "lib", "quda.dll")
+    ):
         _STATIC = False
-    elif os.path.exists(os.path.join(quda_path, "lib", "libquda.a")):
+    elif os.path.exists(os.path.join(quda_path, "lib", "libquda.a")) or os.path.exists(
+        os.path.join(quda_path, "lib", "quda.lib")
+    ):
         _STATIC = True
     else:
         raise FileNotFoundError(f"Cannot find libquda.so or libquda.a in {os.path.join(quda_path, 'lib')}")
-elif "sdist" in sys.argv:
-    setup()
-    exit(0)
 else:
     raise EnvironmentError("QUDA_PATH environment is needed to link against libquda")
 

@@ -5,9 +5,9 @@ from check_pyquda import test_dir
 
 from pyquda import init, getLogger, core
 from pyquda.hmc import HMC, O4Nf5Ng0V
-from pyquda.hmc_param import symanzik_tree_gauge, wilson_rational_param
 from pyquda.action import GaugeAction, CloverWilsonAction
-from pyquda.utils.io import writeNPYGauge
+from pyquda_utils.hmc_param import symanzik_tree_gauge, wilson_rational_param
+from pyquda_utils.io import writeNPYGauge
 
 beta, u_0 = 7.4, 0.890
 clover_csw = 1 / u_0**3

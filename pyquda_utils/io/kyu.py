@@ -3,7 +3,7 @@ from typing import List
 
 import numpy
 
-from ... import getSublatticeSize, readMPIFile, writeMPIFile
+from pyquda import getSublatticeSize, readMPIFile, writeMPIFile
 
 Nd, Ns, Nc = 4, 4, 3
 
