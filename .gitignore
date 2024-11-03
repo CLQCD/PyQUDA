@@ -22,7 +22,7 @@ pyquda_core/pyquda/src/*.c
 pyquda_core/pyquda/src/*.cpp
 
 # symbolic link
-pyquda
+/pyquda
 
 # pycparser
 yacctab.py
