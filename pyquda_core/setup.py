@@ -3,9 +3,8 @@ import sys
 from setuptools import Extension, setup
 from pyquda_pyx import build_pyquda_pyx
 
-if "sdist" in sys.argv:
+if "sdist" in sys.argv or "egg_info" in sys.argv:
     setup()
-    exit(0)
 elif "QUDA_PATH" in os.environ:
     quda_path = os.path.realpath(os.environ["QUDA_PATH"])
     build_pyquda_pyx(os.path.dirname(__file__), quda_path)
@@ -19,40 +18,40 @@ elif "QUDA_PATH" in os.environ:
         _STATIC = True
     else:
         raise FileNotFoundError(f"Cannot find libquda.so or libquda.a in {os.path.join(quda_path, 'lib')}")
+
+    from Cython.Build import cythonize
+    import numpy
+
+    extensions = cythonize(
+        [
+            Extension(
+                name="pyquda.pointer",
+                sources=["pyquda/src/pointer.pyx"],
+                language="c",
+            ),
+            Extension(
+                name="pyquda.pyquda",
+                sources=["pyquda/src/pyquda.pyx"],
+                include_dirs=[os.path.join(quda_path, "include"), numpy.get_include()],
+                define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
+                library_dirs=[os.path.join(quda_path, "lib")],
+                libraries=["quda"],
+                extra_link_args=[f"-Wl,-rpath={os.path.join(quda_path, 'lib')}"] if not _STATIC else None,
+                language="c",
+            ),
+            Extension(
+                name="pyquda.malloc_pyquda",
+                sources=["pyquda/src/malloc_pyquda.pyx"],
+                include_dirs=[os.path.join(quda_path, "include")],
+                library_dirs=[os.path.join(quda_path, "lib")],
+                libraries=["quda"],
+                extra_link_args=[f"-Wl,-rpath={os.path.join(quda_path, 'lib')}"] if not _STATIC else None,
+                language="c++",
+            ),
+        ],
+        language_level="3",
+    )
+
+    setup(ext_modules=extensions)
 else:
     raise EnvironmentError("QUDA_PATH environment is needed to link against libquda")
-
-from Cython.Build import cythonize
-import numpy
-
-extensions = cythonize(
-    [
-        Extension(
-            name="pyquda.pointer",
-            sources=["pyquda/src/pointer.pyx"],
-            language="c",
-        ),
-        Extension(
-            name="pyquda.pyquda",
-            sources=["pyquda/src/pyquda.pyx"],
-            include_dirs=[os.path.join(quda_path, "include"), numpy.get_include()],
-            define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
-            library_dirs=[os.path.join(quda_path, "lib")],
-            libraries=["quda"],
-            extra_link_args=[f"-Wl,-rpath={os.path.join(quda_path, 'lib')}"] if not _STATIC else None,
-            language="c",
-        ),
-        Extension(
-            name="pyquda.malloc_pyquda",
-            sources=["pyquda/src/malloc_pyquda.pyx"],
-            include_dirs=[os.path.join(quda_path, "include")],
-            library_dirs=[os.path.join(quda_path, "lib")],
-            libraries=["quda"],
-            extra_link_args=[f"-Wl,-rpath={os.path.join(quda_path, 'lib')}"] if not _STATIC else None,
-            language="c++",
-        ),
-    ],
-    language_level="3",
-)
-
-setup(ext_modules=extensions)
