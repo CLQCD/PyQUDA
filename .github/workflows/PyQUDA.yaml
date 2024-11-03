@@ -1,7 +1,7 @@
 name: PyQUDA sdist
 
 on:
-  workflow_dispatch:
+  [workflow_dispatch, push]:
     inputs:
       tag:
         description: Which tag to create and release?

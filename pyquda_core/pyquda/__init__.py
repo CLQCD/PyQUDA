@@ -7,7 +7,7 @@ from mpi4py import MPI
 from mpi4py.util import dtlib
 import numpy
 
-from .version import __version__  # noqa: F401
+from ._version import __version__  # noqa: F401
 from . import pyquda as quda
 from .field import LatticeInfo
 
