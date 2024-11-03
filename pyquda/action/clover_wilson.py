@@ -83,7 +83,7 @@ class CloverWilsonAction(FermionAction):
         self.invert_param.compute_action = 0
         return (
             self.invert_param.action[0]
-            - self.latt_info.volume_cb2 * Ns * Nc
+            - self.latt_info.volume // 2 * Ns * Nc  # volume_cb2 here
             - self.multiplicity * self.invert_param.trlogA[1]
         )
 

@@ -39,18 +39,17 @@ class LatticeInfo:
 
         Gx, Gy, Gz, Gt = self.grid_size
         gx, gy, gz, gt = self.grid_coord
-        Lx, Ly, Lz, Lt = latt_size
+        GLx, GLy, GLz, GLt = latt_size
+        Lx, Ly, Lz, Lt = GLx // Gx, GLy // Gy, GLz // Gz, GLt // Gt
 
         self.Gx, self.Gy, self.Gz, self.Gt = Gx, Gy, Gz, Gt
         self.gx, self.gy, self.gz, self.gt = gx, gy, gz, gt
-        self.global_size = [Lx, Ly, Lz, Lt]
-        self.global_volume = Lx * Ly * Lz * Lt
-        Lx, Ly, Lz, Lt = Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt
+        self.GLx, self.GLy, self.GLz, self.GLt = GLx, GLy, GLz, GLt
         self.Lx, self.Ly, self.Lz, self.Lt = Lx, Ly, Lz, Lt
+        self.global_size = [GLx, GLy, GLz, GLt]
+        self.global_volume = GLx * GLy * GLz * GLt
         self.size = [Lx, Ly, Lz, Lt]
         self.volume = Lx * Ly * Lz * Lt
-        self.size_cb2 = [Lx // 2, Ly, Lz, Lt]
-        self.volume_cb2 = Lx * Ly * Lz * Lt // 2
         self.ga_pad = Lx * Ly * Lz * Lt // min(Lx, Ly, Lz, Lt) // 2
 
         self.t_boundary = t_boundary
