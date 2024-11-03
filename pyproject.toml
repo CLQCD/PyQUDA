@@ -1,2 +1,45 @@
 [build-system]
 requires = ["setuptools"]
+
+[tool.setuptools.packages.find]
+include = ["pyquda_utils*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "pyquda_utils._version.__version__" }
+
+[project]
+dynamic = ["version"]
+name = "PyQUDA-Utils"
+dependencies = ["PyQUDA"]
+requires-python = ">=3.8"
+authors = [
+    { name = "SaltyChiang", email = "SaltyChiang@users.noreply.github.com" },
+]
+maintainers = [
+    { name = "SaltyChiang", email = "SaltyChiang@users.noreply.github.com" },
+]
+description = "Utility scripts based on PyQUDA"
+readme = "README.md"
+license = { file = "LICENSE" }
+keywords = [
+    "lattice-gauge-theory",
+    "lattice-field-theory",
+    "lattice-qcd",
+    "hep-lat",
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Cython",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Environment :: GPU",
+    "Environment :: GPU :: NVIDIA CUDA",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+
+[project.urls]
+Homepage = "https://github.com/CLQCD/PyQUDA"
+Documentation = "https://github.com/CLQCD/PyQUDA/wiki/Documentation"
+Repository = "https://github.com/CLQCD/PyQUDA.git"
+Issues = "https://github.com/CLQCD/PyQUDA/issues"
