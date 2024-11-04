@@ -32,7 +32,7 @@ jobs:
           python-version: '3.8'
 
       - name: Install dependencies
-        run: python -m pip install --upgrade pip setuptools wheel Cython build
+        run: python -m pip install build
 
       - name: Build sdist
         run: python -m build ./pyquda_core --sdist
