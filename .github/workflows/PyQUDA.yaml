@@ -47,7 +47,7 @@ jobs:
           fail_on_unmatched_files: true
 
       - name: Prepare sdist
-        run: mv ./pyquda_core/sdist ./
+        run: mv ./pyquda_core/dist ./
 
       - name: Publish sdist
         uses: pypa/gh-action-pypi-publish@release/v1
