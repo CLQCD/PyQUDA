@@ -2,11 +2,6 @@ name: PyQUDA-Utils publish
 
 on:
   workflow_dispatch:
-    inputs:
-      tag:
-        description: Which tag to create and release?
-        required: true
-        default: 0.0.0
 
 jobs:
   pypi-publish:
@@ -37,12 +32,12 @@ jobs:
       - name: Build sdist
         run: python -m build . --sdist
 
-      - name: Upload sdist
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag != ''
-        uses: softprops/action-gh-release@v1
-        with:
-          files: dist/pyquda_utils-${{ github.event.inputs.tag }}.tar.gz
-          fail_on_unmatched_files: true
+      # - name: Upload sdist
+      #   if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag != ''
+      #   uses: softprops/action-gh-release@v1
+      #   with:
+      #     files: dist/pyquda_utils-*.tar.gz
+      #     fail_on_unmatched_files: true
 
       - name: Publish sdist
         uses: pypa/gh-action-pypi-publish@release/v1
