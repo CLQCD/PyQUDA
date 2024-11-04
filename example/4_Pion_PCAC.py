@@ -3,8 +3,8 @@ import cupy as cp
 from opt_einsum import contract
 from matplotlib import pyplot as plt
 
-from pyquda import init, core, LatticeInfo
-from pyquda.utils import io, gamma
+from pyquda import init, LatticeInfo
+from pyquda_utils import core, io, gamma
 
 init([1, 1, 1, 2], resource_path=".cache")
 

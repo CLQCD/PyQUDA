@@ -3,8 +3,8 @@ from random import random
 from time import perf_counter
 
 from pyquda import init
-from pyquda.utils import io
 from pyquda.field import LatticeInfo, LatticeGauge, Nc
+from pyquda_utils import io
 
 from hmc import HMC
 

@@ -1,4 +1,4 @@
-name: PyQUDA-Utils sdist
+name: PyQUDA-Utils publish
 
 on:
   workflow_dispatch:
@@ -9,9 +9,16 @@ on:
         default: 0.0.0
 
 jobs:
-  build:
+  pypi-publish:
 
     runs-on: ubuntu-latest
+
+    environment:
+      name: pypi
+      url: https://pypi.org/p/PyQUDA-Utils
+
+    permissions:
+      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
 
     steps:
       - name: Checkout
@@ -34,6 +41,8 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag != ''
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ github.event.inputs.tag }}
           files: dist/pyquda_utils-${{ github.event.inputs.tag }}.tar.gz
           fail_on_unmatched_files: true
+
+    - name: Publish sdist
+      uses: pypa/gh-action-pypi-publish@release/v1

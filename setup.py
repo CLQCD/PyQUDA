@@ -7,6 +7,6 @@ if "egg_info" in sys.argv or "sdist" in sys.argv:
     if describe != "":
         tag, post, hash = describe.strip().split("-")
         with open(os.path.join(os.path.dirname(__file__), "pyquda_utils", "_version.py"), "w") as f:
-            f.write(f'__version__ = "{tag[1:]}.post{post}+{hash}"\n')
+            f.write(f'__version__ = "{tag[1:]}.dev{post}"\n')
 
 setup()
