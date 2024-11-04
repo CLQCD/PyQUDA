@@ -3,9 +3,10 @@ from time import perf_counter
 
 from check_pyquda import test_dir
 
-from pyquda import init, getLogger, core
+from pyquda import init, getLogger
 from pyquda.hmc import HMC, INT_3G1F
 from pyquda.action import GaugeAction, HISQAction
+from pyquda_utils import core
 from pyquda_utils.hmc_param import symanzik_tree_gauge, staggered_rational_param
 from pyquda_utils.io import readMILCGauge, writeNPYGauge
 
