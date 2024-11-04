@@ -44,5 +44,5 @@ jobs:
           files: dist/pyquda_utils-${{ github.event.inputs.tag }}.tar.gz
           fail_on_unmatched_files: true
 
-    - name: Publish sdist
-      uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Publish sdist
+        uses: pypa/gh-action-pypi-publish@release/v1

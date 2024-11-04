@@ -48,5 +48,5 @@ jobs:
       - name: Prepare sdist
         run: mv ./pyquda_core/sdist ./
 
-    - name: Publish sdist
-      uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Publish sdist
+        uses: pypa/gh-action-pypi-publish@release/v1
