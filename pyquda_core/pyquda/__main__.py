@@ -10,9 +10,8 @@ def main():
         "-g",
         "--grid",
         nargs=4,
-        default=[1, 1, 1, 1],
         type=int,
-        help="Grid of how GPUs are arranged",
+        help="GPU grid size used to split the lattice",
         metavar=("Gx", "Gy", "Gz", "Gt"),
     )
     parser.add_argument(
@@ -29,13 +28,13 @@ def main():
         "--t-boundary",
         type=int,
         choices=(1, -1),
-        help="Lattice t boundary used as the default (required if -l/--latt/--lattice is set)",
+        help="Lattice t boundary used as the default (required if the lattice size is set)",
     )
     parser.add_argument(
         "-a",
         "--anisotropy",
         type=float,
-        help="Lattice anisotropy used as the default (required if -l/--latt/--lattice is set)",
+        help="Lattice anisotropy used as the default (required if the lattice size is set)",
         metavar="xi",
     )
     parser.add_argument(
@@ -43,7 +42,12 @@ def main():
         "--backend",
         default="cupy",
         choices=("numpy", "cupy", "torch"),
-        help="CUDA backend of PyQUDA (default: cupy)",
+        help="CUDA backend used for PyQUDA (default: cupy)",
+    )
+    parser.add_argument(
+        "--no-init-quda",
+        action="store_true",
+        help="Don't initialize the QUDA library",
     )
     parser.add_argument(
         "-p",
@@ -58,6 +62,7 @@ def main():
         args.t_boundary,
         args.anisotropy,
         args.backend,
+        not args.no_init_quda,
         resource_path=args.resource_path,
     )
     exec(open(args.script).read(), globals(), globals())

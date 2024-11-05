@@ -3,6 +3,7 @@ from typing import Sequence
 
 import numpy
 
+from pyquda import getCUDABackend, getLogger
 from pyquda.field import LatticeInfo, cb2
 
 
@@ -26,8 +27,6 @@ def getMomDict(mom2_max, mom2_min=0):
 
 class MomentumPhase:
     def __init__(self, latt_info: LatticeInfo) -> None:
-        from .. import getCUDABackend
-
         self.latt_info = latt_info
         gx, gy, gz, gt = latt_info.grid_coord
         Lx, Ly, Lz, Lt = latt_info.size
@@ -61,8 +60,6 @@ class MomentumPhase:
             self.x = torch.as_tensor(x)
 
     def getPhase(self, mom_mode: Sequence[int], x0: Sequence[int] = [0, 0, 0, 0]):
-        from .. import getCUDABackend
-
         x = self.x
         global_size = self.latt_info.global_size
 
@@ -75,8 +72,6 @@ class MomentumPhase:
             ipx = ip[0] * x[0] + ip[1] * x[1] + ip[2] * x[2] + ip[3] * x[3]
             ipx0 = ip[0] * x0[0] + ip[1] * x0[1] + ip[2] * x0[2] + ip[3] * x0[3]
         else:
-            from .. import getLogger
-
             getLogger().critical(f"mom should be a sequence of int with length 3 or 4, but get {mom_mode}", ValueError)
 
         backend = getCUDABackend()
@@ -92,8 +87,6 @@ class MomentumPhase:
             return torch.exp(ipx - ipx0)
 
     def getPhases(self, mom_mode_list: Sequence[Sequence[int]], x0: Sequence[int] = [0, 0, 0, 0]):
-        from .. import getCUDABackend
-
         Lx, Ly, Lz, Lt = self.latt_info.size
 
         backend = getCUDABackend()
@@ -119,8 +112,6 @@ class GridPhase:
         self.stride = stride
 
     def getPhase(self, t_srce: Sequence[int]):
-        from .. import getCUDABackend
-
         gx, gy, gz, gt = self.latt_info.grid_coord
         Lx, Ly, Lz, Lt = self.latt_info.size
         Sx, Sy, Sz, St = self.stride
@@ -144,8 +135,6 @@ class GridPhase:
             return torch.as_tensor(phase)
 
     def getPhases(self, t_srce_list: Sequence[Sequence[int]]):
-        from .. import getCUDABackend
-
         Lx, Ly, Lz, Lt = self.latt_info.size
 
         backend = getCUDABackend()

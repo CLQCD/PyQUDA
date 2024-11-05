@@ -2,7 +2,21 @@ from typing import List, Literal, Union
 
 import numpy
 
-from pyquda import getDefaultLattice, getLogger, dirac as fermion
+from pyquda import (
+    init,
+    getCoordFromRank,
+    getRankFromCoord,
+    getMPIComm,
+    getMPISize,
+    getMPIRank,
+    getGridSize,
+    getGridCoord,
+    setDefaultLattice,
+    getDefaultLattice,
+    getLogger,
+    setLoggerLevel,
+    dirac as fermion,
+)
 from pyquda.field import (
     Ns,
     Nc,
@@ -12,6 +26,10 @@ from pyquda.field import (
     Z,
     T,
     LatticeInfo,
+    LaplaceLatticeInfo,
+    LatticeInt32,
+    LatticeFloat64,
+    LatticeComplex128,
     LatticeLink,
     LatticeGauge,
     LatticeMom,
@@ -106,8 +124,6 @@ def gatherLattice2(
     reduce_op: Literal["sum", "mean", "prod", "max", "min"] = "sum",
     root: int = 0,
 ):
-    from . import getMPIComm, getMPISize, getMPIRank, getGridSize, getCoordFromRank
-
     sendobj = numpy.ascontiguousarray(data)
     recvobj = getMPIComm().gather(sendobj, root)
 
@@ -152,8 +168,6 @@ def gatherLattice2(
 
 
 def scatterLattice(data: numpy.ndarray, tzyx: List[int], root: int = 0):
-    from . import getMPIComm, getMPISize, getMPIRank, getGridSize, getCoordFromRank
-
     if getMPIRank() == root:
         scatter_axis = [d for d in range(4) if tzyx[::-1][d] >= 0]
         grid_size = numpy.array(getGridSize())[scatter_axis]
@@ -211,8 +225,6 @@ def gatherLattice(data: numpy.ndarray, axes: List[int], reduce_op: Literal["sum"
     Note:
     - This function assumes that MPI environment has been initialized before its invocation.
     """
-    from . import getMPIComm, getMPISize, getMPIRank, getGridSize, getCoordFromRank
-
     Gx, Gy, Gz, Gt = getGridSize()
     Lt, Lz, Ly, Lx = [data.shape[axis] if axis >= 0 else 1 for axis in axes]
     keep = tuple([axis for axis in axes if axis >= 0])

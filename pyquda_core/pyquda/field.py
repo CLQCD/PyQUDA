@@ -179,9 +179,27 @@ class HalfLatticeField:
         )
         self.dtype = numpy.dtype(field_dtype).type
         if self.backend == "torch":
-            from torch.testing._internal.common_utils import numpy_to_torch_dtype
+            import torch
 
-            self.dtype = numpy_to_torch_dtype(self.dtype)
+            # from torch.testing._internal.common_utils import numpy_to_torch_dtype_dict
+            # Dict of NumPy dtype -> torch dtype (when the correspondence exists)
+            numpy_to_torch_dtype_dict = {
+                numpy.bool_: torch.bool,
+                numpy.uint8: torch.uint8,
+                numpy.uint16: torch.uint16,
+                numpy.uint32: torch.uint32,
+                numpy.uint64: torch.uint64,
+                numpy.int8: torch.int8,
+                numpy.int16: torch.int16,
+                numpy.int32: torch.int32,
+                numpy.int64: torch.int64,
+                numpy.float16: torch.float16,
+                numpy.float32: torch.float32,
+                numpy.float64: torch.float64,
+                numpy.complex64: torch.complex64,
+                numpy.complex128: torch.complex128,
+            }
+            self.dtype = numpy_to_torch_dtype_dict[self.dtype]
 
     def initData(self, value):
         backend, value = (value, None) if isinstance(value, str) else (None, value)
