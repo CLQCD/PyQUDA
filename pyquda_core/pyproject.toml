@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "wheel", "Cython>=3", "numpy"]
+requires = ["setuptools", "wheel", "Cython", "numpy"]
 
 [tool.setuptools.packages.find]
 include = ["pyquda*"]

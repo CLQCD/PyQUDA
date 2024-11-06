@@ -38,6 +38,7 @@ from ..enum_quda import (
     QudaGaugeSmearType,
     QudaLinkType,
     QudaMassNormalization,
+    QudaPrecision,
     QudaReconstructType,
     QudaSolveType,
 )
@@ -53,13 +54,18 @@ class GaugeDirac(Dirac):
         self.newQudaInvertParam()
         self.newQudaGaugeSmearParam()
         self.newQudaGaugeObservableParam()
-        self.setPrecision()
+        self.setPrecision(
+            cuda=QudaPrecision.QUDA_DOUBLE_PRECISION,
+            sloppy=QudaPrecision.QUDA_DOUBLE_PRECISION,
+            precondition=QudaPrecision.QUDA_DOUBLE_PRECISION,
+            eigensolver=QudaPrecision.QUDA_DOUBLE_PRECISION,
+        )
         # Use QUDA_RECONSTRUCT_NO to ensure slight deviations from SU(3) can be preserved
         self.setReconstruct(
-            cuda=max(self.reconstruct.cuda, QudaReconstructType.QUDA_RECONSTRUCT_NO),
-            sloppy=max(self.reconstruct.sloppy, QudaReconstructType.QUDA_RECONSTRUCT_NO),
-            precondition=max(self.reconstruct.precondition, QudaReconstructType.QUDA_RECONSTRUCT_NO),
-            eigensolver=max(self.reconstruct.eigensolver, QudaReconstructType.QUDA_RECONSTRUCT_NO),
+            cuda=QudaReconstructType.QUDA_RECONSTRUCT_NO,
+            sloppy=QudaReconstructType.QUDA_RECONSTRUCT_NO,
+            precondition=QudaReconstructType.QUDA_RECONSTRUCT_NO,
+            eigensolver=QudaReconstructType.QUDA_RECONSTRUCT_NO,
         )
 
     def newQudaGaugeParam(self):

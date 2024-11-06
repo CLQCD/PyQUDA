@@ -28,10 +28,10 @@ class StaggeredDirac(StaggeredFermionDirac):
         else:
             self.setPrecision()
         self.setReconstruct(
-            cuda=max(self.reconstruct.cuda, QudaReconstructType.QUDA_RECONSTRUCT_NO),
-            sloppy=max(self.reconstruct.sloppy, QudaReconstructType.QUDA_RECONSTRUCT_NO),
-            precondition=max(self.reconstruct.precondition, QudaReconstructType.QUDA_RECONSTRUCT_NO),
-            eigensolver=max(self.reconstruct.eigensolver, QudaReconstructType.QUDA_RECONSTRUCT_NO),
+            cuda=QudaReconstructType.QUDA_RECONSTRUCT_NO,
+            sloppy=QudaReconstructType.QUDA_RECONSTRUCT_NO,
+            precondition=QudaReconstructType.QUDA_RECONSTRUCT_NO,
+            eigensolver=QudaReconstructType.QUDA_RECONSTRUCT_NO,
         )
 
     def newQudaGaugeParam(self, tadpole_coeff: float):

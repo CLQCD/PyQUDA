@@ -41,7 +41,8 @@ cdef class _NDArray:
     cdef void **ptrs
     cdef void ***ptrss
 
-    def __cinit__(self, ndarray data):
+    def __cinit__(self, data):
+        shape = data.shape
         ndim = data.ndim
         cdef size_t ptr_uint64
         if ndim == 1:
@@ -50,18 +51,18 @@ cdef class _NDArray:
             ptr_uint64 = data.ctypes.data
             self.ptr = <void *>ptr_uint64
         elif ndim == 2:
-            self.n0, self.n1 = data.shape[0], 0
-            self.ptrs = <void **>malloc(self.n0 * sizeof(void *))
-            for i in range(self.n0):
+            self.n0, self.n1 = shape[0], 0
+            self.ptrs = <void **>malloc(shape[0] * sizeof(void *))
+            for i in range(shape[0]):
                 assert data[i].flags["C_CONTIGUOUS"]
                 ptr_uint64 = data[i].ctypes.data
                 self.ptrs[i] = <void *>ptr_uint64
         elif ndim == 3:
-            self.n0, self.n1 = data.shape[0], data.shape[1]
-            self.ptrss = <void ***>malloc(self.n0 * sizeof(void **))
-            for i in range(self.n0):
-                self.ptrss[i] = <void **>malloc(self.n1 * sizeof(void *))
-                for j in range(self.n1):
+            self.n0, self.n1 = shape[0], shape[1]
+            self.ptrss = <void ***>malloc(shape[0] * sizeof(void **))
+            for i in range(shape[0]):
+                self.ptrss[i] = <void **>malloc(shape[1] * sizeof(void *))
+                for j in range(shape[1]):
                     assert data[i, j].flags["C_CONTIGUOUS"]
                     ptr_uint64 = data[i, j].ctypes.data
                     self.ptrss[i][j] = <void *>ptr_uint64
