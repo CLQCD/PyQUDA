@@ -11,8 +11,8 @@ This project is based on the latest QUDA `develop` branch. PyQUDA should be comp
 - Multi-GPU supported
   - with [MPI for Python](https://mpi4py.readthedocs.io/en/stable/) package
 - File I/O
-  - Read gauge and propagator in Chroma format
-  - Read gauge and propagator in MILC format
+  - Read gauge and propagator in Chroma format (with checksum)
+  - Read gauge and propagator in MILC format (with checksum)
   - Read/write gauge and propagator in KYU format
   - Read/write gauge and propagator in XQCD format
   - Read/write gauge and propagator in NPY format (numpy)
@@ -21,10 +21,10 @@ This project is based on the latest QUDA `develop` branch. PyQUDA should be comp
   - Isotropic/anisotropic Clover fermion action with multigrid support
   - Isotropic HISQ fermion action
 - HMC
-  - Isotropic Wilson gauge action
-  - Isotropic Symanzik gauge action
+  - Isotropic gauge action
   - 1-flavor isotropic clover fermion action
   - 2-flavor isotropic clover fermion action
+  - N-flavor isotropic HISQ fermion action
 - Gauge fixing
   - Rotation field with over-relaxation method (waiting for QUDA merge)
 - Gauge smearing
@@ -38,6 +38,17 @@ This project is based on the latest QUDA `develop` branch. PyQUDA should be comp
   - Symanzik flow
 
 ## Installation
+
+### Install from PyPI
+
+Assuming the QUDA installation path is `/path/to/quda/build/usqcd`
+
+```bash
+export QUDA_PATH=/path/to/quda/build/usqcd
+python3 -m pip install pyquda pyquda-utils
+```
+
+### Install from source
 
 Refer to https://github.com/CLQCD/PyQUDA/wiki/Installation for detailed instructions to install PyQUDA from the source.
 
@@ -54,7 +65,7 @@ https://github.com/CLQCD/PyQUDA/wiki/Documentation
 We recommend building PyQUDA using in-place mode instead of installing PyQUDA for development.
 
 ```bash
-git clone https://github.com/CLQCD/PyQUDA.git
+git clone --recursive https://github.com/CLQCD/PyQUDA.git
 cd PyQUDA
 ln -s pyquda_core/pyquda pyquda
 cd pyquda_core

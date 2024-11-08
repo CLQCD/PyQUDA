@@ -3,7 +3,7 @@ import sys
 from setuptools import Extension, setup
 from pyquda_pyx import build_pyquda_pyx
 
-if "egg_info" in sys.argv or "sdist" in sys.argv:
+if "egg_info" in sys.argv or "dist_info" in sys.argv or "sdist" in sys.argv:
     setup()
 elif "QUDA_PATH" in os.environ:
     quda_path = os.path.realpath(os.environ["QUDA_PATH"])

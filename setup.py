@@ -2,7 +2,7 @@ import os
 import sys
 from setuptools import setup
 
-if "egg_info" in sys.argv or "sdist" in sys.argv:
+if "egg_info" in sys.argv or "dist_info" in sys.argv or "sdist" in sys.argv:
     describe = os.popen("git describe --tags", "r").read().strip()
     if describe != "":
         if "-" in describe:

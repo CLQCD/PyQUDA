@@ -1,6 +1,5 @@
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["setuptools", "wheel"]
 
 [tool.setuptools.packages.find]
 include = ["pyquda_utils*"]
