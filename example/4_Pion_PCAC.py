@@ -3,12 +3,11 @@ import cupy as cp
 from opt_einsum import contract
 from matplotlib import pyplot as plt
 
-from pyquda import init, LatticeInfo
 from pyquda_utils import core, io, gamma
 
-init([1, 1, 1, 2], resource_path=".cache")
+core.init([1, 1, 1, 2], resource_path=".cache")
+latt_info = core.LatticeInfo([24, 24, 24, 72], -1, 1.0)
 
-latt_info = LatticeInfo([24, 24, 24, 72], -1, 1.0)
 dirac = core.getDirac(latt_info, -0.2770, 1e-12, 1000, 1.0, 1.160920226, 1.160920226, [[6, 6, 6, 4], [4, 4, 4, 9]])
 gauge = io.readChromaQIOGauge("/public/ensemble/C24P29/beta6.20_mu-0.2770_ms-0.2400_L24x72_cfg_48000.lime")
 gauge.stoutSmear(1, 0.125, 4)

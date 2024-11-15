@@ -23,12 +23,12 @@ hmc = HMC(latt_info, monomials, O4Nf5Ng0V(10))
 gauge = core.LatticeGauge(latt_info)
 hmc.initialize(10086, gauge)
 
-getLogger().info(f"Trajectory {start}:\n" f"Plaquette = {hmc.plaquette()}\n")
+plaq = hmc.plaquette()
+getLogger().info(f"Trajectory {start}:\n" f"Plaquette = {plaq}\n")
 for i in range(start, stop):
     s = perf_counter()
 
     hmc.gaussMom()
-    hmc.samplePhi()
 
     kinetic_old, potential_old = hmc.momAction(), hmc.gaugeAction()
     energy_old = kinetic_old + potential_old
@@ -44,9 +44,10 @@ for i in range(start, stop):
     else:
         hmc.loadGauge(gauge)
 
-    print(
+    plaq = hmc.plaquette()
+    getLogger().info(
         f"Trajectory {i + 1}:\n"
-        f"Plaquette = {hmc.plaquette()}\n"
+        f"Plaquette = {plaq}\n"
         f"P_old = {potential_old}, K_old = {kinetic_old}\n"
         f"P = {potential}, K = {kinetic}\n"
         f"Delta_P = {potential - potential_old}, Delta_K = {kinetic - kinetic_old}\n"

@@ -1,125 +1,78 @@
 from math import exp
-from random import random
 from time import perf_counter
 
-from pyquda import init
-from pyquda.field import LatticeInfo, LatticeGauge, Nc
-from pyquda_utils import io
+from pyquda.action import GaugeAction, abstract
+from pyquda.hmc import HMC, Integrator
+from pyquda_utils import core, io
+from pyquda_utils.core import X, Y, Z, T
 
-from hmc import HMC
-
-init(resource_path=".cache")
-latt_info = LatticeInfo([16, 16, 16, 32])
-hmc = HMC(latt_info)
-hmc.initialize()
-gauge = LatticeGauge(latt_info)
+core.init(resource_path=".cache")
+latt_info = core.LatticeInfo([16, 16, 16, 32])
 
 u_0 = 0.855453
 beta = 6.20
-input_path = [
-    [0, 1, 4, 5],
-    [0, 2, 4, 6],
-    [1, 2, 5, 6],
-    [0, 3, 4, 7],
-    [1, 3, 5, 7],
-    [2, 3, 6, 7],
-]
-input_coeff = [
-    -beta / Nc,
-    -beta / Nc,
-    -beta / Nc,
-    -beta / Nc,
-    -beta / Nc,
-    -beta / Nc,
-]
+loop_param = abstract.LoopParam(
+    [
+        [X, Y, -X, -Y],
+        [X, Z, -X, -Z],
+        [Y, Z, -Y, -Z],
+        [X, T, -X, -T],
+        [Y, T, -Y, -T],
+        [Z, T, -Z, -T],
+    ],
+    [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+)
+start, stop, warm, save = 0, 2000, 500, 5
+t, n_steps = 1.0, 100
 
-input_path2 = [
-    [
-        [0, 1, 4, 5],
-        [0, 5, 4, 1],
-        [0, 2, 4, 6],
-        [0, 6, 4, 2],
-        [0, 3, 4, 7],
-        [0, 7, 4, 3],
-    ],
-    [
-        [1, 4, 5, 0],
-        [1, 0, 5, 4],
-        [1, 2, 5, 6],
-        [1, 6, 5, 2],
-        [1, 3, 5, 7],
-        [1, 7, 5, 3],
-    ],
-    [
-        [2, 4, 6, 0],
-        [2, 0, 6, 4],
-        [2, 5, 6, 1],
-        [2, 1, 6, 5],
-        [2, 3, 6, 7],
-        [2, 7, 6, 3],
-    ],
-    [
-        [3, 4, 7, 0],
-        [3, 0, 7, 4],
-        [3, 5, 7, 1],
-        [3, 1, 7, 5],
-        [3, 6, 7, 2],
-        [3, 2, 7, 6],
-    ],
-]
-input_coeff2 = [
-    beta / Nc,
-    beta / Nc,
-    beta / Nc,
-    beta / Nc,
-    beta / Nc,
-    beta / Nc,
-]
 
-start = 0
-stop = 2000
-warm = 500
-save = 5
-t = 1.0
-n_steps = 100
+class O2Nf1Ng0V(Integrator):
+    R"""https://doi.org/10.1016/S0010-4655(02)00754-3
+    BAB: Eq.(23), \xi=0"""
 
-print("\n" f"Trajectory {start}:\n" f"plaquette = {hmc.plaquette()}\n")
+    def integrate(self, updateGauge, updateMom, t: float):
+        dt = t / self.n_steps
+        for _ in range(self.n_steps):
+            updateMom(dt / 2)
+            updateGauge(dt)
+            updateMom(dt / 2)
+
+
+hmc = HMC(latt_info, [GaugeAction(latt_info, loop_param, beta)], O2Nf1Ng0V(n_steps))
+gauge = core.LatticeGauge(latt_info)
+hmc.initialize(10086, gauge)
+
+plaq = hmc.plaquette()
+core.getLogger().info(f"Trajectory {start}:\n" f"plaquette = {plaq}\n")
 
 for i in range(start, stop):
     s = perf_counter()
 
-    hmc.gaussMom(i)
+    hmc.gaussMom()
 
-    kinetic_old = hmc.actionMom()
-    potential_old = hmc.actionGauge(input_path, input_coeff)
+    kinetic_old, potential_old = hmc.momAction(), hmc.gaugeAction() + hmc.fermionAction()
     energy_old = kinetic_old + potential_old
 
-    dt = t / n_steps
-    for _ in range(n_steps):
-        hmc.updateMom(input_path2, input_coeff2, dt / 2)
-        hmc.updateGauge(dt)
-        hmc.updateMom(input_path2, input_coeff2, dt / 2)
+    hmc.integrate(t, 2e-14)
 
-    hmc.reunitGauge(1e-15)
-
-    kinetic = hmc.actionMom()
-    potential = hmc.actionGauge(input_path, input_coeff)
+    kinetic, potential = hmc.momAction(), hmc.gaugeAction() + hmc.fermionAction()
     energy = kinetic + potential
 
-    accept = random() < exp(energy_old - energy)
+    accept = hmc.accept(energy - energy_old)
     if accept or i < warm:
         hmc.saveGauge(gauge)
     else:
         hmc.loadGauge(gauge)
 
-    print(
+    plaq = hmc.plaquette()
+    core.getLogger().info(
         f"Trajectory {i + 1}:\n"
-        f"plaquette = {hmc.plaquette()}\n"
+        f"Plaquette = {plaq}\n"
         f"P_old = {potential_old}, K_old = {kinetic_old}\n"
         f"P = {potential}, K = {kinetic}\n"
         f"Delta_P = {potential - potential_old}, Delta_K = {kinetic - kinetic_old}\n"
         f"Delta_E = {energy - energy_old}\n"
-        f"acceptance rate = {min(1, exp(energy_old - energy))*100:.2f}%\n"
+        f"acceptance rate = {min(1, exp(energy_old - energy)) * 100:.2f}%\n"
         f"accept? {accept or i < warm}\n"
         f"HMC time = {perf_counter() - s:.3f} secs\n"
     )
