@@ -2,10 +2,9 @@ import numpy as np
 
 from check_pyquda import weak_field
 
-from pyquda import init
-from pyquda_utils import io
+from pyquda_utils import core, io
 
-init(resource_path=".cache")
+core.init(resource_path=".cache")
 
 gauge = io.readQIOGauge(weak_field)
 gauge.fixingOVR(4, 1000, 1, 1.0, 2e-15, 1, 1)

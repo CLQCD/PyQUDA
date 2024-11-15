@@ -4,7 +4,6 @@ import cupy as cp
 
 from check_pyquda import weak_field
 
-from pyquda import init
 from pyquda_utils import core, gamma, phase, io
 
 xi_0, nu = 4.8965, 0.86679
@@ -12,7 +11,7 @@ mass = 0.09253
 kappa = 0.5 / (mass + 1 + 3 / (xi_0 / nu))
 coeff_r, coeff_t = 2.32582045, 0.8549165664
 
-init([1, 1, 1, 1], [4, 4, 4, 8], -1, xi_0 / nu, resource_path=".cache")
+core.init([1, 1, 1, 1], [4, 4, 4, 8], -1, xi_0 / nu, resource_path=".cache")
 
 latt_info = core.getDefaultLattice()
 Lx, Ly, Lz, Lt = latt_info.size

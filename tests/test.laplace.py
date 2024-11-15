@@ -7,12 +7,12 @@ from opt_einsum import contract
 
 from check_pyquda import weak_field
 
-from pyquda import init, core, enum_quda, quda
+from pyquda import enum_quda, quda
 from pyquda.field import LatticeGauge, LaplaceLatticeInfo, LatticeStaggeredFermion, MultiLatticeStaggeredFermion, Nc
 from pyquda.dirac import setGlobalPrecision
-from pyquda_utils import io
+from pyquda_utils import core, io
 
-init(resource_path=".cache")
+core.init(resource_path=".cache")
 setGlobalPrecision(eigensolver=8)
 
 t = 3

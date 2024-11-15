@@ -2,10 +2,9 @@ import cupy as cp
 
 from check_pyquda import weak_field
 
-from pyquda import init
-from pyquda_utils import io
+from pyquda_utils import core, io
 
-init(resource_path=".cache")
+core.init(resource_path=".cache")
 
 gauge = io.readQIOGauge(weak_field)
 gauge_wflow = gauge.copy()

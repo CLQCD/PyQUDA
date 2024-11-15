@@ -3,7 +3,6 @@ from time import perf_counter
 
 from check_pyquda import test_dir
 
-from pyquda import init, getLogger
 from pyquda.hmc import HMC, INT_3G1F
 from pyquda.action import GaugeAction, HISQAction
 from pyquda_utils import core
@@ -15,7 +14,7 @@ tol, maxiter = 1e-6, 2500
 start, stop, warm, save = 0, 2000, 500, 5
 t = 0.48
 
-init([1, 1, 1, 1], resource_path=".cache", enable_force_monitor=True)
+core.init([1, 1, 1, 1], resource_path=".cache", enable_force_monitor=True)
 latt_info = core.LatticeInfo([4, 4, 4, 8], t_boundary=-1, anisotropy=1.0)
 
 monomials = [
@@ -35,7 +34,7 @@ gauge = core.LatticeGauge(latt_info)
 hmc.initialize(10086, gauge)
 
 plaq = hmc.plaquette()
-getLogger().info(f"Trajectory {start}:\n" f"Plaquette = {plaq}\n")
+core.getLogger().info(f"Trajectory {start}:\n" f"Plaquette = {plaq}\n")
 for i in range(start, stop):
     s = perf_counter()
 
@@ -57,7 +56,7 @@ for i in range(start, stop):
         hmc.loadGauge(gauge)
 
     plaq = hmc.plaquette()
-    getLogger().info(
+    core.getLogger().info(
         f"Trajectory {i + 1}:\n"
         f"Plaquette = {plaq}\n"
         f"P_old = {potential_old}, K_old = {kinetic_old}\n"

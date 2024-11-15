@@ -2,12 +2,10 @@ import cupy as cp
 
 from check_pyquda import weak_field
 
-from pyquda import init
-from pyquda.field import LatticeInfo
-from pyquda_utils import source, io
+from pyquda_utils import core, source, io
 
-init([1, 1, 1, 2], resource_path=".cache")
-latt_info = LatticeInfo([4, 4, 4, 8])
+core.init([1, 1, 1, 2], resource_path=".cache")
+latt_info = core.LatticeInfo([4, 4, 4, 8])
 
 rho = 2.0
 n_steps = 5
