@@ -78,7 +78,10 @@ def readGauge(filename: str, checksum: bool = True):
 
     gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
     if checksum:
-        assert checksum_milc(latt_size, gauge.reshape(-1)) == (sum29, sum31), f"Bad checksum for {filename}"
+        assert checksum_milc(latt_size, gauge.astype("<c8").reshape(-1)) == (
+            sum29,
+            sum31,
+        ), f"Bad checksum for {filename}"
     gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
     return latt_size, gauge
 
