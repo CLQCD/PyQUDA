@@ -22,8 +22,8 @@ def LatticeInfoGPT(grid: g.grid, gen_simd_width: int):
     return LatticeInfo(grid.fdimensions), [sublatt_size[i] // simd[i] for i in range(Nd)], simd, precision
 
 
-def LatticeGaugeGPT(lattice: List[g.lattice], gauge: LatticeGauge = None):
-    latt_info, gpt_latt, gpt_simd, gpt_prec = LatticeInfoGPT(lattice[0].grid, 64)
+def LatticeGaugeGPT(lattice: List[g.lattice], gen_simd_width: int, gauge: LatticeGauge = None):
+    latt_info, gpt_latt, gpt_simd, gpt_prec = LatticeInfoGPT(lattice[0].grid, gen_simd_width)
     Lx, Ly, Lz, Lt = latt_info.size
     Nc = latt_info.Nc
     assert lattice[0].describe().startswith(f"ot_matrix_su_n_fundamental_group({Nc})")
@@ -59,8 +59,8 @@ def LatticeGaugeGPT(lattice: List[g.lattice], gauge: LatticeGauge = None):
         return gauge
 
 
-def LatticePropagatorGPT(lattice: g.lattice, propagator: LatticePropagator = None):
-    latt_info, gpt_latt, gpt_simd, gpt_prec = LatticeInfoGPT(lattice.grid, 64)
+def LatticePropagatorGPT(lattice: g.lattice, gen_simd_width: int, propagator: LatticePropagator = None):
+    latt_info, gpt_latt, gpt_simd, gpt_prec = LatticeInfoGPT(lattice.grid, gen_simd_width)
     Lx, Ly, Lz, Lt = latt_info.size
     Ns, Nc = latt_info.Ns, latt_info.Nc
     assert lattice.describe().startswith(f"ot_matrix_spin_color({Ns},{Nc})")
