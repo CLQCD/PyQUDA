@@ -391,35 +391,33 @@ class EvenOddField:
     def lexico(self):
         return lexico(self.getHost(), [0, 1, 2, 3, 4])
 
-    def _checksum(self, data) -> Tuple[int, int]:
+    def checksum(self) -> Tuple[int, int]:
         import zlib
         from mpi4py import MPI
 
-        gx, gy, gz, gt = self.latt_info.grid_coord
-        Lx, Ly, Lz, Lt = self.latt_info.size
+        latt_info = self.latt_info
+        gx, gy, gz, gt = latt_info.grid_coord
+        Lx, Ly, Lz, Lt = latt_info.size
         gLx, gLy, gLz, gLt = gx * Lx, gy * Ly, gz * Lz, gt * Lt
-        GLx, GLy, GLz, GLt = self.latt_info.global_size
-        work = numpy.empty((self.latt_info.volume), "<u4")
-        for i in range(self.latt_info.volume):
+        GLx, GLy, GLz, GLt = latt_info.global_size
+        data = self.lexico().reshape(latt_info.volume, self.field_size)
+        work = numpy.empty((latt_info.volume), "<u4")
+        for i in range(latt_info.volume):
             work[i] = zlib.crc32(data[i])
         rank = (
-            numpy.arange(self.latt_info.global_volume, dtype="<u4")
+            numpy.arange(latt_info.global_volume, dtype="<u4")
             .reshape(GLt, GLz, GLy, GLx)[gLt : gLt + Lt, gLz : gLz + Lz, gLy : gLy + Ly, gLx : gLx + Lx]
             .reshape(-1)
         )
         rank29 = rank % 29
         rank31 = rank % 31
-        sum29 = self.latt_info.mpi_comm.allreduce(
+        sum29 = latt_info.mpi_comm.allreduce(
             numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)).item(), MPI.BXOR
         )
-        sum31 = self.latt_info.mpi_comm.allreduce(
+        sum31 = latt_info.mpi_comm.allreduce(
             numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)).item(), MPI.BXOR
         )
         return sum29, sum31
-
-    def checksum(self, big_endian: bool = False) -> Tuple[int, int]:
-        data = self.lexico() if not big_endian else self.lexico().astype(f">{self.field_dtype[1:]}")
-        return self._checksum(data)
 
 
 class MultiField:
@@ -507,26 +505,8 @@ class MultiField:
     def lexico(self):
         return lexico(self.getHost(), [1, 2, 3, 4, 5])
 
-    def checksum(self, big_endian: bool = False) -> Tuple[int, int]:
-        assert self.full_lattice
-        data = (
-            (
-                self.lexico()
-                .reshape(self.L5, self.latt_info.volume, self.field_size)
-                .transpose(1, 0, 2)
-                .reshape(self.latt_info.volume, self.L5 * self.field_size)
-                .copy()
-            )
-            if not big_endian
-            else (
-                self.lexico()
-                .reshape(self.L5, self.latt_info.volume, self.field_size)
-                .transpose(1, 0, 2)
-                .reshape(self.latt_info.volume, self.L5 * self.field_size)
-                .astype(f">{self.field_dtype[1:]}")
-            )
-        )
-        return self._checksum(data)
+    def checksum(self) -> List[Tuple[int, int]]:
+        return [self[index].checksum() for index in range(self.L5)]
 
     def __add__(self, other):
         assert self.__class__ == other.__class__ and self.location == other.location
@@ -573,53 +553,53 @@ class LatticeComplex128(EvenOddField, HalfLatticeField):
 class LatticeLink(EvenOddField, HalfLatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info)
-        self.setField([Nc, Nc], "<c16")
+        self.setField([latt_info.Nc, latt_info.Nc], "<c16")
         self.initData(value)
         if value is None:
             if self.backend == "numpy":
-                self.data[:] = numpy.identity(Nc)
+                self.data[:] = numpy.identity(latt_info.Nc)
             elif self.backend == "cupy":
                 import cupy
 
-                self.data[:] = cupy.identity(Nc)
+                self.data[:] = cupy.identity(latt_info.Nc)
             elif self.backend == "torch":
                 import torch
 
-                self.data[:] = torch.eye(Nc)
+                self.data[:] = torch.eye(latt_info.Nc)
 
     @property
     def __field_class__(self):
         return LatticeLink
 
     def pack(self, x: "LatticeFermion"):
-        for color in range(Nc):
+        for color in range(self.latt_info.Nc):
             x.data[:, :, :, :, :, color, :] = self.data[:, :, :, :, :, :, color]
 
     def unpack(self, x: "LatticeFermion"):
-        for color in range(Nc):
+        for color in range(self.latt_info.Nc):
             self.data[:, :, :, :, :, :, color] = x.data[:, :, :, :, :, color, :]
 
 
 class LatticeGauge(MultiField, LatticeLink):
-    def __init__(self, latt_info: LatticeInfo, L5: Union[int, Any] = Nd, value=None) -> None:
+    def __init__(self, latt_info: LatticeInfo, L5: Union[int, Any] = 4, value=None) -> None:
         """`L5` can be `value` here"""
         if not isinstance(L5, int):
             value = L5
-            L5 = Nd
+            L5 = latt_info.Nd
         super().__init__(latt_info, L5)
-        self.setField([Nc, Nc], "<c16")
+        self.setField([latt_info.Nc, latt_info.Nc], "<c16")
         self.initData(value)
         if value is None:
             if self.backend == "numpy":
-                self.data[:] = numpy.identity(Nc)
+                self.data[:] = numpy.identity(latt_info.Nc)
             elif self.backend == "cupy":
                 import cupy
 
-                self.data[:] = cupy.identity(Nc)
+                self.data[:] = cupy.identity(latt_info.Nc)
             elif self.backend == "torch":
                 import torch
 
-                self.data[:] = torch.eye(Nc)
+                self.data[:] = torch.eye(latt_info.Nc)
         self._gauge_dirac = None
 
     @property
@@ -636,10 +616,10 @@ class LatticeGauge(MultiField, LatticeLink):
 
     def setAntiPeriodicT(self):
         if self.latt_info.gt == self.latt_info.Gt - 1:
-            self.data[Nd - 1, :, self.latt_info.Lt - 1] *= -1
+            self.data[self.latt_info.Nd - 1, :, self.latt_info.Lt - 1] *= -1
 
     def setAnisotropy(self, anisotropy: float):
-        self.data[: Nd - 1] /= anisotropy
+        self.data[: self.latt_info.Nd - 1] /= anisotropy
 
     def ensurePureGauge(self):
         pass
@@ -936,11 +916,11 @@ class LatticeGauge(MultiField, LatticeLink):
 
 
 class LatticeMom(MultiField, EvenOddField, HalfLatticeField):
-    def __init__(self, latt_info: LatticeInfo, L5: Union[int, Any] = Nd, value=None) -> None:
+    def __init__(self, latt_info: LatticeInfo, L5: Union[int, Any] = 4, value=None) -> None:
         """`L5` can be `value` here"""
         if not isinstance(L5, int):
             value = L5
-            L5 = Nd
+            L5 = latt_info.Nd
         super().__init__(latt_info, L5)
         self.setField([10], "<f8")
         self.initData(value)
@@ -966,14 +946,14 @@ class LatticeMom(MultiField, EvenOddField, HalfLatticeField):
 class LatticeClover(EvenOddField, HalfLatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info)
-        self.setField([2, ((Ns // 2) * Nc) ** 2], "<f8")
+        self.setField([2, ((latt_info.Ns // 2) * latt_info.Nc) ** 2], "<f8")
         self.initData(value)
 
 
 class HalfLatticeFermion(HalfLatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info)
-        self.setField([Ns, Nc], "<c16")
+        self.setField([latt_info.Ns, latt_info.Nc], "<c16")
         self.initData(value)
 
     @property
@@ -984,7 +964,7 @@ class HalfLatticeFermion(HalfLatticeField):
 class LatticeFermion(EvenOddField, HalfLatticeFermion):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info)
-        self.setField([Ns, Nc], "<c16")
+        self.setField([latt_info.Ns, latt_info.Nc], "<c16")
         self.initData(value)
 
     @property
@@ -995,28 +975,21 @@ class LatticeFermion(EvenOddField, HalfLatticeFermion):
 class MultiHalfLatticeFermion(MultiField, HalfLatticeFermion):
     def __init__(self, latt_info: LatticeInfo, L5: int, value=None) -> None:
         super().__init__(latt_info, L5)
-        self.setField([Ns, Nc], "<c16")
+        self.setField([latt_info.Ns, latt_info.Nc], "<c16")
         self.initData(value)
 
 
 class MultiLatticeFermion(MultiField, LatticeFermion):
     def __init__(self, latt_info: LatticeInfo, L5: int, value=None) -> None:
         super().__init__(latt_info, L5)
-        self.setField([Ns, Nc], "<c16")
+        self.setField([latt_info.Ns, latt_info.Nc], "<c16")
         self.initData(value)
-
-    def toPropagator(self):
-        assert self.L5 == Ns * Nc
-        return LatticePropagator(
-            self.latt_info,
-            self.data.reshape(Ns, Nc, *self.lattice_shape, Ns, Nc).transpose(2, 3, 4, 5, 6, 7, 0, 8, 1),
-        )
 
 
 class LatticePropagator(EvenOddField, HalfLatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info)
-        self.setField([Ns, Ns, Nc, Nc], "<c16")
+        self.setField([latt_info.Ns, latt_info.Ns, latt_info.Nc, latt_info.Nc], "<c16")
         self.initData(value)
 
     def setFermion(self, fermion: LatticeFermion, spin: int, color: int):
@@ -1025,18 +998,11 @@ class LatticePropagator(EvenOddField, HalfLatticeField):
     def getFermion(self, spin: int, color: int):
         return LatticeFermion(self.latt_info, self.data[:, :, :, :, :, :, spin, :, color])
 
-    def toMultiFermion(self):
-        return MultiLatticeFermion(
-            self.latt_info,
-            Ns * Nc,
-            self.data.transpose(6, 8, 0, 1, 2, 3, 4, 5, 7).reshape(Ns * Nc, *self.lattice_shape, Ns, Nc),
-        )
-
 
 class HalfLatticeStaggeredFermion(HalfLatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info)
-        self.setField([Nc], "<c16")
+        self.setField([latt_info.Nc], "<c16")
         self.initData(value)
 
     @property
@@ -1047,14 +1013,14 @@ class HalfLatticeStaggeredFermion(HalfLatticeField):
 class MultiHalfLatticeStaggeredFermion(MultiField, HalfLatticeStaggeredFermion):
     def __init__(self, latt_info: LatticeInfo, L5: int, value=None) -> None:
         super().__init__(latt_info, L5)
-        self.setField([Nc], "<c16")
+        self.setField([latt_info.Nc], "<c16")
         self.initData(value)
 
 
 class LatticeStaggeredFermion(EvenOddField, HalfLatticeStaggeredFermion):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info)
-        self.setField([Nc], "<c16")
+        self.setField([latt_info.Nc], "<c16")
         self.initData(value)
 
     @property
@@ -1065,21 +1031,14 @@ class LatticeStaggeredFermion(EvenOddField, HalfLatticeStaggeredFermion):
 class MultiLatticeStaggeredFermion(MultiField, LatticeStaggeredFermion):
     def __init__(self, latt_info: LatticeInfo, L5: int, value=None) -> None:
         super().__init__(latt_info, L5)
-        self.setField([Nc], "<c16")
+        self.setField([latt_info.Nc], "<c16")
         self.initData(value)
-
-    def toPropagator(self):
-        assert self.L5 == Nc
-        return LatticeStaggeredPropagator(
-            self.latt_info,
-            self.data.reshape(Nc, *self.lattice_shape, Nc).transpose(1, 2, 3, 4, 5, 6, 0),
-        )
 
 
 class LatticeStaggeredPropagator(EvenOddField, HalfLatticeField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info)
-        self.setField([Nc, Nc], "<c16")
+        self.setField([latt_info.Nc, latt_info.Nc], "<c16")
         self.initData(value)
 
     def setFermion(self, fermion: LatticeStaggeredFermion, color: int):
@@ -1087,10 +1046,3 @@ class LatticeStaggeredPropagator(EvenOddField, HalfLatticeField):
 
     def getFermion(self, color: int) -> LatticeStaggeredFermion:
         return LatticeStaggeredFermion(self.latt_info, self.data[:, :, :, :, :, :, color])
-
-    def toMultiFermion(self):
-        return MultiLatticeStaggeredFermion(
-            self.latt_info,
-            Nc,
-            self.data.transpose(6, 0, 1, 2, 3, 4, 5).reshape(Nc, *self.lattice_shape, Nc),
-        )

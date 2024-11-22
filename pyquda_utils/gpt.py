@@ -1,0 +1,90 @@
+from typing import List
+import numpy
+
+from pyquda import getSublatticeSize, getGridSize
+from pyquda.field import cb2, LatticeGauge, LatticeInfo, LatticePropagator
+
+import gpt as g
+
+
+def LatticeInfoGPT(grid: g.grid, gen_simd_width: int):
+    assert getGridSize() == grid.mpi
+    sublatt_size = getSublatticeSize(grid.fdimensions, grid.mpi)
+    Nd = len(sublatt_size)
+    precision = grid.precision.nbytes
+    n_simd = gen_simd_width // (2 * precision)
+    simd = [1] * Nd
+    i = Nd - 1
+    while n_simd > 1:
+        simd[i] *= 2
+        n_simd //= 2
+        i = i - 1 if i > 0 else Nd - 1
+    return LatticeInfo(grid.fdimensions), [sublatt_size[i] // simd[i] for i in range(Nd)], simd, precision
+
+
+def LatticeGaugeGPT(lattice: List[g.lattice], gauge: LatticeGauge = None):
+    latt_info, gpt_latt, gpt_simd, gpt_prec = LatticeInfoGPT(lattice[0].grid, 64)
+    Lx, Ly, Lz, Lt = latt_info.size
+    Nc = latt_info.Nc
+    assert lattice[0].describe().startswith(f"ot_matrix_su_n_fundamental_group({Nc})")
+    assert len(lattice) == latt_info.Nd
+    if gauge is None:
+        value = []
+        for index in range(latt_info.Nd):
+            value.append(
+                cb2(
+                    numpy.asarray(lattice[index].mview()[0])
+                    .view(f"<c{2 * gpt_prec}")
+                    .reshape(*gpt_latt[::-1], Nc, Nc, *gpt_simd[::-1])
+                    .transpose(6, 0, 7, 1, 8, 2, 9, 3, 4, 5)
+                    .reshape(Lt, Lz, Ly, Lx, Nc, Nc)
+                    .astype("<c16"),
+                    [0, 1, 2, 3],
+                )
+            )
+        return LatticeGauge(latt_info, numpy.asarray(value))
+    else:
+        assert latt_info.size == gauge.latt_info.size
+        for index in range(latt_info.Nd):
+            gpt_shape = [i for sl in zip(gpt_simd, gpt_latt) for i in sl]
+            lattice[index].mview()[0] = (
+                gauge.lexico()
+                .astype(f"<c{2 * gpt_prec}")
+                .reshape(*gpt_shape, Nc, Nc)
+                .transpose(1, 3, 5, 7, 8, 9, 0, 2, 4, 6)
+                .copy()  # .view("|u1") requires this
+                .view("|u1")
+                .reshape(-1)
+            )
+        return gauge
+
+
+def LatticePropagatorGPT(lattice: g.lattice, propagator: LatticePropagator = None):
+    latt_info, gpt_latt, gpt_simd, gpt_prec = LatticeInfoGPT(lattice.grid, 64)
+    Lx, Ly, Lz, Lt = latt_info.size
+    Ns, Nc = latt_info.Ns, latt_info.Nc
+    assert lattice.describe().startswith(f"ot_matrix_spin_color({Ns},{Nc})")
+    if propagator is None:
+        value = cb2(
+            numpy.asarray(lattice.mview()[0])
+            .view(f"<c{2 * gpt_prec}")
+            .reshape(*gpt_latt[::-1], Ns, Ns, Nc, Nc, *gpt_simd[::-1])
+            .transpose(8, 0, 9, 1, 10, 2, 11, 3, 4, 5, 6, 7)
+            .reshape(Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc)
+            .astype("<c16"),
+            [0, 1, 2, 3],
+        )
+        return LatticePropagator(latt_info, value)
+    else:
+        assert latt_info.size == propagator.latt_info.size
+        gpt_shape = [i for sl in zip(gpt_simd, gpt_latt) for i in sl]
+        lattice.mview()[0] = (
+            propagator.lexico()
+            .astype(f"<c{2 * gpt_prec}")
+            .reshape(*gpt_shape, Ns, Ns, Nc, Nc)
+            .transpose(1, 3, 5, 7, 8, 9, 10, 11, 0, 2, 4, 6)
+            .copy()  # .view("|u1") requires this
+            .view("|u1")
+            .reshape(-1)
+        )
+        return propagator

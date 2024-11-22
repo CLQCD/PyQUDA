@@ -12,7 +12,7 @@ from ..enum_quda import (
     QudaSolveType,
     QudaVerbosity,
 )
-from ..field import Nd, Nc, Ns, LatticeInfo, LatticeFermion, MultiLatticeFermion
+from ..field import LatticeInfo, LatticeFermion, MultiLatticeFermion
 from ..dirac import CloverWilsonDirac
 
 nullptr = Pointers("void", 0)
@@ -38,7 +38,7 @@ class CloverWilsonAction(FermionAction):
             getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
         super().__init__(latt_info, CloverWilsonDirac(latt_info, mass, tol, maxiter, clover_csw, 1, None))
 
-        kappa = 1 / (2 * (mass + Nd))
+        kappa = 1 / (2 * (mass + latt_info.Nd))
         self.setForceParam(rational_param, kappa, clover_csw, n_flavor)
         self.quark = MultiLatticeFermion(self.latt_info, self.max_num_offset)
         self.phi = LatticeFermion(latt_info)
@@ -83,7 +83,7 @@ class CloverWilsonAction(FermionAction):
         self.invert_param.compute_action = 0
         return (
             self.invert_param.action[0]
-            - self.latt_info.volume // 2 * Ns * Nc  # volume_cb2 here
+            - self.latt_info.volume // 2 * self.latt_info.Ns * self.latt_info.Nc  # volume_cb2 here
             - self.multiplicity * self.invert_param.trlogA[1]
         )
 

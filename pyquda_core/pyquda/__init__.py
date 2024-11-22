@@ -67,14 +67,22 @@ _GPUID: int = -1
 _COMPUTE_CAPABILITY: _ComputeCapability = _ComputeCapability(0, 0)
 
 
-def getRankFromCoord(coord: List[int], grid: List[int]) -> int:
-    x, y, z, t = grid
-    return ((coord[0] * y + coord[1]) * z + coord[2]) * t + coord[3]
+def getRankFromCoord(grid_coord: List[int], grid_size: List[int] = None) -> int:
+    Gx, Gy, Gz, Gt = _GRID_SIZE if grid_size is None else grid_size
+    gx, gy, gz, gt = grid_coord
+    return ((gx * Gy + gy) * Gz + gz) * Gt + gt
 
 
-def getCoordFromRank(rank: int, grid: List[int]) -> List[int]:
-    x, y, z, t = grid
-    return [rank // t // z // y, rank // t // z % y, rank // t % z, rank % t]
+def getCoordFromRank(mpi_rank: int, grid_size: List[int] = None) -> List[int]:
+    Gx, Gy, Gz, Gt = _GRID_SIZE if grid_size is None else grid_size
+    return [mpi_rank // Gt // Gz // Gy, mpi_rank // Gt // Gz % Gy, mpi_rank // Gt % Gz, mpi_rank % Gt]
+
+
+def getSublatticeSize(latt_size: List[int], grid_size: List[int] = None) -> List[int]:
+    Gx, Gy, Gz, Gt = _GRID_SIZE if grid_size is None else grid_size
+    Lx, Ly, Lz, Lt = latt_size
+    assert Lx % Gx == 0 and Ly % Gy == 0 and Lz % Gz == 0 and Lt % Gt == 0
+    return [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
 
 
 def _composition4(n):
@@ -403,13 +411,6 @@ def getGPUID():
 
 def getCUDAComputeCapability():
     return _COMPUTE_CAPABILITY
-
-
-def getSublatticeSize(latt_size: List[int]):
-    Lx, Ly, Lz, Lt = latt_size
-    Gx, Gy, Gz, Gt = _GRID_SIZE
-    assert Lx % Gx == 0 and Ly % Gy == 0 and Lz % Gz == 0 and Lt % Gt == 0
-    return [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
 
 
 def _getSubarray(shape: Sequence[int], axes: Sequence[int]):

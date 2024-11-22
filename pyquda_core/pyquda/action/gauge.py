@@ -5,7 +5,7 @@ from numpy.typing import NDArray
 
 from ..pointer import Pointers
 from ..pyquda import computeGaugeLoopTraceQuda, computeGaugeForceQuda
-from ..field import Nc, LatticeInfo
+from ..field import LatticeInfo
 from ..dirac import GaugeDirac
 
 nullptr = Pointers("void", 0)
@@ -94,7 +94,7 @@ class GaugeAction(Action):
         super().__init__(latt_info, GaugeDirac(latt_info))
 
         # S=\frac{\beta}{N_c}\sum_{i}c_i\mathrm{ReTr}(I-W_i)
-        self.action_path = actionPath(loop_param.path, [-beta / Nc * coeff for coeff in loop_param.coeff])
+        self.action_path = actionPath(loop_param.path, [-beta / latt_info.Nc * coeff for coeff in loop_param.coeff])
         self.force_path = forcePath(self.action_path)
 
     def action(self) -> float:
