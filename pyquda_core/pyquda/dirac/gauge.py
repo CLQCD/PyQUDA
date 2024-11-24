@@ -25,12 +25,11 @@ from ..pyquda import (
 )
 from ..field import (
     LatticeInfo,
-    LaplaceLatticeInfo,
     LatticeGauge,
     LatticeMom,
     LatticeFermion,
     LatticeStaggeredFermion,
-    LatticeFloat64,
+    LatticeFloat,
 )
 from ..enum_quda import (
     QudaBoolean,
@@ -48,8 +47,8 @@ from .abstract import Dirac
 
 
 class GaugeDirac(Dirac):
-    def __init__(self, latt_info: Union[LatticeInfo, LaplaceLatticeInfo]) -> None:
-        super().__init__(latt_info.__class__(latt_info.global_size))  # Keep periodic t boundary and isotropic
+    def __init__(self, latt_info: LatticeInfo) -> None:
+        super().__init__(LatticeInfo(latt_info.global_size))  # Keep periodic t boundary and isotropic
         self.newQudaGaugeParam()
         self.newQudaInvertParam()
         self.newQudaGaugeSmearParam()
@@ -371,7 +370,7 @@ class GaugeDirac(Dirac):
         return self.obs_param.qcharge
 
     def qchargeDensity(self):
-        qcharge_density = LatticeFloat64(self.latt_info)
+        qcharge_density = LatticeFloat(self.latt_info)
         self.obs_param.qcharge_density = qcharge_density.data_ptr
         self.obs_param.compute_qcharge_density = QudaBoolean.QUDA_BOOLEAN_TRUE
         gaugeObservablesQuda(self.obs_param)

@@ -26,10 +26,9 @@ from pyquda.field import (
     Z,
     T,
     LatticeInfo,
-    LaplaceLatticeInfo,
-    LatticeInt32,
-    LatticeFloat64,
-    LatticeComplex128,
+    LatticeInt,
+    LatticeFloat,
+    LatticeComplex,
     LatticeLink,
     LatticeGauge,
     LatticeMom,
@@ -46,6 +45,8 @@ from pyquda.dirac.abstract import Multigrid, FermionDirac, StaggeredFermionDirac
 
 from . import source
 from .deprecated import smear, smear4, invert12, getDslash, getStaggeredDslash
+
+LaplaceLatticeInfo = LatticeInfo
 
 
 def invert(

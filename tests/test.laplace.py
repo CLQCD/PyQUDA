@@ -8,7 +8,7 @@ from opt_einsum import contract
 from check_pyquda import weak_field
 
 from pyquda import enum_quda, quda
-from pyquda.field import LatticeGauge, LaplaceLatticeInfo, LatticeStaggeredFermion, MultiLatticeStaggeredFermion, Nc
+from pyquda.field import LatticeGauge, LatticeInfo, LatticeStaggeredFermion, MultiLatticeStaggeredFermion, Nc
 from pyquda.dirac import setGlobalPrecision
 from pyquda_utils import core, io
 
@@ -20,7 +20,7 @@ t = 3
 gauge = io.readChromaQIOGauge(weak_field)
 gauge.smearSTOUT(10, 0.12, 3)
 Lx, Ly, Lz = gauge.latt_info.Lx, gauge.latt_info.Ly, gauge.latt_info.Lz
-latt_info = LaplaceLatticeInfo([Lx, Ly, Lz, 1])
+latt_info = LatticeInfo([Lx, Ly, Lz, 1])
 gauge_tmp_lexico = cp.array(gauge.lexico()[:, t])
 gauge_tmp_lexico_dagger = gauge_tmp_lexico.transpose(0, 1, 2, 3, 5, 4).conj().copy()
 gauge_tmp = LatticeGauge(latt_info, core.cb2(gauge.lexico()[:, t : t + 1], [1, 2, 3, 4]))
