@@ -16,7 +16,7 @@ from .pyquda import (
     updateGaugeFieldQuda,
 )
 from .enum_quda import QudaBoolean, QudaTboundary
-from .field import LatticeInfo, LatticeGauge, LatticeMom, LatticeFloat
+from .field import LatticeInfo, LatticeGauge, LatticeMom, LatticeReal
 from .dirac import WilsonDirac, StaggeredDirac
 from .action.abstract import Action, FermionAction, StaggeredFermionAction
 
@@ -413,7 +413,7 @@ class HMC:
         return self.obs_param.qcharge
 
     def qchargeDensity(self):
-        qcharge_density = LatticeFloat(self.latt_info)
+        qcharge_density = LatticeReal(self.latt_info)
         self.obs_param.qcharge_density = qcharge_density.data_ptr
         self.obs_param.compute_qcharge_density = QudaBoolean.QUDA_BOOLEAN_TRUE
         gaugeObservablesQuda(self.obs_param)

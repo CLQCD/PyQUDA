@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from os import path
 from time import perf_counter
 from typing import Any, List, Literal, Sequence, Tuple, Union
@@ -155,43 +156,38 @@ def checksum(latt_info, data: numpy.ndarray) -> Tuple[int, int]:
 def _field_shape_dtype(field: str, Ns: int, Nc: int, int_nbytes: int = 4, float_nbytes: int = 8):
     from . import getLogger
 
-    if field == "Int":
+    if field in ["Int"]:
         return [], f"<i{int_nbytes}"
-    elif field == "Float":
+    elif field in ["Real"]:
         return [], f"<f{float_nbytes}"
-    elif field == "Complex":
+    elif field in ["Complex"]:
         return [], f"<c{2 * float_nbytes}"
-    elif field == "Link":
+    elif field in ["ColorMatrix", "Link", "Gauge"]:
         return [Nc, Nc], f"<c{2 * float_nbytes}"
-    elif field == "Gauge":
-        return [Nc, Nc], f"<c{2 * float_nbytes}"
-    elif field == "Mom":
+    elif field in ["Mom"]:
         return [Nc**2 + 1], f"<f{float_nbytes}"
-    elif field == "Clover":
+    elif field in ["Clover"]:
         return [2, ((Ns // 2) * Nc) ** 2], f"<f{float_nbytes}"
-    elif field == "Fermion":
+    elif field in ["SpinColorVector", "Fermion"]:
         return [Ns, Nc], f"<c{2 * float_nbytes}"
-    elif field == "Propagator":
+    elif field in ["SpinColorMatrix", "Propagator"]:
         return [Ns, Ns, Nc, Nc], f"<c{2 * float_nbytes}"
-    elif field == "StaggeredFermion":
+    elif field in ["ColorVector", "StaggeredFermion"]:
         return [Nc], f"<c{2 * float_nbytes}"
-    elif field == "StaggeredPropagator":
+    elif field in ["ColorMatrix", "StaggeredPropagator"]:
         return [Nc, Nc], f"<c{2 * float_nbytes}"
     else:
         getLogger().critical(f"Unknown field type: {field}", ValueError)
 
 
-class ParityField:
-    def __init__(self, latt_info: LatticeInfo, value: Any = None, init_data: bool = True) -> None:
+class BaseField:
+    def __init__(self, latt_info: LatticeInfo) -> None:
         from . import getCUDABackend
 
         self.latt_info = latt_info
         self._data = None
         self.backend: Literal["numpy", "cupy", "torch"] = getCUDABackend()
         self.L5 = None
-        self.full_lattice = False
-        if init_data:
-            self.initData(value)
 
     @property
     def data(self):
@@ -212,22 +208,24 @@ class ParityField:
     def data_ptr(self) -> Pointer:
         return ndarrayPointer(self.data.reshape(-1), True)
 
-    @classmethod
-    def _field(cls) -> str:
-        return cls.__name__[cls.__name__.index("Lattice") + len("Lattice") :]
+    @abstractmethod
+    def _field(self):
+        from . import getLogger
 
-    def setField(self):
+        getLogger().critical("_field method must be implemented", NotImplementedError)
+
+    @abstractmethod
+    def _shape(self):
+        from . import getLogger
+
+        getLogger().critical("_setShape method must be implemented", NotImplementedError)
+
+    def _setField(self):
         field_shape, field_dtype = _field_shape_dtype(self._field(), self.latt_info.Ns, self.latt_info.Nc)
         self.field_shape = tuple(field_shape)
         self.field_size = int(numpy.prod(field_shape))
         self.field_dtype = field_dtype
-        Lx, Ly, Lz, Lt = self.latt_info.size
-        self.lattice_shape = [2, Lt, Lz, Ly, Lx // 2] if self.full_lattice else [Lt, Lz, Ly, Lx // 2]
-        self.shape = (
-            (*self.lattice_shape, *self.field_shape)
-            if self.L5 is None
-            else (self.L5, *self.lattice_shape, *self.field_shape)
-        )
+        self.shape = self._shape()
         self.dtype = numpy.dtype(field_dtype).type
         if self.backend == "torch":
             import torch
@@ -252,8 +250,8 @@ class ParityField:
             }
             self.dtype = numpy_to_torch_dtype_dict[self.dtype]
 
-    def initData(self, value):
-        self.setField()
+    def _initData(self, value):
+        self._setField()
         backend, value = (value, None) if isinstance(value, str) else (None, value)
         if value is None:
             if backend == "numpy" or self.backend == "numpy":
@@ -336,38 +334,6 @@ class ParityField:
         else:
             return norm2
 
-    def timeslice(self, start: int, stop: int = None, step: int = None, return_field: bool = True):
-        Lt = self.latt_info.Lt
-        gt = self.latt_info.gt
-        stop = (start + 1) if stop is None else stop
-        step = 1 if step is None else step
-        if step > 0:
-            s = (start - gt * Lt) % step if start < gt * Lt else 0
-            start = max(start - gt * Lt, 0) + s
-            stop = min(stop - gt * Lt, Lt)
-        elif step < 0:
-            s = ((gt + 1) * Lt - start) % step if (gt + 1) * Lt <= start else 0
-            start = min(start - gt * Lt, Lt - 1) + s
-            stop = max(stop - gt * Lt, -1)
-            start, stop = (0, Lt) if start <= stop else (start, stop)
-            stop = None if stop == -1 else stop  # Workaround for numpy slice
-        if return_field:
-            x = self.__class__(self.latt_info)
-            if self.full_lattice and self.L5 is not None:
-                x.data[:, :, start:stop:step, :, :, :] = self.data[:, :, start:stop:step, :, :, :]
-            elif self.full_lattice or self.L5 is not None:
-                x.data[:, start:stop:step, :, :, :] = self.data[:, start:stop:step, :, :, :]
-            else:
-                x.data[start:stop:step, :, :, :] = self.data[start:stop:step, :, :, :]
-            return x
-        else:
-            if self.full_lattice and self.L5 is not None:
-                return self.data[:, :, start:stop:step, :, :, :]
-            elif self.full_lattice or self.L5 is not None:
-                return self.data[:, start:stop:step, :, :, :]
-            else:
-                return self.data[start:stop:step, :, :, :]
-
     def __add__(self, other):
         assert self.__class__ == other.__class__ and self.location == other.location
         return self.__class__(self.latt_info, self.data + other.data)
@@ -407,6 +373,118 @@ class ParityField:
         return self
 
 
+class SpatialField(BaseField):
+    def __init__(self, latt_info: LatticeInfo, value: Any = None, init_data: bool = True) -> None:
+        super().__init__(latt_info)
+        if init_data:
+            self._initData(value)
+
+    @classmethod
+    def _field(cls) -> str:
+        return cls.__name__[cls.__name__.index("Space") + len("Space") :]
+
+    def _shape(self):
+        Lx, Ly, Lz, Lt = self.latt_info.size
+        self.space_shape = [Lz, Ly, Lx]
+        if self.L5 is None:
+            return (*self.space_shape, *self.field_shape)
+        else:
+            return (self.L5, *self.space_shape, *self.field_shape)
+
+
+class TemporalField(BaseField):
+    def __init__(self, latt_info: LatticeInfo, value: Any = None, init_data: bool = True) -> None:
+        super().__init__(latt_info)
+        if init_data:
+            self._initData(value)
+
+    @classmethod
+    def _field(cls) -> str:
+        return cls.__name__[cls.__name__.index("Time") + len("Time") :]
+
+    def _shape(self):
+        Lx, Ly, Lz, Lt = self.latt_info.size
+        self.time_shape = [Lt]
+        if self.L5 is None:
+            return (*self.time_shape, *self.field_shape)
+        else:
+            return (self.L5, *self.time_shape, *self.field_shape)
+
+
+class SpatiotemporalField(BaseField):
+    def __init__(self, latt_info: LatticeInfo, value: Any = None, init_data: bool = True) -> None:
+        super().__init__(latt_info)
+        if init_data:
+            self._initData(value)
+
+    @classmethod
+    def _field(cls) -> str:
+        return cls.__name__[cls.__name__.index("Spacetime") + len("Spacetime") :]
+
+    def _shape(self):
+        Lx, Ly, Lz, Lt = self.latt_info.size
+        self.spacetime_shape = [Lt, Lz, Ly, Lx]
+        if self.L5 is None:
+            return (*self.spacetime_shape, *self.field_shape)
+        else:
+            return (self.L5, *self.spacetime_shape, *self.field_shape)
+
+
+class ParityField(BaseField):
+    def __init__(self, latt_info: LatticeInfo, value: Any = None, init_data: bool = True) -> None:
+        super().__init__(latt_info)
+        self.full_lattice = False
+        if init_data:
+            self._initData(value)
+
+    @classmethod
+    def _field(cls) -> str:
+        return cls.__name__[cls.__name__.index("Lattice") + len("Lattice") :]
+
+    def _shape(self):
+        Lx, Ly, Lz, Lt = self.latt_info.size
+        self.lattice_shape = [2, Lt, Lz, Ly, Lx // 2] if self.full_lattice else [Lt, Lz, Ly, Lx // 2]
+        if self.L5 is None:
+            return (*self.lattice_shape, *self.field_shape)
+        else:
+            return (self.L5, *self.lattice_shape, *self.field_shape)
+
+    def timeslice(self, start: int, stop: int = None, step: int = None, return_field: bool = True):
+        Lt = self.latt_info.Lt
+        gt = self.latt_info.gt
+        stop = (start + 1) if stop is None else stop
+        step = 1 if step is None else step
+        if step > 0:
+            s = (start - gt * Lt) % step if start < gt * Lt else 0
+            start = max(start - gt * Lt, 0) + s
+            stop = min(stop - gt * Lt, Lt)
+        elif step < 0:
+            s = ((gt + 1) * Lt - start) % step if (gt + 1) * Lt <= start else 0
+            start = min(start - gt * Lt, Lt - 1) + s
+            stop = max(stop - gt * Lt, -1)
+            start, stop = (0, Lt) if start <= stop else (start, stop)
+            stop = None if stop == -1 else stop  # Workaround for numpy slice
+        if return_field:
+            if self.L5 is None:
+                x = self.__class__(self.latt_info)
+            else:
+                x = self.__class__(self.latt_info, self.L5)
+            if self.full_lattice and self.L5 is not None:
+                x.data[:, :, start:stop:step, :, :, :] = self.data[:, :, start:stop:step, :, :, :]
+            elif self.full_lattice or self.L5 is not None:
+                x.data[:, start:stop:step, :, :, :] = self.data[:, start:stop:step, :, :, :]
+            else:
+                x.data[start:stop:step, :, :, :] = self.data[start:stop:step, :, :, :]
+            return x
+        else:
+            if self.full_lattice and self.L5 is not None:
+                return self.data[:, :, start:stop:step, :, :, :]
+            elif self.full_lattice or self.L5 is not None:
+                return self.data[:, start:stop:step, :, :, :]
+            else:
+                return self.data[start:stop:step, :, :, :]
+
+
 class FullField:
     latt_info: LatticeInfo
 
@@ -418,7 +496,7 @@ class FullField:
             s.__init__(latt_info, value, False)
         self.full_lattice = True
         if init_data:
-            self.initData(value)
+            self._initData(value)
 
     @property
     def even(self):
@@ -677,7 +755,7 @@ class MultiField:
             s.__init__(latt_info, value, False)
         self.L5 = L5
         if init_data:
-            self.initData(value)
+            self._initData(value)
 
     @property
     def data(self):
@@ -783,7 +861,7 @@ class LatticeInt(FullField, ParityField):
     pass
 
 
-class LatticeFloat(FullField, ParityField):
+class LatticeReal(FullField, ParityField):
     pass
 
 

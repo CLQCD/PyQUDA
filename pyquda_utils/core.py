@@ -27,7 +27,7 @@ from pyquda.field import (
     T,
     LatticeInfo,
     LatticeInt,
-    LatticeFloat,
+    LatticeReal,
     LatticeComplex,
     LatticeLink,
     LatticeGauge,
