@@ -16,6 +16,7 @@ dslash.loadGauge(gauge)
 propagator = core.invert(dslash, "point", [0, 0, 0, 0])
 dslash.destroy()
 
+print([(f"{i:08x}", f"{j:08x}") for i, j in gauge.checksum()])
 gauge.save("pt_prop_1.h5")
 propagator.append("pt_prop_1.h5", 0)
 convert.propagatorToMultiFermion(propagator).append("pt_prop_1.h5", range(12))

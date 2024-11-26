@@ -179,7 +179,84 @@ def _initEnvironWarn(**kwargs):
         _setEnviron(f"QUDA_{key.upper()}", key, kwargs[key])
 
 
-def _initQUDA(grid_size, gpuid):
+def initGPU(backend: Literal["numpy", "cupy", "torch"] = None, gpuid: int = -1):
+    global _CUDA_BACKEND, _HIP, _GPUID, _COMPUTE_CAPABILITY
+
+    if isGridInitialized():
+        _MPI_LOGGER.critical("initGPU should be called before init", RuntimeError)
+    if _GPUID < 0:
+        from platform import node as gethostname
+
+        if backend is None:
+            backend = environ["PYQUDA_BACKEND"] if "PYQUDA_BACKEND" in environ else "cupy"
+        if backend == "numpy":
+            cudaGetDeviceCount: Callable[[], int] = lambda: 0x7FFFFFFF
+            cudaGetDeviceProperties: Callable[[int], Dict[str, Any]] = lambda device: {"major": 0, "minor": 0}
+            cudaSetDevice: Callable[[int], None] = lambda device: None
+        elif backend == "cupy":
+            import cupy
+            from cupy.cuda.runtime import getDeviceCount as cudaGetDeviceCount
+            from cupy.cuda.runtime import getDeviceProperties as cudaGetDeviceProperties
+            from cupy.cuda.runtime import is_hip
+
+            cudaSetDevice: Callable[[int], None] = lambda device: cupy.cuda.Device(device).use()
+            _HIP = is_hip
+        elif backend == "torch":
+            import torch
+            from torch.cuda import device_count as cudaGetDeviceCount
+            from torch.cuda import get_device_properties as cudaGetDeviceProperties
+            from torch.version import hip
+
+            cudaSetDevice: Callable[[int], None] = lambda device: torch.set_default_device(f"cuda:{device}")
+            _HIP = hip is not None
+        else:
+            _MPI_LOGGER.critical(f"Unsupported CUDA backend {backend}", ValueError)
+        _CUDA_BACKEND = backend
+        _MPI_LOGGER.info(f"Using CUDA backend {backend}")
+
+        # if backend == "cupy":
+        #     from . import malloc_pyquda
+
+        #     allocator = cupy.cuda.PythonFunctionAllocator(
+        #         malloc_pyquda.pyquda_device_malloc, malloc_pyquda.pyquda_device_free
+        #     )
+        #     cupy.cuda.set_allocator(allocator.malloc)
+
+        # quda/include/communicator_quda.h
+        # determine which GPU this rank will use
+        hostname = gethostname()
+        hostname_recv_buf = _MPI_COMM.allgather(hostname)
+
+        if gpuid < 0:
+            device_count = cudaGetDeviceCount()
+            if device_count == 0:
+                _MPI_LOGGER.critical("No devices found", RuntimeError)
+
+            gpuid = 0
+            for i in range(_MPI_RANK):
+                if hostname == hostname_recv_buf[i]:
+                    gpuid += 1
+
+            if gpuid >= device_count:
+                if "QUDA_ENABLE_MPS" in environ and environ["QUDA_ENABLE_MPS"] == "1":
+                    gpuid %= device_count
+                    print(f"MPS enabled, rank={_MPI_RANK} -> gpu={gpuid}")
+                else:
+                    _MPI_LOGGER.critical(f"Too few GPUs available on {hostname}", RuntimeError)
+        _GPUID = gpuid
+
+        props = cudaGetDeviceProperties(gpuid)
+        if hasattr(props, "major") and hasattr(props, "minor"):
+            _COMPUTE_CAPABILITY = _ComputeCapability(int(props.major), int(props.minor))
+        else:
+            _COMPUTE_CAPABILITY = _ComputeCapability(int(props["major"]), int(props["minor"]))
+
+        cudaSetDevice(gpuid)
+    else:
+        _MPI_LOGGER.warning("GPU is already initialized", RuntimeWarning)
+
+
+def initQUDA(grid_size: List[int], gpuid: int):
     import atexit
 
     quda.initCommsGridQuda(4, grid_size)
@@ -226,7 +303,7 @@ def init(
     """
     global _GRID_SIZE, _GRID_COORD, _DEFAULT_LATTICE
     if _GRID_SIZE is None:
-        from platform import node as gethostname
+        initGPU(backend)
 
         use_default_grid = grid_size is None and latt_size is not None
         use_default_latt = latt_size is not None and t_boundary is not None and anisotropy is not None
@@ -274,74 +351,8 @@ def init(
             device_reset="1" if device_reset else None,
         )
 
-        global _CUDA_BACKEND, _HIP, _GPUID, _COMPUTE_CAPABILITY
-
-        if backend is None:
-            backend = environ["PYQUDA_BACKEND"] if "PYQUDA_BACKEND" in environ else "cupy"
-        if backend == "numpy":
-            cudaGetDeviceCount: Callable[[], int] = lambda: 0x7FFFFFFF
-            cudaGetDeviceProperties: Callable[[int], Dict[str, Any]] = lambda device: {"major": 0, "minor": 0}
-            cudaSetDevice: Callable[[int], None] = lambda device: None
-        elif backend == "cupy":
-            import cupy
-            from cupy.cuda.runtime import getDeviceCount as cudaGetDeviceCount
-            from cupy.cuda.runtime import getDeviceProperties as cudaGetDeviceProperties
-            from cupy.cuda.runtime import is_hip
-
-            cudaSetDevice: Callable[[int], None] = lambda device: cupy.cuda.Device(device).use()
-            _HIP = is_hip
-        elif backend == "torch":
-            import torch
-            from torch.cuda import device_count as cudaGetDeviceCount
-            from torch.cuda import get_device_properties as cudaGetDeviceProperties
-            from torch.version import hip
-
-            cudaSetDevice: Callable[[int], None] = lambda device: torch.set_default_device(f"cuda:{device}")
-            _HIP = hip is not None
-        else:
-            _MPI_LOGGER.critical(f"Unsupported CUDA backend {backend}", ValueError)
-        _CUDA_BACKEND = backend
-        _MPI_LOGGER.info(f"Using CUDA backend {backend}")
-
-        # if _CUDA_BACKEND == "cupy":
-        #     from . import malloc_pyquda
-
-        #     allocator = cupy.cuda.PythonFunctionAllocator(
-        #         malloc_pyquda.pyquda_device_malloc, malloc_pyquda.pyquda_device_free
-        #     )
-        #     cupy.cuda.set_allocator(allocator.malloc)
-
-        # quda/include/communicator_quda.h
-        # determine which GPU this rank will use
-        hostname = gethostname()
-        hostname_recv_buf = _MPI_COMM.allgather(hostname)
-
-        if _GPUID < 0:
-            device_count = cudaGetDeviceCount()
-            if device_count == 0:
-                _MPI_LOGGER.critical("No devices found", RuntimeError)
-
-            _GPUID = 0
-            for i in range(_MPI_RANK):
-                if hostname == hostname_recv_buf[i]:
-                    _GPUID += 1
-
-            if _GPUID >= device_count:
-                if "QUDA_ENABLE_MPS" in environ and environ["QUDA_ENABLE_MPS"] == "1":
-                    _GPUID %= device_count
-                    print(f"MPS enabled, rank={_MPI_RANK} -> gpu={_GPUID}")
-                else:
-                    _MPI_LOGGER.critical(f"Too few GPUs available on {hostname}", RuntimeError)
-
-        props = cudaGetDeviceProperties(_GPUID)
-        if hasattr(props, "major") and hasattr(props, "minor"):
-            _COMPUTE_CAPABILITY = _ComputeCapability(int(props.major), int(props.minor))
-        else:
-            _COMPUTE_CAPABILITY = _ComputeCapability(int(props["major"]), int(props["minor"]))
-
-        cudaSetDevice(_GPUID)
         if init_quda:
-            _initQUDA(_GRID_SIZE, _GPUID)
+            initQUDA(_GRID_SIZE, _GPUID)
     else:
         _MPI_LOGGER.warning("PyQUDA is already initialized", RuntimeWarning)
 
@@ -354,7 +365,11 @@ def setLoggerLevel(level: Literal["debug", "info", "warning", "error", "critical
     _MPI_LOGGER.logger.setLevel(level.upper())
 
 
-def isInitialized():
+def isGPUInitialized():
+    return _GPUID >= 0
+
+
+def isGridInitialized():
     return _GRID_SIZE is not None
 
 
@@ -396,13 +411,6 @@ def getCUDABackend():
 
 def isHIP():
     return _HIP
-
-
-def setGPUID(gpuid: int):
-    global _GPUID
-    assert _GRID_SIZE is None, "setGPUID() should be called before init()"
-    assert gpuid >= 0
-    _GPUID = gpuid
 
 
 def getGPUID():

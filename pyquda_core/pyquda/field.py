@@ -9,18 +9,18 @@ from .pointer import ndarrayPointer, Pointer, Pointers
 
 
 class LatticeInfo:
+    Nd: int = 4
     Ns: int = 4
     Nc: int = 3
-    Nd: int = 4
 
     def __init__(self, latt_size: List[int], t_boundary: Literal[1, -1] = 1, anisotropy: float = 1.0) -> None:
         self._checkLattice(latt_size)
         self._setLattice(latt_size, t_boundary, anisotropy)
 
     def _checkLattice(self, latt_size: List[int]):
-        from . import init, isInitialized, getLogger, getGridSize
+        from . import init, isGridInitialized, getLogger, getGridSize
 
-        if not isInitialized():
+        if not isGridInitialized():
             init(None, latt_size)
         Gx, Gy, Gz, Gt = getGridSize()
         Lx, Ly, Lz, Lt = latt_size
@@ -65,7 +65,47 @@ class LatticeInfo:
         self.anisotropy = anisotropy
 
 
-Ns, Nc, Nd = LatticeInfo.Ns, LatticeInfo.Nc, LatticeInfo.Nd
+Nd, Ns, Nc = LatticeInfo.Nd, LatticeInfo.Ns, LatticeInfo.Nc
+
+
+class GeneralInfo:
+    def __init__(self, latt_size: List[int], grid_size: List[int], Ns: int = 4, Nc: int = 3) -> None:
+        self._checkLattice(latt_size, grid_size)
+        self._setLattice(latt_size, grid_size)
+        self.Nd = len(latt_size)
+        self.Ns = Ns
+        self.Nc = Nc
+
+    def _checkLattice(self, latt_size: List[int], grid_size: List[int]):
+        from . import getLogger
+
+        assert len(latt_size) == len(grid_size)
+        for GL, G in zip(latt_size, grid_size):
+            if not (GL % G == 0):
+                getLogger().critical("lattice size must be divisible by gird size", ValueError)
+
+    def _setLattice(self, latt_size: List[int], grid_size: List[int]):
+        from . import initGPU, isGPUInitialized, getLogger, getMPIComm, getMPISize, getMPIRank
+
+        if not isGPUInitialized():
+            initGPU()
+        if getMPISize() != int(numpy.prod(grid_size)):
+            getLogger().critical(f"The MPI size {getMPISize()} does not match the grid size {grid_size}", ValueError)
+        self.mpi_comm = getMPIComm()
+        self.mpi_size = getMPISize()
+        self.mpi_rank = getMPIRank()
+        self.grid_size = grid_size
+        grid_coord = []
+        mpi_rank = getMPIRank()
+        for G in grid_size[::-1]:
+            grid_coord.append(mpi_rank % G)
+            mpi_rank //= G
+        self.grid_coord = grid_coord[::-1]
+
+        self.global_size = latt_size
+        self.global_volume = int(numpy.prod(latt_size))
+        self.size = [GL // G for GL, G in zip(latt_size, grid_size)]
+        self.volume = int(numpy.prod(self.size))
 
 
 class _Direction(int):
@@ -126,24 +166,21 @@ def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
     return data_cb2.reshape(*shape[: axes[0]], 2, Lt, Lz, Ly, Lx // 2, *shape[axes[-1] + 1 :])
 
 
-def checksum(latt_info, data: numpy.ndarray) -> Tuple[int, int]:
+def checksum(latt_info: Union[LatticeInfo, GeneralInfo], data: numpy.ndarray) -> Tuple[int, int]:
     import zlib
     from mpi4py import MPI
 
-    gx, gy, gz, gt = latt_info.grid_coord
-    Lx, Ly, Lz, Lt = latt_info.size
-    gLx, gLy, gLz, gLt = gx * Lx, gy * Ly, gz * Lz, gt * Lt
-    GLx, GLy, GLz, GLt = latt_info.global_size
     work = numpy.empty((latt_info.volume), "<u4")
     for i in range(latt_info.volume):
         work[i] = zlib.crc32(data[i])
+    sublatt_slice = tuple(slice(g * L, (g + 1) * L) for g, L in zip(latt_info.grid_coord[::-1], latt_info.size[::-1]))
     rank = (
-        numpy.arange(latt_info.global_volume, dtype="<u4")
-        .reshape(GLt, GLz, GLy, GLx)[gLt : gLt + Lt, gLz : gLz + Lz, gLy : gLy + Ly, gLx : gLx + Lx]
+        numpy.arange(latt_info.global_volume, dtype="<u8")
+        .reshape(*latt_info.global_size[::-1])[sublatt_slice]
         .reshape(-1)
     )
-    rank29 = rank % 29
-    rank31 = rank % 31
+    rank29 = (rank % 29).astype("<u4")
+    rank31 = (rank % 31).astype("<u4")
     sum29 = latt_info.mpi_comm.allreduce(
         numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)).item(), MPI.BXOR
     )
@@ -153,41 +190,151 @@ def checksum(latt_info, data: numpy.ndarray) -> Tuple[int, int]:
     return sum29, sum31
 
 
-def _field_shape_dtype(field: str, Ns: int, Nc: int, int_nbytes: int = 4, float_nbytes: int = 8):
+def _field_shape_dtype(field: str, Ns: int, Nc: int, use_fp32: bool = False):
     from . import getLogger
 
+    float_nbytes = 4 if use_fp32 else 8
     if field in ["Int"]:
-        return [], f"<i{int_nbytes}"
+        return [], "<i4"
     elif field in ["Real"]:
         return [], f"<f{float_nbytes}"
     elif field in ["Complex"]:
         return [], f"<c{2 * float_nbytes}"
-    elif field in ["ColorMatrix", "Link", "Gauge"]:
+    elif field in ["SpinColorVector"]:
+        return [Ns, Nc], f"<c{2 * float_nbytes}"
+    elif field in ["SpinColorMatrix"]:
+        return [Ns, Ns, Nc, Nc], f"<c{2 * float_nbytes}"
+    elif field in ["ColorVector"]:
+        return [Nc], f"<c{2 * float_nbytes}"
+    elif field in ["ColorMatrix"]:
         return [Nc, Nc], f"<c{2 * float_nbytes}"
     elif field in ["Mom"]:
         return [Nc**2 + 1], f"<f{float_nbytes}"
     elif field in ["Clover"]:
         return [2, ((Ns // 2) * Nc) ** 2], f"<f{float_nbytes}"
-    elif field in ["SpinColorVector", "Fermion"]:
-        return [Ns, Nc], f"<c{2 * float_nbytes}"
-    elif field in ["SpinColorMatrix", "Propagator"]:
-        return [Ns, Ns, Nc, Nc], f"<c{2 * float_nbytes}"
-    elif field in ["ColorVector", "StaggeredFermion"]:
-        return [Nc], f"<c{2 * float_nbytes}"
-    elif field in ["ColorMatrix", "StaggeredPropagator"]:
-        return [Nc, Nc], f"<c{2 * float_nbytes}"
     else:
         getLogger().critical(f"Unknown field type: {field}", ValueError)
 
 
 class BaseField:
-    def __init__(self, latt_info: LatticeInfo) -> None:
+    def __init__(self, latt_info: Union[LatticeInfo, GeneralInfo]) -> None:
         from . import getCUDABackend
 
         self.latt_info = latt_info
         self._data = None
         self.backend: Literal["numpy", "cupy", "torch"] = getCUDABackend()
         self.L5 = None
+
+    @abstractmethod
+    def _shape(self):
+        from . import getLogger
+
+        getLogger().critical("_setShape method must be implemented", NotImplementedError)
+
+    @classmethod
+    def _groupName(cls):
+        from . import getLogger
+
+        if cls.__name__ == "LatticeMom":
+            getLogger().critical("LatticeMom is not supported for save/load", ValueError)
+        elif cls.__name__ == "LatticeClover":
+            getLogger().critical("LatticeClover is not supported for save/load", ValueError)
+
+        return (
+            cls.__name__.replace("Multi", "")
+            .replace("General", "")
+            .replace("Link", "ColorMatrix")
+            .replace("Gauge", "ColorMatrix")
+            .replace("Fermion", "SpinColorVector")
+            .replace("Propagator", "SpinColorMatrix")
+            .replace("StaggeredFermion", "ColorVector")
+            .replace("StaggeredPropagator", "ColorMatrix")
+        )
+
+    def save(
+        self,
+        filename: str,
+        label: Union[int, str, Sequence[int], Sequence[str]],
+        *,
+        annotation: str = "",
+        check: bool = True,
+        use_fp32: bool = False,
+    ):
+        from . import getLogger
+        from .file import File
+
+        assert hasattr(self, "lexico")
+        s = perf_counter()
+        gbytes = 0
+        filename = path.expanduser(path.expandvars(filename))
+        with File(filename, "w") as f:
+            f.save(
+                self._groupName(),
+                label,
+                self.lexico(),
+                self.latt_info.grid_size,
+                annotation=annotation,
+                check=check,
+                use_fp32=use_fp32,
+            )
+        secs = perf_counter() - s
+        getLogger().debug(f"Saved {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
+
+    def append(
+        self,
+        filename: str,
+        label: Union[int, str, Sequence[int], Sequence[str]],
+        *,
+        annotation: str = "",
+        check: bool = True,
+        use_fp32: bool = False,
+    ):
+        from . import getLogger
+        from .file import File
+
+        assert hasattr(self, "lexico")
+        s = perf_counter()
+        gbytes = 0
+        filename = path.expanduser(path.expandvars(filename))
+        with File(filename, "r+") as f:
+            f.append(
+                self._groupName(),
+                label,
+                self.lexico(),
+                self.latt_info.grid_size,
+                annotation=annotation,
+                check=check,
+                use_fp32=use_fp32,
+            )
+        secs = perf_counter() - s
+        getLogger().debug(f"Appended {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
+
+    def update(
+        self,
+        filename: str,
+        label: Union[int, str, Sequence[int], Sequence[str]],
+        *,
+        annotation: str = "",
+        check: bool = True,
+    ):
+        from . import getLogger
+        from .file import File
+
+        assert hasattr(self, "lexico")
+        s = perf_counter()
+        gbytes = 0
+        filename = path.expanduser(path.expandvars(filename))
+        with File(filename, "r+") as f:
+            f.update(
+                self._groupName(),
+                label,
+                self.lexico(),
+                self.latt_info.grid_size,
+                annotation=annotation,
+                check=check,
+            )
+        secs = perf_counter() - s
+        getLogger().debug(f"Updated {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
 
     @property
     def data(self):
@@ -208,17 +355,10 @@ class BaseField:
     def data_ptr(self) -> Pointer:
         return ndarrayPointer(self.data.reshape(-1), True)
 
-    @abstractmethod
-    def _field(self):
-        from . import getLogger
-
-        getLogger().critical("_field method must be implemented", NotImplementedError)
-
-    @abstractmethod
-    def _shape(self):
-        from . import getLogger
-
-        getLogger().critical("_setShape method must be implemented", NotImplementedError)
+    @classmethod
+    def _field(cls) -> str:
+        group_name = cls._groupName()
+        return group_name[group_name.index("Lattice") + len("Lattice") :]
 
     def _setField(self):
         field_shape, field_dtype = _field_shape_dtype(self._field(), self.latt_info.Ns, self.latt_info.Nc)
@@ -373,77 +513,62 @@ class BaseField:
         return self
 
 
-class SpatialField(BaseField):
-    def __init__(self, latt_info: LatticeInfo, value: Any = None, init_data: bool = True) -> None:
+class GeneralField(BaseField):
+    def __init__(self, latt_info: GeneralInfo, value: Any = None, init_data: bool = True) -> None:
         super().__init__(latt_info)
         if init_data:
             self._initData(value)
 
-    @classmethod
-    def _field(cls) -> str:
-        return cls.__name__[cls.__name__.index("Space") + len("Space") :]
-
     def _shape(self):
-        Lx, Ly, Lz, Lt = self.latt_info.size
-        self.space_shape = [Lz, Ly, Lx]
+        self.lattice_shape = self.latt_info.size[::-1]
         if self.L5 is None:
-            return (*self.space_shape, *self.field_shape)
+            return (*self.lattice_shape, *self.field_shape)
         else:
-            return (self.L5, *self.space_shape, *self.field_shape)
+            return (self.L5, *self.lattice_shape, *self.field_shape)
 
+    def lexico(self, dtype=None):
+        return self.getHost().astype(dtype)
 
-class TemporalField(BaseField):
-    def __init__(self, latt_info: LatticeInfo, value: Any = None, init_data: bool = True) -> None:
-        super().__init__(latt_info)
-        if init_data:
-            self._initData(value)
+    def checksum(self) -> Tuple[int, int]:
+        return checksum(self.latt_info, self.lexico().reshape(self.latt_info.volume, self.field_size).view("<u4"))
 
     @classmethod
-    def _field(cls) -> str:
-        return cls.__name__[cls.__name__.index("Time") + len("Time") :]
+    def load(
+        cls,
+        filename: str,
+        label: Union[int, str, Sequence[int], Sequence[str]],
+        *,
+        check: bool = True,
+        grid_size: List[int] = None,
+    ):
+        from . import getLogger
+        from .file import File
 
-    def _shape(self):
-        Lx, Ly, Lz, Lt = self.latt_info.size
-        self.time_shape = [Lt]
-        if self.L5 is None:
-            return (*self.time_shape, *self.field_shape)
+        s = perf_counter()
+        gbytes = 0
+        filename = path.expanduser(path.expandvars(filename))
+        with File(filename, "r") as f:
+            latt_size, Ns, Nc, value = f.load(cls._groupName(), label, grid_size, check=check)
+        latt_info = GeneralInfo(latt_size, grid_size, Ns, Nc)
+        if not issubclass(cls, MultiField):
+            retval = cls(latt_info, value)
         else:
-            return (self.L5, *self.time_shape, *self.field_shape)
-
-
-class SpatiotemporalField(BaseField):
-    def __init__(self, latt_info: LatticeInfo, value: Any = None, init_data: bool = True) -> None:
-        super().__init__(latt_info)
-        if init_data:
-            self._initData(value)
-
-    @classmethod
-    def _field(cls) -> str:
-        return cls.__name__[cls.__name__.index("Spacetime") + len("Spacetime") :]
-
-    def _shape(self):
-        Lx, Ly, Lz, Lt = self.latt_info.size
-        self.spacetime_shape = [Lt, Lz, Ly, Lx]
-        if self.L5 is None:
-            return (*self.spacetime_shape, *self.field_shape)
-        else:
-            return (self.L5, *self.spacetime_shape, *self.field_shape)
+            retval = cls(latt_info, len(label), numpy.asarray(value))
+        secs = perf_counter() - s
+        getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
+        return retval
 
 
 class ParityField(BaseField):
     def __init__(self, latt_info: LatticeInfo, value: Any = None, init_data: bool = True) -> None:
         super().__init__(latt_info)
-        self.full_lattice = False
+        self.full_field = False
         if init_data:
             self._initData(value)
 
-    @classmethod
-    def _field(cls) -> str:
-        return cls.__name__[cls.__name__.index("Lattice") + len("Lattice") :]
-
     def _shape(self):
         Lx, Ly, Lz, Lt = self.latt_info.size
-        self.lattice_shape = [2, Lt, Lz, Ly, Lx // 2] if self.full_lattice else [Lt, Lz, Ly, Lx // 2]
+        self.lattice_shape = [2, Lt, Lz, Ly, Lx // 2] if self.full_field else [Lt, Lz, Ly, Lx // 2]
         if self.L5 is None:
             return (*self.lattice_shape, *self.field_shape)
         else:
@@ -469,17 +594,17 @@ class ParityField(BaseField):
                 x = self.__class__(self.latt_info)
             else:
                 x = self.__class__(self.latt_info, self.L5)
-            if self.full_lattice and self.L5 is not None:
+            if self.full_field and self.L5 is not None:
                 x.data[:, :, start:stop:step, :, :, :] = self.data[:, :, start:stop:step, :, :, :]
-            elif self.full_lattice or self.L5 is not None:
+            elif self.full_field or self.L5 is not None:
                 x.data[:, start:stop:step, :, :, :] = self.data[:, start:stop:step, :, :, :]
             else:
                 x.data[start:stop:step, :, :, :] = self.data[start:stop:step, :, :, :]
             return x
         else:
-            if self.full_lattice and self.L5 is not None:
+            if self.full_field and self.L5 is not None:
                 return self.data[:, :, start:stop:step, :, :, :]
-            elif self.full_lattice or self.L5 is not None:
+            elif self.full_field or self.L5 is not None:
                 return self.data[:, start:stop:step, :, :, :]
             else:
                 return self.data[start:stop:step, :, :, :]
@@ -494,7 +619,7 @@ class FullField:
             s.__field_class__.__base__.__init__(self, latt_info, value, False)
         else:
             s.__init__(latt_info, value, False)
-        self.full_lattice = True
+        self.full_field = True
         if init_data:
             self._initData(value)
 
@@ -526,221 +651,34 @@ class FullField:
         return lexico(self.getHost(), [0, 1, 2, 3, 4], dtype)
 
     def checksum(self) -> Tuple[int, int]:
-        return checksum(self.latt_info, self.lexico().reshape(self.latt_info.volume, self.field_size))
-
-    @classmethod
-    def _load(cls, latt_info: LatticeInfo, dataset):
-        gx, gy, gz, gt = latt_info.grid_coord
-        Lx, Ly, Lz, Lt = latt_info.size
-        data: numpy.ndarray = dataset[
-            gt * Lt : (gt + 1) * Lt,
-            gz * Lz : (gz + 1) * Lz,
-            gy * Ly : (gy + 1) * Ly,
-            gx * Lx : (gx + 1) * Lx,
-        ]
-        sum29, sum31 = checksum(latt_info, data.reshape(latt_info.volume, -1))
-        assert dataset.attrs["sum29"] == f"0x{sum29:08x}"
-        assert dataset.attrs["sum31"] == f"0x{sum31:08x}"
-        return data
+        return checksum(self.latt_info, self.lexico().reshape(self.latt_info.volume, self.field_size).view("<u4"))
 
     @classmethod
     def load(
         cls,
         filename: str,
         label: Union[int, str, Sequence[int], Sequence[str]],
+        *,
+        check: bool = True,
     ):
-        import h5py
-        from . import getLogger, getMPIComm, getMPISize
+        from . import getLogger, getGridSize
+        from .file import File
 
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
-        with h5py.File(filename, "r", driver="mpio", comm=getMPIComm()) as f:
-            class_name = cls.__name__[len("Multi") :] if cls.__name__.startswith("Multi") else cls.__name__
-            if class_name not in f:
-                getLogger().critical(f"{filename} doesn't contain a {cls.__name__}", TypeError)
-            g = f[class_name]
-            latt_info = LatticeInfo([int(L) for L in g.attrs["Ld"].split(" ")])
-            latt_info.Ns = int(g.attrs["Ns"])
-            latt_info.Nc = int(g.attrs["Nc"])
-            field_shape, field_dtype = _field_shape_dtype(cls._field(), latt_info.Ns, latt_info.Nc)
-            if isinstance(label, (int, str)) and not issubclass(cls, MultiField):
-                key = str(label)
-                value = cb2(cls._load(latt_info, g[key]), [0, 1, 2, 3], field_dtype)
-                gbytes += g[key].nbytes / 1024**3
-            elif isinstance(label, (list, tuple, range)) and issubclass(cls, MultiField):
-                keys = [str(key) for key in label]
-                assert 0 < len(keys) <= len(g)
-                value = []
-                for key in keys:
-                    value.append(cb2(cls._load(latt_info, g[key]), [0, 1, 2, 3], field_dtype))
-                    gbytes += g[key].nbytes / 1024**3
-                value = numpy.asarray(value)
-            else:
-                getLogger().critical(f"Invalid label {label} for field type {cls.__name__}", TypeError)
-        secs = perf_counter() - s
-        getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {getMPISize() * gbytes / secs:.3f} GB/s")
+        with File(filename, "r") as f:
+            latt_size, Ns, Nc, value = f.load(cls._groupName(), label, getGridSize(), check=check)
+        latt_info = LatticeInfo(latt_size)
+        latt_info.Ns = Ns
+        latt_info.Nc = Nc
         if not issubclass(cls, MultiField):
-            return cls(latt_info, value)
+            retval = cls(latt_info, cb2(value, [0, 1, 2, 3]))
         else:
-            return cls(latt_info, len(keys), value)
-
-    @classmethod
-    def _save(cls, latt_info: LatticeInfo, dataset, data: numpy.ndarray):
-        gx, gy, gz, gt = latt_info.grid_coord
-        Lx, Ly, Lz, Lt = latt_info.size
-        dataset[
-            gt * Lt : (gt + 1) * Lt,
-            gz * Lz : (gz + 1) * Lz,
-            gy * Ly : (gy + 1) * Ly,
-            gx * Lx : (gx + 1) * Lx,
-        ] = data
-        sum29, sum31 = checksum(latt_info, data.reshape(latt_info.volume, -1))
-        dataset.attrs["sum29"] = f"0x{sum29:08x}"
-        dataset.attrs["sum31"] = f"0x{sum31:08x}"
-
-    def save(
-        self,
-        filename: str,
-        label: Union[int, str, Sequence[int], Sequence[str]],
-        *,
-        annotation: str = "",
-        int_nbytes: int = 4,
-        float_nbytes: int = 8,
-    ):
-        import h5py
-        from . import getLogger, getMPIComm
-
-        s = perf_counter()
-        gbytes = 0
-        filename = path.expanduser(path.expandvars(filename))
-        with h5py.File(filename, "w", driver="mpio", comm=getMPIComm()) as f:
-            class_name = (
-                self.__class__.__name__[len("Multi") :]
-                if self.__class__.__name__.startswith("Multi")
-                else self.__class__.__name__
-            )
-            latt_info = self.latt_info
-            g = f.create_group(class_name)
-            g.attrs["Annotation"] = annotation
-            g.attrs["Ld"] = " ".join([str(L) for L in latt_info.global_size])
-            g.attrs["Ns"] = str(latt_info.Ns)
-            g.attrs["Nc"] = str(latt_info.Nc)
-            GLx, GLy, GLz, GLt = latt_info.global_size
-            field_shape, field_dtype = _field_shape_dtype(
-                self._field(), latt_info.Ns, latt_info.Nc, int_nbytes, float_nbytes
-            )
-            if isinstance(label, (int, str)) and not isinstance(self, MultiField):
-                key = str(label)
-                g.create_dataset(key, (GLt, GLz, GLy, GLx, *field_shape), field_dtype)
-                self._save(latt_info, g[key], self.lexico(field_dtype))
-                gbytes += g[key].nbytes / 1024**3
-            elif isinstance(label, (list, tuple, range)) and isinstance(self, MultiField):
-                keys = [str(key) for key in label]
-                assert len(keys) == self.L5
-                for index, key in enumerate(keys):
-                    g.create_dataset(key, (GLt, GLz, GLy, GLx, *field_shape), field_dtype)
-                    self._save(latt_info, g[key], self[index].lexico(field_dtype))
-                    gbytes += g[key].nbytes / 1024**3
-            else:
-                getLogger().critical(f"Invalid label {label} for field type {self.__class__.__name__}", TypeError)
+            retval = cls(latt_info, len(label), numpy.asarray([cb2(data, [0, 1, 2, 3]) for data in value]))
         secs = perf_counter() - s
-        getLogger().debug(f"Saved {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
-
-    def append(
-        self,
-        filename: str,
-        label: Union[int, str, Sequence[int], Sequence[str]],
-        *,
-        annotation: str = "",
-        int_nbytes: int = 4,
-        float_nbytes: int = 8,
-    ):
-        import h5py
-        from . import getLogger, getMPIComm
-
-        s = perf_counter()
-        gbytes = 0
-        filename = path.expanduser(path.expandvars(filename))
-        with h5py.File(filename, "r+", driver="mpio", comm=getMPIComm()) as f:
-            class_name = (
-                self.__class__.__name__[len("Multi") :]
-                if self.__class__.__name__.startswith("Multi")
-                else self.__class__.__name__
-            )
-            latt_info = self.latt_info
-            g = f.create_group(class_name)
-            g.attrs["Annotation"] = annotation
-            g.attrs["Ld"] = " ".join([str(L) for L in latt_info.global_size])
-            g.attrs["Ns"] = str(latt_info.Ns)
-            g.attrs["Nc"] = str(latt_info.Nc)
-            GLx, GLy, GLz, GLt = latt_info.global_size
-            field_shape, field_dtype = _field_shape_dtype(
-                self._field(), latt_info.Ns, latt_info.Nc, int_nbytes, float_nbytes
-            )
-            if isinstance(label, (int, str)) and not isinstance(self, MultiField):
-                key = str(label)
-                g.create_dataset(key, (GLt, GLz, GLy, GLx, *field_shape), field_dtype)
-                self._save(latt_info, g[key], self.lexico(field_dtype))
-                gbytes += g[key].nbytes / 1024**3
-            elif isinstance(label, (list, tuple, range)) and isinstance(self, MultiField):
-                keys = [str(key) for key in label]
-                assert len(keys) == self.L5
-                for index, key in enumerate(keys):
-                    g.create_dataset(key, (GLt, GLz, GLy, GLx, *field_shape), field_dtype)
-                    self._save(latt_info, g[key], self[index].lexico(field_dtype))
-                    gbytes += g[key].nbytes / 1024**3
-            else:
-                getLogger().critical(f"Invalid label {label} for field type {self.__class__.__name__}", TypeError)
-        secs = perf_counter() - s
-        getLogger().debug(f"Appended {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
-
-    def update(
-        self,
-        filename: str,
-        label: Union[int, str, Sequence[int], Sequence[str]],
-        *,
-        annotation: str = "",
-    ):
-        import h5py
-        from . import getLogger, getMPIComm
-
-        s = perf_counter()
-        gbytes = 0
-        filename = path.expanduser(path.expandvars(filename))
-        with h5py.File(filename, "r+", driver="mpio", comm=getMPIComm()) as f:
-            multi = self.__class__.__name__.startswith("Multi")
-            class_name = self.__class__.__name__[len("Multi") :] if multi else self.__class__.__name__
-            latt_info = self.latt_info
-            if class_name not in f:
-                getLogger().critical(f"{filename} doesn't contain a {self.__class__.__name__}", TypeError)
-            g = f[class_name]
-            if annotation != "":
-                g.attrs["Annotation"] = annotation
-            assert g.attrs["Ld"] == " ".join([str(L) for L in latt_info.global_size])
-            assert g.attrs["Ns"] == str(latt_info.Ns)
-            assert g.attrs["Nc"] == str(latt_info.Nc)
-            GLx, GLy, GLz, GLt = latt_info.global_size
-            field_shape, field_dtype = _field_shape_dtype(self._field(), latt_info.Ns, latt_info.Nc)
-            for key in g.keys():
-                field_dtype = g[key].dtype.str
-                break
-            if isinstance(label, (int, str)) and not isinstance(self, MultiField):
-                key = str(label)
-                self._save(latt_info, g[key], self.lexico(field_dtype))
-                gbytes += g[key].nbytes / 1024**3
-            elif isinstance(label, (list, tuple, range)) and isinstance(self, MultiField):
-                keys = [str(key) for key in label]
-                assert len(keys) == self.L5
-                for index, key in enumerate(keys):
-                    if key not in g:
-                        g.create_dataset(key, (GLt, GLz, GLy, GLx, *field_shape), field_dtype)
-                    self._save(latt_info, g[key], self[index].lexico(field_dtype))
-                    gbytes += g[key].nbytes / 1024**3
-            else:
-                getLogger().critical(f"Invalid label {label} for field type {self.__class__.__name__}", TypeError)
-        secs = perf_counter() - s
-        getLogger().debug(f"Updated {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
+        getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
+        return retval
 
 
 class MultiField:
@@ -806,11 +744,11 @@ class MultiField:
         return ndarrayPointer(self.data.reshape(self.L5, -1)[index], True)
 
     def even_ptr(self, index: int) -> Pointer:
-        assert self.full_lattice
+        assert self.full_field
         return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[index, 0], True)
 
     def odd_ptr(self, index: int) -> Pointer:
-        assert self.full_lattice
+        assert self.full_field
         return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[index, 1], True)
 
     @property
@@ -819,12 +757,12 @@ class MultiField:
 
     @property
     def even_ptrs(self) -> Pointers:
-        assert self.full_lattice
+        assert self.full_field
         return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[:, 0], True)
 
     @property
     def odd_ptrs(self) -> Pointers:
-        assert self.full_lattice
+        assert self.full_field
         return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[:, 1], True)
 
     def copy(self):
@@ -918,17 +856,17 @@ class LatticeGauge(MultiField, LatticeLink):
         self._gauge_dirac = None
 
     @classmethod
-    def load(cls, filename: str) -> "LatticeGauge":
-        return super().load(filename, range(Nd))
+    def load(cls, filename: str, *, check: bool = True) -> "LatticeGauge":
+        return super().load(filename, ["X", "Y", "Z", "T"], check=check)
 
-    def save(self, filename: str, *, annotation: str = "", int_nbytes: int = 4, float_nbytes: int = 8):
-        super().save(filename, range(Nd), annotation=annotation, int_nbytes=int_nbytes, float_nbytes=float_nbytes)
+    def save(self, filename: str, *, annotation: str = "", check: bool = True, use_fp32: bool = False):
+        super().save(filename, ["X", "Y", "Z", "T"], annotation=annotation, check=check, use_fp32=use_fp32)
 
-    def append(self, filename: str, *, annotation: str = "", int_nbytes: int = 4, float_nbytes: int = 8):
-        super().append(filename, range(Nd), annotation=annotation, int_nbytes=int_nbytes, float_nbytes=float_nbytes)
+    def append(self, filename: str, *, annotation: str = "", check: bool = True, use_fp32: bool = False):
+        super().append(filename, ["X", "Y", "Z", "T"], annotation=annotation, check=check, use_fp32=use_fp32)
 
-    def update(self, filename: str, *, annotation: str = ""):
-        super().update(filename, range(Nd), annotation=annotation)
+    def update(self, filename: str, *, annotation: str = "", check: bool = True):
+        super().update(filename, ["X", "Y", "Z", "T"], annotation=annotation, check=check)
 
     @property
     def gauge_dirac(self):
@@ -1253,17 +1191,17 @@ class LatticeMom(MultiField, FullField, ParityField):
         self._gauge_dirac = None
 
     @classmethod
-    def load(cls, filename: str) -> "LatticeMom":
-        return super().load(filename, range(Nd))
+    def load(cls, filename: str, *, check: bool = True) -> "LatticeMom":
+        return super().load(filename, ["X", "Y", "Z", "T"], check=check)
 
-    def save(self, filename: str, *, annotation: str = "", int_nbytes: int = 4, float_nbytes: int = 8):
-        super().save(filename, range(Nd), annotation=annotation, int_nbytes=int_nbytes, float_nbytes=float_nbytes)
+    def save(self, filename: str, *, annotation: str = "", check: bool = True, use_fp32: bool = False):
+        super().save(filename, ["X", "Y", "Z", "T"], annotation=annotation, check=check, use_fp32=use_fp32)
 
-    def append(self, filename: str, *, annotation: str = "", int_nbytes: int = 4, float_nbytes: int = 8):
-        super().append(filename, range(Nd), annotation=annotation, int_nbytes=int_nbytes, float_nbytes=float_nbytes)
+    def append(self, filename: str, *, annotation: str = "", check: bool = True, use_fp32: bool = False):
+        super().append(filename, ["X", "Y", "Z", "T"], annotation=annotation, check=check, use_fp32=use_fp32)
 
-    def update(self, filename: str, *, annotation: str = ""):
-        super().update(filename, range(Nd), annotation=annotation)
+    def update(self, filename: str, *, annotation: str = "", check: bool = True):
+        super().update(filename, ["X", "Y", "Z", "T"], annotation=annotation, check=check)
 
     @property
     def gauge_dirac(self):

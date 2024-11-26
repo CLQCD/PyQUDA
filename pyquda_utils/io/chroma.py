@@ -23,12 +23,12 @@ def checksum_qio(latt_size: List[int], data):
     for i in range(Lt * Lz * Ly * Lx):
         work[i] = zlib.crc32(data[i])
     rank = (
-        numpy.arange(GLt * GLz * GLy * GLx, dtype="<u4")
+        numpy.arange(GLt * GLz * GLy * GLx, dtype="<u8")
         .reshape(GLt, GLz, GLy, GLx)[gLt : gLt + Lt, gLz : gLz + Lz, gLy : gLy + Ly, gLx : gLx + Lx]
         .reshape(-1)
     )
-    rank29 = rank % 29
-    rank31 = rank % 31
+    rank29 = (rank % 29).astype("<u4")
+    rank31 = (rank % 31).astype("<u4")
     sum29 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)).item(), MPI.BXOR)
     sum31 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)).item(), MPI.BXOR)
     return sum29, sum31
