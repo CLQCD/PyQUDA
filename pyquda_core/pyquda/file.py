@@ -335,6 +335,8 @@ class File(h5py.File):
         latt_info = _LatticeInfo(latt_size, grid)
         if isinstance(keys, str):
             key = keys
+            if key not in g:
+                g.create_dataset(key, (*latt_size[::-1], *field_shape), field_dtype)
             self._save(latt_info, g[key], field.astype(field_dtype), check)
             gbytes += g[key].nbytes / 1024**3
         else:

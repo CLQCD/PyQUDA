@@ -1,48 +1,6 @@
 from enum import IntEnum
 
-QUDA_VERSION_MAJOR = 1
-QUDA_VERSION_MINOR = 1
-QUDA_VERSION_SUBMINOR = 0
-
-QUDA_VERSION = (QUDA_VERSION_MAJOR << 16) | (QUDA_VERSION_MINOR << 8) | QUDA_VERSION_SUBMINOR
-"""
-This macro is deprecated.  Use QUDA_VERSION_MAJOR, etc., instead.
-"""
-
-QUDA_MAX_DIM = 6
-"""
-Maximum number of dimensions supported by QUDA.  In practice, no
-routines make use of more than 5.
-"""
-
-QUDA_MAX_GEOMETRY = 8
-"""
-Maximum geometry supported by a field.  This essentially is
-the maximum number of dimensions supported per lattice site.
-"""
-
-QUDA_MAX_MULTI_SHIFT = 32
-"""
-Maximum number of shifts supported by the multi-shift solver.
-This number may be changed if need be.
-"""
-
-QUDA_MAX_MULTI_SRC = 128
-"""
-Maximum number of sources that can be supported by the multi-src solver
-"""
-
-QUDA_MAX_DWF_LS = 32
-"""
-Maximum length of the Ls dimension for domain-wall fermions
-"""
-
-QUDA_MAX_MG_LEVEL = 5
-"""
-Maximum number of multi-grid levels.  This number may be
-increased if needed.
-"""
-
+# quda_constants.py
 
 QUDA_INVALID_ENUM = -0x7FFFFFFF - 1
 
@@ -51,44 +9,6 @@ class qudaError_t(IntEnum):
     QUDA_SUCCESS = 0
     QUDA_ERROR = 1
     QUDA_ERROR_UNINITIALIZED = 2
-
-
-class QudaMemoryType(IntEnum):
-    pass
-
-
-#
-# Types used in QudaGaugeParam
-#
-
-
-class QudaLinkType(IntEnum):
-    pass
-
-
-class QudaGaugeFieldOrder(IntEnum):
-    pass
-
-
-class QudaTboundary(IntEnum):
-    pass
-
-
-class QudaPrecision(IntEnum):
-    pass
-
-
-class QudaReconstructType(IntEnum):
-    pass
-
-
-class QudaGaugeFixed(IntEnum):
-    pass
-
-
-#
-# Types used in QudaInvertParam
-#
 
 
 class QudaDslashType(IntEnum):
@@ -100,44 +20,12 @@ class QudaDslashType(IntEnum):
     pass
 
 
-class QudaInverterType(IntEnum):
-    pass
-
-
-class QudaEigType(IntEnum):
-    pass
-
-
 class QudaEigSpectrumType(IntEnum):
     """
     S=smallest L=largest\n
     R=real M=modulus I=imaniary
     """
 
-    pass
-
-
-class QudaSolutionType(IntEnum):
-    pass
-
-
-class QudaSolveType(IntEnum):
-    pass
-
-
-class QudaMultigridCycleType(IntEnum):
-    pass
-
-
-class QudaSchwarzType(IntEnum):
-    pass
-
-
-class QudaAcceleratorType(IntEnum):
-    pass
-
-
-class QudaResidualType(IntEnum):
     pass
 
 
@@ -162,54 +50,9 @@ class QudaMatPCType(IntEnum):
     pass
 
 
-class QudaDagType(IntEnum):
-    pass
-
-
-class QudaMassNormalization(IntEnum):
-    pass
-
-
-class QudaSolverNormalization(IntEnum):
-    pass
-
-
-class QudaPreserveSource(IntEnum):
-    pass
-
-
-class QudaDiracFieldOrder(IntEnum):
-    pass
-
-
-class QudaCloverFieldOrder(IntEnum):
-    pass
-
-
-class QudaVerbosity(IntEnum):
-    pass
-
-
-class QudaTune(IntEnum):
-    pass
-
-
-class QudaPreserveDirac(IntEnum):
-    pass
-
-
 class QudaParity(IntEnum):
     """Type used for "parity" argument to dslashQuda()"""
 
-    pass
-
-
-#
-# Types used only internally
-#
-
-
-class QudaDiracType(IntEnum):
     pass
 
 
@@ -237,10 +80,6 @@ class QudaFieldOrder(IntEnum):
     pass
 
 
-class QudaFieldCreate(IntEnum):
-    pass
-
-
 class QudaGammaBasis(IntEnum):
     """
     gamj=((top 2 rows)(bottom 2 rows))  s1,s2,s3 are Pauli spin matrices, 1 is 2x2 identity
@@ -253,18 +92,6 @@ class QudaGammaBasis(IntEnum):
     pass
 
 
-class QudaSourceType(IntEnum):
-    pass
-
-
-class QudaNoiseType(IntEnum):
-    pass
-
-
-class QudaDilutionType(IntEnum):
-    pass
-
-
 class QudaProjectionType(IntEnum):
     """used to select projection method for deflated solvers"""
 
@@ -274,110 +101,6 @@ class QudaProjectionType(IntEnum):
 class QudaPCType(IntEnum):
     """used to select checkerboard preconditioning method"""
 
-    pass
-
-
-class QudaTwistFlavorType(IntEnum):
-    pass
-
-
-class QudaTwistDslashType(IntEnum):
-    pass
-
-
-class QudaTwistCloverDslashType(IntEnum):
-    pass
-
-
-class QudaTwistGamma5Type(IntEnum):
-    pass
-
-
-class QudaUseInitGuess(IntEnum):
-    pass
-
-
-class QudaDeflatedGuess(IntEnum):
-    pass
-
-
-class QudaComputeNullVector(IntEnum):
-    pass
-
-
-class QudaSetupType(IntEnum):
-    pass
-
-
-class QudaTransferType(IntEnum):
-    pass
-
-
-class QudaBoolean(IntEnum):
-    pass
-
-
-class QudaBLASType(IntEnum):
-    pass
-
-
-class QudaBLASOperation(IntEnum):
-    pass
-
-
-class QudaBLASDataType(IntEnum):
-    pass
-
-
-class QudaBLASDataOrder(IntEnum):
-    pass
-
-
-class QudaDirection(IntEnum):
-    pass
-
-
-class QudaLinkDirection(IntEnum):
-    pass
-
-
-class QudaFieldGeometry(IntEnum):
-    pass
-
-
-class QudaGhostExchange(IntEnum):
-    pass
-
-
-class QudaStaggeredPhase(IntEnum):
-    pass
-
-
-class QudaSpinTasteGamma(IntEnum):
-    pass
-
-
-class QudaContractType(IntEnum):
-    pass
-
-
-class QudaFFTSymmType(IntEnum):
-    pass
-
-
-class QudaContractGamma(IntEnum):
-    pass
-
-
-class QudaGaugeSmearType(IntEnum):
-    pass
-
-
-class QudaWFlowType(IntEnum):
-    pass
-
-
-class QudaFermionSmearType(IntEnum):
     pass
 
 

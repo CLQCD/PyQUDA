@@ -42,7 +42,8 @@ def LatticeGaugeGPT(lattice: List[g.lattice], gen_simd_width: int, gauge: Lattic
                     [0, 1, 2, 3],
                 )
             )
-        return LatticeGauge(latt_info, numpy.asarray(value))
+        gauge = LatticeGauge(latt_info, numpy.asarray(value))
+        return gauge
     else:
         assert latt_info.size == gauge.latt_info.size
         for index in range(latt_info.Nd):
@@ -56,7 +57,6 @@ def LatticeGaugeGPT(lattice: List[g.lattice], gen_simd_width: int, gauge: Lattic
                 .view("|u1")
                 .reshape(-1)
             )
-        return gauge
 
 
 def LatticePropagatorGPT(lattice: g.lattice, gen_simd_width: int, propagator: LatticePropagator = None):
@@ -74,7 +74,9 @@ def LatticePropagatorGPT(lattice: g.lattice, gen_simd_width: int, propagator: La
             .astype("<c16"),
             [0, 1, 2, 3],
         )
-        return LatticePropagator(latt_info, value)
+        propagator = LatticePropagator(latt_info, value)
+        propagator.toDevice()
+        return propagator
     else:
         assert latt_info.size == propagator.latt_info.size
         gpt_shape = [i for sl in zip(gpt_simd, gpt_latt) for i in sl]
@@ -87,4 +89,3 @@ def LatticePropagatorGPT(lattice: g.lattice, gen_simd_width: int, propagator: La
             .view("|u1")
             .reshape(-1)
         )
-        return propagator

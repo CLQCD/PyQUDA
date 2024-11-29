@@ -236,6 +236,8 @@ def build_pyquda_pyx(pyquda_root, quda_path):
                 else:
                     raise ValueError(f"Unexpected node {node}")
 
+    with open(os.path.join(quda_include, "quda_constants.h"), "r") as f:
+        quda_constants_h = f.read()
     with open(os.path.join(quda_include, "enum_quda.h"), "r") as f:
         enum_quda_h = f.read()
     with open(os.path.join(pyquda_root, "pyquda", "enum_quda.in.py"), "r") as f:
@@ -247,21 +249,35 @@ def build_pyquda_pyx(pyquda_root, quda_path):
     # with open(os.path.join(pyquda_root, "pyquda", "pyquda.in.pyi"), "r") as f:
     #     pyquda_pyi = f.read()
 
-    enum_quda_start = enum_quda_py.find("\nQUDA_INVALID_ENUM = -0x7FFFFFFF - 1")
+    quda_constants_py = ""
     quda_constants_pxd = 'cdef extern from "quda_constants.h":\n    cdef enum:'
-    start = enum_quda_py.find("\nQUDA", 0)
-    while enum_quda_start > start >= 0:
-        stop = enum_quda_py.find(" =", start)
-        quda_constants_pxd += f"\n        {enum_quda_py[start + 1 : stop]}\n"
-        start = enum_quda_py.find("\nQUDA", stop)
+    start = quda_constants_h.find("#define")
+    while start >= 0:
+        stop = quda_constants_h.find("\n", start)
+        name_value = quda_constants_h[start + len("#define") : stop].strip().split(" ")
+        name, value = name_value[0], " ".join(name_value[1:]).strip()
+        idx_comment = quda_constants_h.rfind("@brief", 0, start)
+        idx_endline = quda_constants_h.find("*/", idx_comment, start)
+        if idx_comment < idx_endline:
+            comment = "\n".join(
+                [
+                    line.strip("* ")
+                    for line in quda_constants_h[idx_comment + len("@brief") : idx_endline].strip().split("\n")
+                ]
+            )
+            comment = f'"""\n{comment}\n"""\n'
+        else:
+            comment = ""
+        quda_constants_py += f"{name} = {value}\n{comment}\n"
+        quda_constants_pxd += f"\n        {name}\n"
+        start = quda_constants_h.find("#define", stop)
+    enum_quda_py = enum_quda_py.replace("# quda_constants.py\n", quda_constants_py)
 
     enum_quda_pxd = 'cdef extern from "enum_quda.h":'
-    start = enum_quda_py.find("\nclass ", enum_quda_start)
-    while start >= 0:
-        stop = enum_quda_py.find("(IntEnum):", start)
-        enum_quda_pxd += f"\n    ctypedef enum {enum_quda_py[start + 7 : stop]}:\n        pass\n"
-        start = enum_quda_py.find("\nclass ", stop)
+    for key, val in quda_enum_meta.items():
+        enum_quda_pxd += f"\n    ctypedef enum {key}:\n        pass\n"
 
+    idx_key = 0
     for key, val in quda_enum_meta.items():
         enum_quda_py_block = ""
         for item in val:
@@ -272,8 +288,18 @@ def build_pyquda_pyx(pyquda_root, quda_path):
             if idx_comment != -1 and idx_comment < idx_endline:
                 comment = f'\n    """{enum_quda_h[idx_comment + 2 : idx_endline].strip()}"""'
             enum_quda_py_block += f"    {item}{comment}\n"
-        idx = enum_quda_py.find(key)
-        enum_quda_py = enum_quda_py[:idx] + enum_quda_py[idx:].replace("    pass\n", enum_quda_py_block, 1)
+        if enum_quda_py.find(key) != -1:
+            idx_key = enum_quda_py.find(key)
+            enum_quda_py = enum_quda_py[:idx_key] + enum_quda_py[idx_key:].replace("    pass\n", enum_quda_py_block, 1)
+        else:
+            if enum_quda_py.find("class", idx_key) != -1:
+                idx_key = enum_quda_py.find("class", idx_key)
+                enum_quda_py = (
+                    enum_quda_py[:idx_key] + f"class {key}(IntEnum):\n{enum_quda_py_block}\n\n" + enum_quda_py[idx_key:]
+                )
+                idx_key += len("class")
+            else:
+                enum_quda_py += f"\n\nclass {key}(IntEnum):\n{enum_quda_py_block}"
 
     for key, val in quda_params_meta.items():
         quda_pxd_block = ""

@@ -25,27 +25,21 @@ from ..field import (
     LatticeFermion,
     LatticeStaggeredFermion,
 )
-from ..enum_quda import (  # noqa: F401
+from ..enum_quda import (
     QUDA_MAX_DIM,
-    QUDA_MAX_MULTI_SHIFT,
     QUDA_MAX_MG_LEVEL,
-    QudaMemoryType,
     QudaLinkType,
     QudaGaugeFieldOrder,
     QudaTboundary,
     QudaPrecision,
     QudaReconstructType,
     QudaGaugeFixed,
-    QudaDslashType,
     QudaInverterType,
-    QudaEigType,
-    QudaEigSpectrumType,
     QudaSolutionType,
     QudaSolveType,
     QudaMultigridCycleType,
     QudaSchwarzType,
     QudaResidualType,
-    QudaCABasis,
     QudaMatPCType,
     QudaDagType,
     QudaMassNormalization,
@@ -54,41 +48,15 @@ from ..enum_quda import (  # noqa: F401
     QudaDiracFieldOrder,
     QudaCloverFieldOrder,
     QudaVerbosity,
-    QudaTune,
-    QudaPreserveDirac,
     QudaParity,
-    QudaDiracType,
     QudaFieldLocation,
-    QudaSiteSubset,
-    QudaSiteOrder,
-    QudaFieldOrder,
-    QudaFieldCreate,
     QudaGammaBasis,
-    QudaSourceType,
-    QudaNoiseType,
-    QudaProjectionType,
-    QudaPCType,
-    QudaTwistFlavorType,
-    QudaTwistDslashType,
-    QudaTwistCloverDslashType,
-    QudaTwistGamma5Type,
     QudaUseInitGuess,
-    QudaDeflatedGuess,
     QudaComputeNullVector,
     QudaSetupType,
     QudaTransferType,
     QudaBoolean,
-    QudaBLASOperation,
-    QudaBLASDataType,
-    QudaBLASDataOrder,
-    QudaDirection,
-    QudaLinkDirection,
-    QudaFieldGeometry,
-    QudaGhostExchange,
     QudaStaggeredPhase,
-    QudaContractType,
-    QudaContractGamma,
-    QudaExtLibType,
 )
 
 nullptr = Pointer("void")
@@ -448,7 +416,6 @@ def newQudaInvertParam(
         invert_param.precondition_cycle = 1
         invert_param.omega = 1.0
 
-    invert_param.tune = QudaTune.QUDA_TUNE_YES
     invert_param.verbosity = QudaVerbosity.QUDA_SUMMARIZE
 
     return invert_param

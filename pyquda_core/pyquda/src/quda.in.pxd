@@ -9,6 +9,7 @@
 # as the Fortran interface in lib/quda_fortran.F90.
 #
 
+from libcpp cimport bool
 from enum_quda cimport *
 from libc.stdio cimport FILE
 # from quda_define cimport *

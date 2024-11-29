@@ -245,10 +245,10 @@ class BaseField:
             .replace("General", "")
             .replace("Link", "ColorMatrix")
             .replace("Gauge", "ColorMatrix")
-            .replace("Fermion", "SpinColorVector")
-            .replace("Propagator", "SpinColorMatrix")
             .replace("StaggeredFermion", "ColorVector")
             .replace("StaggeredPropagator", "ColorMatrix")
+            .replace("Fermion", "SpinColorVector")
+            .replace("Propagator", "SpinColorMatrix")
         )
 
     def save(
