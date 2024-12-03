@@ -3,6 +3,8 @@ from typing import List, Literal, Union
 import numpy
 
 from pyquda import (
+    initGPU,
+    initQUDA,
     init,
     getCoordFromRank,
     getRankFromCoord,

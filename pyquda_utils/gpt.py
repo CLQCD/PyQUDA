@@ -48,7 +48,7 @@ def LatticeGaugeGPT(lattice: List[g.lattice], gen_simd_width: int, gauge: Lattic
         assert latt_info.size == gauge.latt_info.size
         for index in range(latt_info.Nd):
             gpt_shape = [i for sl in zip(gpt_simd, gpt_latt) for i in sl]
-            lattice[index].mview()[0] = (
+            lattice[index].mview()[0][:] = (
                 gauge.lexico()
                 .astype(f"<c{2 * gpt_prec}")
                 .reshape(*gpt_shape, Nc, Nc)
@@ -80,7 +80,7 @@ def LatticePropagatorGPT(lattice: g.lattice, gen_simd_width: int, propagator: La
     else:
         assert latt_info.size == propagator.latt_info.size
         gpt_shape = [i for sl in zip(gpt_simd, gpt_latt) for i in sl]
-        lattice.mview()[0] = (
+        lattice.mview()[0][:] = (
             propagator.lexico()
             .astype(f"<c{2 * gpt_prec}")
             .reshape(*gpt_shape, Ns, Ns, Nc, Nc)
