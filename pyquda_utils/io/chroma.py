@@ -1,7 +1,5 @@
-import io
 from os import path
-import struct
-from typing import Dict, List, Tuple
+from typing import List
 from xml.etree import ElementTree as ET
 
 from pyquda import getSublatticeSize, getMPIComm, getGridCoord, readMPIFile
@@ -35,31 +33,18 @@ def checksum_qio(latt_size: List[int], data):
 
 
 def readQIOGauge(filename: str, checksum: bool = True):
-    filename = path.expanduser(path.expandvars(filename))
-    with open(filename, "rb") as f:
-        meta: Dict[str, Tuple[int, int]] = {}
-        buffer = f.read(8)
-        while buffer != b"" and buffer != b"\x0A":
-            assert buffer.startswith(b"\x45\x67\x89\xAB\x00\x01")
-            length = (struct.unpack(">Q", f.read(8))[0] + 7) // 8 * 8
-            name = f.read(128).strip(b"\x00").decode("utf-8")
-            meta[name] = (f.tell(), length)
-            f.seek(length, io.SEEK_CUR)
-            buffer = f.read(8)
+    from .lime import Lime
 
-        f.seek(meta["scidac-private-file-xml"][0])
-        scidac_private_file_xml = ET.ElementTree(
-            ET.fromstring(f.read(meta["scidac-private-file-xml"][1]).strip(b"\x00").decode("utf-8"))
-        )
-        f.seek(meta["scidac-private-record-xml"][0])
-        scidac_private_record_xml = ET.ElementTree(
-            ET.fromstring(f.read(meta["scidac-private-record-xml"][1]).strip(b"\x00").decode("utf-8"))
-        )
-        f.seek(meta["scidac-checksum"][0])
-        scidac_checksum_xml = ET.ElementTree(
-            ET.fromstring(f.read(meta["scidac-checksum"][1]).strip(b"\x00").decode("utf-8"))
-        )
-        offset = meta["ildg-binary-data"][0]
+    lime = Lime(filename)
+    scidac_private_file_xml = ET.ElementTree(
+        ET.fromstring(lime.read("scidac-private-file-xml").strip(b"\x00").decode("utf-8"))
+    )
+    scidac_private_record_xml = ET.ElementTree(
+        ET.fromstring(lime.read("scidac-private-record-xml").strip(b"\x00").decode("utf-8"))
+    )
+    scidac_checksum_xml = ET.ElementTree(ET.fromstring(lime.read("scidac-checksum").strip(b"\x00").decode("utf-8")))
+    offset = lime.record("ildg-binary-data").offset
+
     precision = _precision_map[scidac_private_record_xml.find("precision").text]
     assert int(scidac_private_record_xml.find("colors").text) == Nc
     assert (
@@ -94,31 +79,18 @@ def readILDGBinGauge(filename: str, dtype: str, latt_size: List[int]):
 
 
 def readQIOPropagator(filename: str, checksum: bool = True):
-    filename = path.expanduser(path.expandvars(filename))
-    with open(filename, "rb") as f:
-        meta: Dict[str, Tuple[int, int]] = {}
-        buffer = f.read(8)
-        while buffer != b"" and buffer != b"\x0A":
-            assert buffer.startswith(b"\x45\x67\x89\xAB\x00\x01")
-            length = (struct.unpack(">Q", f.read(8))[0] + 7) // 8 * 8
-            name = f.read(128).strip(b"\x00").decode("utf-8")
-            meta[name] = (f.tell(), length)
-            f.seek(length, io.SEEK_CUR)
-            buffer = f.read(8)
+    from .lime import Lime
 
-        f.seek(meta["scidac-private-file-xml"][0])
-        scidac_private_file_xml = ET.ElementTree(
-            ET.fromstring(f.read(meta["scidac-private-file-xml"][1]).strip(b"\x00").decode("utf-8"))
-        )
-        f.seek(meta["scidac-private-record-xml"][0])
-        scidac_private_record_xml = ET.ElementTree(
-            ET.fromstring(f.read(meta["scidac-private-record-xml"][1]).strip(b"\x00").decode("utf-8"))
-        )
-        f.seek(meta["scidac-checksum"][0])
-        scidac_checksum_xml = ET.ElementTree(
-            ET.fromstring(f.read(meta["scidac-checksum"][1]).strip(b"\x00").decode("utf-8"))
-        )
-        offset = meta["scidac-binary-data"][0]
+    lime = Lime(filename)
+    scidac_private_file_xml = ET.ElementTree(
+        ET.fromstring(lime.read("scidac-private-file-xml").strip(b"\x00").decode("utf-8"))
+    )
+    scidac_private_record_xml = ET.ElementTree(
+        ET.fromstring(lime.read("scidac-private-record-xml").strip(b"\x00").decode("utf-8"))
+    )
+    scidac_checksum_xml = ET.ElementTree(ET.fromstring(lime.read("scidac-checksum").strip(b"\x00").decode("utf-8")))
+    offset = lime.record("scidac-binary-data").offset
+
     precision = _precision_map[scidac_private_record_xml.find("precision").text]
     assert int(scidac_private_record_xml.find("colors").text) == Nc
     assert (

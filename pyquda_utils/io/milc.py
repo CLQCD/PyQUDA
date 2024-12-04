@@ -1,8 +1,7 @@
 from datetime import datetime
-import io
 from os import path
 import struct
-from typing import Dict, List, Tuple
+from typing import List
 from xml.etree import ElementTree as ET
 
 import numpy
@@ -107,32 +106,17 @@ def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray):
 
 
 def readQIOPropagator(filename: str):
-    filename = path.expanduser(path.expandvars(filename))
-    with open(filename, "rb") as f:
-        meta: Dict[str, List[Tuple[int, int]]] = {}
-        buffer = f.read(8)
-        while buffer != b"" and buffer != b"\x0A":
-            assert buffer.startswith(b"\x45\x67\x89\xAB\x00\x01")
-            length = (struct.unpack(">Q", f.read(8))[0] + 7) // 8 * 8
-            name = f.read(128).strip(b"\x00").decode("utf-8")
-            if name not in meta:
-                meta[name] = [(f.tell(), length)]
-            else:
-                meta[name].append((f.tell(), length))
-            f.seek(length, io.SEEK_CUR)
-            buffer = f.read(8)
+    from .lime import Lime
 
-        f.seek(meta["scidac-private-file-xml"][0][0])
-        scidac_private_file_xml = ET.ElementTree(
-            ET.fromstring(f.read(meta["scidac-private-file-xml"][0][1]).strip(b"\x00").decode("utf-8"))
-        )
-        f.seek(meta["scidac-private-record-xml"][1][0])
-        scidac_private_record_xml = ET.ElementTree(
-            ET.fromstring(f.read(meta["scidac-private-record-xml"][1][1]).strip(b"\x00").decode("utf-8"))
-        )
-        offset = []
-        for meta_scidac_binary_data in meta["scidac-binary-data"][1::2]:
-            offset.append(meta_scidac_binary_data[0])
+    lime = Lime(filename)
+    scidac_private_file_xml = ET.ElementTree(
+        ET.fromstring(lime.read("scidac-private-file-xml", 0).strip(b"\x00").decode("utf-8"))
+    )
+    scidac_private_record_xml = ET.ElementTree(
+        ET.fromstring(lime.read("scidac-private-record-xml", 1).strip(b"\x00").decode("utf-8"))
+    )
+    offset = [record.offset for record in lime.records("scidac-binary-data")[1::2]]
+
     precision = _precision_map[scidac_private_record_xml.find("precision").text]
     assert int(scidac_private_record_xml.find("colors").text) == Nc
     if scidac_private_record_xml.find("spins") is not None:
