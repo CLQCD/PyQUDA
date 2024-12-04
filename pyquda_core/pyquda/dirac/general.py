@@ -283,7 +283,6 @@ def newQudaMultigridParam(
     mg_inv_param.clover_order = QudaCloverFieldOrder.QUDA_PACKED_CLOVER_ORDER
     mg_inv_param.clover_coeff = 1.0
 
-    mg_inv_param.tune = QudaTune.QUDA_TUNE_YES
     mg_inv_param.verbosity = QudaVerbosity.QUDA_SUMMARIZE
     mg_inv_param.verbosity_precondition = QudaVerbosity.QUDA_SILENT
 

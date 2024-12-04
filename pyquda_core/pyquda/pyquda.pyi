@@ -45,7 +45,6 @@ from .enum_quda import (  # noqa: F401
     QudaDiracFieldOrder,
     QudaCloverFieldOrder,
     QudaVerbosity,
-    QudaTune,
     QudaPreserveDirac,
     QudaParity,
     QudaDiracType,
@@ -480,9 +479,6 @@ class QudaInvertParam:
     """The mean temperature of the device for the duration of the solve"""
     clock: double
     """The mean clock frequency of the device for the duration of the solve"""
-
-    tune: QudaTune
-    """Enable auto-tuning? (default = QUDA_TUNE_YES)"""
 
     Nsteps: int
     """Number of steps in s-step algorithms"""

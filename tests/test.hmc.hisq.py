@@ -18,7 +18,7 @@ core.init([1, 1, 1, 1], resource_path=".cache", enable_force_monitor=True)
 latt_info = core.LatticeInfo([4, 4, 4, 8], t_boundary=-1, anisotropy=1.0)
 
 monomials = [
-    GaugeAction(latt_info, symanzik_tree_gauge(u_0), beta, u_0),
+    GaugeAction(latt_info, symanzik_tree_gauge(u_0), beta),
     HISQAction(latt_info, staggered_rational_param[((0.0012, 0.0323, 0.2), (2, 1, -3))], 100 * tol, maxiter),
     HISQAction(latt_info, staggered_rational_param[((0.2,), (1,))], tol, maxiter),
     HISQAction(latt_info, staggered_rational_param[((0.2,), (1,))], tol, maxiter),

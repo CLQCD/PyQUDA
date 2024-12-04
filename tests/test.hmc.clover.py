@@ -20,7 +20,7 @@ core.init([1, 1, 1, 1], resource_path=".cache", enable_force_monitor=True)
 latt_info = core.LatticeInfo([4, 4, 4, 8], t_boundary=-1, anisotropy=1.0)
 
 monomials = [
-    GaugeAction(latt_info, symanzik_tree_gauge(u_0), beta, u_0),
+    GaugeAction(latt_info, symanzik_tree_gauge(u_0), beta),
     CloverWilsonAction(latt_info, wilson_rational_param[2], 0.3, 2, tol, maxiter, clover_csw),
     CloverWilsonAction(latt_info, wilson_rational_param[1], 0.5, 1, tol, maxiter, clover_csw),
 ]

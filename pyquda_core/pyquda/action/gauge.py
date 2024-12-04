@@ -90,7 +90,7 @@ def forcePath(action_path: PathParam):
 class GaugeAction(Action):
     dirac: GaugeDirac
 
-    def __init__(self, latt_info: LatticeInfo, loop_param: LoopParam, beta: float, u_0: float):
+    def __init__(self, latt_info: LatticeInfo, loop_param: LoopParam, beta: float):
         super().__init__(latt_info, GaugeDirac(latt_info))
 
         # S=\frac{\beta}{N_c}\sum_{i}c_i\mathrm{ReTr}(I-W_i)
