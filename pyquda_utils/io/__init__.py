@@ -1,4 +1,4 @@
-from typing import List, Literal, Union
+from typing import List, Union
 
 import numpy
 
@@ -218,20 +218,28 @@ def writeNPYPropagator(filename: str, propagator: LatticePropagator):
     write(filename, propagator.latt_info.global_size, propagator.lexico())
 
 
-def readOpenQCDGauge(filename: str, return_plaquette: bool = False):
+def readOpenQCDGauge(filename: str):
+    from pyquda.field import X, Y, Z, T
     from .openqcd import readGauge as read
 
-    latt_size, plaquette, gauge_raw = read(filename)
-    if not return_plaquette:
-        return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
-    else:
-        return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4])), plaquette
+    latt_size, plaquette, gauge_ = read(filename)
+    gauge_ = LatticeGauge(LatticeInfo(latt_size), gauge_)
+    gauge_.toDevice()
+    gauge = gauge_.shift([X, Y, Z, T])
+    gauge.data[:, 1] = gauge_.data[:, 0]
+    assert numpy.isclose(gauge.plaquette()[0], plaquette)
+    return gauge
 
 
-def writeOpenQCDGauge(filename: str, gauge: LatticeGauge, plaquette: float):
+def writeOpenQCDGauge(filename: str, gauge: LatticeGauge):
+    from pyquda.field import X, Y, Z, T
     from .openqcd import writeGauge as write
 
-    write(filename, gauge.latt_info.global_size, plaquette, gauge.lexico())
+    gauge.toDevice()
+    plaquette = gauge.plaquette()[0]
+    gauge_ = gauge.shift([-X, -Y, -Z, -T])
+    gauge_.data[:, 0] = gauge.data[:, 1]
+    write(filename, gauge.latt_info.global_size, plaquette, gauge_.getHost())
 
 
 def readNERSCGauge(filename: str, return_plaquette: bool = False, link_trace: bool = True, checksum: bool = True):

@@ -18,17 +18,36 @@ def readGauge(filename: str):
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     dtype = "<c16"
 
-    gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
-    gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
+    gauge_reorder = readMPIFile(filename, dtype, offset, (Lt, Lx, Ly, Lz // 2, Nd, 2, Nc, Nc), (1, 2, 3, 0))
+
+    gauge = numpy.zeros((Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc), dtype="<c16")
+    for t in range(Lt):
+        for y in range(Ly):
+            for z in range(Lz):
+                for x in range(Lx // 2):
+                    x_ = 2 * x + (1 - (t + z + y) % 2)
+                    z_ = z // 2
+                    gauge[[3, 0, 1, 2], :, t, z, y, x, :, :] = gauge_reorder[t, x_, y, z_]
+
+    gauge = gauge.astype("<c16")
     return latt_size, plaquette, gauge
 
 
 def writeGauge(filename: str, latt_size: List[int], plaquette: float, gauge: numpy.ndarray):
     filename = path.expanduser(path.expandvars(filename))
-    Lx, Ly, Lz, Lt = latt_size
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     dtype, offset = "<c16", None
 
-    gauge = numpy.ascontiguousarray(gauge.transpose(1, 2, 3, 4, 0, 5, 6).astype(dtype))
+    gauge_reorder = numpy.zeros((Lt, Lx, Ly, Lz // 2, Nd, 2, Nc, Nc), dtype="<c16")
+    for t in range(Lt):
+        for y in range(Ly):
+            for z in range(Lz):
+                for x in range(Lx // 2):
+                    x_ = 2 * x + (1 - (t + z + y) % 2)
+                    z_ = z // 2
+                    gauge_reorder[t, x_, y, z_] = gauge[[3, 0, 1, 2], :, t, z, y, x, :, :]
+
+    gauge = gauge_reorder.astype(dtype)
     if getMPIRank() == 0:
         with open(filename, "wb") as f:
             f.write(struct.pack("<iiii", *latt_size[::-1]))
@@ -36,4 +55,4 @@ def writeGauge(filename: str, latt_size: List[int], plaquette: float, gauge: num
             offset = f.tell()
     offset = getMPIComm().bcast(offset)
 
-    writeMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0), gauge)
+    writeMPIFile(filename, dtype, offset, (Lt, Lx, Ly, Lz // 2, Nd, 2, Nc, Nc), (1, 2, 3, 0), gauge)
