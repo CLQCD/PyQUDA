@@ -13,7 +13,6 @@ _precision_map = {"D": 8, "F": 4, "S": 4}
 
 
 def checksum_milc(latt_size: List[int], data):
-    import numpy
     from mpi4py import MPI
 
     gx, gy, gz, gt = getGridCoord()
@@ -29,14 +28,13 @@ def checksum_milc(latt_size: List[int], data):
     )
     rank29 = (rank % 29).astype("<u4")
     rank31 = (rank % 31).astype("<u4")
-    sum29 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)).item(), MPI.BXOR)
-    sum31 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)).item(), MPI.BXOR)
+    sum29 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)), MPI.BXOR)
+    sum31 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)), MPI.BXOR)
     return sum29, sum31
 
 
 def checksum_qio(latt_size: List[int], data):
     import zlib
-    import numpy
     from mpi4py import MPI
 
     gx, gy, gz, gt = getGridCoord()
@@ -53,8 +51,8 @@ def checksum_qio(latt_size: List[int], data):
     )
     rank29 = rank % 29
     rank31 = rank % 31
-    sum29 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)).item(), MPI.BXOR)
-    sum31 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)).item(), MPI.BXOR)
+    sum29 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)), MPI.BXOR)
+    sum31 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)), MPI.BXOR)
     return sum29, sum31
 
 

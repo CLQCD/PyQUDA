@@ -218,20 +218,30 @@ def writeNPYPropagator(filename: str, propagator: LatticePropagator):
     write(filename, propagator.latt_info.global_size, propagator.lexico())
 
 
-def readOpenQCDGauge(filename: str, endian: Literal["<", ">"] = "<"):
+def readOpenQCDGauge(filename: str, return_plaquette: bool = False):
     from .openqcd import readGauge as read
 
-    latt_size, plaquette, gauge_raw = read(filename, endian)
-    gauge = LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
-    print(gauge.plaquette()[0], plaquette)
-    return gauge
+    latt_size, plaquette, gauge_raw = read(filename)
+    if not return_plaquette:
+        return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
+    else:
+        return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4])), plaquette
 
 
-def writeOpenQCDGauge(filename: str, gauge: LatticeGauge):
+def writeOpenQCDGauge(filename: str, gauge: LatticeGauge, plaquette: float):
     from .openqcd import writeGauge as write
 
-    print(gauge.plaquette())
-    write(filename, gauge.latt_info.global_size, gauge.plaquette()[0] * Nc, gauge.lexico())
+    write(filename, gauge.latt_info.global_size, plaquette, gauge.lexico())
+
+
+def readNERSCGauge(filename: str, return_plaquette: bool = False, link_trace: bool = True, checksum: bool = True):
+    from .nersc import readGauge as read
+
+    latt_size, plaquette, gauge_raw = read(filename, link_trace, checksum)
+    if not return_plaquette:
+        return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
+    else:
+        return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4])), plaquette
 
 
 def readQIOGauge(filename: str):
