@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Literal, Union
 
 import numpy
 
@@ -216,6 +216,22 @@ def writeNPYPropagator(filename: str, propagator: LatticePropagator):
     from .npy import writePropagator as write
 
     write(filename, propagator.latt_info.global_size, propagator.lexico())
+
+
+def readOpenQCDGauge(filename: str, endian: Literal["<", ">"] = "<"):
+    from .openqcd import readGauge as read
+
+    latt_size, plaquette, gauge_raw = read(filename, endian)
+    gauge = LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
+    print(gauge.plaquette()[0], plaquette)
+    return gauge
+
+
+def writeOpenQCDGauge(filename: str, gauge: LatticeGauge):
+    from .openqcd import writeGauge as write
+
+    print(gauge.plaquette())
+    write(filename, gauge.latt_info.global_size, gauge.plaquette()[0] * Nc, gauge.lexico())
 
 
 def readQIOGauge(filename: str):

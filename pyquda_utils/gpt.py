@@ -49,7 +49,7 @@ def LatticeGaugeGPT(lattice: List[g.lattice], gen_simd_width: int, gauge: Lattic
         for index in range(latt_info.Nd):
             gpt_shape = [i for sl in zip(gpt_simd, gpt_latt) for i in sl]
             lattice[index].mview()[0][:] = (
-                gauge.lexico()
+                gauge[index].lexico()
                 .astype(f"<c{2 * gpt_prec}")
                 .reshape(*gpt_shape, Nc, Nc)
                 .transpose(1, 3, 5, 7, 8, 9, 0, 2, 4, 6)
