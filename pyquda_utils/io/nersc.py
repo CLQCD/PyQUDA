@@ -84,6 +84,7 @@ def writeGauge(
     gauge = numpy.ascontiguousarray(gauge.transpose(1, 2, 3, 4, 0, 5, 6).astype(dtype))
     link_trace = link_trace_nersc(gauge)
     checksum = checksum_nersc(gauge.reshape(-1))
+    timestamp = datetime.now().astimezone().strftime(R"%a %b %d %H:%M:%S %Y %Z")
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size, grid_size)
     header: Dict[str, str] = {
         "HDR_VERSION": "1.0",
@@ -107,8 +108,8 @@ def writeGauge(
         "SEQUENCE_NUMBER": "1",
         "CREATOR": "pyquda",
         "CREATOR_HARDWARE": f"{uname().nodename}-{uname().machine}-{uname().sysname}-{uname().release}",
-        "CREATION_DATE": datetime.now().strftime(R"%a %b %d %H:%M:%S %Y %z"),
-        "ARCHIVE_DATE": datetime.now().strftime(R"%a %b %d %H:%M:%S %Y %z"),
+        "CREATION_DATE": timestamp,
+        "ARCHIVE_DATE": timestamp,
         "FLOATING_POINT": f"IEEE{float_nbytes * 8}LITTLE",
     }
     if MPI.COMM_WORLD.Get_rank() == 0:

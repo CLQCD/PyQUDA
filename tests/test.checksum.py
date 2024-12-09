@@ -59,11 +59,11 @@ def readGauge(filename: str):
         else:
             raise ValueError(f"Broken magic {magic} in MILC gauge")
         latt_size = struct.unpack(f"{endian}iiii", f.read(16))
-        time_stamp = f.read(64).decode()
+        timestamp = f.read(64).decode()
         assert struct.unpack(f"{endian}i", f.read(4))[0] == 0
         sum29, sum31 = struct.unpack(f"{endian}II", f.read(8))
         offset = f.tell()
-    print(latt_size, time_stamp, sum29, sum31)
+    print(latt_size, timestamp, sum29, sum31)
     return offset, f"{endian}c8", int(np.prod(latt_size)) * Nd * Nc * Nc
 
 

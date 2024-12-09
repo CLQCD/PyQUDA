@@ -64,7 +64,7 @@ def readGauge(filename: str, grid_size: List[int], checksum: bool = True):
         else:
             raise ValueError(f"Broken magic {magic} in MILC gauge")
         latt_size = struct.unpack(f"{endian}iiii", f.read(16))
-        time_stamp = f.read(64).decode()  # noqa: F841
+        timestamp = f.read(64).decode()  # noqa: F841
         assert struct.unpack(f"{endian}i", f.read(4))[0] == 0  # order
         sum29, sum31 = struct.unpack(f"{endian}II", f.read(8))
         offset = f.tell()
