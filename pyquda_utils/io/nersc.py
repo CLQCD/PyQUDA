@@ -1,20 +1,19 @@
 from os import path
-from typing import Dict
+from typing import Dict, List
 
 import numpy
+from mpi4py import MPI
 
-from pyquda import getSublatticeSize, readMPIFile, writeMPIFile, getMPIComm, getMPIRank
+from .mpi_file import getSublatticeSize, readMPIFile, writeMPIFile
 
 Nd, Ns, Nc = 4, 4, 3
 
 
 def checksum_nersc(data: numpy.ndarray) -> int:
-    from mpi4py import MPI
-
-    return getMPIComm().allreduce(numpy.sum(data.view("<u4"), dtype="<u4"), MPI.SUM)
+    return MPI.COMM_WORLD.allreduce(numpy.sum(data.view("<u4"), dtype="<u4"), MPI.SUM)
 
 
-def readGauge(filename: str, link_trace: bool = True, checksum: bool = True):
+def readGauge(filename: str, grid_size: List[int], link_trace: bool = True, checksum: bool = True):
     filename = path.expanduser(path.expandvars(filename))
     header: Dict[str, str] = {}
     with open(filename, "rb") as f:
@@ -31,7 +30,7 @@ def readGauge(filename: str, link_trace: bool = True, checksum: bool = True):
         int(header["DIMENSION_3"]),
         int(header["DIMENSION_4"]),
     ]
-    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size, grid_size)
     assert header["FLOATING_POINT"].startswith("IEEE")
     if header["FLOATING_POINT"][6:] == "BIG":
         endian = ">"
@@ -44,7 +43,7 @@ def readGauge(filename: str, link_trace: bool = True, checksum: bool = True):
     plaquette = float(header["PLAQUETTE"])
 
     if header["DATATYPE"] == "4D_SU3_GAUGE_3x3":
-        gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
+        gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0), grid_size)
         if link_trace:
             assert numpy.isclose(
                 numpy.einsum("tzyxdaa->", gauge.real) / (gauge.size // Nc), float(header["LINK_TRACE"])

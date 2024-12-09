@@ -70,23 +70,26 @@ def rotateToDeGrandRossi(propagator: LatticePropagator):
 
 
 def readChromaQIOGauge(filename: str, checksum: bool = True):
+    from pyquda import getGridSize
     from .chroma import readQIOGauge as read
 
-    latt_size, gauge_raw = read(filename, checksum)
+    latt_size, gauge_raw = read(filename, getGridSize(), checksum)
     return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
 
 
 def readILDGBinGauge(filename: str, dtype: str, latt_size: List[int]):
+    from pyquda import getGridSize
     from .chroma import readILDGBinGauge as read
 
-    gauge_raw = read(filename, dtype, latt_size)
+    gauge_raw = read(filename, dtype, latt_size, getGridSize())
     return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
 
 
 def readChromaQIOPropagator(filename: str, checksum: bool = True):
+    from pyquda import getGridSize
     from .chroma import readQIOPropagator as read
 
-    latt_size, staggered, propagator_raw = read(filename, checksum)
+    latt_size, staggered, propagator_raw = read(filename, getGridSize(), checksum)
     if not staggered:
         return LatticePropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
     else:
@@ -94,22 +97,24 @@ def readChromaQIOPropagator(filename: str, checksum: bool = True):
 
 
 def readMILCGauge(filename: str, checksum: bool = True):
+    from pyquda import getGridSize
     from .milc import readGauge as read
 
-    latt_size, gauge_raw = read(filename, checksum)
+    latt_size, gauge_raw = read(filename, getGridSize(), checksum)
     return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
 
 
 def writeMILCGauge(filename: str, gauge: LatticeGauge):
     from .milc import writeGauge as write
 
-    write(filename, gauge.latt_info.global_size, gauge.lexico())
+    write(filename, gauge.latt_info.global_size, gauge.latt_info.grid_size, gauge.lexico())
 
 
 def readMILCQIOPropagator(filename: str):
+    from pyquda import getGridSize
     from .milc import readQIOPropagator as read
 
-    latt_size, staggered, propagator_raw = read(filename)
+    latt_size, staggered, propagator_raw = read(filename, getGridSize())
     if not staggered:
         return LatticePropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
     else:
@@ -117,35 +122,42 @@ def readMILCQIOPropagator(filename: str):
 
 
 def readKYUGauge(filename: str, latt_size: List[int]):
+    from pyquda import getGridSize
     from .kyu import readGauge as read
 
-    gauge_raw = read(filename, latt_size)
+    gauge_raw = read(filename, latt_size, getGridSize())
     return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
 
 
 def writeKYUGauge(filename: str, gauge: LatticeGauge):
     from .kyu import writeGauge as write
 
-    write(filename, gauge.latt_info.global_size, gauge.lexico())
+    write(filename, gauge.latt_info.global_size, gauge.latt_info.grid_size, gauge.lexico())
 
 
 def readKYUPropagator(filename: str, latt_size: List[int]):
+    from pyquda import getGridSize
     from .kyu import readPropagator as read
 
-    propagator_raw = read(filename, latt_size)
-    return rotateToDeGrandRossi(LatticePropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3])))
+    propagator_raw = read(filename, latt_size, getGridSize())
+    propagator = LatticePropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
+    propagator = rotateToDeGrandRossi(propagator)
+    return propagator
 
 
 def writeKYUPropagator(filename: str, propagator: LatticePropagator):
     from .kyu import writePropagator as write
 
-    write(filename, propagator.latt_info.global_size, rotateToDiracPauli(propagator).lexico())
+    propagator = rotateToDiracPauli(propagator)
+    propagator_raw = propagator.lexico()
+    write(filename, propagator.latt_info.global_size, propagator.latt_info.grid_size, propagator_raw)
 
 
 def readXQCDPropagator(filename: str, latt_size: List[int], staggered: bool):
+    from pyquda import getGridSize
     from .xqcd import readPropagator as read
 
-    propagator_raw = read(filename, latt_size, staggered)
+    propagator_raw = read(filename, latt_size, getGridSize(), staggered)
     if not staggered:
         return rotateToDeGrandRossi(LatticePropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3])))
     else:
@@ -156,19 +168,21 @@ def writeXQCDPropagator(filename: str, propagator: Union[LatticePropagator, Latt
     from .xqcd import writePropagator as write
 
     latt_size = propagator.latt_info.global_size
+    grid_size = propagator.latt_info.grid_size
     staggered = isinstance(propagator, LatticeStaggeredPropagator)
     if not staggered:
-        write(filename, latt_size, rotateToDiracPauli(propagator).lexico(), staggered)
+        write(filename, latt_size, grid_size, rotateToDiracPauli(propagator).lexico(), staggered)
     else:
-        write(filename, latt_size, propagator.lexico(), staggered)
+        write(filename, latt_size, grid_size, propagator.lexico(), staggered)
 
 
 def readXQCDPropagatorFast(filename: str, latt_size: List[int]):
+    from pyquda import getGridSize
     from .xqcd import readPropagatorFast as read
 
     latt_info = LatticeInfo(latt_size)
     Lx, Ly, Lz, Lt = latt_info.size
-    propagator_raw = read(filename, latt_size)
+    propagator_raw = read(filename, getGridSize(), latt_size)
     propagator = LatticePropagator(latt_info, cb2(propagator_raw, [2, 3, 4, 5]))
     propagator.data = propagator.data.reshape(Ns, Nc, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
     propagator.toDevice()
@@ -187,14 +201,15 @@ def writeXQCDPropagatorFast(filename: str, propagator: LatticePropagator):
     propagator.toHost()
     propagator.data = propagator.data.reshape(Ns, Nc, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
     propagator_raw = lexico(propagator.data, [2, 3, 4, 5, 6])
-    write(filename, latt_info.global_size, propagator_raw)
+    write(filename, latt_info.global_size, latt_info.grid_size, propagator_raw)
 
 
 def readNPYGauge(filename: str):
+    from pyquda import getGridSize
     from .npy import readGauge as read
 
     filename = filename if filename.endswith(".npy") else filename + ".npy"
-    latt_size, gauge_raw = read(filename)
+    latt_size, gauge_raw = read(filename, getGridSize())
     return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
 
 
@@ -202,27 +217,29 @@ def writeNPYGauge(filename: str, gauge: LatticeGauge):
     from .npy import writeGauge as write
 
     filename = filename if filename.endswith(".npy") else filename + ".npy"
-    write(filename, gauge.latt_info.global_size, gauge.lexico())
+    write(filename, gauge.latt_info.global_size, gauge.latt_info.grid_size, gauge.lexico())
 
 
 def readNPYPropagator(filename: str):
+    from pyquda import getGridSize
     from .npy import readPropagator as read
 
-    latt_size, propagator_raw = read(filename)
+    latt_size, propagator_raw = read(filename, getGridSize())
     return LatticePropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
 
 
 def writeNPYPropagator(filename: str, propagator: LatticePropagator):
     from .npy import writePropagator as write
 
-    write(filename, propagator.latt_info.global_size, propagator.lexico())
+    write(filename, propagator.latt_info.global_size, propagator.latt_info.grid_size, propagator.lexico())
 
 
 def readOpenQCDGauge(filename: str):
+    from pyquda import getGridSize
     from pyquda.field import X, Y, Z, T
     from .openqcd import readGauge as read
 
-    latt_size, plaquette, gauge_ = read(filename)
+    latt_size, plaquette, gauge_ = read(filename, getGridSize())
     gauge_ = LatticeGauge(LatticeInfo(latt_size), gauge_)
     gauge_.toDevice()
     gauge = gauge_.shift([X, Y, Z, T])
@@ -239,13 +256,14 @@ def writeOpenQCDGauge(filename: str, gauge: LatticeGauge):
     plaquette = gauge.plaquette()[0]
     gauge_ = gauge.shift([-X, -Y, -Z, -T])
     gauge_.data[:, 0] = gauge.data[:, 1]
-    write(filename, gauge.latt_info.global_size, plaquette, gauge_.getHost())
+    write(filename, gauge.latt_info.global_size, gauge.latt_info.grid_size, plaquette, gauge_.getHost())
 
 
 def readNERSCGauge(filename: str, return_plaquette: bool = False, link_trace: bool = True, checksum: bool = True):
+    from pyquda import getGridSize
     from .nersc import readGauge as read
 
-    latt_size, plaquette, gauge_raw = read(filename, link_trace, checksum)
+    latt_size, plaquette, gauge_raw = read(filename, getGridSize(), link_trace, checksum)
     if not return_plaquette:
         return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
     else:

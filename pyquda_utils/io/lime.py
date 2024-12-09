@@ -24,6 +24,9 @@ class Lime:
                 f.seek((length + 7) // 8 * 8, io.SEEK_CUR)
                 buffer = f.read(8)
 
+    def keys(self):
+        return [record.name for record in self._records]
+
     def records(self, key: str):
         return [record for record in self._records if record.name == key]
 
