@@ -45,13 +45,13 @@ def readGauge(filename: str, grid_size: List[int], link_trace: bool = True, chec
         endian = "<"
     else:
         raise ValueError(f"Unsupported endian: {header['FLOATING_POINT'][6:]}")
-    nbytes = int(header["FLOATING_POINT"][4:6]) // 8
-    dtype = f"{endian}c{2 * nbytes}"
+    float_nbytes = int(header["FLOATING_POINT"][4:6]) // 8
+    dtype = f"{endian}c{2 * float_nbytes}"
     plaquette = float(header["PLAQUETTE"])
 
     if header["DATATYPE"] == "4D_SU3_GAUGE_3x3":
         gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0), grid_size)
-        gauge = gauge.astype(f"<c{2 * nbytes}")
+        gauge = gauge.astype(f"<c{2 * float_nbytes}")
         if link_trace:
             assert numpy.isclose(link_trace_nersc(gauge), float(header["LINK_TRACE"])), f"Bad link trace for {filename}"
         if checksum:
@@ -84,32 +84,32 @@ def writeGauge(
     gauge = numpy.ascontiguousarray(gauge.transpose(1, 2, 3, 4, 0, 5, 6).astype(dtype))
     link_trace = link_trace_nersc(gauge)
     checksum = checksum_nersc(gauge.reshape(-1))
-    Lx, Ly, Lz, Lt = latt_size
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size, grid_size)
     header: Dict[str, str] = {
         "HDR_VERSION": "1.0",
         "DATATYPE": "4D_SU3_GAUGE_3x3",
         "STORAGE_FORMAT": "",
-        "DIMENSION_1": f"{Lx}",
-        "DIMENSION_2": f"{Ly}",
-        "DIMENSION_3": f"{Lz}",
-        "DIMENSION_4": f"{Lt}",
+        "DIMENSION_1": f"{latt_size[0]}",
+        "DIMENSION_2": f"{latt_size[1]}",
+        "DIMENSION_3": f"{latt_size[2]}",
+        "DIMENSION_4": f"{latt_size[3]}",
         "LINK_TRACE": f"{link_trace:.10g}",
         "PLAQUETTE": f"{plaquette:.10g}",
         "BOUNDARY_1": "PERIODIC",
         "BOUNDARY_2": "PERIODIC",
         "BOUNDARY_3": "PERIODIC",
         "BOUNDARY_4": "PERIODIC",
-        "CHECKSUM": f"{checksum:08x}",
-        "SCIDAC_CHECKSUMA": "0",
-        "SCIDAC_CHECKSUMB": "0",
+        "CHECKSUM": f"{checksum:10x}",
+        "SCIDAC_CHECKSUMA": f"{0:10x}",
+        "SCIDAC_CHECKSUMB": f"{0:10x}",
         "ENSEMBLE_ID": "pyquda",
         "ENSEMBLE_LABEL": "",
         "SEQUENCE_NUMBER": "1",
         "CREATOR": "pyquda",
-        "CREATOR_HARDWARE": f"dfa641076717-{uname().machine}-{uname().sysname}-{uname().release}",
+        "CREATOR_HARDWARE": f"{uname().nodename}-{uname().machine}-{uname().sysname}-{uname().release}",
         "CREATION_DATE": datetime.now().strftime(R"%a %b %d %H:%M:%S %Y %z"),
         "ARCHIVE_DATE": datetime.now().strftime(R"%a %b %d %H:%M:%S %Y %z"),
-        "FLOATING_POINT": f"IEEE{float_nbytes * 8}SMALL",
+        "FLOATING_POINT": f"IEEE{float_nbytes * 8}LITTLE",
     }
     if MPI.COMM_WORLD.Get_rank() == 0:
         with open(filename, "wb") as f:
