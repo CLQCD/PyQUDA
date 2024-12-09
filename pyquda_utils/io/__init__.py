@@ -259,15 +259,21 @@ def writeOpenQCDGauge(filename: str, gauge: LatticeGauge):
     write(filename, gauge.latt_info.global_size, gauge.latt_info.grid_size, plaquette, gauge_.getHost())
 
 
-def readNERSCGauge(filename: str, return_plaquette: bool = False, link_trace: bool = True, checksum: bool = True):
+def readNERSCGauge(filename: str, link_trace: bool = True, checksum: bool = True):
     from pyquda import getGridSize
     from .nersc import readGauge as read
 
     latt_size, plaquette, gauge_raw = read(filename, getGridSize(), link_trace, checksum)
-    if not return_plaquette:
-        return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
-    else:
-        return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4])), plaquette
+    gauge = LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
+    assert numpy.isclose(gauge.plaquette()[0], plaquette)
+    return gauge
+
+
+def writeNERSCGauge(filename: str, gauge: LatticeGauge, float_nbytes: int = 8):
+    from .nersc import writeGauge as write
+
+    plaquette = gauge.plaquette()[0]
+    write(filename, gauge.latt_info.global_size, gauge.latt_info.grid_size, plaquette, gauge.lexico(), float_nbytes)
 
 
 def readQIOGauge(filename: str):
