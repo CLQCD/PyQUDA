@@ -32,7 +32,7 @@ class LatticeInfo:
         ):
             getLogger().critical(
                 "lattice size must be divisible by gird size, "
-                "and sublattice size must be even in every direction for consistant even-odd preconditioning, ",
+                "and sublattice size must be even in all directions for consistant even-odd preconditioning, ",
                 "otherwise the lattice size and grid size for this direction must be 1",
                 ValueError,
             )
@@ -69,12 +69,12 @@ Nd, Ns, Nc = LatticeInfo.Nd, LatticeInfo.Ns, LatticeInfo.Nc
 
 
 class GeneralInfo:
-    def __init__(self, latt_size: List[int], grid_size: List[int], Ns: int = 4, Nc: int = 3) -> None:
+    def __init__(self, latt_size: List[int], grid_size: List[int], Ns: int = None, Nc: int = None) -> None:
         self._checkLattice(latt_size, grid_size)
         self._setLattice(latt_size, grid_size)
         self.Nd = len(latt_size)
-        self.Ns = Ns
-        self.Nc = Nc
+        self.Ns = Ns if Ns is not None else 4
+        self.Nc = Nc if Nc is not None else 3
 
     def _checkLattice(self, latt_size: List[int], grid_size: List[int]):
         from . import getLogger
@@ -670,8 +670,10 @@ class FullField:
         with File(filename, "r") as f:
             latt_size, Ns, Nc, value = f.load(cls._groupName(), label, getGridSize(), check=check)
         latt_info = LatticeInfo(latt_size)
-        latt_info.Ns = Ns
-        latt_info.Nc = Nc
+        if Ns is not None:
+            latt_info.Ns = Ns
+        if Nc is not None:
+            latt_info.Nc = Nc
         if not issubclass(cls, MultiField):
             retval = cls(latt_info, cb2(value, [0, 1, 2, 3]))
         else:

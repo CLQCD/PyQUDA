@@ -236,27 +236,19 @@ def writeNPYPropagator(filename: str, propagator: LatticePropagator):
 
 def readOpenQCDGauge(filename: str):
     from pyquda import getGridSize
-    from pyquda.field import X, Y, Z, T
     from .openqcd import readGauge as read
 
-    latt_size, plaquette, gauge_ = read(filename, getGridSize())
-    gauge_ = LatticeGauge(LatticeInfo(latt_size), gauge_)
-    gauge_.toDevice()
-    gauge = gauge_.shift([X, Y, Z, T])
-    gauge.data[:, 1] = gauge_.data[:, 0]
+    latt_size, plaquette, gauge = read(filename, getGridSize(), False)
+    gauge = LatticeGauge(LatticeInfo(latt_size), gauge)
     assert numpy.isclose(gauge.plaquette()[0], plaquette)
     return gauge
 
 
 def writeOpenQCDGauge(filename: str, gauge: LatticeGauge):
-    from pyquda.field import X, Y, Z, T
     from .openqcd import writeGauge as write
 
-    gauge.toDevice()
     plaquette = gauge.plaquette()[0]
-    gauge_ = gauge.shift([-X, -Y, -Z, -T])
-    gauge_.data[:, 0] = gauge.data[:, 1]
-    write(filename, gauge.latt_info.global_size, gauge.latt_info.grid_size, plaquette, gauge_.getHost())
+    write(filename, gauge.latt_info.global_size, gauge.latt_info.grid_size, plaquette, gauge.getHost(), False)
 
 
 def readNERSCGauge(filename: str, link_trace: bool = True, checksum: bool = True):

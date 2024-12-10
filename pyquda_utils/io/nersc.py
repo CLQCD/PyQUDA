@@ -77,9 +77,10 @@ def writeGauge(
     grid_size: List[int],
     plaquette: float,
     gauge: numpy.ndarray,
-    float_nbytes: int = 8,
+    use_fp32: bool = False,
 ):
     filename = path.expanduser(path.expandvars(filename))
+    float_nbytes = 4 if use_fp32 else 8
     dtype, offset = f"<c{2 * float_nbytes}", None
     gauge = numpy.ascontiguousarray(gauge.transpose(1, 2, 3, 4, 0, 5, 6).astype(dtype))
     link_trace = link_trace_nersc(gauge)

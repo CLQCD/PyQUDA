@@ -19,6 +19,21 @@ def getGridCoord(grid_size: Sequence[int]):
     return [gx, gy, gz, gt]
 
 
+def getNeighbourRank(grid_size: Sequence[int]):
+    Gx, Gy, Gz, Gt = grid_size
+    gx, gy, gz, gt = getGridCoord(grid_size)
+    return [
+        (((gx + 1) % Gx * Gy + gy) * Gz + gz) * Gt + gt,
+        ((gx * Gy + (gy + 1) % Gy) * Gz + gz) * Gt + gt,
+        ((gx * Gy + gy) * Gz + (gz + 1) % Gz) * Gt + gt,
+        ((gx * Gy + gy) * Gz + gz) * Gt + (gt + 1) % Gt,
+        (((gx - 1) % Gx * Gy + gy) * Gz + gz) * Gt + gt,
+        ((gx * Gy + (gy - 1) % Gy) * Gz + gz) * Gt + gt,
+        ((gx * Gy + gy) * Gz + (gz - 1) % Gz) * Gt + gt,
+        ((gx * Gy + gy) * Gz + gz) * Gt + (gt - 1) % Gt,
+    ]
+
+
 def getSubarray(shape: Sequence[int], axes: Sequence[int], grid: Sequence[int]):
     sizes = [d for d in shape]
     subsizes = [d for d in shape]

@@ -86,11 +86,11 @@ class _LatticeInfo:
 
 
 def checksum(latt_info, data: numpy.ndarray) -> Tuple[int, int]:
-    import zlib
+    # import zlib
 
-    work = numpy.empty((latt_info.volume), "<u4")
-    for i in range(latt_info.volume):
-        work[i] = zlib.crc32(data[i])
+    # work = numpy.empty((latt_info.volume), "<u4")
+    # for i in range(latt_info.volume):
+    #     work[i] = zlib.crc32(data[i])
     # work = numpy.full_like(data[:, 0], 0xFFFFFFFF)
     # for i in range(data.shape[1]):
     #     work ^= data[:, i]
@@ -102,7 +102,7 @@ def checksum(latt_info, data: numpy.ndarray) -> Tuple[int, int]:
     #         ^ CRC32LUT[3].take(work_view[:, 3], mode="wrap")
     #     )
     # work ^= 0xFFFFFFFF
-    # work = numpy.bitwise_xor.reduce(data, 1)
+    work = numpy.bitwise_xor.reduce(data, 1)
     rank = (
         numpy.arange(latt_info.global_volume, dtype="<u8")
         .reshape(*latt_info.global_size[::-1])[latt_info.slice]
@@ -205,8 +205,8 @@ class File(h5py.File):
         # assert g.attrs["Spin"] == str(Ns)
         # assert g.attrs["Color"] == str(Nc)
         latt_size = [int(GL) for GL in g.attrs["Lattice"].split()]
-        Ns = int(g.attrs["Spin"])
-        Nc = int(g.attrs["Color"])
+        Ns = int(g.attrs["Spin"]) if "Spin" in group else None
+        Nc = int(g.attrs["Color"]) if "Color" in group else None
         if isinstance(label, (int, str)):
             keys = str(label)
         elif isinstance(label, (list, tuple, range)):
@@ -256,12 +256,14 @@ class File(h5py.File):
         g = self.create_group(group)
         g.attrs["Annotation"] = annotation
         g.attrs["Lattice"] = " ".join([str(GL) for GL in latt_size])
-        g.attrs["Spin"] = str(Ns)
-        g.attrs["Color"] = str(Nc)
+        if "Spin" in group:
+            g.attrs["Spin"] = str(Ns)
+        if "Color" in group:
+            g.attrs["Color"] = str(Nc)
 
         latt_info = _LatticeInfo(latt_size, grid_size)
         if isinstance(keys, str):
-            key = keys[0]
+            key = keys
             g.create_dataset(key, (*latt_size[::-1], *field_shape), field_dtype)
             self._save(latt_info, g[key], field.astype(field_dtype), check)
             gbytes += g[key].nbytes / 1024**3
@@ -291,8 +293,10 @@ class File(h5py.File):
         g = self.create_group(group)
         g.attrs["Annotation"] = annotation
         g.attrs["Lattice"] = " ".join([str(GL) for GL in latt_size])
-        g.attrs["Spin"] = str(Ns)
-        g.attrs["Color"] = str(Nc)
+        if "Spin" in group:
+            g.attrs["Spin"] = str(Ns)
+        if "Color" in group:
+            g.attrs["Color"] = str(Nc)
 
         latt_info = _LatticeInfo(latt_size, grid)
         if isinstance(keys, str):
@@ -326,8 +330,10 @@ class File(h5py.File):
         if annotation != "":
             g.attrs["Annotation"] = annotation
         assert g.attrs["Lattice"] == " ".join([str(L) for L in latt_size])
-        assert g.attrs["Spin"] == str(Ns)
-        assert g.attrs["Color"] == str(Nc)
+        if "Spin" in group:
+            assert g.attrs["Spin"] == str(Ns)
+        if "Color" in group:
+            assert g.attrs["Color"] == str(Nc)
 
         for key in g.keys():
             field_dtype = g[key].dtype.str

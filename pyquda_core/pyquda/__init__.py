@@ -1,11 +1,9 @@
 import logging
 from os import environ
 from sys import stdout
-from typing import Any, Callable, Dict, List, Literal, NamedTuple, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Literal, NamedTuple, Tuple, Union
 
 from mpi4py import MPI
-from mpi4py.util import dtlib
-import numpy
 
 from ._version import __version__  # noqa: F401
 from . import pyquda as quda
@@ -78,13 +76,6 @@ def getCoordFromRank(mpi_rank: int, grid_size: List[int] = None) -> List[int]:
     return [mpi_rank // Gt // Gz // Gy, mpi_rank // Gt // Gz % Gy, mpi_rank // Gt % Gz, mpi_rank % Gt]
 
 
-def getSublatticeSize(latt_size: List[int], grid_size: List[int] = None) -> List[int]:
-    Gx, Gy, Gz, Gt = _GRID_SIZE if grid_size is None else grid_size
-    Lx, Ly, Lz, Lt = latt_size
-    assert Lx % Gx == 0 and Ly % Gy == 0 and Lz % Gz == 0 and Lt % Gt == 0
-    return [Lx // Gx, Ly // Gy, Lz // Gz, Lt // Gt]
-
-
 def _composition4(n):
     """
     Writing n as the sum of 4 natural numbers
@@ -135,8 +126,8 @@ def _getDefaultGrid(mpi_size: int, latt_size: List[int]):
     latt_vol = Lx * Ly * Lz * Lt
     latt_surf = [latt_vol // latt_size[dir] for dir in range(4)]
     min_comm, min_grid = latt_vol, []
-    assert latt_vol % mpi_size == 0
-    assert Lx % 2 == 0 and Ly % 2 == 0 and Lz % 2 == 0 and Lt % 2 == 0
+    assert latt_vol % mpi_size == 0, "lattice volume must be divisible by MPI size"
+    assert Lx % 2 == 0 and Ly % 2 == 0 and Lz % 2 == 0 and Lt % 2 == 0, "lattice size must be even in all directions"
     for grid_size in _partition(mpi_size, 0, [Lx // 2, Ly // 2, Lz // 2, Lt // 2], [1, 1, 1, 1]):
         comm = [latt_surf[dir] * grid_size[dir] for dir in range(4) if grid_size[dir] > 1]
         if sum(comm) < min_comm:
@@ -214,14 +205,6 @@ def initGPU(backend: Literal["numpy", "cupy", "torch"] = None, gpuid: int = -1):
         _CUDA_BACKEND = backend
         _MPI_LOGGER.info(f"Using CUDA backend {backend}")
 
-        # if backend == "cupy":
-        #     from . import malloc_pyquda
-
-        #     allocator = cupy.cuda.PythonFunctionAllocator(
-        #         malloc_pyquda.pyquda_device_malloc, malloc_pyquda.pyquda_device_free
-        #     )
-        #     cupy.cuda.set_allocator(allocator.malloc)
-
         # quda/include/communicator_quda.h
         # determine which GPU this rank will use
         hostname = gethostname()
@@ -258,6 +241,15 @@ def initGPU(backend: Literal["numpy", "cupy", "torch"] = None, gpuid: int = -1):
 
 def initQUDA(grid_size: List[int], gpuid: int):
     import atexit
+
+    # if _CUDA_BACKEND == "cupy":
+    #     import cupy
+    #     from . import malloc_pyquda
+
+    #     allocator = cupy.cuda.PythonFunctionAllocator(
+    #         malloc_pyquda.pyquda_device_malloc, malloc_pyquda.pyquda_device_free
+    #     )
+    #     cupy.cuda.set_allocator(allocator.malloc)
 
     quda.initCommsGridQuda(4, grid_size)
     quda.initQuda(gpuid)
@@ -386,12 +378,12 @@ def getMPIRank():
 
 
 def getGridSize():
-    assert _GRID_SIZE is not None
+    assert _GRID_SIZE is not None, "PyQUDA is not initialized"
     return _GRID_SIZE
 
 
 def getGridCoord():
-    assert _GRID_COORD is not None
+    assert _GRID_COORD is not None, "PyQUDA is not initialized"
     return _GRID_COORD
 
 
@@ -401,7 +393,7 @@ def setDefaultLattice(latt_size: List[int], t_boundary: Literal[1, -1], anisotro
 
 
 def getDefaultLattice():
-    assert _DEFAULT_LATTICE is not None
+    assert _DEFAULT_LATTICE is not None, "Default lattice is not set"
     return _DEFAULT_LATTICE
 
 
@@ -419,56 +411,3 @@ def getGPUID():
 
 def getCUDAComputeCapability():
     return _COMPUTE_CAPABILITY
-
-
-def _getSubarray(shape: Sequence[int], axes: Sequence[int]):
-    sizes = [d for d in shape]
-    subsizes = [d for d in shape]
-    starts = [d if i in axes else 0 for i, d in enumerate(shape)]
-    for j, i in enumerate(axes):
-        sizes[i] *= _GRID_SIZE[j]
-        starts[i] *= _GRID_COORD[j]
-    return sizes, subsizes, starts
-
-
-def readMPIFile(
-    filename: str,
-    dtype: str,
-    offset: int,
-    shape: Sequence[int],
-    axes: Sequence[int],
-):
-    sizes, subsizes, starts = _getSubarray(shape, axes)
-    native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
-    buf = numpy.empty(subsizes, native_dtype)
-
-    fh = MPI.File.Open(_MPI_COMM, filename, MPI.MODE_RDONLY)
-    filetype = dtlib.from_numpy_dtype(native_dtype).Create_subarray(sizes, subsizes, starts)
-    filetype.Commit()
-    fh.Set_view(disp=offset, filetype=filetype)
-    fh.Read_all(buf)
-    filetype.Free()
-    fh.Close()
-
-    return buf.view(dtype)
-
-
-def writeMPIFile(
-    filename: str,
-    dtype: str,
-    offset: int,
-    shape: Sequence[int],
-    axes: Sequence[int],
-    buf: numpy.ndarray,
-):
-    sizes, subsizes, starts = _getSubarray(shape, axes)
-    native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
-    buf = buf.view(native_dtype)
-
-    fh = MPI.File.Open(_MPI_COMM, filename, MPI.MODE_WRONLY | MPI.MODE_CREATE)
-    filetype = dtlib.from_numpy_dtype(native_dtype).Create_subarray(sizes, subsizes, starts)
-    filetype.Commit()
-    fh.Set_view(disp=offset, filetype=filetype)
-    fh.Write_all(buf)
-    filetype.Free()
-    fh.Close()
