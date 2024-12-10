@@ -234,38 +234,32 @@ def writeNPYPropagator(filename: str, propagator: LatticePropagator):
     write(filename, propagator.latt_info.global_size, propagator.latt_info.grid_size, propagator.lexico())
 
 
-def readOpenQCDGauge(filename: str):
+def readOpenQCDGauge(filename: str, plaquette: bool = True):
     from pyquda import getGridSize
     from .openqcd import readGauge as read
 
-    latt_size, plaquette, gauge = read(filename, getGridSize(), False)
-    gauge = LatticeGauge(LatticeInfo(latt_size), gauge)
-    assert numpy.isclose(gauge.plaquette()[0], plaquette)
-    return gauge
+    latt_size, gauge = read(filename, getGridSize(), plaquette, False)
+    return LatticeGauge(LatticeInfo(latt_size), gauge)
 
 
-def writeOpenQCDGauge(filename: str, gauge: LatticeGauge):
+def writeOpenQCDGauge(filename: str, gauge: LatticeGauge, plaquette: float = None):
     from .openqcd import writeGauge as write
 
-    plaquette = gauge.plaquette()[0]
-    write(filename, gauge.latt_info.global_size, gauge.latt_info.grid_size, plaquette, gauge.getHost(), False)
+    write(filename, gauge.latt_info.global_size, gauge.latt_info.grid_size, gauge.getHost(), plaquette, False)
 
 
-def readNERSCGauge(filename: str, link_trace: bool = True, checksum: bool = True):
+def readNERSCGauge(filename: str, plaquette: bool = True, link_trace: bool = True, checksum: bool = True):
     from pyquda import getGridSize
     from .nersc import readGauge as read
 
-    latt_size, plaquette, gauge_raw = read(filename, getGridSize(), link_trace, checksum)
-    gauge = LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
-    assert numpy.isclose(gauge.plaquette()[0], plaquette)
-    return gauge
+    latt_size, gauge_raw = read(filename, getGridSize(), plaquette, link_trace, checksum)
+    return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
 
 
-def writeNERSCGauge(filename: str, gauge: LatticeGauge, float_nbytes: int = 8):
+def writeNERSCGauge(filename: str, gauge: LatticeGauge, plaquette: float = None, use_fp32: bool = False):
     from .nersc import writeGauge as write
 
-    plaquette = gauge.plaquette()[0]
-    write(filename, gauge.latt_info.global_size, gauge.latt_info.grid_size, plaquette, gauge.lexico(), float_nbytes)
+    write(filename, gauge.latt_info.global_size, gauge.latt_info.grid_size, gauge.lexico(), plaquette, use_fp32)
 
 
 def readQIOGauge(filename: str):

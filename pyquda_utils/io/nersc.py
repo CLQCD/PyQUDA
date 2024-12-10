@@ -6,6 +6,7 @@ import numpy
 from mpi4py import MPI
 
 from .mpi_file import getSublatticeSize, readMPIFile, writeMPIFile
+from .gauge_utils import gaugeLexicoPlaquette
 
 Nd, Ns, Nc = 4, 4, 3
 
@@ -20,7 +21,9 @@ def link_trace_nersc(gauge: numpy.ndarray) -> float:
     )
 
 
-def readGauge(filename: str, grid_size: List[int], link_trace: bool = True, checksum: bool = True):
+def readGauge(
+    filename: str, grid_size: List[int], plaquette: bool = True, link_trace: bool = True, checksum: bool = True
+):
     filename = path.expanduser(path.expandvars(filename))
     header: Dict[str, str] = {}
     with open(filename, "rb") as f:
@@ -47,7 +50,6 @@ def readGauge(filename: str, grid_size: List[int], link_trace: bool = True, chec
         raise ValueError(f"Unsupported endian: {header['FLOATING_POINT'][6:]}")
     float_nbytes = int(header["FLOATING_POINT"][4:6]) // 8
     dtype = f"{endian}c{2 * float_nbytes}"
-    plaquette = float(header["PLAQUETTE"])
 
     if header["DATATYPE"] == "4D_SU3_GAUGE_3x3":
         gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0), grid_size)
@@ -57,7 +59,11 @@ def readGauge(filename: str, grid_size: List[int], link_trace: bool = True, chec
         if checksum:
             assert checksum_nersc(gauge.reshape(-1)) == int(header["CHECKSUM"], 16), f"Bad checksum for {filename}"
         gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
-        return latt_size, plaquette, gauge
+        if plaquette:
+            assert numpy.isclose(
+                gaugeLexicoPlaquette(latt_size, grid_size, gauge)[0], float(header["PLAQUETTE"])
+            ), f"Bad plaquette for {filename}"
+        return latt_size, gauge
     elif header["DATATYPE"] == "4D_SU3_GAUGE":
         # gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc - 1, Nc), (3, 2, 1, 0))
         # if checksum:
@@ -75,13 +81,15 @@ def writeGauge(
     filename: str,
     latt_size: List[int],
     grid_size: List[int],
-    plaquette: float,
     gauge: numpy.ndarray,
+    plaquette: float = None,
     use_fp32: bool = False,
 ):
     filename = path.expanduser(path.expandvars(filename))
     float_nbytes = 4 if use_fp32 else 8
     dtype, offset = f"<c{2 * float_nbytes}", None
+    if plaquette is None:
+        plaquette = gaugeLexicoPlaquette(latt_size, grid_size, gauge)[0]
     gauge = numpy.ascontiguousarray(gauge.transpose(1, 2, 3, 4, 0, 5, 6).astype(dtype))
     link_trace = link_trace_nersc(gauge)
     checksum = checksum_nersc(gauge.reshape(-1))
