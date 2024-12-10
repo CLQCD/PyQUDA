@@ -4,6 +4,7 @@ import numpy
 
 from pyquda import (
     initGPU,
+    initGrid,
     initQUDA,
     init,
     getCoordFromRank,
@@ -15,6 +16,7 @@ from pyquda import (
     getGridCoord,
     setDefaultLattice,
     getDefaultLattice,
+    getCUDABackend,
     getLogger,
     setLoggerLevel,
     dirac as fermion,
@@ -41,7 +43,8 @@ from pyquda.field import (
     LatticePropagator,
     LatticeStaggeredPropagator,
     lexico,
-    cb2,
+    evenodd,
+    evenodd as cb2,
 )
 from pyquda.dirac.abstract import Multigrid, FermionDirac, StaggeredFermionDirac
 

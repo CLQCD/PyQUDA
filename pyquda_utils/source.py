@@ -1,6 +1,6 @@
 from typing import List, Literal, Union
 
-from pyquda import quda, getGridSize, getLogger
+from pyquda import pyquda as quda, getGridSize, getLogger
 from pyquda.enum_quda import QudaDslashType, QudaParity
 from pyquda.field import (
     Ns,

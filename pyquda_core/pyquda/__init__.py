@@ -6,7 +6,6 @@ from typing import Any, Callable, Dict, List, Literal, NamedTuple, Tuple, Union
 from mpi4py import MPI
 
 from ._version import __version__  # noqa: F401
-from . import pyquda as quda
 from .field import LatticeInfo
 
 
@@ -141,7 +140,7 @@ def _getDefaultGrid(mpi_size: int, latt_size: List[int]):
     return min(min_grid)
 
 
-def _initEnviron(**kwargs):
+def _setEnviron(**kwargs):
     def _setEnviron(env, key, value):
         if value is not None:
             if env in environ:
@@ -154,7 +153,7 @@ def _initEnviron(**kwargs):
         _setEnviron(f"QUDA_{key.upper()}", key, kwargs[key])
 
 
-def _initEnvironWarn(**kwargs):
+def _setEnvironWarn(**kwargs):
     def _setEnviron(env, key, value):
         if value is not None:
             if env in environ:
@@ -172,9 +171,8 @@ def _initEnvironWarn(**kwargs):
 
 def initGPU(backend: Literal["numpy", "cupy", "torch"] = None, gpuid: int = -1):
     global _CUDA_BACKEND, _HIP, _GPUID, _COMPUTE_CAPABILITY
-
     if isGridInitialized():
-        _MPI_LOGGER.critical("initGPU should be called before init", RuntimeError)
+        _MPI_LOGGER.critical("initGPU should be called before initGrid", RuntimeError)
     if _GPUID < 0:
         from platform import node as gethostname
 
@@ -239,17 +237,31 @@ def initGPU(backend: Literal["numpy", "cupy", "torch"] = None, gpuid: int = -1):
         _MPI_LOGGER.warning("GPU is already initialized", RuntimeWarning)
 
 
-def initQUDA(grid_size: List[int], gpuid: int):
+def initGrid(grid_size: List[int]):
+    global _GRID_SIZE, _GRID_COORD
+    if _GRID_SIZE is None:
+        Gx, Gy, Gz, Gt = grid_size
+        if _MPI_SIZE != Gx * Gy * Gz * Gt:
+            _MPI_LOGGER.critical(f"The MPI size {_MPI_SIZE} does not match the grid size {grid_size}", ValueError)
+        _GRID_SIZE = [Gx, Gy, Gz, Gt]
+        _GRID_COORD = getCoordFromRank(_MPI_RANK, _GRID_SIZE)
+        _MPI_LOGGER.info(f"Using the grid size {_GRID_SIZE}")
+    else:
+        _MPI_LOGGER.warning("Grid is already initialized", RuntimeWarning)
+
+
+def initQUDA(grid_size: List[int], gpuid: int, use_quda_allocator: bool = False):
     import atexit
+    from . import pyquda as quda, malloc_pyquda
 
-    # if _CUDA_BACKEND == "cupy":
-    #     import cupy
-    #     from . import malloc_pyquda
+    if use_quda_allocator:
+        if _CUDA_BACKEND == "cupy":
+            import cupy
 
-    #     allocator = cupy.cuda.PythonFunctionAllocator(
-    #         malloc_pyquda.pyquda_device_malloc, malloc_pyquda.pyquda_device_free
-    #     )
-    #     cupy.cuda.set_allocator(allocator.malloc)
+            allocator = cupy.cuda.PythonFunctionAllocator(
+                malloc_pyquda.pyquda_device_malloc, malloc_pyquda.pyquda_device_free
+            )
+            cupy.cuda.set_allocator(allocator.malloc)
 
     quda.initCommsGridQuda(4, grid_size)
     quda.initQuda(gpuid)
@@ -293,7 +305,7 @@ def init(
     """
     Initialize MPI along with the QUDA library.
     """
-    global _GRID_SIZE, _GRID_COORD, _DEFAULT_LATTICE
+    global _DEFAULT_LATTICE
     if _GRID_SIZE is None:
         initGPU(backend)
 
@@ -301,20 +313,15 @@ def init(
         use_default_latt = latt_size is not None and t_boundary is not None and anisotropy is not None
         if use_default_grid:
             grid_size = _getDefaultGrid(_MPI_SIZE, latt_size)
-        Gx, Gy, Gz, Gt = grid_size if grid_size is not None else [1, 1, 1, 1]
-        if _MPI_SIZE != Gx * Gy * Gz * Gt:
-            _MPI_LOGGER.critical(f"The MPI size {_MPI_SIZE} does not match the grid size {grid_size}", ValueError)
-        _GRID_SIZE = [Gx, Gy, Gz, Gt]
-        _GRID_COORD = getCoordFromRank(_MPI_RANK, _GRID_SIZE)
-        _MPI_LOGGER.info(f"Using the grid size {_GRID_SIZE}")
+        initGrid(grid_size if grid_size is not None else [1, 1, 1, 1])
         if use_default_grid and not use_default_latt:
             _MPI_LOGGER.info(f"Using the lattice size {latt_size} only for getting the default grid size {_GRID_SIZE}")
         if use_default_latt:
             _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
             _MPI_LOGGER.info(f"Using the default lattice LatticeInfo({latt_size}, {t_boundary}, {anisotropy})")
 
-        _initEnvironWarn(resource_path=resource_path if resource_path != "" else None)
-        _initEnviron(
+        _setEnvironWarn(resource_path=resource_path if resource_path != "" else None)
+        _setEnviron(
             rank_verbosity=",".join(rank_verbosity) if rank_verbosity != [0] else None,
             enable_mps="1" if enable_mps else None,
             enable_gdr="1" if enable_gdr else None,

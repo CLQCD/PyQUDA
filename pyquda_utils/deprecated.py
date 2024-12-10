@@ -1,6 +1,6 @@
 from typing import List
 
-from pyquda import getLogger, getGridSize, quda, enum_quda
+from pyquda import getLogger, getGridSize, pyquda as quda, enum_quda
 from pyquda.field import LatticeFermion, LatticeGauge, LatticeInfo, LatticePropagator, Nc, Ns
 from pyquda.dirac.abstract import FermionDirac
 
@@ -101,11 +101,11 @@ def getDslash(
     latt_info = LatticeInfo([Lx, Ly, Lz, Lt], t_boundary, xi)
 
     if clover_csw != 0.0:
-        from .dirac.clover_wilson import CloverWilsonDirac
+        from pyquda.dirac.clover_wilson import CloverWilsonDirac
 
         return CloverWilsonDirac(latt_info, mass, tol, maxiter, clover_csw, clover_xi, geo_block_size)
     else:
-        from .dirac.wilson import WilsonDirac
+        from pyquda.dirac.wilson import WilsonDirac
 
         return WilsonDirac(latt_info, mass, tol, maxiter, geo_block_size)
 
@@ -131,6 +131,6 @@ def getStaggeredDslash(
         t_boundary = 1
     latt_info = LatticeInfo([Lx, Ly, Lz, Lt], t_boundary, 1.0)
 
-    from .dirac.hisq import HISQDirac
+    from pyquda.dirac.hisq import HISQDirac
 
     return HISQDirac(latt_info, mass, tol, maxiter, naik_epsilon, None)

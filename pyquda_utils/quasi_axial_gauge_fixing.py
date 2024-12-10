@@ -1,7 +1,6 @@
 import numpy as np
 
-from pyquda import getRankFromCoord
-from pyquda.field import cb2, LatticeLink, LatticeGauge, LatticeFermion, X, Y, Z, T
+from .core import getRankFromCoord, evenodd, LatticeLink, LatticeGauge, LatticeFermion, X, Y, Z, T
 
 
 def quasiAxialGaugeFixing(gauge: LatticeGauge, dir: int):
@@ -58,7 +57,7 @@ def quasiAxialGaugeFixing(gauge: LatticeGauge, dir: int):
     rotate[0] = contract("xab,xb->xab", v, cupy.exp(1j * (gi * Li) / GLi * w))
     for i in range(1, Li):
         rotate[i] = contract("xba,xbc,xc->xac", gauge_prod[i - 1].conj(), v, cupy.exp(1j * (i + gi * Li) / GLi * w))
-    rotate = LatticeLink(gauge.latt_info, cb2(rotate.reshape(*axes_shape).transpose(*axes).get(), [0, 1, 2, 3]))
+    rotate = LatticeLink(gauge.latt_info, evenodd(rotate.reshape(*axes_shape).transpose(*axes).get(), [0, 1, 2, 3]))
     rotate.toDevice()
     rotate_ = LatticeFermion(gauge.latt_info)
     rotate.pack(rotate_)

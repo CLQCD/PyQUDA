@@ -130,40 +130,47 @@ def lexico(data: numpy.ndarray, axes: List[int], dtype=None):
     Npre = int(numpy.prod(shape[: axes[0]]))
     Nsuf = int(numpy.prod(shape[axes[-1] + 1 :]))
     dtype = data.dtype if dtype is None else dtype
-    data_cb2 = data.reshape(Npre, 2, Lt, Lz, Ly, Lx // 2, Nsuf)
+    data_evenodd = data.reshape(Npre, 2, Lt, Lz, Ly, Lx // 2, Nsuf)
     data_lexico = numpy.zeros((Npre, Lt, Lz, Ly, Lx, Nsuf), dtype)
     for t in range(Lt):
         for z in range(Lz):
             for y in range(Ly):
                 eo = (t + z + y) % 2
                 if eo == 0:
-                    data_lexico[:, t, z, y, 0::2] = data_cb2[:, 0, t, z, y, :]
-                    data_lexico[:, t, z, y, 1::2] = data_cb2[:, 1, t, z, y, :]
+                    data_lexico[:, t, z, y, 0::2] = data_evenodd[:, 0, t, z, y, :]
+                    data_lexico[:, t, z, y, 1::2] = data_evenodd[:, 1, t, z, y, :]
                 else:
-                    data_lexico[:, t, z, y, 1::2] = data_cb2[:, 0, t, z, y, :]
-                    data_lexico[:, t, z, y, 0::2] = data_cb2[:, 1, t, z, y, :]
+                    data_lexico[:, t, z, y, 1::2] = data_evenodd[:, 0, t, z, y, :]
+                    data_lexico[:, t, z, y, 0::2] = data_evenodd[:, 1, t, z, y, :]
     return data_lexico.reshape(*shape[: axes[0]], Lt, Lz, Ly, Lx, *shape[axes[-1] + 1 :])
 
 
-def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
+def evenodd(data: numpy.ndarray, axes: List[int], dtype=None):
     shape = data.shape
     Lt, Lz, Ly, Lx = [shape[axis] for axis in axes]
     Npre = int(numpy.prod(shape[: axes[0]]))
     Nsuf = int(numpy.prod(shape[axes[-1] + 1 :]))
     dtype = data.dtype if dtype is None else dtype
     data_lexico = data.reshape(Npre, Lt, Lz, Ly, Lx, Nsuf)
-    data_cb2 = numpy.zeros((Npre, 2, Lt, Lz, Ly, Lx // 2, Nsuf), dtype)
+    data_evenodd = numpy.zeros((Npre, 2, Lt, Lz, Ly, Lx // 2, Nsuf), dtype)
     for t in range(Lt):
         for z in range(Lz):
             for y in range(Ly):
                 eo = (t + z + y) % 2
                 if eo == 0:
-                    data_cb2[:, 0, t, z, y, :] = data_lexico[:, t, z, y, 0::2]
-                    data_cb2[:, 1, t, z, y, :] = data_lexico[:, t, z, y, 1::2]
+                    data_evenodd[:, 0, t, z, y, :] = data_lexico[:, t, z, y, 0::2]
+                    data_evenodd[:, 1, t, z, y, :] = data_lexico[:, t, z, y, 1::2]
                 else:
-                    data_cb2[:, 0, t, z, y, :] = data_lexico[:, t, z, y, 1::2]
-                    data_cb2[:, 1, t, z, y, :] = data_lexico[:, t, z, y, 0::2]
-    return data_cb2.reshape(*shape[: axes[0]], 2, Lt, Lz, Ly, Lx // 2, *shape[axes[-1] + 1 :])
+                    data_evenodd[:, 0, t, z, y, :] = data_lexico[:, t, z, y, 1::2]
+                    data_evenodd[:, 1, t, z, y, :] = data_lexico[:, t, z, y, 0::2]
+    return data_evenodd.reshape(*shape[: axes[0]], 2, Lt, Lz, Ly, Lx // 2, *shape[axes[-1] + 1 :])
+
+
+def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
+    from . import getLogger
+
+    getLogger().warning("cb2 is deprecated, use evenodd instead", DeprecationWarning)
+    return evenodd(data, axes, dtype)
 
 
 def checksum(latt_info: Union[LatticeInfo, GeneralInfo], data: numpy.ndarray) -> Tuple[int, int]:
@@ -675,9 +682,9 @@ class FullField:
         if Nc is not None:
             latt_info.Nc = Nc
         if not issubclass(cls, MultiField):
-            retval = cls(latt_info, cb2(value, [0, 1, 2, 3]))
+            retval = cls(latt_info, evenodd(value, [0, 1, 2, 3]))
         else:
-            retval = cls(latt_info, len(label), numpy.asarray([cb2(data, [0, 1, 2, 3]) for data in value]))
+            retval = cls(latt_info, len(label), numpy.asarray([evenodd(data, [0, 1, 2, 3]) for data in value]))
         secs = perf_counter() - s
         getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
         return retval

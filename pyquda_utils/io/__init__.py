@@ -2,7 +2,7 @@ from typing import List, Union
 
 import numpy
 
-from pyquda.field import Ns, Nc, LatticeInfo, LatticeGauge, LatticePropagator, LatticeStaggeredPropagator, cb2, lexico
+from ..core import Ns, Nc, LatticeInfo, LatticeGauge, LatticePropagator, LatticeStaggeredPropagator, evenodd, lexico
 
 # matrices to convert gamma basis bewteen DeGrand-Rossi and Dirac-Pauli
 # \psi(DP) = _DR_TO_DP \psi(DR)
@@ -74,7 +74,7 @@ def readChromaQIOGauge(filename: str, checksum: bool = True):
     from .chroma import readQIOGauge as read
 
     latt_size, gauge_raw = read(filename, getGridSize(), checksum)
-    return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
+    return LatticeGauge(LatticeInfo(latt_size), evenodd(gauge_raw, [1, 2, 3, 4]))
 
 
 def readILDGBinGauge(filename: str, dtype: str, latt_size: List[int]):
@@ -82,7 +82,7 @@ def readILDGBinGauge(filename: str, dtype: str, latt_size: List[int]):
     from .chroma import readILDGBinGauge as read
 
     gauge_raw = read(filename, dtype, latt_size, getGridSize())
-    return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
+    return LatticeGauge(LatticeInfo(latt_size), evenodd(gauge_raw, [1, 2, 3, 4]))
 
 
 def readChromaQIOPropagator(filename: str, checksum: bool = True):
@@ -91,9 +91,9 @@ def readChromaQIOPropagator(filename: str, checksum: bool = True):
 
     latt_size, staggered, propagator_raw = read(filename, getGridSize(), checksum)
     if not staggered:
-        return LatticePropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
+        return LatticePropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
     else:
-        return LatticeStaggeredPropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
+        return LatticeStaggeredPropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
 
 
 def readMILCGauge(filename: str, checksum: bool = True):
@@ -101,7 +101,7 @@ def readMILCGauge(filename: str, checksum: bool = True):
     from .milc import readGauge as read
 
     latt_size, gauge_raw = read(filename, getGridSize(), checksum)
-    return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
+    return LatticeGauge(LatticeInfo(latt_size), evenodd(gauge_raw, [1, 2, 3, 4]))
 
 
 def writeMILCGauge(filename: str, gauge: LatticeGauge):
@@ -116,9 +116,9 @@ def readMILCQIOPropagator(filename: str):
 
     latt_size, staggered, propagator_raw = read(filename, getGridSize())
     if not staggered:
-        return LatticePropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
+        return LatticePropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
     else:
-        return LatticeStaggeredPropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
+        return LatticeStaggeredPropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
 
 
 def readKYUGauge(filename: str, latt_size: List[int]):
@@ -126,7 +126,7 @@ def readKYUGauge(filename: str, latt_size: List[int]):
     from .kyu import readGauge as read
 
     gauge_raw = read(filename, latt_size, getGridSize())
-    return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
+    return LatticeGauge(LatticeInfo(latt_size), evenodd(gauge_raw, [1, 2, 3, 4]))
 
 
 def writeKYUGauge(filename: str, gauge: LatticeGauge):
@@ -140,7 +140,7 @@ def readKYUPropagator(filename: str, latt_size: List[int]):
     from .kyu import readPropagator as read
 
     propagator_raw = read(filename, latt_size, getGridSize())
-    propagator = LatticePropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
+    propagator = LatticePropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
     propagator = rotateToDeGrandRossi(propagator)
     return propagator
 
@@ -159,9 +159,9 @@ def readXQCDPropagator(filename: str, latt_size: List[int], staggered: bool):
 
     propagator_raw = read(filename, latt_size, getGridSize(), staggered)
     if not staggered:
-        return rotateToDeGrandRossi(LatticePropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3])))
+        return rotateToDeGrandRossi(LatticePropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3])))
     else:
-        return LatticeStaggeredPropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
+        return LatticeStaggeredPropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
 
 
 def writeXQCDPropagator(filename: str, propagator: Union[LatticePropagator, LatticeStaggeredPropagator]):
@@ -183,7 +183,7 @@ def readXQCDPropagatorFast(filename: str, latt_size: List[int]):
     latt_info = LatticeInfo(latt_size)
     Lx, Ly, Lz, Lt = latt_info.size
     propagator_raw = read(filename, getGridSize(), latt_size)
-    propagator = LatticePropagator(latt_info, cb2(propagator_raw, [2, 3, 4, 5]))
+    propagator = LatticePropagator(latt_info, evenodd(propagator_raw, [2, 3, 4, 5]))
     propagator.data = propagator.data.reshape(Ns, Nc, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
     propagator.toDevice()
     propagator.data = propagator.data.transpose(2, 3, 4, 5, 6, 7, 0, 8, 1).astype("<c16")
@@ -210,7 +210,7 @@ def readNPYGauge(filename: str):
 
     filename = filename if filename.endswith(".npy") else filename + ".npy"
     latt_size, gauge_raw = read(filename, getGridSize())
-    return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
+    return LatticeGauge(LatticeInfo(latt_size), evenodd(gauge_raw, [1, 2, 3, 4]))
 
 
 def writeNPYGauge(filename: str, gauge: LatticeGauge):
@@ -225,7 +225,7 @@ def readNPYPropagator(filename: str):
     from .npy import readPropagator as read
 
     latt_size, propagator_raw = read(filename, getGridSize())
-    return LatticePropagator(LatticeInfo(latt_size), cb2(propagator_raw, [0, 1, 2, 3]))
+    return LatticePropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
 
 
 def writeNPYPropagator(filename: str, propagator: LatticePropagator):
@@ -253,7 +253,7 @@ def readNERSCGauge(filename: str, plaquette: bool = True, link_trace: bool = Tru
     from .nersc import readGauge as read
 
     latt_size, gauge_raw = read(filename, getGridSize(), plaquette, link_trace, checksum)
-    return LatticeGauge(LatticeInfo(latt_size), cb2(gauge_raw, [1, 2, 3, 4]))
+    return LatticeGauge(LatticeInfo(latt_size), evenodd(gauge_raw, [1, 2, 3, 4]))
 
 
 def writeNERSCGauge(filename: str, gauge: LatticeGauge, plaquette: float = None, use_fp32: bool = False):

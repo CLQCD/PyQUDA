@@ -1,15 +1,17 @@
 from typing import List
 import numpy
 
-from pyquda import getSublatticeSize, getGridSize
-from pyquda.field import cb2, LatticeGauge, LatticeInfo, LatticePropagator
+from .core import evenodd, getGridSize, LatticeGauge, LatticeInfo, LatticePropagator
 
 import gpt as g
 
 
 def LatticeInfoGPT(grid: g.grid, gen_simd_width: int):
     assert getGridSize() == grid.mpi
-    sublatt_size = getSublatticeSize(grid.fdimensions, grid.mpi)
+    GLx, GLy, GLz, GLt = grid.fdimensions
+    Gx, Gy, Gz, Gt = grid.mpi
+    Lx, Ly, Lz, Lt = GLx // Gx, GLy // Gy, GLz // Gz, GLt // Gt
+    sublatt_size = [Lx, Ly, Lz, Lt]
     Nd = len(sublatt_size)
     precision = grid.precision.nbytes
     n_simd = gen_simd_width // (2 * precision)
@@ -32,7 +34,7 @@ def LatticeGaugeGPT(lattice: List[g.lattice], gen_simd_width: int, gauge: Lattic
         value = []
         for index in range(latt_info.Nd):
             value.append(
-                cb2(
+                evenodd(
                     numpy.asarray(lattice[index].mview()[0])
                     .view(f"<c{2 * gpt_prec}")
                     .reshape(*gpt_latt[::-1], Nc, Nc, *gpt_simd[::-1])
@@ -49,7 +51,8 @@ def LatticeGaugeGPT(lattice: List[g.lattice], gen_simd_width: int, gauge: Lattic
         for index in range(latt_info.Nd):
             gpt_shape = [i for sl in zip(gpt_simd, gpt_latt) for i in sl]
             lattice[index].mview()[0][:] = (
-                gauge[index].lexico()
+                gauge[index]
+                .lexico()
                 .astype(f"<c{2 * gpt_prec}")
                 .reshape(*gpt_shape, Nc, Nc)
                 .transpose(1, 3, 5, 7, 8, 9, 0, 2, 4, 6)
@@ -65,7 +68,7 @@ def LatticePropagatorGPT(lattice: g.lattice, gen_simd_width: int, propagator: La
     Ns, Nc = latt_info.Ns, latt_info.Nc
     assert lattice.describe().startswith(f"ot_matrix_spin_color({Ns},{Nc})")
     if propagator is None:
-        value = cb2(
+        value = evenodd(
             numpy.asarray(lattice.mview()[0])
             .view(f"<c{2 * gpt_prec}")
             .reshape(*gpt_latt[::-1], Ns, Ns, Nc, Nc, *gpt_simd[::-1])
