@@ -110,8 +110,8 @@ def checksum(latt_info, data: numpy.ndarray) -> Tuple[int, int]:
     )
     rank29 = (rank % 29).astype("<u4")
     rank31 = (rank % 31).astype("<u4")
-    sum29 = MPI.COMM_WORLD.allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)).item(), MPI.BXOR)
-    sum31 = MPI.COMM_WORLD.allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)).item(), MPI.BXOR)
+    sum29 = MPI.COMM_WORLD.allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)), MPI.BXOR)
+    sum31 = MPI.COMM_WORLD.allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)), MPI.BXOR)
     return sum29, sum31
 
 
@@ -186,8 +186,8 @@ class File(h5py.File):
         data: numpy.ndarray = dataset[latt_info.slice]
         if check:
             sum29, sum31 = checksum(latt_info, data.reshape(latt_info.volume, -1).view("<u4"))
-            assert dataset.attrs["sum29"] == f"0x{sum29:08x}", f"{dataset.attrs['sum29']} != 0x{sum29:08x}"
-            assert dataset.attrs["sum31"] == f"0x{sum31:08x}", f"{dataset.attrs['sum31']} != 0x{sum31:08x}"
+            assert dataset.attrs["sum29"] == f"{sum29:08x}", f"{dataset.attrs['sum29']} != {sum29:08x}"
+            assert dataset.attrs["sum31"] == f"{sum31:08x}", f"{dataset.attrs['sum31']} != {sum31:08x}"
         return data
 
     def load(
@@ -236,8 +236,8 @@ class File(h5py.File):
         dataset[latt_info.slice] = data
         if check:
             sum29, sum31 = checksum(latt_info, data.reshape(latt_info.volume, -1).view("<u4"))
-            dataset.attrs["sum29"] = f"0x{sum29:08x}"
-            dataset.attrs["sum31"] = f"0x{sum31:08x}"
+            dataset.attrs["sum29"] = f"{sum29:08x}"
+            dataset.attrs["sum31"] = f"{sum31:08x}"
 
     def save(
         self,
