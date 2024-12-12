@@ -174,7 +174,7 @@ def gaugeEvenShiftBackward(latt_size: List[int], grid_size: List[int], gauge: nu
 # DP for Dirac-Pauli, DR for DeGrand-Rossi
 # \psi(DP) = _DR_TO_DP \psi(DR)
 # \psi(DR) = _DP_TO_DR \psi(DP)
-_DP_TO_DR = numpy.array(
+_FROM_DIRAC_PAULI = numpy.array(
     [
         [0, 1, 0, -1],
         [-1, 0, 1, 0],
@@ -182,7 +182,7 @@ _DP_TO_DR = numpy.array(
         [-1, 0, -1, 0],
     ]
 )
-_DR_TO_DP = numpy.array(
+_TO_DIRAC_PAULI = numpy.array(
     [
         [0, -1, 0, -1],
         [1, 0, 1, 0],
@@ -192,15 +192,44 @@ _DR_TO_DP = numpy.array(
 )
 
 
-def propagatorDeGrandRossiToDiracPauli(propagator: numpy.ndarray):
-    P = _DR_TO_DP
-    Pinv = _DP_TO_DR / 2
+def propagatorFromDiracPauli(propagator: numpy.ndarray):
+    P = _FROM_DIRAC_PAULI
+    Pinv = _TO_DIRAC_PAULI / 2
 
     return numpy.ascontiguousarray(numpy.einsum("ij,tzyxjkab,kl->tzyxilab", P, propagator.data, Pinv, optimize=True))
 
 
-def propagatorDiracPauliToDeGrandRossi(propagator: numpy.ndarray):
-    P = _DP_TO_DR
-    Pinv = _DR_TO_DP / 2
+def propagatorToDiracPauli(propagator: numpy.ndarray):
+    P = _TO_DIRAC_PAULI
+    Pinv = _FROM_DIRAC_PAULI / 2
 
     return numpy.ascontiguousarray(numpy.einsum("ij,tzyxjkab,kl->tzyxilab", P, propagator.data, Pinv, optimize=True))
+
+
+def spinMatrixFromDiracPauli(dirac_pauli: numpy.ndarray):
+    P = _FROM_DIRAC_PAULI
+    degrand_rossi = numpy.zeros_like(dirac_pauli)
+    for i in range(4):
+        for j in range(4):
+            for i_ in range((i + 1) % 2, 4, 2):
+                for j_ in range((j + 1) % 2, 4, 2):
+                    if P[i, i_] * P[j, j_] == 1:
+                        degrand_rossi[i, j] += dirac_pauli[i_, j_]
+                    elif P[i, i_] * P[j, j_] == -1:
+                        degrand_rossi[i, j] -= dirac_pauli[i_, j_]
+    return degrand_rossi.transpose(2, 3, 4, 5, 0, 1, 6, 7) / 2
+
+
+def spinMatrixToDiracPauli(degrand_rossi: numpy.ndarray):
+    P = _TO_DIRAC_PAULI
+    degrand_rossi = degrand_rossi.transpose(4, 5, 0, 1, 2, 3, 6, 7) / 2
+    dirac_pauli = numpy.zeros_like(degrand_rossi)
+    for i in range(4):
+        for j in range(4):
+            for i_ in range((i + 1) % 2, 4, 2):
+                for j_ in range((j + 1) % 2, 4, 2):
+                    if P[i, i_] * P[j, j_] == 1:
+                        dirac_pauli[i, j] += degrand_rossi[i_, j_]
+                    elif P[i, i_] * P[j, j_] == -1:
+                        dirac_pauli[i, j] -= degrand_rossi[i_, j_]
+    return dirac_pauli

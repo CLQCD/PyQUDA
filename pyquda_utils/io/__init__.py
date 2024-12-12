@@ -154,7 +154,10 @@ def readXQCDPropagator(filename: str, latt_size: List[int], staggered: bool):
     from pyquda_io.xqcd import readPropagator as read
 
     propagator_raw = read(filename, latt_size, getGridSize(), staggered)
-    return LatticeStaggeredPropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
+    if not staggered:
+        return LatticePropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
+    else:
+        return LatticeStaggeredPropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
 
 
 def writeXQCDPropagator(filename: str, propagator: Union[LatticePropagator, LatticeStaggeredPropagator]):
@@ -170,7 +173,7 @@ def readXQCDPropagatorFast(filename: str, latt_size: List[int]):
 
     latt_info = LatticeInfo(latt_size)
     Lx, Ly, Lz, Lt = latt_info.size
-    propagator_raw = read(filename, getGridSize(), latt_size)
+    propagator_raw = read(filename, latt_size, getGridSize())
     propagator = LatticePropagator(latt_info, evenodd(propagator_raw, [2, 3, 4, 5]))
     propagator.data = propagator.data.reshape(Ns, Nc, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
     propagator.toDevice()
