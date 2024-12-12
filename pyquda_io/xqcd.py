@@ -3,7 +3,8 @@ from typing import List
 
 import numpy
 
-from .mpi_file import getSublatticeSize, readMPIFile, writeMPIFile
+from ._mpi_file import getSublatticeSize, readMPIFile, writeMPIFile
+from ._field_utils import propagatorDiracPauliToDeGrandRossi, propagatorDeGrandRossiToDiracPauli
 
 Ns, Nc = 4, 3
 
@@ -16,6 +17,7 @@ def readPropagator(filename: str, latt_size: List[int], grid_size: List[int], st
     if not staggered:
         propagator = readMPIFile(filename, dtype, offset, (Ns, Nc, Lt, Lz, Ly, Lx, Ns, Nc), (5, 4, 3, 2), grid_size)
         propagator = propagator.transpose(2, 3, 4, 5, 6, 0, 7, 1).astype("<c16")
+        propagator = propagatorDiracPauliToDeGrandRossi(propagator)
     else:
         # QDP_ALIGN16 makes the last Nc to be aligned with 16 Bytes.
         propagator_align16 = readMPIFile(filename, dtype, offset, (Nc, Lt, Lz, Ly, Lx, 4), (4, 3, 2, 1), grid_size)
@@ -32,6 +34,7 @@ def writePropagator(
     dtype, offset = "<c8", 0
 
     if not staggered:
+        propagator = propagatorDeGrandRossiToDiracPauli(propagator)
         propagator = propagator.astype(dtype).transpose(5, 7, 0, 1, 2, 3, 4, 6).copy()
         writeMPIFile(filename, dtype, offset, (Ns, Nc, Lt, Lz, Ly, Lx, Ns, Nc), (5, 4, 3, 2), grid_size, propagator)
     else:

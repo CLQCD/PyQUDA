@@ -3,7 +3,8 @@ from typing import List
 
 import numpy
 
-from .mpi_file import getSublatticeSize, readMPIFile, writeMPIFile
+from ._mpi_file import getSublatticeSize, readMPIFile, writeMPIFile
+from ._field_utils import propagatorDiracPauliToDeGrandRossi, propagatorDeGrandRossiToDiracPauli
 
 Nd, Ns, Nc = 4, 4, 3
 
@@ -48,6 +49,7 @@ def readPropagator(filename: str, latt_size: List[int], grid_size: List[int]):
         .reshape(Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc * 2)
         .view("<c16")
     )
+    propagator = propagatorDiracPauliToDeGrandRossi(propagator)
     return propagator
 
 
@@ -56,6 +58,7 @@ def writePropagator(filename: str, latt_size: List[int], grid_size: List[int], p
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size, grid_size)
     dtype, offset = ">f8", 0
 
+    propagator = propagatorDeGrandRossiToDiracPauli(propagator)
     propagator = (
         propagator.view("<f8")
         .reshape(Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc, 2)

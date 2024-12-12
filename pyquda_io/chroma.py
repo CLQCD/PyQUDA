@@ -4,7 +4,7 @@ from xml.etree import ElementTree as ET
 
 from mpi4py import MPI
 
-from .mpi_file import getSublatticeSize, getGridCoord, readMPIFile
+from ._mpi_file import getSublatticeSize, getGridCoord, readMPIFile
 
 Nd, Ns, Nc = 4, 4, 3
 _precision_map = {"D": 8, "F": 4, "S": 4}

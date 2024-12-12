@@ -49,7 +49,7 @@ def LatticeGaugeGPT(lattice: List[g.lattice], gen_simd_width: int, gauge: Lattic
     else:
         assert latt_info.size == gauge.latt_info.size
         for index in range(latt_info.Nd):
-            gpt_shape = [i for sl in zip(gpt_simd, gpt_latt) for i in sl]
+            gpt_shape = [i for sl in zip(gpt_simd[::-1], gpt_latt[::-1]) for i in sl]
             lattice[index].mview()[0][:] = (
                 gauge[index]
                 .lexico()

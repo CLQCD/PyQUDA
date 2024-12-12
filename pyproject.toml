@@ -2,7 +2,7 @@
 requires = ["setuptools", "wheel"]
 
 [tool.setuptools.packages.find]
-include = ["pyquda_utils*"]
+include = ["pyquda_utils*", "pyquda_io*"]
 
 [tool.setuptools.dynamic]
 version = { attr = "pyquda_utils._version.__version__" }

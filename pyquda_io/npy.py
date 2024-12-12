@@ -5,7 +5,7 @@ import numpy
 from numpy.lib.format import dtype_to_descr, read_magic, read_array_header_1_0, write_array_header_1_0
 from mpi4py import MPI
 
-from .mpi_file import getSublatticeSize, readMPIFile, writeMPIFile
+from ._mpi_file import getSublatticeSize, readMPIFile, writeMPIFile
 
 Nd, Ns, Nc = 4, 4, 3
 

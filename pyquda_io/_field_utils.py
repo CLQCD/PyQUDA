@@ -3,7 +3,7 @@ from typing import List
 from mpi4py import MPI
 import numpy
 
-from .mpi_file import getSublatticeSize, getNeighbourRank
+from ._mpi_file import getSublatticeSize, getNeighbourRank
 
 Nd, Nc = 4, 3
 
@@ -72,30 +72,12 @@ def gaugeLexicoPlaquette(latt_size: List[int], grid_size: List[int], gauge: nump
         extended[:, -1, :-1, :-1, :-1] = buf
 
     plaq = numpy.zeros((6))
-    plaq[0] = numpy.vdot(
-        numpy.linalg.matmul(gauge[0], extended[1, :-1, :-1, :-1, 1:]),
-        numpy.linalg.matmul(gauge[1], extended[0, :-1, :-1, 1:, :-1]),
-    ).real
-    plaq[1] = numpy.vdot(
-        numpy.linalg.matmul(gauge[0], extended[2, :-1, :-1, :-1, 1:]),
-        numpy.linalg.matmul(gauge[2], extended[0, :-1, 1:, :-1, :-1]),
-    ).real
-    plaq[2] = numpy.vdot(
-        numpy.linalg.matmul(gauge[1], extended[2, :-1, :-1, 1:, :-1]),
-        numpy.linalg.matmul(gauge[2], extended[1, :-1, 1:, :-1, :-1]),
-    ).real
-    plaq[3] = numpy.vdot(
-        numpy.linalg.matmul(gauge[0], extended[3, :-1, :-1, :-1, 1:]),
-        numpy.linalg.matmul(gauge[3], extended[0, 1:, :-1, :-1, :-1]),
-    ).real
-    plaq[4] = numpy.vdot(
-        numpy.linalg.matmul(gauge[1], extended[3, :-1, :-1, 1:, :-1]),
-        numpy.linalg.matmul(gauge[3], extended[1, 1:, :-1, :-1, :-1]),
-    ).real
-    plaq[5] = numpy.vdot(
-        numpy.linalg.matmul(gauge[2], extended[3, :-1, 1:, :-1, :-1]),
-        numpy.linalg.matmul(gauge[3], extended[2, 1:, :-1, :-1, :-1]),
-    ).real
+    plaq[0] = numpy.vdot(gauge[0] @ extended[1, :-1, :-1, :-1, 1:], gauge[1] @ extended[0, :-1, :-1, 1:, :-1]).real
+    plaq[1] = numpy.vdot(gauge[0] @ extended[2, :-1, :-1, :-1, 1:], gauge[2] @ extended[0, :-1, 1:, :-1, :-1]).real
+    plaq[2] = numpy.vdot(gauge[1] @ extended[2, :-1, :-1, 1:, :-1], gauge[2] @ extended[1, :-1, 1:, :-1, :-1]).real
+    plaq[3] = numpy.vdot(gauge[0] @ extended[3, :-1, :-1, :-1, 1:], gauge[3] @ extended[0, 1:, :-1, :-1, :-1]).real
+    plaq[4] = numpy.vdot(gauge[1] @ extended[3, :-1, :-1, 1:, :-1], gauge[3] @ extended[1, 1:, :-1, :-1, :-1]).real
+    plaq[5] = numpy.vdot(gauge[2] @ extended[3, :-1, 1:, :-1, :-1], gauge[3] @ extended[2, 1:, :-1, :-1, :-1]).real
 
     plaq /= int(numpy.prod(latt_size)) * Nc
     plaq = MPI.COMM_WORLD.allreduce(plaq, MPI.SUM)
@@ -186,3 +168,39 @@ def gaugeEvenShiftBackward(latt_size: List[int], grid_size: List[int], gauge: nu
         MPI.COMM_WORLD.Sendrecv_replace(buf, dest=neighbour_rank[3], source=neighbour_rank[7])
         gauge_shift[3, 1, 0, :, :, :] = buf
     return gauge_shift
+
+
+# matrices to convert gamma basis bewteen DeGrand-Rossi and Dirac-Pauli
+# DP for Dirac-Pauli, DR for DeGrand-Rossi
+# \psi(DP) = _DR_TO_DP \psi(DR)
+# \psi(DR) = _DP_TO_DR \psi(DP)
+_DP_TO_DR = numpy.array(
+    [
+        [0, 1, 0, -1],
+        [-1, 0, 1, 0],
+        [0, 1, 0, 1],
+        [-1, 0, -1, 0],
+    ]
+)
+_DR_TO_DP = numpy.array(
+    [
+        [0, -1, 0, -1],
+        [1, 0, 1, 0],
+        [0, 1, 0, -1],
+        [-1, 0, 1, 0],
+    ]
+)
+
+
+def propagatorDeGrandRossiToDiracPauli(propagator: numpy.ndarray):
+    P = _DR_TO_DP
+    Pinv = _DP_TO_DR / 2
+
+    return numpy.ascontiguousarray(numpy.einsum("ij,tzyxjkab,kl->tzyxilab", P, propagator.data, Pinv, optimize=True))
+
+
+def propagatorDiracPauliToDeGrandRossi(propagator: numpy.ndarray):
+    P = _DP_TO_DR
+    Pinv = _DR_TO_DP / 2
+
+    return numpy.ascontiguousarray(numpy.einsum("ij,tzyxjkab,kl->tzyxilab", P, propagator.data, Pinv, optimize=True))

@@ -5,8 +5,8 @@ from typing import List
 import numpy
 from mpi4py import MPI
 
-from .mpi_file import getSublatticeSize, readMPIFile, writeMPIFile
-from .gauge_utils import gaugeEvenOdd, gaugeLexico, gaugeLexicoPlaquette, gaugeOddShiftForward, gaugeEvenShiftBackward
+from ._mpi_file import getSublatticeSize, readMPIFile, writeMPIFile
+from ._field_utils import gaugeEvenOdd, gaugeLexico, gaugeLexicoPlaquette, gaugeOddShiftForward, gaugeEvenShiftBackward
 
 Nd, Ns, Nc = 4, 4, 3
 

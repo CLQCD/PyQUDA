@@ -22,6 +22,7 @@ pyquda_core/pyquda/enum_quda.py
 pyquda_core/pyquda/src/*.c
 pyquda_core/pyquda/src/*.cpp
 pyquda_utils/_version.py
+pyquda_io/_version.py
 
 # symbolic link
 /pyquda
