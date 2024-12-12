@@ -586,16 +586,10 @@ class ParityField(BaseField):
         gt = self.latt_info.gt
         stop = (start + 1) if stop is None else stop
         step = 1 if step is None else step
-        if step > 0:
-            s = (start - gt * Lt) % step if start < gt * Lt else 0
-            start = max(start - gt * Lt, 0) + s
-            stop = min(stop - gt * Lt, Lt)
-        elif step < 0:
-            s = ((gt + 1) * Lt - start) % step if (gt + 1) * Lt <= start else 0
-            start = min(start - gt * Lt, Lt - 1) + s
-            stop = max(stop - gt * Lt, -1)
-            start, stop = (0, Lt) if start <= stop else (start, stop)
-            stop = None if stop == -1 else stop  # Workaround for numpy slice
+        s = (start - gt * Lt) % step if start < gt * Lt and stop > gt * Lt else 0
+        start = min(max(start - gt * Lt, 0), Lt) + s
+        stop = min(max(stop - gt * Lt, 0), Lt)
+        assert start <= stop and step > 0
         if return_field:
             if self.L5 is None:
                 x = self.__class__(self.latt_info)
@@ -607,14 +601,14 @@ class ParityField(BaseField):
                 x.data[:, start:stop:step, :, :, :] = self.data[:, start:stop:step, :, :, :]
             else:
                 x.data[start:stop:step, :, :, :] = self.data[start:stop:step, :, :, :]
-            return x
         else:
             if self.full_field and self.L5 is not None:
-                return self.data[:, :, start:stop:step, :, :, :]
+                x = self.data[:, :, start:stop:step, :, :, :]
             elif self.full_field or self.L5 is not None:
-                return self.data[:, start:stop:step, :, :, :]
+                x = self.data[:, start:stop:step, :, :, :]
             else:
-                return self.data[start:stop:step, :, :, :]
+                x = self.data[start:stop:step, :, :, :]
+        return x
 
 
 class FullField:
