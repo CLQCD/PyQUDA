@@ -63,7 +63,7 @@ for i in range(start, stop):
         f"P = {potential}, K = {kinetic}\n"
         f"Delta_P = {potential - potential_old}, Delta_K = {kinetic - kinetic_old}\n"
         f"Delta_E = {energy - energy_old}\n"
-        f"acceptance rate = {min(1, exp(energy_old - energy)) * 100:.2f}%\n"
+        f"acceptance rate = {exp(min(energy_old - energy, 0)) * 100:.2f}%\n"
         f"accept? {accept}\n"
         f"warmup? {i < warm}\n"
         f"HMC time = {perf_counter() - s:.3f} secs\n"

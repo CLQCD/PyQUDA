@@ -386,7 +386,7 @@ class HMC:
             self.projectSU3(project_tol)
 
     def accept(self, delta_s: float):
-        return self.latt_info.mpi_comm.bcast(self.random.random() < exp(-delta_s))
+        return self.latt_info.mpi_comm.bcast(self.random.random() < exp(min(-delta_s, 0)))
 
     def plaquette(self):
         self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_TRUE
