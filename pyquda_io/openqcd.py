@@ -6,7 +6,7 @@ import numpy
 from mpi4py import MPI
 
 from ._mpi_file import getSublatticeSize, readMPIFile, writeMPIFile
-from ._field_utils import gaugeEvenOdd, gaugeLexico, gaugeLexicoPlaquette, gaugeOddShiftForward, gaugeEvenShiftBackward
+from ._field_utils import gaugeEvenOdd, gaugeLexico, gaugePlaquette, gaugeOddShiftForward, gaugeEvenShiftBackward
 
 Nd, Ns, Nc = 4, 4, 3
 
@@ -35,10 +35,10 @@ def readGauge(filename: str, grid_size: List[int], plaquette: bool = True, lexic
     if lexico:
         gauge = gaugeLexico([Lx, Ly, Lz, Lt], gauge)
         if plaquette:
-            assert numpy.isclose(gaugeLexicoPlaquette(latt_size, grid_size, gauge)[0], plaquette)
+            assert numpy.isclose(gaugePlaquette(latt_size, grid_size, gauge)[0], plaquette)
     elif plaquette:
         gauge_lexico = gaugeLexico([Lx, Ly, Lz, Lt], gauge)
-        assert numpy.isclose(gaugeLexicoPlaquette(latt_size, grid_size, gauge_lexico)[0], plaquette)
+        assert numpy.isclose(gaugePlaquette(latt_size, grid_size, gauge_lexico)[0], plaquette)
     gauge = gauge.astype("<c16")
 
     return latt_size, gauge
@@ -59,11 +59,11 @@ def writeGauge(
     gauge = gauge.astype(dtype)
     if lexico:
         if plaquette is None:
-            plaquette = gaugeLexicoPlaquette(latt_size, grid_size, gauge)[0]
+            plaquette = gaugePlaquette(latt_size, grid_size, gauge)[0]
         gauge = gaugeEvenOdd([Lx, Ly, Lz, Lt], gauge)
     elif plaquette is None:
         gauge_lexico = gaugeLexico([Lx, Ly, Lz, Lt], gauge)
-        plaquette = gaugeLexicoPlaquette(latt_size, grid_size, gauge_lexico)[0]
+        plaquette = gaugePlaquette(latt_size, grid_size, gauge_lexico)[0]
     gauge = gaugeEvenShiftBackward(latt_size, grid_size, gauge)
     gauge_reorder = numpy.zeros((Lt, Lx, Ly, Lz // 2, Nd, 2, Nc, Nc), dtype)
     for t in range(Lt):

@@ -6,7 +6,7 @@ import numpy
 from mpi4py import MPI
 
 from ._mpi_file import getSublatticeSize, readMPIFile, writeMPIFile
-from ._field_utils import gaugeLexicoPlaquette
+from ._field_utils import gaugePlaquette, gaugeReunitarize, gaugeReunitarizeReconstruct12, gaugeReconstruct12
 
 Nd, Ns, Nc = 4, 4, 3
 
@@ -17,12 +17,17 @@ def checksum_nersc(data: numpy.ndarray) -> int:
 
 def link_trace_nersc(gauge: numpy.ndarray) -> float:
     return MPI.COMM_WORLD.allreduce(
-        numpy.einsum("tzyxdaa->", gauge.real) / (MPI.COMM_WORLD.Get_size() * gauge.size // Nc), MPI.SUM
+        numpy.einsum("dtzyxaa->", gauge.real) / (MPI.COMM_WORLD.Get_size() * gauge.size // Nc), MPI.SUM
     )
 
 
 def readGauge(
-    filename: str, grid_size: List[int], plaquette: bool = True, link_trace: bool = True, checksum: bool = True
+    filename: str,
+    grid_size: List[int],
+    checksum: bool = True,
+    plaquette: bool = True,
+    link_trace: bool = True,
+    reunitarize_sigma: bool = True,
 ):
     filename = path.expanduser(path.expandvars(filename))
     header: Dict[str, str] = {}
@@ -54,27 +59,31 @@ def readGauge(
     if header["DATATYPE"] == "4D_SU3_GAUGE_3x3":
         gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0), grid_size)
         gauge = gauge.astype(f"<c{2 * float_nbytes}")
-        if link_trace:
-            assert numpy.isclose(link_trace_nersc(gauge), float(header["LINK_TRACE"])), f"Bad link trace for {filename}"
         if checksum:
             assert checksum_nersc(gauge.reshape(-1)) == int(header["CHECKSUM"], 16), f"Bad checksum for {filename}"
         gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
-        if plaquette:
-            assert numpy.isclose(
-                gaugeLexicoPlaquette(latt_size, grid_size, gauge)[0], float(header["PLAQUETTE"])
-            ), f"Bad plaquette for {filename}"
-        return latt_size, gauge
+        if float_nbytes == 4:
+            gauge = gaugeReunitarize(gauge, reunitarize_sigma)
     elif header["DATATYPE"] == "4D_SU3_GAUGE":
-        # gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc - 1, Nc), (3, 2, 1, 0))
-        # if checksum:
-        #     assert checksum_nersc(gauge.astype(f"<c{2 * nbytes}").reshape(-1)) == int(
-        #         header["CHECKSUM"], 16
-        #     ), f"Bad checksum for {filename}"
-        # gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
-        # return latt_size, gauge
-        raise NotImplementedError("SU3_GAUGE is not supported")
+        gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc - 1, Nc), (3, 2, 1, 0), grid_size)
+        gauge = gauge.astype(f"<c{2 * float_nbytes}")
+        if checksum:
+            assert checksum_nersc(gauge.reshape(-1)) == int(header["CHECKSUM"], 16), f"Bad checksum for {filename}"
+        gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
+        if float_nbytes == 4:
+            gauge = gaugeReunitarizeReconstruct12(gauge, reunitarize_sigma)
+        elif float_nbytes == 8:
+            gauge = gaugeReconstruct12(gauge)
     else:
         raise ValueError(f"Unsupported datatype: {header['DATATYPE']}")
+
+    if link_trace:
+        assert numpy.isclose(link_trace_nersc(gauge), float(header["LINK_TRACE"])), f"Bad link trace for {filename}"
+    if plaquette:
+        assert numpy.isclose(
+            gaugePlaquette(latt_size, grid_size, gauge)[0], float(header["PLAQUETTE"])
+        ), f"Bad plaquette for {filename}"
+    return latt_size, gauge
 
 
 def writeGauge(
@@ -89,7 +98,7 @@ def writeGauge(
     float_nbytes = 4 if use_fp32 else 8
     dtype, offset = f"<c{2 * float_nbytes}", None
     if plaquette is None:
-        plaquette = gaugeLexicoPlaquette(latt_size, grid_size, gauge)[0]
+        plaquette = gaugePlaquette(latt_size, grid_size, gauge)[0]
     gauge = numpy.ascontiguousarray(gauge.transpose(1, 2, 3, 4, 0, 5, 6).astype(dtype))
     link_trace = link_trace_nersc(gauge)
     checksum = checksum_nersc(gauge.reshape(-1))

@@ -96,11 +96,11 @@ def readChromaQIOPropagator(filename: str, checksum: bool = True):
         return LatticeStaggeredPropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
 
 
-def readMILCGauge(filename: str, checksum: bool = True):
+def readMILCGauge(filename: str, checksum: bool = True, reunitarize_sigma: bool = True):
     from pyquda import getGridSize
     from pyquda_io.milc import readGauge as read
 
-    latt_size, gauge_raw = read(filename, getGridSize(), checksum)
+    latt_size, gauge_raw = read(filename, getGridSize(), checksum, reunitarize_sigma)
     return LatticeGauge(LatticeInfo(latt_size), evenodd(gauge_raw, [1, 2, 3, 4]))
 
 
@@ -239,11 +239,17 @@ def writeOpenQCDGauge(filename: str, gauge: LatticeGauge, plaquette: float = Non
     write(filename, gauge.latt_info.global_size, gauge.latt_info.grid_size, gauge.getHost(), plaquette, False)
 
 
-def readNERSCGauge(filename: str, plaquette: bool = True, link_trace: bool = True, checksum: bool = True):
+def readNERSCGauge(
+    filename: str,
+    checksum: bool = True,
+    plaquette: bool = True,
+    link_trace: bool = True,
+    reunitarize_sigma: bool = True,
+):
     from pyquda import getGridSize
     from pyquda_io.nersc import readGauge as read
 
-    latt_size, gauge_raw = read(filename, getGridSize(), plaquette, link_trace, checksum)
+    latt_size, gauge_raw = read(filename, getGridSize(), checksum, plaquette, link_trace, reunitarize_sigma)
     return LatticeGauge(LatticeInfo(latt_size), evenodd(gauge_raw, [1, 2, 3, 4]))
 
 

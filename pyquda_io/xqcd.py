@@ -16,7 +16,7 @@ def readPropagator(filename: str, latt_size: List[int], grid_size: List[int], st
 
     if not staggered:
         propagator = readMPIFile(filename, dtype, offset, (Ns, Nc, Lt, Lz, Ly, Lx, Ns, Nc), (5, 4, 3, 2), grid_size)
-        propagator = propagator.transpose(6, 0, 2, 3, 4, 5, 7, 1).astype("<c16")
+        propagator = propagator.transpose(2, 3, 4, 5, 6, 0, 7, 1).astype("<c16")
         propagator = spinMatrixFromDiracPauli(propagator)
     else:
         # QDP_ALIGN16 makes the last Nc to be aligned with 16 Bytes.
@@ -35,7 +35,7 @@ def writePropagator(
 
     if not staggered:
         propagator = spinMatrixToDiracPauli(propagator)
-        propagator = propagator.astype(dtype).transpose(1, 7, 2, 3, 4, 5, 0, 6).copy()
+        propagator = propagator.astype(dtype).transpose(5, 7, 0, 1, 2, 3, 4, 6).copy()
         writeMPIFile(filename, dtype, offset, (Ns, Nc, Lt, Lz, Ly, Lx, Ns, Nc), (5, 4, 3, 2), grid_size, propagator)
     else:
         # QDP_ALIGN16 makes the last Nc to be aligned with 16 Bytes.

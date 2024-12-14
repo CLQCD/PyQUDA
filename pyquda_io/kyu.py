@@ -18,8 +18,8 @@ def readGauge(filename: str, latt_size: List[int], grid_size: List[int]):
     gauge = (
         gauge.transpose(0, 4, 5, 6, 7, 2, 1, 3)
         .astype("<f8")
-        .copy()
         .reshape(Nd, Lt, Lz, Ly, Lx, Nc, Nc * 2)
+        .copy()  # Required by .view("<c16")
         .view("<c16")
     )
     return gauge
@@ -43,11 +43,11 @@ def readPropagator(filename: str, latt_size: List[int], grid_size: List[int]):
 
     propagator = readMPIFile(filename, dtype, offset, (Ns, Nc, 2, Ns, Nc, Lt, Lz, Ly, Lx), (8, 7, 6, 5), grid_size)
     propagator = (
-        propagator.transpose(3, 0, 5, 6, 7, 8, 4, 1, 2)
+        propagator.transpose(5, 6, 7, 8, 3, 0, 4, 1, 2)
         .astype("<f8")
-        .copy()
-        .reshape(Ns, Ns, Lt, Lz, Ly, Lx, Nc, Nc * 2)
-        .view("<c16")
+        .reshape(Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc * 2)
+        # .copy()  # Required by .view("<c16")
+        # .view("<c16")  # Processed in spinMatrixFromDiracPauli()
     )
     propagator = spinMatrixFromDiracPauli(propagator)
     return propagator
@@ -61,9 +61,9 @@ def writePropagator(filename: str, latt_size: List[int], grid_size: List[int], p
     propagator = spinMatrixToDiracPauli(propagator)
     propagator = (
         propagator.view("<f8")
-        .reshape(Ns, Ns, Lt, Lz, Ly, Lx, Nc, Nc, 2)
+        .reshape(Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc, 2)
         .astype(dtype)
-        .transpose(1, 7, 8, 0, 6, 2, 3, 4, 5)
+        .transpose(5, 7, 8, 4, 6, 0, 1, 2, 3)
         .copy()
     )
     writeMPIFile(filename, dtype, offset, (Ns, Nc, 2, Ns, Nc, Lt, Lz, Ly, Lx), (8, 7, 6, 5), grid_size, propagator)

@@ -8,6 +8,7 @@ import numpy
 from mpi4py import MPI
 
 from ._mpi_file import getGridCoord, getSublatticeSize, readMPIFile, writeMPIFile
+from ._field_utils import gaugeReunitarize
 
 Nd, Ns, Nc = 4, 4, 3
 _precision_map = {"D": 8, "F": 4, "S": 4}
@@ -54,7 +55,7 @@ def checksum_qio(latt_size: List[int], grid_size: List[int], data):
     return sum29, sum31
 
 
-def readGauge(filename: str, grid_size: List[int], checksum: bool = True):
+def readGauge(filename: str, grid_size: List[int], checksum: bool = True, reunitarize_sigma: bool = True):
     filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
         magic = f.read(4)
@@ -78,6 +79,7 @@ def readGauge(filename: str, grid_size: List[int], checksum: bool = True):
             sum31,
         ), f"Bad checksum for {filename}"
     gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
+    gauge = gaugeReunitarize(gauge, reunitarize_sigma)
     return latt_size, gauge
 
 

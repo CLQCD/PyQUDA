@@ -5,7 +5,7 @@ import numpy
 
 from ._mpi_file import getSublatticeSize, getNeighbourRank
 
-Nd, Nc = 4, 3
+Nd, Ns, Nc = 4, 4, 3
 
 
 def gaugeEvenOdd(latt_size: List[int], gauge: numpy.ndarray):
@@ -40,7 +40,7 @@ def gaugeLexico(latt_size: List[int], gauge: numpy.ndarray):
     return gauge_lexico
 
 
-def gaugeLexicoPlaquette(latt_size: List[int], grid_size: List[int], gauge: numpy.ndarray):
+def gaugePlaquette(latt_size: List[int], grid_size: List[int], gauge: numpy.ndarray):
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size, grid_size)
     rank = MPI.COMM_WORLD.Get_rank()
     neighbour_rank = getNeighbourRank(grid_size)
@@ -71,7 +71,7 @@ def gaugeLexicoPlaquette(latt_size: List[int], grid_size: List[int], gauge: nump
         MPI.COMM_WORLD.Sendrecv_replace(buf, dest=neighbour_rank[7], source=neighbour_rank[3])
         extended[:, -1, :-1, :-1, :-1] = buf
 
-    plaq = numpy.zeros((6))
+    plaq = numpy.empty((6), "<f8")
     plaq[0] = numpy.vdot(gauge[0] @ extended[1, :-1, :-1, :-1, 1:], gauge[1] @ extended[0, :-1, :-1, 1:, :-1]).real
     plaq[1] = numpy.vdot(gauge[0] @ extended[2, :-1, :-1, :-1, 1:], gauge[2] @ extended[0, :-1, 1:, :-1, :-1]).real
     plaq[2] = numpy.vdot(gauge[1] @ extended[2, :-1, :-1, 1:, :-1], gauge[2] @ extended[1, :-1, 1:, :-1, :-1]).real
@@ -170,6 +170,69 @@ def gaugeEvenShiftBackward(latt_size: List[int], grid_size: List[int], gauge: nu
     return gauge_shift
 
 
+def gaugeProject(gauge: numpy.ndarray):
+    pass
+
+
+def gaugeReunitarize(gauge: numpy.ndarray, reunitarize_sigma: bool = True):
+    gauge = numpy.ascontiguousarray(gauge.transpose(5, 6, 0, 1, 2, 3, 4))
+    row0_abs = numpy.linalg.norm(gauge[0], axis=0)
+    gauge[0] /= row0_abs
+    row0_row1 = numpy.sum(gauge[0].conjugate() * gauge[1], axis=0)
+    gauge[1] -= row0_row1 * gauge[0]
+    row1_abs = numpy.linalg.norm(gauge[1], axis=0)
+    gauge[1] /= row1_abs
+    row2 = numpy.cross(gauge[0], gauge[1], axis=0).conjugate()
+    if reunitarize_sigma:
+        assert (
+            MPI.COMM_WORLD.allreduce(
+                numpy.sqrt(
+                    (1 - row0_abs) ** 2
+                    + numpy.abs(row0_row1) ** 2
+                    + (1 - row1_abs) ** 2
+                    + numpy.linalg.norm(row2 - gauge[2], axis=0) ** 2
+                ).max(),
+                MPI.MAX,
+            )
+            < 2e-7  # sqrt(Nc) * fp32 machine epsilon
+        )
+    gauge[2] = row2
+    return gauge.transpose(2, 3, 4, 5, 6, 0, 1)
+
+
+def gaugeReunitarizeReconstruct12(gauge: numpy.ndarray, reunitarize_sigma: bool = True):
+    """gauge shape (Nd, Lt, Lz, Ly, Lx, Nc - 1, Nc)"""
+    gauge_ = gauge.transpose(5, 6, 0, 1, 2, 3, 4)
+    gauge = numpy.empty((Nc, *gauge_.shape[1:]), "<c16")
+    gauge[:2] = gauge_
+    row0_abs = numpy.linalg.norm(gauge[0], axis=0)
+    gauge[0] /= row0_abs
+    row0_row1 = numpy.sum(gauge[0].conjugate() * gauge[1], axis=0)
+    gauge[1] -= row0_row1 * gauge[0]
+    row1_abs = numpy.linalg.norm(gauge[1], axis=0)
+    gauge[1] /= row1_abs
+    row2 = numpy.cross(gauge[0], gauge[1], axis=0).conjugate()
+    if reunitarize_sigma:
+        assert (
+            MPI.COMM_WORLD.allreduce(
+                numpy.sqrt((1 - row0_abs) ** 2 + numpy.abs(row0_row1) ** 2 + (1 - row1_abs) ** 2).max(),
+                MPI.MAX,
+            )
+            < 2e-7  # sqrt(Nc) * fp32 machine epsilon
+        )
+    gauge[2] = row2
+    return gauge.transpose(2, 3, 4, 5, 6, 0, 1)
+
+
+def gaugeReconstruct12(gauge: numpy.ndarray):
+    """gauge shape (Nd, Lt, Lz, Ly, Lx, Nc - 1, Nc)"""
+    gauge_ = gauge.transpose(5, 6, 0, 1, 2, 3, 4)
+    gauge = numpy.empty((Nc, *gauge_.shape[1:]), "<c16")
+    gauge[:2] = gauge_
+    gauge[2] = numpy.cross(gauge[..., 0, :], gauge[..., 1, :], axis=-1).conjugate()
+    return gauge
+
+
 # matrices to convert gamma basis bewteen DeGrand-Rossi and Dirac-Pauli
 # DP for Dirac-Pauli, DR for DeGrand-Rossi
 # \psi(DP) = _DR_TO_DP \psi(DR)
@@ -180,7 +243,8 @@ _FROM_DIRAC_PAULI = numpy.array(
         [-1, 0, 1, 0],
         [0, 1, 0, 1],
         [-1, 0, -1, 0],
-    ]
+    ],
+    "<i4",
 )
 _TO_DIRAC_PAULI = numpy.array(
     [
@@ -188,7 +252,8 @@ _TO_DIRAC_PAULI = numpy.array(
         [1, 0, 1, 0],
         [0, 1, 0, -1],
         [-1, 0, 1, 0],
-    ]
+    ],
+    "<i4",
 )
 
 
@@ -208,28 +273,32 @@ def propagatorToDiracPauli(propagator: numpy.ndarray):
 
 def spinMatrixFromDiracPauli(dirac_pauli: numpy.ndarray):
     P = _FROM_DIRAC_PAULI
+    if dirac_pauli.dtype.str == "<f8":  # Special case for KYU
+        dirac_pauli = numpy.ascontiguousarray(dirac_pauli.transpose(4, 5, 0, 1, 2, 3, 6, 7) / 2).view("<c16")
+    else:
+        dirac_pauli = numpy.ascontiguousarray(dirac_pauli.transpose(4, 5, 0, 1, 2, 3, 6, 7) / 2)
     degrand_rossi = numpy.zeros_like(dirac_pauli)
     for i in range(4):
         for j in range(4):
-            for i_ in range((i + 1) % 2, 4, 2):
-                for j_ in range((j + 1) % 2, 4, 2):
+            for i_ in range(4):
+                for j_ in range(4):
                     if P[i, i_] * P[j, j_] == 1:
                         degrand_rossi[i, j] += dirac_pauli[i_, j_]
                     elif P[i, i_] * P[j, j_] == -1:
                         degrand_rossi[i, j] -= dirac_pauli[i_, j_]
-    return degrand_rossi.transpose(2, 3, 4, 5, 0, 1, 6, 7) / 2
+    return degrand_rossi.transpose(2, 3, 4, 5, 0, 1, 6, 7)
 
 
 def spinMatrixToDiracPauli(degrand_rossi: numpy.ndarray):
     P = _TO_DIRAC_PAULI
-    degrand_rossi = degrand_rossi.transpose(4, 5, 0, 1, 2, 3, 6, 7) / 2
+    degrand_rossi = numpy.ascontiguousarray(degrand_rossi.transpose(4, 5, 0, 1, 2, 3, 6, 7) / 2)
     dirac_pauli = numpy.zeros_like(degrand_rossi)
     for i in range(4):
         for j in range(4):
-            for i_ in range((i + 1) % 2, 4, 2):
-                for j_ in range((j + 1) % 2, 4, 2):
+            for i_ in range(4):
+                for j_ in range(4):
                     if P[i, i_] * P[j, j_] == 1:
                         dirac_pauli[i, j] += degrand_rossi[i_, j_]
                     elif P[i, i_] * P[j, j_] == -1:
                         dirac_pauli[i, j] -= degrand_rossi[i_, j_]
-    return dirac_pauli
+    return dirac_pauli.transpose(2, 3, 4, 5, 0, 1, 6, 7)
