@@ -78,10 +78,9 @@ def gaugePlaquette(latt_size: List[int], grid_size: List[int], gauge: numpy.ndar
     plaq[3] = numpy.vdot(gauge[0] @ extended[3, :-1, :-1, :-1, 1:], gauge[3] @ extended[0, 1:, :-1, :-1, :-1]).real
     plaq[4] = numpy.vdot(gauge[1] @ extended[3, :-1, :-1, 1:, :-1], gauge[3] @ extended[1, 1:, :-1, :-1, :-1]).real
     plaq[5] = numpy.vdot(gauge[2] @ extended[3, :-1, 1:, :-1, :-1], gauge[3] @ extended[2, 1:, :-1, :-1, :-1]).real
-
     plaq /= int(numpy.prod(latt_size)) * Nc
     plaq = MPI.COMM_WORLD.allreduce(plaq, MPI.SUM)
-    return [plaq.mean().item(), plaq[:3].mean().item(), plaq[3:].mean().item()]
+    return numpy.array([plaq.mean(), plaq[:3].mean(), plaq[3:].mean()])
 
 
 def gaugeOddShiftForward(latt_size: List[int], grid_size: List[int], gauge: numpy.ndarray):
@@ -229,8 +228,8 @@ def gaugeReconstruct12(gauge: numpy.ndarray):
     gauge_ = gauge.transpose(5, 6, 0, 1, 2, 3, 4)
     gauge = numpy.empty((Nc, *gauge_.shape[1:]), "<c16")
     gauge[:2] = gauge_
-    gauge[2] = numpy.cross(gauge[..., 0, :], gauge[..., 1, :], axis=-1).conjugate()
-    return gauge
+    gauge[2] = numpy.cross(gauge[0], gauge[1], axis=0).conjugate()
+    return gauge.transpose(2, 3, 4, 5, 6, 0, 1)
 
 
 # matrices to convert gamma basis bewteen DeGrand-Rossi and Dirac-Pauli

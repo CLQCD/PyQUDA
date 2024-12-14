@@ -15,7 +15,7 @@ def readGauge(filename: str, grid_size: List[int], plaquette: bool = True, lexic
     filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
         latt_size = struct.unpack("<iiii", f.read(16))[::-1]
-        plaquette = struct.unpack("<d", f.read(8))[0] / Nc
+        plaquette_ = struct.unpack("<d", f.read(8))[0] / Nc
         offset = f.tell()
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size, grid_size)
     dtype = "<c16"
@@ -35,10 +35,9 @@ def readGauge(filename: str, grid_size: List[int], plaquette: bool = True, lexic
     if lexico:
         gauge = gaugeLexico([Lx, Ly, Lz, Lt], gauge)
         if plaquette:
-            assert numpy.isclose(gaugePlaquette(latt_size, grid_size, gauge)[0], plaquette)
+            assert numpy.isclose(gaugePlaquette(latt_size, grid_size, gauge)[0], plaquette_)
     elif plaquette:
-        gauge_lexico = gaugeLexico([Lx, Ly, Lz, Lt], gauge)
-        assert numpy.isclose(gaugePlaquette(latt_size, grid_size, gauge_lexico)[0], plaquette)
+        assert numpy.isclose(gaugePlaquette(latt_size, grid_size, gaugeLexico(latt_size, gauge))[0], plaquette_)
     gauge = gauge.astype("<c16")
 
     return latt_size, gauge
@@ -62,8 +61,7 @@ def writeGauge(
             plaquette = gaugePlaquette(latt_size, grid_size, gauge)[0]
         gauge = gaugeEvenOdd([Lx, Ly, Lz, Lt], gauge)
     elif plaquette is None:
-        gauge_lexico = gaugeLexico([Lx, Ly, Lz, Lt], gauge)
-        plaquette = gaugePlaquette(latt_size, grid_size, gauge_lexico)[0]
+        plaquette = gaugePlaquette(latt_size, grid_size, gaugeLexico([Lx, Ly, Lz, Lt], gauge))[0]
     gauge = gaugeEvenShiftBackward(latt_size, grid_size, gauge)
     gauge_reorder = numpy.zeros((Lt, Lx, Ly, Lz // 2, Nd, 2, Nc, Nc), dtype)
     for t in range(Lt):
