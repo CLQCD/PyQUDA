@@ -82,7 +82,7 @@ def LatticePropagatorGPT(lattice: g.lattice, gen_simd_width: int, propagator: La
         return propagator
     else:
         assert latt_info.size == propagator.latt_info.size
-        gpt_shape = [i for sl in zip(gpt_simd, gpt_latt) for i in sl]
+        gpt_shape = [i for sl in zip(gpt_simd[::-1], gpt_latt[::-1]) for i in sl]
         lattice.mview()[0][:] = (
             propagator.lexico()
             .astype(f"<c{2 * gpt_prec}")
