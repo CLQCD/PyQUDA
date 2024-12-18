@@ -27,7 +27,7 @@ def readGauge(
     checksum: bool = True,
     plaquette: bool = True,
     link_trace: bool = True,
-    reunitarize_sigma: bool = True,
+    reunitarize_sigma: float = 2e-7,
 ):
     filename = path.expanduser(path.expandvars(filename))
     header: Dict[str, str] = {}
@@ -63,7 +63,7 @@ def readGauge(
             assert checksum_nersc(gauge.reshape(-1)) == int(header["CHECKSUM"], 16), f"Bad checksum for {filename}"
         gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
         if float_nbytes == 4:
-            gauge = gaugeReunitarize(gauge, reunitarize_sigma)
+            gauge = gaugeReunitarize(gauge, reunitarize_sigma)  # 2e-7: Nc**0.5 * 1.1920929e-07
     elif header["DATATYPE"] == "4D_SU3_GAUGE":
         gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc - 1, Nc), (3, 2, 1, 0), grid_size)
         gauge = gauge.astype(f"<c{2 * float_nbytes}")
@@ -71,7 +71,7 @@ def readGauge(
             assert checksum_nersc(gauge.reshape(-1)) == int(header["CHECKSUM"], 16), f"Bad checksum for {filename}"
         gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
         if float_nbytes == 4:
-            gauge = gaugeReunitarizeReconstruct12(gauge, reunitarize_sigma)
+            gauge = gaugeReunitarizeReconstruct12(gauge, reunitarize_sigma)  # 2e-7: Nc**0.5 * 1.1920929e-07
         elif float_nbytes == 8:
             gauge = gaugeReconstruct12(gauge)
     else:

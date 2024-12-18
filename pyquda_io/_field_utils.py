@@ -173,7 +173,7 @@ def gaugeProject(gauge: numpy.ndarray):
     pass
 
 
-def gaugeReunitarize(gauge: numpy.ndarray, reunitarize_sigma: bool = True):
+def gaugeReunitarize(gauge: numpy.ndarray, reunitarize_sigma: float):
     gauge = numpy.ascontiguousarray(gauge.transpose(5, 6, 0, 1, 2, 3, 4))
     row0_abs = numpy.linalg.norm(gauge[0], axis=0)
     gauge[0] /= row0_abs
@@ -182,7 +182,7 @@ def gaugeReunitarize(gauge: numpy.ndarray, reunitarize_sigma: bool = True):
     row1_abs = numpy.linalg.norm(gauge[1], axis=0)
     gauge[1] /= row1_abs
     row2 = numpy.cross(gauge[0], gauge[1], axis=0).conjugate()
-    if reunitarize_sigma:
+    if reunitarize_sigma > 0:
         assert (
             MPI.COMM_WORLD.allreduce(
                 numpy.sqrt(
@@ -193,13 +193,13 @@ def gaugeReunitarize(gauge: numpy.ndarray, reunitarize_sigma: bool = True):
                 ).max(),
                 MPI.MAX,
             )
-            < 2e-7  # sqrt(Nc) * fp32 machine epsilon
+            < reunitarize_sigma
         )
     gauge[2] = row2
     return gauge.transpose(2, 3, 4, 5, 6, 0, 1)
 
 
-def gaugeReunitarizeReconstruct12(gauge: numpy.ndarray, reunitarize_sigma: bool = True):
+def gaugeReunitarizeReconstruct12(gauge: numpy.ndarray, reunitarize_sigma: float):
     """gauge shape (Nd, Lt, Lz, Ly, Lx, Nc - 1, Nc)"""
     gauge_ = gauge.transpose(5, 6, 0, 1, 2, 3, 4)
     gauge = numpy.empty((Nc, *gauge_.shape[1:]), "<c16")
@@ -211,13 +211,13 @@ def gaugeReunitarizeReconstruct12(gauge: numpy.ndarray, reunitarize_sigma: bool 
     row1_abs = numpy.linalg.norm(gauge[1], axis=0)
     gauge[1] /= row1_abs
     row2 = numpy.cross(gauge[0], gauge[1], axis=0).conjugate()
-    if reunitarize_sigma:
+    if reunitarize_sigma > 0:
         assert (
             MPI.COMM_WORLD.allreduce(
                 numpy.sqrt((1 - row0_abs) ** 2 + numpy.abs(row0_row1) ** 2 + (1 - row1_abs) ** 2).max(),
                 MPI.MAX,
             )
-            < 2e-7  # sqrt(Nc) * fp32 machine epsilon
+            < reunitarize_sigma
         )
     gauge[2] = row2
     return gauge.transpose(2, 3, 4, 5, 6, 0, 1)

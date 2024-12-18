@@ -69,11 +69,11 @@ def rotateToDeGrandRossi(propagator: LatticePropagator):
     )
 
 
-def readChromaQIOGauge(filename: str, checksum: bool = True):
+def readChromaQIOGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 2e-7):
     from pyquda import getGridSize
     from pyquda_io.chroma import readQIOGauge as read
 
-    latt_size, gauge_raw = read(filename, getGridSize(), checksum)
+    latt_size, gauge_raw = read(filename, getGridSize(), checksum, reunitarize_sigma)
     return LatticeGauge(LatticeInfo(latt_size), evenodd(gauge_raw, [1, 2, 3, 4]))
 
 
@@ -96,7 +96,7 @@ def readChromaQIOPropagator(filename: str, checksum: bool = True):
         return LatticeStaggeredPropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
 
 
-def readMILCGauge(filename: str, checksum: bool = True, reunitarize_sigma: bool = True):
+def readMILCGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 2e-7):
     from pyquda import getGridSize
     from pyquda_io.milc import readGauge as read
 
@@ -244,7 +244,7 @@ def readNERSCGauge(
     checksum: bool = True,
     plaquette: bool = True,
     link_trace: bool = True,
-    reunitarize_sigma: bool = True,
+    reunitarize_sigma: float = 2e-7,
 ):
     from pyquda import getGridSize
     from pyquda_io.nersc import readGauge as read
