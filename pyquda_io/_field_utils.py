@@ -183,18 +183,14 @@ def gaugeReunitarize(gauge: numpy.ndarray, reunitarize_sigma: float):
     gauge[1] /= row1_abs
     row2 = numpy.cross(gauge[0], gauge[1], axis=0).conjugate()
     if reunitarize_sigma > 0:
-        assert (
-            MPI.COMM_WORLD.allreduce(
-                numpy.sqrt(
-                    (1 - row0_abs) ** 2
-                    + numpy.abs(row0_row1) ** 2
-                    + (1 - row1_abs) ** 2
-                    + numpy.linalg.norm(row2 - gauge[2], axis=0) ** 2
-                ).max(),
-                MPI.MAX,
-            )
-            < reunitarize_sigma
+        sigma = numpy.sqrt(
+            (1 - row0_abs) ** 2
+            + numpy.abs(row0_row1) ** 2
+            + (1 - row1_abs) ** 2
+            + numpy.linalg.norm(row2 - gauge[2], axis=0) ** 2
         )
+        failed = MPI.COMM_WORLD.allreduce(numpy.sum(sigma > reunitarize_sigma), MPI.SUM)
+        assert failed == 0, f"Reunitarization failed {failed} times"
     gauge[2] = row2
     return gauge.transpose(2, 3, 4, 5, 6, 0, 1)
 
@@ -212,13 +208,9 @@ def gaugeReunitarizeReconstruct12(gauge: numpy.ndarray, reunitarize_sigma: float
     gauge[1] /= row1_abs
     row2 = numpy.cross(gauge[0], gauge[1], axis=0).conjugate()
     if reunitarize_sigma > 0:
-        assert (
-            MPI.COMM_WORLD.allreduce(
-                numpy.sqrt((1 - row0_abs) ** 2 + numpy.abs(row0_row1) ** 2 + (1 - row1_abs) ** 2).max(),
-                MPI.MAX,
-            )
-            < reunitarize_sigma
-        )
+        sigma = numpy.sqrt((1 - row0_abs) ** 2 + numpy.abs(row0_row1) ** 2 + (1 - row1_abs) ** 2)
+        failed = MPI.COMM_WORLD.allreduce(numpy.sum(sigma > reunitarize_sigma), MPI.SUM)
+        assert failed == 0, f"Reunitarization failed {failed} times"
     gauge[2] = row2
     return gauge.transpose(2, 3, 4, 5, 6, 0, 1)
 

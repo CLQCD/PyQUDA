@@ -1105,6 +1105,8 @@ class LatticeGauge(MultiField, LatticeLink):
         distribution (sigma = 0 results in a free field, and sigma = 1 has
         maximum disorder).
 
+        Parameters
+        ----------
         seed: int
             The seed used for the RNG
         sigma: float

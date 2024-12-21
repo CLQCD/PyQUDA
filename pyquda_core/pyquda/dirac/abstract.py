@@ -18,6 +18,7 @@ from ..pyquda import (
     destroyMultigridQuda,
 )
 from ..enum_quda import (
+    QUDA_MAX_MG_LEVEL,
     QudaBoolean,
     QudaParity,
     QudaPrecision,
@@ -93,6 +94,10 @@ class Dirac(ABC):
             )
         setReconstructParam(self.reconstruct, self.gauge_param)
 
+    def setVerbosity(self, verbosity: QudaVerbosity):
+        self.invert_param.verbosity = verbosity
+        self.invert_param.verbosity_precondition = verbosity
+
 
 class Multigrid:
     param: QudaMultigridParam
@@ -140,6 +145,11 @@ class FermionDirac(Dirac):
     ):
         super().setPrecision(cuda=cuda, sloppy=sloppy, precondition=precondition, eigensolver=eigensolver)
         setPrecisionParam(self.precision, None, None, self.multigrid.param, self.multigrid.inv_param)
+
+    def setVerbosity(self, verbosity):
+        super().setVerbosity(verbosity)
+        self.multigrid.inv_param.verbosity = verbosity
+        self.multigrid.param.verbosity = [verbosity] * QUDA_MAX_MG_LEVEL
 
     @abstractmethod
     def loadGauge(self, gauge: LatticeGauge):

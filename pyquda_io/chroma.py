@@ -34,7 +34,7 @@ def checksum_qio(latt_size: List[int], grid_size: List[int], data):
     return sum29, sum31
 
 
-def readQIOGauge(filename: str, grid_size: List[int], checksum: bool = True, reunitarize_sigma: float = 2e-7):
+def readQIOGauge(filename: str, grid_size: List[int], checksum: bool = True, reunitarize_sigma: float = 5e-7):
     from .lime import Lime
 
     lime = Lime(filename)
@@ -68,7 +68,7 @@ def readQIOGauge(filename: str, grid_size: List[int], checksum: bool = True, reu
         ), f"Bad checksum for {filename}"
     gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
     if precision == 4:
-        gauge = gaugeReunitarize(gauge, reunitarize_sigma)  # 2e-7: Nc**0.5 * 1.1920929e-07
+        gauge = gaugeReunitarize(gauge, reunitarize_sigma)  # 5e-7: Nc * 2**0.5 * 1.1920929e-07
     return latt_size, gauge
 
 

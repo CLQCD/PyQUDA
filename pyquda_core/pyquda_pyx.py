@@ -53,7 +53,7 @@ param = """
     def %name%(self, value):
         self.set_%name%(value)
 
-    cdef set_%name%(self, QudaInvertParam value):
+    cdef set_%name%(self, %type% value):
         self.param.%name% = &value.param
 """
 
@@ -76,15 +76,21 @@ multigrid_param = """
     def %name%(self):
         params = []
         for i in range(self.param.n_level):
-            param = %type%()
-            param.from_ptr(self.param.%name%[i])
-            params.append(param)
+            if self.param.%name%[i] != NULL:
+                param = %type%()
+                param.from_ptr(self.param.%name%[i])
+                params.append(param)
+            else:
+                params.append(None)
         return params
 
     @%name%.setter
     def %name%(self, value):
         for i in range(self.param.n_level):
-            self.set_%name%(value[i], i)
+            if value[i] is not None:
+                self.set_%name%(value[i], i)
+            else:
+                self.param.%name%[i] = NULL
 
     cdef set_%name%(self, %type% value, int i):
         self.param.%name%[i] = &value.param

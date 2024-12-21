@@ -248,6 +248,7 @@ def newQudaMultigridParam(
     setup_maxiter: int,
     nu_pre: int,
     nu_post: int,
+    staggered: bool,
 ):
     mg_param = QudaMultigridParam()
     mg_inv_param = QudaInvertParam()
@@ -288,14 +289,27 @@ def newQudaMultigridParam(
 
     mg_param.invert_param = mg_inv_param
 
+    geo_block_size = geo_block_size + [[4, 4, 4, 4]]
+    if staggered:
+        geo_block_size = [[1, 1, 1, 1]] + geo_block_size
     n_level = len(geo_block_size)
     for i in range(n_level):
         geo_block_size[i] = geo_block_size[i] + [1] * (QUDA_MAX_DIM - len(geo_block_size[i]))
     mg_param.n_level = n_level
     mg_param.geo_block_size = geo_block_size
-    mg_param.spin_block_size = [2] + [1] * (QUDA_MAX_MG_LEVEL - 1)
-    mg_param.n_vec = [24] * QUDA_MAX_MG_LEVEL
-    mg_param.n_block_ortho = [1] * QUDA_MAX_MG_LEVEL
+    if staggered:
+        mg_param.spin_block_size = [0] + [0] + [1] * (QUDA_MAX_MG_LEVEL - 2)
+        mg_param.n_vec = [3] + [64] * (QUDA_MAX_MG_LEVEL - 1)
+        mg_param.n_block_ortho = [1] + [2] * (QUDA_MAX_MG_LEVEL - 1)
+    else:
+        mg_param.spin_block_size = [2] + [1] * (QUDA_MAX_MG_LEVEL - 1)
+        mg_param.n_vec = [24] * QUDA_MAX_MG_LEVEL
+        mg_param.n_block_ortho = [1] * QUDA_MAX_MG_LEVEL
+
+    mg_param.verbosity = [QudaVerbosity.QUDA_SILENT] * QUDA_MAX_MG_LEVEL
+    use_mma: QudaBoolean = _useMMA()
+    mg_param.setup_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
+    mg_param.dslash_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
 
     mg_param.setup_inv_type = [QudaInverterType.QUDA_CGNR_INVERTER] * QUDA_MAX_MG_LEVEL
     mg_param.n_vec_batch = [1] * QUDA_MAX_MG_LEVEL
@@ -309,25 +323,29 @@ def newQudaMultigridParam(
 
     mg_param.coarse_solver = [QudaInverterType.QUDA_GCR_INVERTER] * (n_level - 1) + [
         QudaInverterType.QUDA_CA_GCR_INVERTER
-    ] * (QUDA_MAX_MG_LEVEL - n_level + 1)
+    ] * (QUDA_MAX_MG_LEVEL - (n_level - 1))
     mg_param.coarse_solver_tol = [coarse_tol] * QUDA_MAX_MG_LEVEL
     mg_param.coarse_solver_maxiter = [coarse_maxiter] * QUDA_MAX_MG_LEVEL
-    mg_param.transfer_type = [QudaTransferType.QUDA_TRANSFER_AGGREGATE] * QUDA_MAX_MG_LEVEL
+    # mg_param.coarse_solver_ca_basis_size = [16] * QUDA_MAX_MG_LEVEL
 
     mg_param.smoother = [QudaInverterType.QUDA_CA_GCR_INVERTER] * QUDA_MAX_MG_LEVEL
     mg_param.smoother_tol = [0.25] * QUDA_MAX_MG_LEVEL
+    # mg_param.smoother_tol = [1e-10] * QUDA_MAX_MG_LEVEL
     mg_param.nu_pre = [nu_pre] * QUDA_MAX_MG_LEVEL
     mg_param.nu_post = [nu_post] * QUDA_MAX_MG_LEVEL
     mg_param.omega = [1.0] * QUDA_MAX_MG_LEVEL
     mg_param.smoother_schwarz_type = [QudaSchwarzType.QUDA_INVALID_SCHWARZ] * QUDA_MAX_MG_LEVEL
     mg_param.smoother_schwarz_cycle = [1] * QUDA_MAX_MG_LEVEL
 
-    mg_param.coarse_grid_solution_type = [QudaSolutionType.QUDA_MATPC_SOLUTION] * QUDA_MAX_MG_LEVEL
-    mg_param.smoother_solve_type = [QudaSolveType.QUDA_DIRECT_PC_SOLVE] * QUDA_MAX_MG_LEVEL
+    coarse_grid_solution_type = [QudaSolutionType.QUDA_MATPC_SOLUTION] * QUDA_MAX_MG_LEVEL
+    smoother_solve_type = [QudaSolveType.QUDA_DIRECT_PC_SOLVE] * QUDA_MAX_MG_LEVEL
+    if staggered:
+        coarse_grid_solution_type[1] = QudaSolutionType.QUDA_MAT_SOLUTION
+        smoother_solve_type[1] = QudaSolveType.QUDA_DIRECT_SOLVE
+    mg_param.coarse_grid_solution_type = coarse_grid_solution_type
+    mg_param.smoother_solve_type = smoother_solve_type
     mg_param.cycle_type = [QudaMultigridCycleType.QUDA_MG_CYCLE_RECURSIVE] * QUDA_MAX_MG_LEVEL
     mg_param.global_reduction = [QudaBoolean.QUDA_BOOLEAN_TRUE] * QUDA_MAX_MG_LEVEL
-
-    mg_param.mu_factor = [1.0] * QUDA_MAX_MG_LEVEL
 
     mg_param.location = [QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION] * QUDA_MAX_MG_LEVEL
     mg_param.setup_location = [QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION] * QUDA_MAX_MG_LEVEL
@@ -338,11 +356,11 @@ def newQudaMultigridParam(
     mg_param.run_low_mode_check = QudaBoolean.QUDA_BOOLEAN_FALSE
     mg_param.run_oblique_proj_check = QudaBoolean.QUDA_BOOLEAN_FALSE
 
-    use_mma: QudaBoolean = _useMMA()
-    mg_param.setup_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
-    mg_param.dslash_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
-
-    mg_param.verbosity = [QudaVerbosity.QUDA_SILENT] * QUDA_MAX_MG_LEVEL
+    mg_param.mu_factor = [1.0] * QUDA_MAX_MG_LEVEL
+    transfer_type = [QudaTransferType.QUDA_TRANSFER_AGGREGATE] * QUDA_MAX_MG_LEVEL
+    if staggered:
+        transfer_type[0] = QudaTransferType.QUDA_TRANSFER_OPTIMIZED_KD
+    mg_param.transfer_type = transfer_type
 
     return mg_param, mg_inv_param
 

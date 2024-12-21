@@ -377,10 +377,11 @@ def getHISQ(
     tol: float,
     maxiter: int,
     naik_epsilon: float = 0.0,
+    multigrid: Union[List[List[int]], Multigrid] = None,
 ):
     assert latt_info.anisotropy == 1.0
 
-    return fermion.HISQDirac(latt_info, mass, tol, maxiter, naik_epsilon, None)
+    return fermion.HISQDirac(latt_info, mass, tol, maxiter, naik_epsilon, multigrid)
 
 
 def getDefaultDirac(

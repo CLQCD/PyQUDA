@@ -55,7 +55,7 @@ def checksum_qio(latt_size: List[int], grid_size: List[int], data):
     return sum29, sum31
 
 
-def readGauge(filename: str, grid_size: List[int], checksum: bool = True, reunitarize_sigma: float = 2e-7):
+def readGauge(filename: str, grid_size: List[int], checksum: bool = True, reunitarize_sigma: float = 5e-7):
     filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
         magic = f.read(4)
@@ -79,7 +79,7 @@ def readGauge(filename: str, grid_size: List[int], checksum: bool = True, reunit
             sum31,
         ), f"Bad checksum for {filename}"
     gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
-    gauge = gaugeReunitarize(gauge, reunitarize_sigma)  # 2e-7: Nc**0.5 * 1.1920929e-07
+    gauge = gaugeReunitarize(gauge, reunitarize_sigma)  # 5e-7: Nc * 2**0.5 * 1.1920929e-07
     return latt_size, gauge
 
 

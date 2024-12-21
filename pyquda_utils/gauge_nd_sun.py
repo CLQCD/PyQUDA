@@ -85,7 +85,7 @@ class LatticeLink:
         latt_size: Sequence[int],
         grid_size: Sequence[int],
         color: int,
-        matrix: numpy.ndarray = None,
+        value: numpy.ndarray = None,
         mu: int = None,
     ):
         assert len(latt_size) == len(grid_size)
@@ -95,28 +95,29 @@ class LatticeLink:
         self.grid_size = tuple(grid_size)
         self.grid_coord = getGridCoord(grid_size)
         self.sublatt_size = getSublatticeSize(latt_size, grid_size)
-        if matrix is None:
-            self.matrix = numpy.empty((*self.sublatt_size[::-1], self.Nc, self.Nc), numpy.complex128)
+        if value is None:
+            self.data = numpy.empty((*self.sublatt_size[::-1], self.Nc, self.Nc), numpy.complex128)
+            self.data[...] = numpy.identity(self.Nc, dtype=numpy.complex128)
         else:
-            self.matrix = matrix.reshape(*self.sublatt_size[::-1], self.Nc, self.Nc)
+            self.data = value.reshape(*self.sublatt_size[::-1], self.Nc, self.Nc)
         self.mu = mu
 
     def __getitem__(self, key):
-        return self.matrix[key]
+        return self.data[key]
 
     def __matmul__(self, other: "LatticeLink"):
-        return self.matrix @ other.matrix
+        return self.data @ other.data
 
     @property
     def backend(self):
-        if type(self.matrix).__module__ == "numpy":
+        if type(self.data).__module__ == "numpy":
             return numpy
-        elif type(self.matrix).__module__ == "cupy":
+        elif type(self.data).__module__ == "cupy":
             import cupy
 
             return cupy
         else:
-            raise RuntimeError(f"Unknown array type {type(self.matrix)}")
+            raise RuntimeError(f"Unknown array type {type(self.data)}")
 
     def shift(self, mu: int, dagger: bool = False):
         assert 0 <= mu < 2 * self.Nd
@@ -126,8 +127,8 @@ class LatticeLink:
         mu = mu % self.Nd
         left_slice = [slice(None, None) for nu in range(self.Nd)]
         right_slice = [slice(None, None) for nu in range(self.Nd)]
-        result = backend.empty_like(self.matrix)
-        right = self.matrix
+        result = backend.empty_like(self.data)
+        right = self.data
         rank = _RANK
         dest = getShiftedRank(self.grid_coord, self.grid_size, [0 if nu != mu else -dir for nu in range(Nd)])
         source = getShiftedRank(self.grid_coord, self.grid_size, [0 if nu != mu else dir for nu in range(Nd)])
@@ -161,7 +162,7 @@ class LatticeLink:
 
         return LatticeLink(self.latt_size, self.grid_size, self.Nc, result, self.mu)
 
-    def link(self, right: "LatticeLink"):
+    def matmul_shift(self, right: "LatticeLink"):
         assert self.mu is not None, "Ambiguous dimension and direction"
         backend = self.backend
         Nd = self.Nd
@@ -169,9 +170,9 @@ class LatticeLink:
         mu = self.mu % self.Nd
         left_slice = [slice(None, None) for nu in range(self.Nd)]
         right_slice = [slice(None, None) for nu in range(self.Nd)]
-        result = backend.empty_like(self.matrix)
-        left = self.matrix
-        right = right.matrix
+        result = backend.empty_like(self.data)
+        left = self.data
+        right = right.data
         rank = _RANK
         dest = getShiftedRank(self.grid_coord, self.grid_size, [0 if nu != mu else -dir for nu in range(Nd)])
         source = getShiftedRank(self.grid_coord, self.grid_size, [0 if nu != mu else dir for nu in range(Nd)])
@@ -207,7 +208,7 @@ class LatticeLink:
             self.latt_size,
             self.grid_size,
             self.Nc,
-            self.matrix.swapaxes(-2, -1).conjugate(),
+            self.data.swapaxes(-2, -1).conjugate(),
         )
 
     def toDevice(self):
@@ -215,10 +216,10 @@ class LatticeLink:
 
         if _GPUID < 0:
             initGPU()
-        self.matrix = cupy.asarray(self.matrix)
+        self.data = cupy.asarray(self.data)
 
     def toHost(self):
-        self.matrix = self.matrix.get()
+        self.data = self.data.get()
 
 
 class LatticeGauge:
@@ -228,7 +229,7 @@ class LatticeGauge:
         grid_size: Sequence[int],
         color: int,
         border: int = 0,
-        gauge: numpy.ndarray = None,
+        value: numpy.ndarray = None,
         extended: numpy.ndarray = None,
     ):
         assert len(latt_size) == len(grid_size)
@@ -239,27 +240,28 @@ class LatticeGauge:
         self.grid_coord = getGridCoord(grid_size)
         self.sublatt_size = getSublatticeSize(latt_size, grid_size)
         shape = (self.Nd, *self.sublatt_size[::-1], self.Nc, self.Nc)
-        if gauge is None:
-            self.gauge = numpy.empty(shape, numpy.complex128)
+        if value is None:
+            self.data = numpy.empty(shape, numpy.complex128)
+            self.data[...] = numpy.identity(self.Nc, dtype=numpy.complex128)
         else:
-            self.gauge = gauge.reshape(shape)
+            self.data = value.reshape(shape)
         self.extend(border, extended)
 
     def __getitem__(self, mu):
         assert 0 <= mu < 2 * self.Nd
-        gauge_mu = LatticeLink(self.latt_size, self.grid_size, self.Nc, self.gauge[mu % self.Nd], mu)
+        gauge_mu = LatticeLink(self.latt_size, self.grid_size, self.Nc, self.data[mu % self.Nd], mu)
         return gauge_mu if mu < self.Nd else gauge_mu.shift(mu, True)
 
     @property
     def backend(self):
-        if type(self.gauge).__module__ == "numpy":
+        if type(self.data).__module__ == "numpy":
             return numpy
-        elif type(self.gauge).__module__ == "cupy":
+        elif type(self.data).__module__ == "cupy":
             import cupy
 
             return cupy
         else:
-            raise RuntimeError(f"Unknown array type {type(self.gauge)}")
+            raise RuntimeError(f"Unknown array type {type(self.data)}")
 
     def extend(self, border: int, extended: numpy.ndarray = None):
         if border <= 0:
@@ -271,7 +273,7 @@ class LatticeGauge:
             self.extlatt_size = [L + 2 * border for L in self.sublatt_size]
             shape = (self.Nd, *self.extlatt_size[::-1], self.Nc, self.Nc)
             if extended is None:
-                self.extended = self.backend.empty(shape, self.gauge.dtype)
+                self.extended = self.backend.empty(shape, self.data.dtype)
             else:
                 self.extended = extended.reshape(shape)
             self.exchange()
@@ -294,7 +296,7 @@ class LatticeGauge:
                     gauge_slice[mu] = slice(-Lb, None)
             gaugeSendRecv(
                 self.extended[:, *extended_slice[::-1]],
-                self.gauge[:, *gauge_slice[::-1]],
+                self.data[:, *gauge_slice[::-1]],
                 getShiftedRank(self.grid_coord, self.grid_size, delta),
                 getShiftedRank(self.grid_coord, self.grid_size, [-d for d in delta]),
             )
@@ -314,12 +316,12 @@ class LatticeGauge:
 
         if _GPUID < 0:
             initGPU()
-        self.gauge = cupy.asarray(self.gauge)
+        self.data = cupy.asarray(self.data)
         if self.extended is not None:
             self.extended = cupy.asarray(self.extended)
 
     def toHost(self):
-        self.gauge = self.gauge.get()
+        self.data = self.data.get()
         if self.extended is not None:
             self.extended = self.extended.get()
 
@@ -327,5 +329,5 @@ class LatticeGauge:
 def link(*color_matrices: LatticeLink):
     linked = color_matrices[-1]
     for color_matrix in color_matrices[::-1][1:]:
-        linked = color_matrix.link(linked)
+        linked = color_matrix.matmul_shift(linked)
     return linked

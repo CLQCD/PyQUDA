@@ -62,6 +62,7 @@ class CloverWilsonDirac(FermionDirac):
                 setup_maxiter,
                 nu_pre,
                 nu_post,
+                False,
             )
             mg_inv_param.dslash_type = QudaDslashType.QUDA_CLOVER_WILSON_DSLASH
             self.multigrid = Multigrid(mg_param, mg_inv_param)
