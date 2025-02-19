@@ -37,7 +37,7 @@ def readGauge(filename: str, grid_size: List[int], plaquette: bool = True, lexic
         if plaquette:
             assert numpy.isclose(gaugePlaquette(latt_size, grid_size, gauge)[0], plaquette_)
     elif plaquette:
-        assert numpy.isclose(gaugePlaquette(latt_size, grid_size, gaugeLexico(latt_size, gauge))[0], plaquette_)
+        assert numpy.isclose(gaugePlaquette(latt_size, grid_size, gaugeLexico([Lx, Ly, Lz, Lt], gauge))[0], plaquette_)
     gauge = gauge.astype("<c16")
 
     return latt_size, gauge

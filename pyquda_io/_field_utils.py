@@ -8,8 +8,8 @@ from ._mpi_file import getSublatticeSize, getNeighbourRank
 Nd, Ns, Nc = 4, 4, 3
 
 
-def gaugeEvenOdd(latt_size: List[int], gauge: numpy.ndarray):
-    Lx, Ly, Lz, Lt = latt_size
+def gaugeEvenOdd(sublatt_size: List[int], gauge: numpy.ndarray):
+    Lx, Ly, Lz, Lt = sublatt_size
     gauge_eo = numpy.zeros_like(gauge).reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc)
     for t in range(Lt):
         for z in range(Lz):
@@ -24,8 +24,8 @@ def gaugeEvenOdd(latt_size: List[int], gauge: numpy.ndarray):
     return gauge_eo
 
 
-def gaugeLexico(latt_size: List[int], gauge: numpy.ndarray):
-    Lx, Ly, Lz, Lt = latt_size
+def gaugeLexico(sublatt_size: List[int], gauge: numpy.ndarray):
+    Lx, Ly, Lz, Lt = sublatt_size
     gauge_lexico = numpy.empty_like(gauge).reshape(Nd, Lt, Lz, Ly, Lx, Nc, Nc)
     for t in range(Lt):
         for z in range(Lz):
