@@ -71,7 +71,6 @@ def poly4_rhmc_param(filename: str):
 
         n_flavor = tuple(int(lines[index][1 + i]) for i in range(4) if lines[index][1 + i] != "0")
         mass = tuple(float(lines[index + 2][1 + i]) for i in range(4) if lines[index][1 + i] != "0")
-        print(mass, n_flavor)
         index += 3
         order = int(lines[index][1])
         index += 1

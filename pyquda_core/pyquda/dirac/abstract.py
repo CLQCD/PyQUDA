@@ -5,6 +5,7 @@ from ..pyquda import (
     QudaGaugeParam,
     QudaInvertParam,
     QudaMultigridParam,
+    QudaEigParam,
     QudaGaugeSmearParam,
     QudaGaugeObservableParam,
     invertQuda,
@@ -51,6 +52,7 @@ class Dirac(ABC):
     reconstruct: Reconstruct
     gauge_param: QudaGaugeParam
     invert_param: QudaInvertParam
+    eig_param: QudaEigParam
     smear_param: QudaGaugeSmearParam
     obs_param: QudaGaugeObservableParam
 
@@ -146,10 +148,11 @@ class FermionDirac(Dirac):
         super().setPrecision(cuda=cuda, sloppy=sloppy, precondition=precondition, eigensolver=eigensolver)
         setPrecisionParam(self.precision, None, None, self.multigrid.param, self.multigrid.inv_param)
 
-    def setVerbosity(self, verbosity):
+    def setVerbosity(self, verbosity: QudaVerbosity):
         super().setVerbosity(verbosity)
-        self.multigrid.inv_param.verbosity = verbosity
-        self.multigrid.param.verbosity = [verbosity] * QUDA_MAX_MG_LEVEL
+        if self.multigrid.param is not None:
+            self.multigrid.inv_param.verbosity = verbosity
+            self.multigrid.param.verbosity = [verbosity] * QUDA_MAX_MG_LEVEL
 
     @abstractmethod
     def loadGauge(self, gauge: LatticeGauge):

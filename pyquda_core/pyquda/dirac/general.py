@@ -349,7 +349,7 @@ def newQudaMultigridParam(
 
     mg_param.location = [QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION] * QUDA_MAX_MG_LEVEL
     mg_param.setup_location = [QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION] * QUDA_MAX_MG_LEVEL
-    mg_param.setup_minimize_memory = QudaBoolean.QUDA_BOOLEAN_FALSE
+    # mg_param.setup_minimize_memory = QudaBoolean.QUDA_BOOLEAN_FALSE
     mg_param.compute_null_vector = QudaComputeNullVector.QUDA_COMPUTE_NULL_VECTOR_YES
     mg_param.generate_all_levels = QudaBoolean.QUDA_BOOLEAN_TRUE
     mg_param.run_verify = QudaBoolean.QUDA_BOOLEAN_TRUE
