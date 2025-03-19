@@ -2,18 +2,18 @@ from typing import List, Literal, Union
 
 import numpy
 
+from pyquda_comm import getCoordFromRank, getRankFromCoord
 from pyquda import (
     initGPU,
     initGrid,
     initQUDA,
     init,
-    getCoordFromRank,
-    getRankFromCoord,
     getMPIComm,
     getMPISize,
     getMPIRank,
     getGridSize,
     getGridCoord,
+    getGridMap,
     setDefaultLattice,
     getDefaultLattice,
     getCUDABackend,

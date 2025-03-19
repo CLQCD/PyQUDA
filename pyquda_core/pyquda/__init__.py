@@ -1,49 +1,21 @@
-import logging
 from os import environ
-from sys import stdout
-from typing import Any, Callable, Dict, List, Literal, NamedTuple, Tuple, Union
-
-from mpi4py import MPI
+from typing import Any, Callable, Dict, List, Literal, NamedTuple, Union
 
 from ._version import __version__  # noqa: F401
 from .field import LatticeInfo
-
-
-class _MPILogger:
-    def __init__(self, root: int = 0) -> None:
-        self.root = root
-        formatter = logging.Formatter(fmt="{name} {levelname}: {message}", style="{")
-        stdout_handler = logging.StreamHandler(stdout)
-        stdout_handler.setFormatter(formatter)
-        stdout_handler.setLevel(logging.DEBUG)
-        stdout_handler.addFilter(lambda record: record.levelno <= logging.INFO)
-        stderr_handler = logging.StreamHandler()
-        stderr_handler.setFormatter(formatter)
-        stderr_handler.setLevel(logging.WARNING)
-        self.logger = logging.getLogger("PyQUDA")
-        self.logger.level = logging.DEBUG
-        self.logger.handlers = [stdout_handler, stderr_handler]
-
-    def debug(self, msg: str):
-        if _MPI_RANK == self.root:
-            self.logger.debug(msg)
-
-    def info(self, msg: str):
-        if _MPI_RANK == self.root:
-            self.logger.info(msg)
-
-    def warning(self, msg: str, category: Warning):
-        if _MPI_RANK == self.root:
-            self.logger.warning(msg, exc_info=category(msg), stack_info=True)
-
-    def error(self, msg: str, category: Exception):
-        if _MPI_RANK == self.root:
-            self.logger.error(msg, exc_info=category(msg), stack_info=True)
-
-    def critical(self, msg: str, category: Exception):
-        if _MPI_RANK == self.root:
-            self.logger.critical(msg, exc_info=category(msg), stack_info=True)
-        raise category(msg)
+from pyquda_comm import (  # noqa: F401
+    initGrid,
+    isGridInitialized,
+    getLogger,
+    setLoggerLevel,
+    getMPIComm,
+    getMPISize,
+    getMPIRank,
+    getGridSize,
+    getGridCoord,
+    getGridMap,
+    setGridMap,
+)
 
 
 class _ComputeCapability(NamedTuple):
@@ -51,12 +23,6 @@ class _ComputeCapability(NamedTuple):
     minor: int
 
 
-_MPI_LOGGER: _MPILogger = _MPILogger()
-_MPI_COMM: MPI.Comm = MPI.COMM_WORLD
-_MPI_SIZE: int = _MPI_COMM.Get_size()
-_MPI_RANK: int = _MPI_COMM.Get_rank()
-_GRID_SIZE: Union[List[int], None] = None
-_GRID_COORD: Union[List[int], None] = None
 _DEFAULT_LATTICE: Union[LatticeInfo, None] = None
 _CUDA_BACKEND: Literal["numpy", "cupy", "torch"] = "cupy"
 _HIP: bool = False
@@ -64,90 +30,14 @@ _GPUID: int = -1
 _COMPUTE_CAPABILITY: _ComputeCapability = _ComputeCapability(0, 0)
 
 
-def getRankFromCoord(grid_coord: List[int], grid_size: List[int] = None) -> int:
-    Gx, Gy, Gz, Gt = _GRID_SIZE if grid_size is None else grid_size
-    gx, gy, gz, gt = grid_coord
-    return ((gx * Gy + gy) * Gz + gz) * Gt + gt
-
-
-def getCoordFromRank(mpi_rank: int, grid_size: List[int] = None) -> List[int]:
-    Gx, Gy, Gz, Gt = _GRID_SIZE if grid_size is None else grid_size
-    return [mpi_rank // Gt // Gz // Gy, mpi_rank // Gt // Gz % Gy, mpi_rank // Gt % Gz, mpi_rank % Gt]
-
-
-def _composition4(n):
-    """
-    Writing n as the sum of 4 natural numbers
-    """
-    addend: List[Tuple[int, int, int, int]] = []
-    for i in range(n + 1):
-        for j in range(i, n + 1):
-            for k in range(j, n + 1):
-                x, y, z, t = i, j - i, k - j, n - k
-                addend.append((x, y, z, t))
-    return addend
-
-
-def _factorization4(k: int):
-    """
-    Writing k as the product of 4 positive numbers
-    """
-    prime_factor: List[List[Tuple[int, int, int, int]]] = []
-    for p in range(2, int(k**0.5) + 1):
-        n = 0
-        while k % p == 0:
-            n += 1
-            k //= p
-        if n != 0:
-            prime_factor.append([(p**x, p**y, p**z, p**t) for x, y, z, t in _composition4(n)])
-    if k != 1:
-        prime_factor.append([(k**x, k**y, k**z, k**t) for x, y, z, t in _composition4(1)])
-    return prime_factor
-
-
-def _partition(factor: List[List[Tuple[int, int, int, int]]], idx: int, sublatt_size: List[int], grid_size: List[int]):
-    if idx == 0:
-        factor = _factorization4(factor)
-    if idx == len(factor):
-        yield grid_size
-    else:
-        Lx, Ly, Lz, Lt = sublatt_size
-        Gx, Gy, Gz, Gt = grid_size
-        for x, y, z, t in factor[idx]:
-            if Lx % x == 0 and Ly % y == 0 and Lz % z == 0 and Lt % t == 0:
-                yield from _partition(
-                    factor, idx + 1, [Lx // x, Ly // y, Lz // z, Lt // t], [Gx * x, Gy * y, Gz * z, Gt * t]
-                )
-
-
-def _getDefaultGrid(mpi_size: int, latt_size: List[int]):
-    Lx, Ly, Lz, Lt = latt_size
-    latt_vol = Lx * Ly * Lz * Lt
-    latt_surf = [latt_vol // latt_size[dir] for dir in range(4)]
-    min_comm, min_grid = latt_vol, []
-    assert latt_vol % mpi_size == 0, "lattice volume must be divisible by MPI size"
-    assert Lx % 2 == 0 and Ly % 2 == 0 and Lz % 2 == 0 and Lt % 2 == 0, "lattice size must be even in all directions"
-    for grid_size in _partition(mpi_size, 0, [Lx // 2, Ly // 2, Lz // 2, Lt // 2], [1, 1, 1, 1]):
-        comm = [latt_surf[dir] * grid_size[dir] for dir in range(4) if grid_size[dir] > 1]
-        if sum(comm) < min_comm:
-            min_comm, min_grid = sum(comm), [grid_size]
-        elif sum(comm) == min_comm:
-            min_grid.append(grid_size)
-    if min_grid == []:
-        _MPI_LOGGER.critical(
-            f"Cannot get the proper GPU grid for lattice size {latt_size} with {mpi_size} MPI processes"
-        )
-    return min(min_grid)
-
-
 def _setEnviron(**kwargs):
     def _setEnviron(env, key, value):
         if value is not None:
             if env in environ:
-                _MPI_LOGGER.warning(f"Both {env} and init({key}) are set", RuntimeWarning)
+                getLogger().warning(f"Both {env} and init({key}) are set", RuntimeWarning)
             environ[env] = value
         if env in environ:
-            _MPI_LOGGER.info(f"Using {env}={environ[env]}")
+            getLogger().info(f"Using {env}={environ[env]}")
 
     for key in kwargs.keys():
         _setEnviron(f"QUDA_{key.upper()}", key, kwargs[key])
@@ -157,13 +47,13 @@ def _setEnvironWarn(**kwargs):
     def _setEnviron(env, key, value):
         if value is not None:
             if env in environ:
-                _MPI_LOGGER.warning(f"Both {env} and init({key}) are set", RuntimeWarning)
+                getLogger().warning(f"Both {env} and init({key}) are set", RuntimeWarning)
             environ[env] = value
         else:
             if env not in environ:
-                _MPI_LOGGER.warning(f"Neither {env} nor init({key}) is set", RuntimeWarning)
+                getLogger().warning(f"Neither {env} nor init({key}) is set", RuntimeWarning)
         if env in environ:
-            _MPI_LOGGER.info(f"Using {env}={environ[env]}")
+            getLogger().info(f"Using {env}={environ[env]}")
 
     for key in kwargs.keys():
         _setEnviron(f"QUDA_{key.upper()}", key, kwargs[key])
@@ -171,8 +61,6 @@ def _setEnvironWarn(**kwargs):
 
 def initGPU(backend: Literal["numpy", "cupy", "torch"] = None, gpuid: int = -1):
     global _CUDA_BACKEND, _HIP, _GPUID, _COMPUTE_CAPABILITY
-    if isGridInitialized():
-        _MPI_LOGGER.critical("initGPU should be called before initGrid", RuntimeError)
     if _GPUID < 0:
         from platform import node as gethostname
 
@@ -199,31 +87,31 @@ def initGPU(backend: Literal["numpy", "cupy", "torch"] = None, gpuid: int = -1):
             cudaSetDevice: Callable[[int], None] = lambda device: torch.set_default_device(f"cuda:{device}")
             _HIP = hip is not None
         else:
-            _MPI_LOGGER.critical(f"Unsupported CUDA backend {backend}", ValueError)
+            getLogger().critical(f"Unsupported CUDA backend {backend}", ValueError)
         _CUDA_BACKEND = backend
-        _MPI_LOGGER.info(f"Using CUDA backend {backend}")
+        getLogger().info(f"Using CUDA backend {backend}")
 
         # quda/include/communicator_quda.h
         # determine which GPU this rank will use
         hostname = gethostname()
-        hostname_recv_buf = _MPI_COMM.allgather(hostname)
+        hostname_recv_buf = getMPIComm().allgather(hostname)
 
         if gpuid < 0:
             device_count = cudaGetDeviceCount()
             if device_count == 0:
-                _MPI_LOGGER.critical("No devices found", RuntimeError)
+                getLogger().critical("No devices found", RuntimeError)
 
             gpuid = 0
-            for i in range(_MPI_RANK):
+            for i in range(getMPIRank()):
                 if hostname == hostname_recv_buf[i]:
                     gpuid += 1
 
             if gpuid >= device_count:
                 if "QUDA_ENABLE_MPS" in environ and environ["QUDA_ENABLE_MPS"] == "1":
                     gpuid %= device_count
-                    print(f"MPS enabled, rank={_MPI_RANK} -> gpu={gpuid}")
+                    print(f"MPS enabled, rank={getMPIRank():3d} -> gpu={gpuid}")
                 else:
-                    _MPI_LOGGER.critical(f"Too few GPUs available on {hostname}", RuntimeError)
+                    raise RuntimeError(f"Too few GPUs available on {hostname}")
         _GPUID = gpuid
 
         props = cudaGetDeviceProperties(gpuid)
@@ -234,20 +122,7 @@ def initGPU(backend: Literal["numpy", "cupy", "torch"] = None, gpuid: int = -1):
 
         cudaSetDevice(gpuid)
     else:
-        _MPI_LOGGER.warning("GPU is already initialized", RuntimeWarning)
-
-
-def initGrid(grid_size: List[int]):
-    global _GRID_SIZE, _GRID_COORD
-    if _GRID_SIZE is None:
-        Gx, Gy, Gz, Gt = grid_size
-        if _MPI_SIZE != Gx * Gy * Gz * Gt:
-            _MPI_LOGGER.critical(f"The MPI size {_MPI_SIZE} does not match the grid size {grid_size}", ValueError)
-        _GRID_SIZE = [Gx, Gy, Gz, Gt]
-        _GRID_COORD = getCoordFromRank(_MPI_RANK, _GRID_SIZE)
-        _MPI_LOGGER.info(f"Using the grid size {_GRID_SIZE}")
-    else:
-        _MPI_LOGGER.warning("Grid is already initialized", RuntimeWarning)
+        getLogger().warning("GPU is already initialized", RuntimeWarning)
 
 
 def initQUDA(grid_size: List[int], gpuid: int, use_quda_allocator: bool = False):
@@ -263,7 +138,7 @@ def initQUDA(grid_size: List[int], gpuid: int, use_quda_allocator: bool = False)
             )
             cupy.cuda.set_allocator(allocator.malloc)
 
-    quda.initCommsGridQuda(4, grid_size)
+    quda.initCommsGridQuda(4, grid_size, getGridMap().encode())
     quda.initQuda(gpuid)
     atexit.register(quda.endQuda)
 
@@ -306,19 +181,17 @@ def init(
     Initialize MPI along with the QUDA library.
     """
     global _DEFAULT_LATTICE
-    if _GRID_SIZE is None:
-        initGPU(backend)
-
+    if getGridSize(False) is None:
         use_default_grid = grid_size is None and latt_size is not None
         use_default_latt = latt_size is not None and t_boundary is not None and anisotropy is not None
-        if use_default_grid:
-            grid_size = _getDefaultGrid(_MPI_SIZE, latt_size)
-        initGrid(grid_size if grid_size is not None else [1, 1, 1, 1])
+        initGrid(grid_size, latt_size)
         if use_default_grid and not use_default_latt:
-            _MPI_LOGGER.info(f"Using the lattice size {latt_size} only for getting the default grid size {_GRID_SIZE}")
+            getLogger().info(
+                f"Using the lattice size {latt_size} only for getting the default grid size {getGridSize()}"
+            )
         if use_default_latt:
             _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
-            _MPI_LOGGER.info(f"Using the default lattice LatticeInfo({latt_size}, {t_boundary}, {anisotropy})")
+            getLogger().info(f"Using the default lattice LatticeInfo({latt_size}, {t_boundary}, {anisotropy})")
 
         _setEnvironWarn(resource_path=resource_path if resource_path != "" else None)
         _setEnviron(
@@ -350,48 +223,15 @@ def init(
             device_reset="1" if device_reset else None,
         )
 
+        initGPU(backend, -1)
         if init_quda:
-            initQUDA(_GRID_SIZE, _GPUID)
+            initQUDA(getGridSize(), _GPUID)
     else:
-        _MPI_LOGGER.warning("PyQUDA is already initialized", RuntimeWarning)
-
-
-def getLogger():
-    return _MPI_LOGGER
-
-
-def setLoggerLevel(level: Literal["debug", "info", "warning", "error", "critical"]):
-    _MPI_LOGGER.logger.setLevel(level.upper())
+        getLogger().warning("PyQUDA is already initialized", RuntimeWarning)
 
 
 def isGPUInitialized():
     return _GPUID >= 0
-
-
-def isGridInitialized():
-    return _GRID_SIZE is not None
-
-
-def getMPIComm():
-    return _MPI_COMM
-
-
-def getMPISize():
-    return _MPI_SIZE
-
-
-def getMPIRank():
-    return _MPI_RANK
-
-
-def getGridSize():
-    assert _GRID_SIZE is not None, "PyQUDA is not initialized"
-    return _GRID_SIZE
-
-
-def getGridCoord():
-    assert _GRID_COORD is not None, "PyQUDA is not initialized"
-    return _GRID_COORD
 
 
 def setDefaultLattice(latt_size: List[int], t_boundary: Literal[1, -1], anisotropy: float):

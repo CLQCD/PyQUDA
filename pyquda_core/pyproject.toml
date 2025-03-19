@@ -2,7 +2,7 @@
 requires = ["setuptools", "wheel", "Cython", "numpy"]
 
 [tool.setuptools.packages.find]
-include = ["pyquda*"]
+include = ["pyquda*", "pyquda_comm*"]
 
 [tool.setuptools.package-data]
 pyquda = ["*.pyi", "*.pxd", "src/*.pxd", "src/*.pyx"]

@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from cython.operator cimport dereference
 from libc.stdio cimport stdout
 from libc.stdlib cimport malloc, free
+from libc.string cimport strcmp
 from numpy cimport ndarray
 ctypedef double complex double_complex
 
@@ -200,11 +201,29 @@ cdef class QudaBLASParam:
 def setVerbosityQuda(quda.QudaVerbosity verbosity, const char prefix[]):
     quda.setVerbosityQuda(verbosity, prefix, stdout)
 
-def initCommsGridQuda(int nDim, list dims):
-    assert nDim == 4 and len(dims) >= 4
-    cdef int c_dims[4]
-    c_dims = dims
-    quda.initCommsGridQuda(nDim, c_dims, NULL, NULL)
+ctypedef struct MapData:
+    int ndim
+    int dims[6]
+
+cdef int tzyxCommsMap(const int *coords, void *fdata) noexcept:
+    cdef MapData *md = <MapData *>fdata
+    cdef int rank = coords[md.ndim - 1]
+    for i in range(md.ndim - 2, -1, -1):
+        rank = md.dims[i] * rank + coords[i]
+
+    return rank
+
+def initCommsGridQuda(int nDim, list dims, const char grid_map[]):
+    cdef int _dims[4]
+    _dims = dims
+    cdef MapData map_data
+    map_data.ndim = nDim
+    for i in range(nDim):
+        map_data.dims[i] = _dims[i]
+    if strcmp(grid_map, "XYZT_FASTEST") == 0:
+        quda.initCommsGridQuda(nDim, _dims, NULL, NULL)
+    elif strcmp(grid_map, "TZYX_FASTEST") == 0:
+        quda.initCommsGridQuda(nDim, _dims, tzyxCommsMap, <void *>(&map_data))
 
 def initQudaDevice(int device):
     quda.initQudaDevice(device)
