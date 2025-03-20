@@ -1,6 +1,7 @@
 import logging
+from os import environ
 from sys import stdout
-from typing import List, Literal, Tuple, Union
+from typing import Any, Callable, Dict, List, Literal, NamedTuple, Tuple, Union
 
 from mpi4py import MPI
 
@@ -42,6 +43,11 @@ class _MPILogger:
         raise category(msg)
 
 
+class _ComputeCapability(NamedTuple):
+    major: int
+    minor: int
+
+
 _MPI_LOGGER: _MPILogger = _MPILogger()
 _MPI_COMM: MPI.Comm = MPI.COMM_WORLD
 _MPI_SIZE: int = _MPI_COMM.Get_size()
@@ -50,6 +56,10 @@ _GRID_SIZE: Union[List[int], None] = None
 _GRID_COORD: Union[List[int], None] = None
 _GRID_MAP: Literal["XYZT_FASTEST", "TZYX_FASTEST"] = "XYZT_FASTEST"
 """For MPI, the default node mapping is lexicographical with t varying fastest."""
+_CUDA_BACKEND: Literal["numpy", "cupy", "torch"] = "cupy"
+_CUDA_IS_HIP: bool = False
+_CUDA_GPUID: int = -1
+_CUDA_COMPUTE_CAPABILITY: _ComputeCapability = _ComputeCapability(0, 0)
 
 
 def getRankFromCoord(grid_coord: List[int], grid_size: List[int] = None) -> int:
@@ -68,7 +78,7 @@ def getCoordFromRank(mpi_rank: int, grid_size: List[int] = None) -> List[int]:
     if _GRID_MAP == "XYZT_FASTEST":
         return [mpi_rank // Gt // Gz // Gy, mpi_rank // Gt // Gz % Gy, mpi_rank // Gt % Gz, mpi_rank % Gt]
     elif _GRID_MAP == "TZYX_FASTEST":
-        return [mpi_rank // Gx // Gy // Gz, mpi_rank // Gx // Gy % Gz, mpi_rank // Gx % Gy, mpi_rank % Gx]
+        return [mpi_rank % Gx, mpi_rank // Gx % Gy, mpi_rank // Gx // Gy % Gz, mpi_rank // Gx // Gy // Gz]
     else:
         _MPI_LOGGER.critical(f"Unsupported grid mapping {_GRID_MAP}", ValueError)
 
@@ -118,7 +128,7 @@ def _partition(factor: List[List[Tuple[int, int, int, int]]], idx: int, sublatt_
                 )
 
 
-def _getDefaultGrid(mpi_size: int, latt_size: List[int]):
+def getDefaultGrid(mpi_size: int, latt_size: List[int]):
     Lx, Ly, Lz, Lt = latt_size
     latt_vol = Lx * Ly * Lz * Lt
     latt_surf = [latt_vol // latt_size[dir] for dir in range(4)]
@@ -132,18 +142,19 @@ def _getDefaultGrid(mpi_size: int, latt_size: List[int]):
         elif sum(comm) == min_comm:
             min_grid.append(grid_size)
     if min_grid == []:
-        getLogger().critical(
-            f"Cannot get the proper GPU grid for lattice size {latt_size} with {mpi_size} MPI processes"
+        _MPI_LOGGER.critical(
+            f"Cannot get the proper GPU grid for lattice size {latt_size} with {mpi_size} MPI processes", ValueError
         )
     return min(min_grid)
 
 
 def initGrid(grid_size: List[int], latt_size: List[int] = None):
-    if grid_size is None and latt_size is not None:
-        grid_size = _getDefaultGrid(_MPI_SIZE, latt_size)
-    grid_size = grid_size if grid_size is not None else [1, 1, 1, 1]
     global _GRID_SIZE, _GRID_COORD
     if _GRID_SIZE is None:
+        if grid_size is None and latt_size is not None:
+            grid_size = getDefaultGrid(_MPI_SIZE, latt_size)
+        grid_size = grid_size if grid_size is not None else [1, 1, 1, 1]
+
         Gx, Gy, Gz, Gt = grid_size
         if _MPI_SIZE != Gx * Gy * Gz * Gt:
             _MPI_LOGGER.critical(f"The MPI size {_MPI_SIZE} does not match the grid size {grid_size}", ValueError)
@@ -154,8 +165,78 @@ def initGrid(grid_size: List[int], latt_size: List[int] = None):
         _MPI_LOGGER.warning("Grid is already initialized", RuntimeWarning)
 
 
+def initGPU(backend: Literal["numpy", "cupy", "torch"] = None, gpuid: int = -1, enable_mps: bool = False):
+    global _CUDA_BACKEND, _CUDA_IS_HIP, _CUDA_GPUID, _CUDA_COMPUTE_CAPABILITY
+    if _CUDA_GPUID < 0:
+        from platform import node as gethostname
+
+        if backend is None:
+            backend = environ["PYQUDA_BACKEND"] if "PYQUDA_BACKEND" in environ else "cupy"
+        if backend == "numpy":
+            cudaGetDeviceCount: Callable[[], int] = lambda: 0x7FFFFFFF
+            cudaGetDeviceProperties: Callable[[int], Dict[str, Any]] = lambda device: {"major": 0, "minor": 0}
+            cudaSetDevice: Callable[[int], None] = lambda device: None
+        elif backend == "cupy":
+            import cupy
+            from cupy.cuda.runtime import getDeviceCount as cudaGetDeviceCount
+            from cupy.cuda.runtime import getDeviceProperties as cudaGetDeviceProperties
+            from cupy.cuda.runtime import is_hip
+
+            cudaSetDevice: Callable[[int], None] = lambda device: cupy.cuda.Device(device).use()
+            _CUDA_IS_HIP = is_hip
+        elif backend == "torch":
+            import torch
+            from torch.cuda import device_count as cudaGetDeviceCount
+            from torch.cuda import get_device_properties as cudaGetDeviceProperties
+            from torch.version import hip
+
+            cudaSetDevice: Callable[[int], None] = lambda device: torch.set_default_device(f"cuda:{device}")
+            _CUDA_IS_HIP = hip is not None
+        else:
+            _MPI_LOGGER.critical(f"Unsupported CUDA backend {backend}", ValueError)
+        _CUDA_BACKEND = backend
+        _MPI_LOGGER.info(f"Using CUDA backend {backend}")
+
+        # quda/include/communicator_quda.h
+        # determine which GPU this rank will use
+        hostname = gethostname()
+        hostname_recv_buf = _MPI_COMM.allgather(hostname)
+
+        if gpuid < 0:
+            device_count = cudaGetDeviceCount()
+            if device_count == 0:
+                _MPI_LOGGER.critical("No devices found", RuntimeError)
+
+            gpuid = 0
+            for i in range(_MPI_RANK):
+                if hostname == hostname_recv_buf[i]:
+                    gpuid += 1
+
+            if gpuid >= device_count:
+                if enable_mps:
+                    gpuid %= device_count
+                    print(f"MPS enabled, rank={_MPI_RANK:3d} -> gpu={gpuid}")
+                else:
+                    raise RuntimeError(f"Too few GPUs available on {hostname}")
+        _CUDA_GPUID = gpuid
+
+        props = cudaGetDeviceProperties(gpuid)
+        if hasattr(props, "major") and hasattr(props, "minor"):
+            _CUDA_COMPUTE_CAPABILITY = _ComputeCapability(int(props.major), int(props.minor))
+        else:
+            _CUDA_COMPUTE_CAPABILITY = _ComputeCapability(int(props["major"]), int(props["minor"]))
+
+        cudaSetDevice(gpuid)
+    else:
+        _MPI_LOGGER.warning("GPU is already initialized", RuntimeWarning)
+
+
 def isGridInitialized():
     return _GRID_SIZE is not None
+
+
+def isGPUInitialized():
+    return _CUDA_GPUID >= 0
 
 
 def getLogger():
@@ -180,13 +261,13 @@ def getMPIRank():
 
 def getGridSize(check=True):
     if check and _GRID_SIZE is None:
-        _MPI_LOGGER.critical("PyQUDA is not initialized", RuntimeError)
+        _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
     return _GRID_SIZE
 
 
 def getGridCoord(check=True):
     if check and _GRID_COORD is None:
-        _MPI_LOGGER.critical("PyQUDA is not initialized", RuntimeError)
+        _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
     return _GRID_COORD
 
 
@@ -197,3 +278,19 @@ def getGridMap():
 def setGridMap(grid_map: Literal["XYZT_FASTEST", "TZYX_FASTEST"]):
     global _GRID_MAP
     _GRID_MAP = grid_map
+
+
+def getCUDABackend():
+    return _CUDA_BACKEND
+
+
+def isHIP():
+    return _CUDA_IS_HIP
+
+
+def getCUDAGPUID():
+    return _CUDA_GPUID
+
+
+def getCUDAComputeCapability():
+    return _CUDA_COMPUTE_CAPABILITY

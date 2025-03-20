@@ -272,7 +272,7 @@ def readKYUPropagatorF(filename: str, latt_size: List[int]):
 
 
 def writeKYUPropagatorF(filename: str, propagator: LatticePropagator):
-    writeXQCDPropagator(filename, propagator, False)
+    writeXQCDPropagator(filename, propagator)
 
 
 def readXQCDStaggeredPropagator(filename: str, latt_size: List[int]):

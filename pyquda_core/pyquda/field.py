@@ -5,6 +5,19 @@ from typing import Any, List, Literal, Sequence, Tuple, Union
 
 import numpy
 
+from pyquda_comm import (
+    initGrid,
+    initGPU,
+    isGridInitialized,
+    isGPUInitialized,
+    getLogger,
+    getMPIComm,
+    getMPISize,
+    getMPIRank,
+    getGridSize,
+    getGridCoord,
+    getCoordFromRank,
+)
 from .pointer import ndarrayPointer, Pointer, Pointers
 
 
@@ -18,9 +31,9 @@ class LatticeInfo:
         self._setLattice(latt_size, t_boundary, anisotropy)
 
     def _checkLattice(self, latt_size: List[int]):
-        from . import init, isGridInitialized, getLogger, getGridSize
+        from . import init
 
-        if not isGridInitialized():
+        if not isGridInitialized() or not isGPUInitialized():
             init(None, latt_size)
         Gx, Gy, Gz, Gt = getGridSize()
         Lx, Ly, Lz, Lt = latt_size
@@ -38,8 +51,6 @@ class LatticeInfo:
             )
 
     def _setLattice(self, latt_size: List[int], t_boundary: Literal[1, -1], anisotropy: float):
-        from . import getMPIComm, getMPISize, getMPIRank, getGridSize, getGridCoord
-
         self.mpi_comm = getMPIComm()
         self.mpi_size = getMPISize()
         self.mpi_rank = getMPIRank()
@@ -77,17 +88,14 @@ class GeneralInfo:
         self.Nc = Nc if Nc is not None else 3
 
     def _checkLattice(self, latt_size: List[int], grid_size: List[int]):
-        from . import getLogger
-
         assert len(latt_size) == len(grid_size)
         for GL, G in zip(latt_size, grid_size):
             if not (GL % G == 0):
                 getLogger().critical("lattice size must be divisible by gird size", ValueError)
 
     def _setLattice(self, latt_size: List[int], grid_size: List[int]):
-        from . import initGPU, isGPUInitialized, getLogger, getMPIComm, getMPISize, getMPIRank
-
-        if not isGPUInitialized():
+        if not isGridInitialized or not isGPUInitialized():
+            initGrid()
             initGPU()
         if getMPISize() != int(numpy.prod(grid_size)):
             getLogger().critical(f"The MPI size {getMPISize()} does not match the grid size {grid_size}", ValueError)
@@ -95,12 +103,7 @@ class GeneralInfo:
         self.mpi_size = getMPISize()
         self.mpi_rank = getMPIRank()
         self.grid_size = grid_size
-        grid_coord = []
-        mpi_rank = getMPIRank()
-        for G in grid_size[::-1]:
-            grid_coord.append(mpi_rank % G)
-            mpi_rank //= G
-        self.grid_coord = grid_coord[::-1]
+        self.grid_coord = getCoordFromRank(getMPIRank(), grid_size)
 
         self.global_size = latt_size
         self.global_volume = int(numpy.prod(latt_size))

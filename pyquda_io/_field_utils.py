@@ -293,3 +293,95 @@ def spinMatrixToDiracPauli(degrand_rossi: numpy.ndarray):
                     elif P[i, i_] * P[j, j_] == -1:
                         dirac_pauli[i, j] -= degrand_rossi[i_, j_]
     return dirac_pauli.transpose(2, 3, 4, 5, 0, 1, 6, 7)
+
+
+# def gaugeOddPlaqutteOpenQCD(latt_size: List[int], grid_size: List[int], gauge: numpy.ndarray):
+#     plaq = numpy.empty((6), "<f8")
+#     plaq[0] = numpy.vdot(gauge[0, 1] @ gauge[1, 0], gauge[1, 1] @ gauge[0, 0]).real
+#     plaq[1] = numpy.vdot(gauge[0, 1] @ gauge[2, 0], gauge[2, 1] @ gauge[0, 0]).real
+#     plaq[2] = numpy.vdot(gauge[0, 1] @ gauge[3, 0], gauge[3, 1] @ gauge[0, 0]).real
+#     plaq[3] = numpy.vdot(gauge[1, 1] @ gauge[2, 0], gauge[2, 1] @ gauge[1, 0]).real
+#     plaq[4] = numpy.vdot(gauge[1, 1] @ gauge[3, 0], gauge[3, 1] @ gauge[1, 0]).real
+#     plaq[5] = numpy.vdot(gauge[2, 1] @ gauge[3, 0], gauge[3, 1] @ gauge[2, 0]).real
+#     plaq /= int(numpy.prod(latt_size)) * Nc
+#     plaq = MPI.COMM_WORLD.allreduce(plaq, MPI.SUM)
+#     return numpy.array([plaq.mean(), plaq[:3].mean(), plaq[3:].mean()])
+
+
+# def gaugeEvenPlaquette(latt_size: List[int], grid_size: List[int], gauge: numpy.ndarray):
+#     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size, grid_size)
+#     link_munu = numpy.empty((6, *gauge.shape[2:]), gauge.dtype)
+#     link_numu = numpy.empty((6, *gauge.shape[2:]), gauge.dtype)
+#     rank = MPI.COMM_WORLD.Get_rank()
+#     neighbour_rank = getNeighbourRank(grid_size)
+#     for t in range(Lt):
+#         for z in range(Lz):
+#             for y in range(Ly):
+#                 if (t + z + y) % 2 == 0:
+#                     link_munu[0, t, z, y, :] = gauge[0, 0, t, z, y, :] @ gauge[1, 1, t, z, y, :]
+#                     link_munu[1, t, z, y, :] = gauge[0, 0, t, z, y, :] @ gauge[2, 1, t, z, y, :]
+#                     link_munu[3, t, z, y, :] = gauge[0, 0, t, z, y, :] @ gauge[3, 1, t, z, y, :]
+#                 else:
+#                     link_munu[0, t, z, y, :-1] = gauge[0, 0, t, z, y, :-1] @ gauge[1, 1, t, z, y, 1:]
+#                     link_munu[1, t, z, y, :-1] = gauge[0, 0, t, z, y, :-1] @ gauge[2, 1, t, z, y, 1:]
+#                     link_munu[3, t, z, y, :-1] = gauge[0, 0, t, z, y, :-1] @ gauge[3, 1, t, z, y, 1:]
+#                     if rank == neighbour_rank[0] and rank == neighbour_rank[4]:
+#                         link_munu[0, t, z, y, -1] = gauge[0, 0, t, z, y, -1] @ gauge[1, 1, t, z, y, 0]
+#                         link_munu[1, t, z, y, -1] = gauge[0, 0, t, z, y, -1] @ gauge[2, 1, t, z, y, 0]
+#                         link_munu[3, t, z, y, -1] = gauge[0, 0, t, z, y, -1] @ gauge[3, 1, t, z, y, 0]
+#                     else:
+#                         buf = gauge[:, 1, t, z, y, 0].copy()
+#                         MPI.COMM_WORLD.Sendrecv_replace(buf, dest=neighbour_rank[4], source=neighbour_rank[0])
+#                         link_munu[0, t, z, y, -1] = gauge[0, 0, t, z, y, -1] @ buf[1]
+#                         link_munu[1, t, z, y, -1] = gauge[0, 0, t, z, y, -1] @ buf[2]
+#                         link_munu[3, t, z, y, -1] = gauge[0, 0, t, z, y, -1] @ buf[3]
+#     link_numu[0, :, :, :-1, :] = gauge[1, 0, :, :, :-1, :] @ gauge[0, 1, :, :, 1:, :]
+#     link_munu[2, :, :, :-1, :] = gauge[1, 0, :, :, :-1, :] @ gauge[2, 1, :, :, 1:, :]
+#     link_munu[4, :, :, :-1, :] = gauge[1, 0, :, :, :-1, :] @ gauge[3, 1, :, :, 1:, :]
+#     if rank == neighbour_rank[1] and rank == neighbour_rank[5]:
+#         link_numu[0, :, :, -1, :] = gauge[1, 0, :, :, -1, :] @ gauge[0, 1, :, :, 0, :]
+#         link_munu[2, :, :, -1, :] = gauge[1, 0, :, :, -1, :] @ gauge[2, 1, :, :, 0, :]
+#         link_munu[4, :, :, -1, :] = gauge[1, 0, :, :, -1, :] @ gauge[3, 1, :, :, 0, :]
+#     else:
+#         buf = gauge[:, 1, :, :, 0, :].copy()
+#         MPI.COMM_WORLD.Sendrecv_replace(buf, dest=neighbour_rank[5], source=neighbour_rank[1])
+#         link_numu[0, :, :, -1, :] = gauge[1, 0, :, :, -1, :] @ buf[0]
+#         link_munu[2, :, :, -1, :] = gauge[1, 0, :, :, -1, :] @ buf[2]
+#         link_munu[4, :, :, -1, :] = gauge[1, 0, :, :, -1, :] @ buf[3]
+#     link_numu[1, :, :-1, :, :] = gauge[2, 0, :, :-1, :, :] @ gauge[0, 1, :, 1:, :, :]
+#     link_numu[2, :, :-1, :, :] = gauge[2, 0, :, :-1, :, :] @ gauge[1, 1, :, 1:, :, :]
+#     link_munu[5, :, :-1, :, :] = gauge[2, 0, :, :-1, :, :] @ gauge[3, 1, :, 1:, :, :]
+#     if rank == neighbour_rank[2] and rank == neighbour_rank[6]:
+#         link_numu[1, :, -1, :, :] = gauge[2, 0, :, -1, :, :] @ gauge[0, 1, :, 0, :, :]
+#         link_numu[2, :, -1, :, :] = gauge[2, 0, :, -1, :, :] @ gauge[1, 1, :, 0, :, :]
+#         link_munu[5, :, -1, :, :] = gauge[2, 0, :, -1, :, :] @ gauge[3, 1, :, 0, :, :]
+#     else:
+#         buf = gauge[:, 1, :, 0, :, :].copy()
+#         MPI.COMM_WORLD.Sendrecv_replace(buf, dest=neighbour_rank[6], source=neighbour_rank[2])
+#         link_numu[1, :, -1, :, :] = gauge[2, 0, :, -1, :, :] @ buf[0]
+#         link_numu[2, :, -1, :, :] = gauge[2, 0, :, -1, :, :] @ buf[1]
+#         link_munu[5, :, -1, :, :] = gauge[2, 0, :, -1, :, :] @ buf[3]
+#     link_numu[3, :-1, :, :, :] = gauge[3, 0, :-1, :, :, :] @ gauge[0, 1, 1:, :, :, :]
+#     link_numu[4, :-1, :, :, :] = gauge[3, 0, :-1, :, :, :] @ gauge[1, 1, 1:, :, :, :]
+#     link_numu[5, :-1, :, :, :] = gauge[3, 0, :-1, :, :, :] @ gauge[2, 1, 1:, :, :, :]
+#     if rank == neighbour_rank[3] and rank == neighbour_rank[7]:
+#         link_numu[3, -1, :, :, :] = gauge[3, 0, -1, :, :, :] @ gauge[0, 1, 0, :, :, :]
+#         link_numu[4, -1, :, :, :] = gauge[3, 0, -1, :, :, :] @ gauge[1, 1, 0, :, :, :]
+#         link_numu[5, -1, :, :, :] = gauge[3, 0, -1, :, :, :] @ gauge[2, 1, 0, :, :, :]
+#     else:
+#         buf = gauge[3, 1, 0, :, :, :].copy()
+#         MPI.COMM_WORLD.Sendrecv_replace(buf, dest=neighbour_rank[7], source=neighbour_rank[3])
+#         link_numu[3, -1, :, :, :] = gauge[3, 0, -1, :, :, :] @ buf[0]
+#         link_numu[4, -1, :, :, :] = gauge[3, 0, -1, :, :, :] @ buf[1]
+#         link_numu[5, -1, :, :, :] = gauge[3, 0, -1, :, :, :] @ buf[2]
+
+#     plaq = numpy.empty((6), "<f8")
+#     plaq[0] = numpy.vdot(link_munu[0], link_numu[0]).real
+#     plaq[1] = numpy.vdot(link_munu[1], link_numu[1]).real
+#     plaq[2] = numpy.vdot(link_munu[2], link_numu[2]).real
+#     plaq[3] = numpy.vdot(link_munu[3], link_numu[3]).real
+#     plaq[4] = numpy.vdot(link_munu[4], link_numu[4]).real
+#     plaq[5] = numpy.vdot(link_munu[5], link_numu[5]).real
+#     plaq /= int(numpy.prod(latt_size)) * Nc
+#     plaq = MPI.COMM_WORLD.allreduce(plaq, MPI.SUM)
+#     return numpy.array([plaq.mean(), plaq[:3].mean(), plaq[3:].mean()])
