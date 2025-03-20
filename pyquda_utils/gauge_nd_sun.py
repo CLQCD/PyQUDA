@@ -5,10 +5,10 @@ import numpy
 from mpi4py import MPI
 
 _RANK = MPI.COMM_WORLD.Get_rank()
-_GPUID: int = -1
+_DEVICE: int = -1
 
 
-def initGPU(gpuid: int = -1):
+def initDevice(device: int = -1):
     from platform import node as gethostname
     import cupy
 
@@ -19,29 +19,29 @@ def initGPU(gpuid: int = -1):
     hostname = gethostname()
     hostname_recv_buf = MPI.COMM_WORLD.allgather(hostname)
 
-    if gpuid < 0:
+    if device < 0:
         device_count = cupy.cuda.runtime.getDeviceCount()
         if device_count == 0:
             raise RuntimeError("No devices found")
 
         # We initialize gpuid if it's still negative.
-        gpuid = 0
+        device = 0
         for i in range(rank):
             if hostname == hostname_recv_buf[i]:
-                gpuid += 1
+                device += 1
 
-        if gpuid >= device_count:
+        if device >= device_count:
             if "QUDA_ENABLE_MPS" in environ and environ["QUDA_ENABLE_MPS"] == "1":
-                gpuid %= device_count
-                print(f"MPS enabled, rank={rank} -> gpu={gpuid}")
+                device %= device_count
+                print(f"MPS enabled, rank={rank} -> gpu={device}")
             else:
                 raise RuntimeError(f"Too few GPUs available on {hostname}")
 
-    cupy.cuda.Device(gpuid).use()
-    print(f"Rank {rank} uses GPU {gpuid}")
+    cupy.cuda.Device(device).use()
+    print(f"Rank {rank} uses GPU {device}")
 
-    global _GPUID
-    _GPUID = gpuid
+    global _DEVICE
+    _DEVICE = device
 
 
 def getSublatticeSize(latt_size: Sequence[int], grid_size: Sequence[int]):
@@ -214,8 +214,8 @@ class LatticeLink:
     def toDevice(self):
         import cupy
 
-        if _GPUID < 0:
-            initGPU()
+        if _DEVICE < 0:
+            initDevice()
         self.data = cupy.asarray(self.data)
 
     def toHost(self):
@@ -314,8 +314,8 @@ class LatticeGauge:
     def toDevice(self):
         import cupy
 
-        if _GPUID < 0:
-            initGPU()
+        if _DEVICE < 0:
+            initDevice()
         self.data = cupy.asarray(self.data)
         if self.extended is not None:
             self.extended = cupy.asarray(self.extended)
