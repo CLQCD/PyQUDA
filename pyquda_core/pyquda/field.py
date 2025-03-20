@@ -7,9 +7,9 @@ import numpy
 
 from pyquda_comm import (
     initGrid,
-    initGPU,
+    initDevice,
     isGridInitialized,
-    isGPUInitialized,
+    isDeviceInitialized,
     getLogger,
     getMPIComm,
     getMPISize,
@@ -33,7 +33,7 @@ class LatticeInfo:
     def _checkLattice(self, latt_size: List[int]):
         from . import init
 
-        if not isGridInitialized() or not isGPUInitialized():
+        if not isGridInitialized() or not isDeviceInitialized():
             init(None, latt_size)
         Gx, Gy, Gz, Gt = getGridSize()
         Lx, Ly, Lz, Lt = latt_size
@@ -94,9 +94,9 @@ class GeneralInfo:
                 getLogger().critical("lattice size must be divisible by gird size", ValueError)
 
     def _setLattice(self, latt_size: List[int], grid_size: List[int]):
-        if not isGridInitialized or not isGPUInitialized():
+        if not isGridInitialized or not isDeviceInitialized():
             initGrid()
-            initGPU()
+            initDevice()
         if getMPISize() != int(numpy.prod(grid_size)):
             getLogger().critical(f"The MPI size {getMPISize()} does not match the grid size {grid_size}", ValueError)
         self.mpi_comm = getMPIComm()

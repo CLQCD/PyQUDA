@@ -58,7 +58,7 @@ _GRID_MAP: Literal["XYZT_FASTEST", "TZYX_FASTEST"] = "XYZT_FASTEST"
 """For MPI, the default node mapping is lexicographical with t varying fastest."""
 _CUDA_BACKEND: Literal["numpy", "cupy", "torch"] = "cupy"
 _CUDA_IS_HIP: bool = False
-_CUDA_GPUID: int = -1
+_CUDA_DEVICE: int = -1
 _CUDA_COMPUTE_CAPABILITY: _ComputeCapability = _ComputeCapability(0, 0)
 
 
@@ -143,7 +143,7 @@ def getDefaultGrid(mpi_size: int, latt_size: List[int]):
             min_grid.append(grid_size)
     if min_grid == []:
         _MPI_LOGGER.critical(
-            f"Cannot get the proper GPU grid for lattice size {latt_size} with {mpi_size} MPI processes", ValueError
+            f"Cannot get the proper grid for lattice size {latt_size} with {mpi_size} MPI processes", ValueError
         )
     return min(min_grid)
 
@@ -165,9 +165,9 @@ def initGrid(grid_size: List[int], latt_size: List[int] = None):
         _MPI_LOGGER.warning("Grid is already initialized", RuntimeWarning)
 
 
-def initGPU(backend: Literal["numpy", "cupy", "torch"] = None, gpuid: int = -1, enable_mps: bool = False):
-    global _CUDA_BACKEND, _CUDA_IS_HIP, _CUDA_GPUID, _CUDA_COMPUTE_CAPABILITY
-    if _CUDA_GPUID < 0:
+def initDevice(backend: Literal["numpy", "cupy", "torch"] = None, device: int = -1, enable_mps: bool = False):
+    global _CUDA_BACKEND, _CUDA_IS_HIP, _CUDA_DEVICE, _CUDA_COMPUTE_CAPABILITY
+    if _CUDA_DEVICE < 0:
         from platform import node as gethostname
 
         if backend is None:
@@ -202,41 +202,41 @@ def initGPU(backend: Literal["numpy", "cupy", "torch"] = None, gpuid: int = -1, 
         hostname = gethostname()
         hostname_recv_buf = _MPI_COMM.allgather(hostname)
 
-        if gpuid < 0:
+        if device < 0:
             device_count = cudaGetDeviceCount()
             if device_count == 0:
                 _MPI_LOGGER.critical("No devices found", RuntimeError)
 
-            gpuid = 0
+            device = 0
             for i in range(_MPI_RANK):
                 if hostname == hostname_recv_buf[i]:
-                    gpuid += 1
+                    device += 1
 
-            if gpuid >= device_count:
+            if device >= device_count:
                 if enable_mps:
-                    gpuid %= device_count
-                    print(f"MPS enabled, rank={_MPI_RANK:3d} -> gpu={gpuid}")
+                    device %= device_count
+                    print(f"MPS enabled, rank={_MPI_RANK:3d} -> gpu={device}")
                 else:
                     raise RuntimeError(f"Too few GPUs available on {hostname}")
-        _CUDA_GPUID = gpuid
+        _CUDA_DEVICE = device
 
-        props = cudaGetDeviceProperties(gpuid)
+        props = cudaGetDeviceProperties(device)
         if hasattr(props, "major") and hasattr(props, "minor"):
             _CUDA_COMPUTE_CAPABILITY = _ComputeCapability(int(props.major), int(props.minor))
         else:
             _CUDA_COMPUTE_CAPABILITY = _ComputeCapability(int(props["major"]), int(props["minor"]))
 
-        cudaSetDevice(gpuid)
+        cudaSetDevice(device)
     else:
-        _MPI_LOGGER.warning("GPU is already initialized", RuntimeWarning)
+        _MPI_LOGGER.warning("Device is already initialized", RuntimeWarning)
 
 
 def isGridInitialized():
     return _GRID_SIZE is not None
 
 
-def isGPUInitialized():
-    return _CUDA_GPUID >= 0
+def isDeviceInitialized():
+    return _CUDA_DEVICE >= 0
 
 
 def getLogger():
@@ -288,8 +288,8 @@ def isHIP():
     return _CUDA_IS_HIP
 
 
-def getCUDAGPUID():
-    return _CUDA_GPUID
+def getCUDADevice():
+    return _CUDA_DEVICE
 
 
 def getCUDAComputeCapability():

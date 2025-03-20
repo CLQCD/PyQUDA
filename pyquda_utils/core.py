@@ -5,7 +5,7 @@ import numpy
 from pyquda_comm import getCoordFromRank, getRankFromCoord
 from pyquda import (
     initGrid,
-    initGPU,
+    initDevice,
     initQUDA,
     init,
     getMPIComm,

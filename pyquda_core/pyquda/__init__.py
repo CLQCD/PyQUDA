@@ -5,9 +5,9 @@ from ._version import __version__  # noqa: F401
 from .field import LatticeInfo
 from pyquda_comm import (  # noqa: F401
     initGrid,
-    initGPU,
+    initDevice,
     isGridInitialized,
-    isGPUInitialized,
+    isDeviceInitialized,
     getLogger,
     setLoggerLevel,
     getMPIComm,
@@ -19,7 +19,7 @@ from pyquda_comm import (  # noqa: F401
     setGridMap,
     getCUDABackend,
     isHIP,
-    getCUDAGPUID,
+    getCUDADevice,
     getCUDAComputeCapability,
 )
 
@@ -56,13 +56,13 @@ def _setEnvironWarn(**kwargs):
         _setEnviron(f"QUDA_{key.upper()}", key, kwargs[key])
 
 
-def initQUDA(grid_size: List[int], gpuid: int, use_quda_allocator: bool = False):
+def initQUDA(grid_size: List[int], device: int, use_quda_allocator: bool = False):
     import atexit
     from . import pyquda as quda, malloc_pyquda
 
     global _QUDA_INITIALIZED
-    if not isGridInitialized() or not isGPUInitialized():
-        getLogger().critical("initGrid and initGPU should be called before initQUDA", RuntimeError)
+    if not isGridInitialized() or not isDeviceInitialized():
+        getLogger().critical("initGrid and initDevice should be called before initQUDA", RuntimeError)
 
     if use_quda_allocator:
         if getCUDABackend() == "cupy":
@@ -74,7 +74,7 @@ def initQUDA(grid_size: List[int], gpuid: int, use_quda_allocator: bool = False)
             cupy.cuda.set_allocator(allocator.malloc)
 
     quda.initCommsGridQuda(4, grid_size, getGridMap().encode())
-    quda.initQuda(gpuid)
+    quda.initQuda(device)
     atexit.register(quda.endQuda)
     _QUDA_INITIALIZED = True
 
@@ -117,9 +117,9 @@ def init(
     Initialize MPI along with the QUDA library.
     """
     global _DEFAULT_LATTICE
-    if not isGridInitialized() or not isGPUInitialized():
+    if not isGridInitialized() or not isDeviceInitialized():
         initGrid(grid_size, latt_size)
-        initGPU(backend, -1, enable_mps)
+        initDevice(backend, -1, enable_mps)
 
         use_default_grid = grid_size is None and latt_size is not None
         use_default_latt = latt_size is not None and t_boundary is not None and anisotropy is not None
@@ -162,7 +162,7 @@ def init(
                 deterministic_reduce="1" if deterministic_reduce else None,
                 device_reset="1" if device_reset else None,
             )
-            initQUDA(getGridSize(), getCUDAGPUID())
+            initQUDA(getGridSize(), getCUDADevice())
         else:
             getLogger().warning("PyQUDA is already initialized", RuntimeWarning)
 
