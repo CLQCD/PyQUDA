@@ -1,6 +1,6 @@
 import numpy
 
-from .. import getLogger
+from pyquda_comm import getLogger
 from ..pointer import Pointers
 from ..pyquda import computeCloverForceQuda, loadCloverQuda, loadGaugeQuda
 from ..enum_quda import (

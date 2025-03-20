@@ -2,7 +2,7 @@ from typing import List
 
 import numpy
 
-from .. import getLogger
+from pyquda_comm import getLogger
 from ..pointer import Pointers
 from ..pyquda import computeHISQForceQuda, dslashQuda, saveGaugeQuda
 from ..enum_quda import (

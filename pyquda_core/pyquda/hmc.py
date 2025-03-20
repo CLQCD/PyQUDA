@@ -3,7 +3,7 @@ from math import exp
 from random import Random
 from typing import List, Union
 
-from . import getLogger, getCUDABackend
+from pyquda_comm import getLogger, getCUDABackend
 from .pointer import Pointers
 from .pyquda import (
     QudaGaugeObservableParam,

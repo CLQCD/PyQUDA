@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+from pyquda_comm import getLogger
 from ..pointer import Pointer
 from ..pyquda import (
     QudaGaugeParam,
@@ -163,8 +164,6 @@ class FermionDirac(Dirac):
         pass
 
     def performance(self):
-        from .. import getLogger
-
         gflops, secs = self.invert_param.gflops, self.invert_param.secs
         if self.invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
             getLogger().info(f"Time = {secs:.3f} secs, Performance = {gflops / secs:.3f} GFLOPS")

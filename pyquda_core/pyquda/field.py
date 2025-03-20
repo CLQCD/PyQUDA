@@ -17,6 +17,7 @@ from pyquda_comm import (
     getGridSize,
     getGridCoord,
     getCoordFromRank,
+    getCUDABackend,
 )
 from .pointer import ndarrayPointer, Pointer, Pointers
 
@@ -170,8 +171,6 @@ def evenodd(data: numpy.ndarray, axes: List[int], dtype=None):
 
 
 def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
-    from . import getLogger
-
     getLogger().warning("cb2 is deprecated, use evenodd instead", DeprecationWarning)
     return evenodd(data, axes, dtype)
 
@@ -201,8 +200,6 @@ def checksum(latt_info: Union[LatticeInfo, GeneralInfo], data: numpy.ndarray) ->
 
 
 def _field_shape_dtype(field: str, Ns: int, Nc: int, use_fp32: bool = False):
-    from . import getLogger
-
     float_nbytes = 4 if use_fp32 else 8
     if field in ["Int"]:
         return [], "<i4"
@@ -228,8 +225,6 @@ def _field_shape_dtype(field: str, Ns: int, Nc: int, use_fp32: bool = False):
 
 class BaseField:
     def __init__(self, latt_info: Union[LatticeInfo, GeneralInfo]) -> None:
-        from . import getCUDABackend
-
         self.latt_info = latt_info
         self._data = None
         self.backend: Literal["numpy", "cupy", "torch"] = getCUDABackend()
@@ -237,14 +232,10 @@ class BaseField:
 
     @abstractmethod
     def _shape(self):
-        from . import getLogger
-
         getLogger().critical("_setShape method must be implemented", NotImplementedError)
 
     @classmethod
     def _groupName(cls):
-        from . import getLogger
-
         if cls.__name__ == "LatticeMom":
             getLogger().critical("LatticeMom is not supported for save/load", ValueError)
         elif cls.__name__ == "LatticeClover":
@@ -270,7 +261,6 @@ class BaseField:
         check: bool = True,
         use_fp32: bool = False,
     ):
-        from . import getLogger
         from .file import File
 
         assert hasattr(self, "lexico")
@@ -299,7 +289,6 @@ class BaseField:
         check: bool = True,
         use_fp32: bool = False,
     ):
-        from . import getLogger
         from .file import File
 
         assert hasattr(self, "lexico")
@@ -327,7 +316,6 @@ class BaseField:
         annotation: str = "",
         check: bool = True,
     ):
-        from . import getLogger
         from .file import File
 
         assert hasattr(self, "lexico")
@@ -551,7 +539,6 @@ class GeneralField(BaseField):
         check: bool = True,
         grid_size: List[int] = None,
     ):
-        from . import getLogger
         from .file import File
 
         s = perf_counter()
@@ -665,7 +652,6 @@ class FullField:
         *,
         check: bool = True,
     ):
-        from . import getLogger, getGridSize
         from .file import File
 
         s = perf_counter()
@@ -1015,8 +1001,6 @@ class LatticeGauge(MultiField, LatticeLink):
         compute_plaquette: bool = False,
         compute_qcharge: bool = True,
     ):
-        from . import getLogger
-
         self.gauge_dirac.loadGauge(self)
         self._gauge_dirac.wilsonFlow(1, epsilon, 0, False, compute_plaquette, compute_qcharge)
         t2E, tdt2E = 0, 0
@@ -1067,8 +1051,6 @@ class LatticeGauge(MultiField, LatticeLink):
         compute_plaquette: bool = False,
         compute_qcharge: bool = True,
     ):
-        from . import getLogger
-
         self.gauge_dirac.loadGauge(self)
         self._gauge_dirac.symanzikFlow(1, epsilon, 0, False, compute_plaquette, compute_qcharge)
         t2E, tdt2E = 0, 0

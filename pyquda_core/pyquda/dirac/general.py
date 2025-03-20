@@ -3,6 +3,7 @@ from typing import List, NamedTuple
 import numpy
 from numpy.typing import NDArray
 
+from pyquda_comm import getLogger, getCUDABackend, isHIP, getCUDAComputeCapability
 from ..pointer import Pointer, Pointers
 from ..pyquda import (
     QudaGaugeParam,
@@ -135,8 +136,6 @@ def setGlobalReconstruct(
 
 
 def _fieldLocation():
-    from .. import getCUDABackend
-
     if getCUDABackend() == "numpy":
         return QudaFieldLocation.QUDA_CPU_FIELD_LOCATION
     else:
@@ -144,8 +143,6 @@ def _fieldLocation():
 
 
 def _useMMA():
-    from .. import isHIP, getCUDAComputeCapability
-
     return QudaBoolean(not isHIP() and getCUDAComputeCapability().major >= 7)
 
 
@@ -667,8 +664,6 @@ def loadFatLongGauge(
 
 
 def performance(invert_param: QudaInvertParam):
-    from .. import getLogger
-
     gflops, secs = invert_param.gflops, invert_param.secs
     getLogger().info(f"Time = {secs:.3f} secs, Performance = {gflops / secs:.3f} GFLOPS")
 
