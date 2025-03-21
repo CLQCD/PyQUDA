@@ -6,7 +6,7 @@ from check_pyquda import test_dir
 from pyquda.hmc import HMC, O4Nf5Ng0V
 from pyquda.action import GaugeAction
 from pyquda_utils import core
-from pyquda_utils.hmc_param import symanzik_tree_gauge
+from pyquda_utils.hmc_param import symanzikTreeGaugeLoopParam as loopParam
 from pyquda_utils.io import writeNPYGauge
 
 beta, u_0 = 7.4, 0.890
@@ -16,7 +16,7 @@ t = 1.0
 core.init(resource_path=".cache", enable_force_monitor=True)
 latt_info = core.LatticeInfo([4, 4, 4, 8], t_boundary=-1, anisotropy=1.0)
 
-monomials = [GaugeAction(latt_info, symanzik_tree_gauge(u_0), beta)]
+monomials = [GaugeAction(latt_info, loopParam(u_0), beta)]
 
 hmc = HMC(latt_info, monomials, O4Nf5Ng0V(10))
 gauge = core.LatticeGauge(latt_info)
