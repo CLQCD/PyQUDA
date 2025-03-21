@@ -7,7 +7,7 @@ from xml.etree import ElementTree as ET
 import numpy
 from mpi4py import MPI
 
-from ._mpi_file import getGridCoord, getSublatticeSize, readMPIFile, writeMPIFile
+from ._mpi_file import getMPIComm, getMPISize, getMPIRank, getGridCoord, getSublatticeSize, readMPIFile, writeMPIFile
 from ._field_utils import gaugeReunitarize
 
 Nd, Ns, Nc = 4, 4, 3
@@ -22,14 +22,14 @@ def checksum_milc(latt_size: List[int], data):
 
     work = data.view("<u4")
     rank = (
-        numpy.arange(MPI.COMM_WORLD.Get_size() * work.size, dtype="<u8")
+        numpy.arange(getMPISize() * work.size, dtype="<u8")
         .reshape(GLt, GLz, GLy, GLx, -1)[gLt : gLt + Lt, gLz : gLz + Lz, gLy : gLy + Ly, gLx : gLx + Lx]
         .reshape(-1)
     )
     rank29 = (rank % 29).astype("<u4")
     rank31 = (rank % 31).astype("<u4")
-    sum29 = MPI.COMM_WORLD.allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)), MPI.BXOR)
-    sum31 = MPI.COMM_WORLD.allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)), MPI.BXOR)
+    sum29 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)), MPI.BXOR)
+    sum31 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)), MPI.BXOR)
     return sum29, sum31
 
 
@@ -50,8 +50,8 @@ def checksum_qio(latt_size: List[int], data):
     )
     rank29 = rank % 29
     rank31 = rank % 31
-    sum29 = MPI.COMM_WORLD.allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)), MPI.BXOR)
-    sum31 = MPI.COMM_WORLD.allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)), MPI.BXOR)
+    sum29 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)), MPI.BXOR)
+    sum31 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)), MPI.BXOR)
     return sum29, sum31
 
 
@@ -90,7 +90,7 @@ def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray):
 
     gauge = numpy.ascontiguousarray(gauge.transpose(1, 2, 3, 4, 0, 5, 6).astype(dtype))
     sum29, sum31 = checksum_milc(latt_size, gauge.reshape(-1))
-    if MPI.COMM_WORLD.Get_rank() == 0:
+    if getMPIRank() == 0:
         with open(filename, "wb") as f:
             f.write(struct.pack("<i", 20103))
             f.write(struct.pack("<iiii", *latt_size))
@@ -98,7 +98,7 @@ def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray):
             f.write(struct.pack("<i", 0))  # order
             f.write(struct.pack("<II", sum29, sum31))
             offset = f.tell()
-    offset = MPI.COMM_WORLD.bcast(offset)
+    offset = getMPIComm().bcast(offset)
 
     writeMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0), gauge)
 

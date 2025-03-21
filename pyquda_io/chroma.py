@@ -4,7 +4,7 @@ from xml.etree import ElementTree as ET
 
 from mpi4py import MPI
 
-from ._mpi_file import getSublatticeSize, getGridCoord, readMPIFile
+from ._mpi_file import getMPIComm, getGridCoord, getSublatticeSize, readMPIFile
 from ._field_utils import gaugeReunitarize
 
 Nd, Ns, Nc = 4, 4, 3
@@ -29,8 +29,8 @@ def checksum_qio(latt_size: List[int], data):
     )
     rank29 = (rank % 29).astype("<u4")
     rank31 = (rank % 31).astype("<u4")
-    sum29 = MPI.COMM_WORLD.allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)), MPI.BXOR)
-    sum31 = MPI.COMM_WORLD.allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)), MPI.BXOR)
+    sum29 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)), MPI.BXOR)
+    sum31 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)), MPI.BXOR)
     return sum29, sum31
 
 

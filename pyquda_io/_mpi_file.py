@@ -4,10 +4,11 @@ import numpy
 from mpi4py import MPI
 from mpi4py.util import dtlib
 
-from pyquda_comm import (
+from pyquda_comm import (  # noqa: F401
     initGrid,
     isGridInitialized,
     getMPIComm,
+    getMPISize,
     getMPIRank,
     getGridSize,
     getGridCoord,

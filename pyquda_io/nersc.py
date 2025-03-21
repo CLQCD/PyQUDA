@@ -5,20 +5,18 @@ from typing import Dict, List
 import numpy
 from mpi4py import MPI
 
-from ._mpi_file import getSublatticeSize, readMPIFile, writeMPIFile
+from ._mpi_file import getMPIComm, getMPISize, getMPIRank, getSublatticeSize, readMPIFile, writeMPIFile
 from ._field_utils import gaugePlaquette, gaugeReunitarize, gaugeReunitarizeReconstruct12, gaugeReconstruct12
 
 Nd, Ns, Nc = 4, 4, 3
 
 
 def checksum_nersc(data: numpy.ndarray) -> int:
-    return MPI.COMM_WORLD.allreduce(numpy.sum(data.view("<u4"), dtype="<u4"), MPI.SUM)
+    return getMPIComm().allreduce(numpy.sum(data.view("<u4"), dtype="<u4"), MPI.SUM)
 
 
 def link_trace_nersc(gauge: numpy.ndarray) -> float:
-    return MPI.COMM_WORLD.allreduce(
-        numpy.einsum("dtzyxaa->", gauge.real) / (MPI.COMM_WORLD.Get_size() * gauge.size // Nc), MPI.SUM
-    )
+    return getMPIComm().allreduce(numpy.einsum("dtzyxaa->", gauge.real) / (getMPISize() * gauge.size // Nc), MPI.SUM)
 
 
 def readGauge(
@@ -124,13 +122,13 @@ def writeGauge(
         "ARCHIVE_DATE": timestamp,
         "FLOATING_POINT": f"IEEE{float_nbytes * 8}LITTLE",
     }
-    if MPI.COMM_WORLD.Get_rank() == 0:
+    if getMPIRank() == 0:
         with open(filename, "wb") as f:
             f.write(b"BEGIN_HEADER\n")
             for key, val in header.items():
                 f.write(f"{key} = {val}\n".encode())
             f.write(b"END_HEADER\n")
             offset = f.tell()
-    offset = MPI.COMM_WORLD.bcast(offset)
+    offset = getMPIComm().bcast(offset)
 
     writeMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0), gauge)

@@ -3,9 +3,8 @@ import struct
 from typing import List
 
 import numpy
-from mpi4py import MPI
 
-from ._mpi_file import getSublatticeSize, readMPIFile, writeMPIFile
+from ._mpi_file import getMPIComm, getMPIRank, getSublatticeSize, readMPIFile, writeMPIFile
 from ._field_utils import gaugeEvenOdd, gaugeLexico, gaugePlaquette, gaugeOddShiftForward, gaugeEvenShiftBackward
 
 Nd, Ns, Nc = 4, 4, 3
@@ -66,11 +65,11 @@ def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray, plaque
                     gauge_reorder[t, x_, y, z_] = gauge[[3, 0, 1, 2], :, t, z, y, x, :, :]
 
     gauge = gauge_reorder.astype(dtype)
-    if MPI.COMM_WORLD.Get_rank() == 0:
+    if getMPIRank() == 0:
         with open(filename, "wb") as f:
             f.write(struct.pack("<iiii", *latt_size[::-1]))
             f.write(struct.pack("<d", plaquette * Nc))
             offset = f.tell()
-    offset = MPI.COMM_WORLD.bcast(offset)
+    offset = getMPIComm().bcast(offset)
 
     writeMPIFile(filename, dtype, offset, (Lt, Lx, Ly, Lz // 2, Nd, 2, Nc, Nc), (1, 2, 3, 0), gauge)

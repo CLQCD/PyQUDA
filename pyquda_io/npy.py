@@ -3,9 +3,8 @@ from typing import List
 
 import numpy
 from numpy.lib.format import dtype_to_descr, read_magic, read_array_header_1_0, write_array_header_1_0
-from mpi4py import MPI
 
-from ._mpi_file import getSublatticeSize, readMPIFile, writeMPIFile
+from ._mpi_file import getMPIComm, getMPIRank, getSublatticeSize, readMPIFile, writeMPIFile
 
 Nd, Ns, Nc = 4, 4, 3
 
@@ -33,12 +32,12 @@ def readGauge(filename: str):
 def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray):
     filename = path.expanduser(path.expandvars(filename))
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
-    if MPI.COMM_WORLD.Get_rank() == 0:
+    if getMPIRank() == 0:
         with open(filename, "wb") as f:
             write_array_header_1_0(
                 f, {"shape": (Nd, *latt_size[::-1], Nc, Nc), "fortran_order": False, "descr": "<c16"}
             )
-    MPI.COMM_WORLD.Barrier()
+    getMPIComm().Barrier()
     shape, dtype, offset = _readHeader(filename)
 
     writeMPIFile(filename, dtype, offset, (Nd, Lt, Lz, Ly, Lx, Nc, Nc), (4, 3, 2, 1), gauge)
@@ -57,12 +56,12 @@ def readPropagator(filename: str):
 def writePropagator(filename: str, latt_size: List[int], propagator: numpy.ndarray):
     filename = path.expanduser(path.expandvars(filename))
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
-    if MPI.COMM_WORLD.Get_rank() == 0:
+    if getMPIRank() == 0:
         with open(filename, "wb") as f:
             write_array_header_1_0(
                 f, {"shape": (*latt_size[::-1], Ns, Ns, Nc, Nc), "fortran_order": False, "descr": "<c16"}
             )
-    MPI.COMM_WORLD.Barrier()
+    getMPIComm().Barrier()
     shape, dtype, offset = _readHeader(filename)
 
     writeMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc), (3, 2, 1, 0), propagator)
