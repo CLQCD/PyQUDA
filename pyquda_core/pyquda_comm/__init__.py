@@ -63,24 +63,38 @@ _CUDA_COMPUTE_CAPABILITY: _ComputeCapability = _ComputeCapability(0, 0)
 
 
 def getRankFromCoord(grid_coord: List[int], grid_size: List[int] = None) -> int:
-    Gx, Gy, Gz, Gt = _GRID_SIZE if grid_size is None else grid_size
-    gx, gy, gz, gt = grid_coord
-    if _GRID_MAP == "XYZT_FASTEST":
-        return ((gx * Gy + gy) * Gz + gz) * Gt + gt
-    elif _GRID_MAP == "TZYX_FASTEST":
-        return ((gt * Gz + gz) * Gy + gy) * Gx + gx
-    else:
-        _MPI_LOGGER.critical(f"Unsupported grid mapping {_GRID_MAP}", ValueError)
+    def _process(xyzt: List[int]):
+        if _GRID_MAP == "XYZT_FASTEST":
+            return xyzt
+        elif _GRID_MAP == "TZYX_FASTEST":
+            return xyzt[::-1]
+        else:
+            _MPI_LOGGER.critical(f"Unsupported grid mapping {_GRID_MAP}", ValueError)
+
+    grid_size = _process(_GRID_SIZE if grid_size is None else grid_size)
+    grid_coord = _process(grid_coord)
+    mpi_rank = 0
+    for g, G in zip(grid_coord, grid_size):
+        mpi_rank = mpi_rank * G + g
+    return mpi_rank
 
 
 def getCoordFromRank(mpi_rank: int, grid_size: List[int] = None) -> List[int]:
-    Gx, Gy, Gz, Gt = _GRID_SIZE if grid_size is None else grid_size
-    if _GRID_MAP == "XYZT_FASTEST":
-        return [mpi_rank // Gt // Gz // Gy, mpi_rank // Gt // Gz % Gy, mpi_rank // Gt % Gz, mpi_rank % Gt]
-    elif _GRID_MAP == "TZYX_FASTEST":
-        return [mpi_rank % Gx, mpi_rank // Gx % Gy, mpi_rank // Gx // Gy % Gz, mpi_rank // Gx // Gy // Gz]
-    else:
-        _MPI_LOGGER.critical(f"Unsupported grid mapping {_GRID_MAP}", ValueError)
+    def _process(xyzt: List[int]):
+        if _GRID_MAP == "XYZT_FASTEST":
+            return xyzt[::-1]
+        elif _GRID_MAP == "TZYX_FASTEST":
+            return xyzt
+        else:
+            _MPI_LOGGER.critical(f"Unsupported grid mapping {_GRID_MAP}", ValueError)
+
+    grid_size = _process(_GRID_SIZE if grid_size is None else grid_size)
+    grid_coord = []
+    for G in grid_size:
+        grid_coord.append(mpi_rank % G)
+        mpi_rank //= G
+    grid_coord = _process(grid_coord)
+    return grid_coord
 
 
 def _composition4(n):
@@ -128,14 +142,20 @@ def _partition(factor: List[List[Tuple[int, int, int, int]]], idx: int, sublatt_
                 )
 
 
-def getDefaultGrid(mpi_size: int, latt_size: List[int]):
+def getDefaultGrid(mpi_size: int, latt_size: List[int], evenodd: bool = True):
     Lx, Ly, Lz, Lt = latt_size
     latt_vol = Lx * Ly * Lz * Lt
     latt_surf = [latt_vol // latt_size[dir] for dir in range(4)]
     min_comm, min_grid = latt_vol, []
     assert latt_vol % mpi_size == 0, "lattice volume must be divisible by MPI size"
-    assert Lx % 2 == 0 and Ly % 2 == 0 and Lz % 2 == 0 and Lt % 2 == 0, "lattice size must be even in all directions"
-    for grid_size in _partition(mpi_size, 0, [Lx // 2, Ly // 2, Lz // 2, Lt // 2], [1, 1, 1, 1]):
+    if evenodd:
+        assert (
+            Lx % 2 == 0 and Ly % 2 == 0 and Lz % 2 == 0 and Lt % 2 == 0
+        ), "lattice size must be even in all directions for even-odd preconditioning"
+        partition = _partition(mpi_size, 0, [Lx // 2, Ly // 2, Lz // 2, Lt // 2], [1, 1, 1, 1])
+    else:
+        partition = _partition(mpi_size, 0, [Lx, Ly, Lz, Lt], [1, 1, 1, 1])
+    for grid_size in partition:
         comm = [latt_surf[dir] * grid_size[dir] for dir in range(4) if grid_size[dir] > 1]
         if sum(comm) < min_comm:
             min_comm, min_grid = sum(comm), [grid_size]
@@ -148,11 +168,11 @@ def getDefaultGrid(mpi_size: int, latt_size: List[int]):
     return min(min_grid)
 
 
-def initGrid(grid_size: List[int], latt_size: List[int] = None):
+def initGrid(grid_size: List[int], latt_size: List[int] = None, evenodd: bool = True):
     global _GRID_SIZE, _GRID_COORD
     if _GRID_SIZE is None:
         if grid_size is None and latt_size is not None:
-            grid_size = getDefaultGrid(_MPI_SIZE, latt_size)
+            grid_size = getDefaultGrid(_MPI_SIZE, latt_size, evenodd)
         grid_size = grid_size if grid_size is not None else [1, 1, 1, 1]
 
         Gx, Gy, Gz, Gt = grid_size
@@ -259,14 +279,14 @@ def getMPIRank():
     return _MPI_RANK
 
 
-def getGridSize(check=True):
-    if check and _GRID_SIZE is None:
+def getGridSize():
+    if _GRID_SIZE is None:
         _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
     return _GRID_SIZE
 
 
-def getGridCoord(check=True):
-    if check and _GRID_COORD is None:
+def getGridCoord():
+    if _GRID_COORD is None:
         _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
     return _GRID_COORD
 

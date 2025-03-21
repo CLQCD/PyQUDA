@@ -6,8 +6,6 @@ from typing import Any, List, Literal, Sequence, Tuple, Union
 import numpy
 
 from pyquda_comm import (
-    initGrid,
-    initDevice,
     isGridInitialized,
     isDeviceInitialized,
     getLogger,
@@ -16,9 +14,9 @@ from pyquda_comm import (
     getMPIRank,
     getGridSize,
     getGridCoord,
-    getCoordFromRank,
     getCUDABackend,
 )
+from pyquda_comm.file import File
 from .pointer import ndarrayPointer, Pointer, Pointers
 
 
@@ -28,21 +26,21 @@ class LatticeInfo:
     Nc: int = 3
 
     def __init__(self, latt_size: List[int], t_boundary: Literal[1, -1] = 1, anisotropy: float = 1.0) -> None:
-        self._checkLattice(latt_size)
-        self._setLattice(latt_size, t_boundary, anisotropy)
-
-    def _checkLattice(self, latt_size: List[int]):
         from . import init
 
         if not isGridInitialized() or not isDeviceInitialized():
             init(None, latt_size)
+        self._checkLattice(latt_size)
+        self._setLattice(latt_size, t_boundary, anisotropy)
+
+    def _checkLattice(self, latt_size: List[int]):
+        GLx, GLy, GLz, GLt = latt_size
         Gx, Gy, Gz, Gt = getGridSize()
-        Lx, Ly, Lz, Lt = latt_size
         if not (
-            (Lx % (2 * Gx) == 0 or Lx * Gx == 1)
-            and (Ly % (2 * Gy) == 0 or Ly * Gy == 1)
-            and (Lz % (2 * Gz) == 0 or Lz * Gz == 1)
-            and (Lt % (2 * Gt) == 0 or Lt * Gt == 1)
+            (GLx % (2 * Gx) == 0 or GLx * Gx == 1)
+            and (GLy % (2 * Gy) == 0 or GLy * Gy == 1)
+            and (GLz % (2 * Gz) == 0 or GLz * Gz == 1)
+            and (GLt % (2 * Gt) == 0 or GLt * Gt == 1)
         ):
             getLogger().critical(
                 "lattice size must be divisible by gird size, "
@@ -81,30 +79,26 @@ Nd, Ns, Nc = LatticeInfo.Nd, LatticeInfo.Ns, LatticeInfo.Nc
 
 
 class GeneralInfo:
-    def __init__(self, latt_size: List[int], grid_size: List[int], Ns: int = None, Nc: int = None) -> None:
+    def __init__(self, latt_size: List[int], Ns: int = 4, Nc: int = 3) -> None:
+        grid_size = getGridSize()
         self._checkLattice(latt_size, grid_size)
         self._setLattice(latt_size, grid_size)
         self.Nd = len(latt_size)
-        self.Ns = Ns if Ns is not None else 4
-        self.Nc = Nc if Nc is not None else 3
+        self.Ns = Ns
+        self.Nc = Nc
 
     def _checkLattice(self, latt_size: List[int], grid_size: List[int]):
-        assert len(latt_size) == len(grid_size)
+        assert len(latt_size) == len(grid_size), "lattice size and grid size must have the same dimension"
         for GL, G in zip(latt_size, grid_size):
             if not (GL % G == 0):
                 getLogger().critical("lattice size must be divisible by gird size", ValueError)
 
     def _setLattice(self, latt_size: List[int], grid_size: List[int]):
-        if not isGridInitialized or not isDeviceInitialized():
-            initGrid()
-            initDevice()
-        if getMPISize() != int(numpy.prod(grid_size)):
-            getLogger().critical(f"The MPI size {getMPISize()} does not match the grid size {grid_size}", ValueError)
         self.mpi_comm = getMPIComm()
         self.mpi_size = getMPISize()
         self.mpi_rank = getMPIRank()
         self.grid_size = grid_size
-        self.grid_coord = getCoordFromRank(getMPIRank(), grid_size)
+        self.grid_coord = getGridCoord()
 
         self.global_size = latt_size
         self.global_volume = int(numpy.prod(latt_size))
@@ -261,8 +255,6 @@ class BaseField:
         check: bool = True,
         use_fp32: bool = False,
     ):
-        from .file import File
-
         assert hasattr(self, "lexico")
         s = perf_counter()
         gbytes = 0
@@ -272,7 +264,6 @@ class BaseField:
                 self._groupName(),
                 label,
                 self.lexico(),
-                self.latt_info.grid_size,
                 annotation=annotation,
                 check=check,
                 use_fp32=use_fp32,
@@ -289,8 +280,6 @@ class BaseField:
         check: bool = True,
         use_fp32: bool = False,
     ):
-        from .file import File
-
         assert hasattr(self, "lexico")
         s = perf_counter()
         gbytes = 0
@@ -300,7 +289,6 @@ class BaseField:
                 self._groupName(),
                 label,
                 self.lexico(),
-                self.latt_info.grid_size,
                 annotation=annotation,
                 check=check,
                 use_fp32=use_fp32,
@@ -316,8 +304,6 @@ class BaseField:
         annotation: str = "",
         check: bool = True,
     ):
-        from .file import File
-
         assert hasattr(self, "lexico")
         s = perf_counter()
         gbytes = 0
@@ -327,7 +313,6 @@ class BaseField:
                 self._groupName(),
                 label,
                 self.lexico(),
-                self.latt_info.grid_size,
                 annotation=annotation,
                 check=check,
             )
@@ -537,16 +522,13 @@ class GeneralField(BaseField):
         label: Union[int, str, Sequence[int], Sequence[str]],
         *,
         check: bool = True,
-        grid_size: List[int] = None,
     ):
-        from .file import File
-
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
         with File(filename, "r") as f:
-            latt_size, Ns, Nc, value = f.load(cls._groupName(), label, grid_size, check=check)
-        latt_info = GeneralInfo(latt_size, grid_size, Ns, Nc)
+            latt_size, Ns, Nc, value = f.load(cls._groupName(), label, check=check)
+        latt_info = GeneralInfo(latt_size, Ns, Nc)
         if not issubclass(cls, MultiField):
             retval = cls(latt_info, value)
         else:
@@ -652,13 +634,11 @@ class FullField:
         *,
         check: bool = True,
     ):
-        from .file import File
-
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
         with File(filename, "r") as f:
-            latt_size, Ns, Nc, value = f.load(cls._groupName(), label, getGridSize(), check=check)
+            latt_size, Ns, Nc, value = f.load(cls._groupName(), label, check=check)
         latt_info = LatticeInfo(latt_size)
         if Ns is not None:
             latt_info.Ns = Ns

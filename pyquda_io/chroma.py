@@ -11,12 +11,12 @@ Nd, Ns, Nc = 4, 4, 3
 _precision_map = {"D": 8, "F": 4, "S": 4}
 
 
-def checksum_qio(latt_size: List[int], grid_size: List[int], data):
+def checksum_qio(latt_size: List[int], data):
     import zlib
     import numpy
 
-    gx, gy, gz, gt = getGridCoord(grid_size)
-    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size, grid_size)
+    gx, gy, gz, gt = getGridCoord()
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     gLx, gLy, gLz, gLt = gx * Lx, gy * Ly, gz * Lz, gt * Lt
     GLx, GLy, GLz, GLt = latt_size
     work = numpy.empty((Lt * Lz * Ly * Lx), "<u4")
@@ -34,7 +34,7 @@ def checksum_qio(latt_size: List[int], grid_size: List[int], data):
     return sum29, sum31
 
 
-def readQIOGauge(filename: str, grid_size: List[int], checksum: bool = True, reunitarize_sigma: float = 5e-7):
+def readQIOGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 5e-7):
     from .lime import Lime
 
     lime = Lime(filename)
@@ -57,12 +57,12 @@ def readQIOGauge(filename: str, grid_size: List[int], checksum: bool = True, reu
     assert int(scidac_private_record_xml.find("datacount").text) == Nd
     assert int(scidac_private_file_xml.find("spacetime").text) == Nd
     latt_size = [int(L) for L in scidac_private_file_xml.find("dims").text.split()]
-    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size, grid_size)
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     dtype = f">c{2 * precision}"
 
-    gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0), grid_size)
+    gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
     if checksum:
-        assert checksum_qio(latt_size, grid_size, gauge.reshape(Lt * Lz * Ly * Lx, Nd * Nc * Nc)) == (
+        assert checksum_qio(latt_size, gauge.reshape(Lt * Lz * Ly * Lx, Nd * Nc * Nc)) == (
             int(scidac_checksum_xml.find("suma").text, 16),
             int(scidac_checksum_xml.find("sumb").text, 16),
         ), f"Bad checksum for {filename}"
@@ -72,17 +72,17 @@ def readQIOGauge(filename: str, grid_size: List[int], checksum: bool = True, reu
     return latt_size, gauge
 
 
-def readILDGBinGauge(filename: str, dtype: str, latt_size: List[int], grid_size: List[int]):
+def readILDGBinGauge(filename: str, dtype: str, latt_size: List[int]):
     filename = path.expanduser(path.expandvars(filename))
-    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size, grid_size)
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     offset = 0
 
-    gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0), grid_size)
+    gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
     gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
     return gauge
 
 
-def readQIOPropagator(filename: str, grid_size: List[int], checksum: bool = True):
+def readQIOPropagator(filename: str, checksum: bool = True):
     from .lime import Lime
 
     lime = Lime(filename)
@@ -111,21 +111,21 @@ def readQIOPropagator(filename: str, grid_size: List[int], checksum: bool = True
     assert int(scidac_private_record_xml.find("datacount").text) == 1
     assert int(scidac_private_file_xml.find("spacetime").text) == Nd
     latt_size = [int(L) for L in scidac_private_file_xml.find("dims").text.split()]
-    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size, grid_size)
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     dtype = f">c{2 * precision}"
 
     if not staggered:
-        propagator = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc), (3, 2, 1, 0), grid_size)
+        propagator = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc), (3, 2, 1, 0))
         if checksum:
-            assert checksum_qio(latt_size, grid_size, propagator.reshape(Lt * Lz * Ly * Lx, Ns * Ns * Nc * Nc)) == (
+            assert checksum_qio(latt_size, propagator.reshape(Lt * Lz * Ly * Lx, Ns * Ns * Nc * Nc)) == (
                 int(scidac_checksum_xml.find("suma").text, 16),
                 int(scidac_checksum_xml.find("sumb").text, 16),
             ), f"Bad checksum for {filename}"
         propagator = propagator.astype("<c16")
     else:
-        propagator = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nc, Nc), (3, 2, 1, 0), grid_size)
+        propagator = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nc, Nc), (3, 2, 1, 0))
         if checksum:
-            assert checksum_qio(latt_size, grid_size, propagator.reshape(Lt * Lz * Ly * Lx, Nc * Nc)) == (
+            assert checksum_qio(latt_size, propagator.reshape(Lt * Lz * Ly * Lx, Nc * Nc)) == (
                 int(scidac_checksum_xml.find("suma").text, 16),
                 int(scidac_checksum_xml.find("sumb").text, 16),
             ), f"Bad checksum for {filename}"

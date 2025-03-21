@@ -23,7 +23,6 @@ def link_trace_nersc(gauge: numpy.ndarray) -> float:
 
 def readGauge(
     filename: str,
-    grid_size: List[int],
     checksum: bool = True,
     plaquette: bool = True,
     link_trace: bool = True,
@@ -45,7 +44,7 @@ def readGauge(
         int(header["DIMENSION_3"]),
         int(header["DIMENSION_4"]),
     ]
-    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size, grid_size)
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     assert header["FLOATING_POINT"].startswith("IEEE")
     if header["FLOATING_POINT"][6:] == "BIG":
         endian = ">"
@@ -57,7 +56,7 @@ def readGauge(
     dtype = f"{endian}c{2 * float_nbytes}"
 
     if header["DATATYPE"] == "4D_SU3_GAUGE_3x3":
-        gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0), grid_size)
+        gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
         gauge = gauge.astype(f"<c{2 * float_nbytes}")
         if checksum:
             assert checksum_nersc(gauge.reshape(-1)) == int(header["CHECKSUM"], 16), f"Bad checksum for {filename}"
@@ -65,7 +64,7 @@ def readGauge(
         if float_nbytes == 4:
             gauge = gaugeReunitarize(gauge, reunitarize_sigma)  # 5e-7: Nc * 2**0.5 * 1.1920929e-07
     elif header["DATATYPE"] == "4D_SU3_GAUGE":
-        gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc - 1, Nc), (3, 2, 1, 0), grid_size)
+        gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc - 1, Nc), (3, 2, 1, 0))
         gauge = gauge.astype(f"<c{2 * float_nbytes}")
         if checksum:
             assert checksum_nersc(gauge.reshape(-1)) == int(header["CHECKSUM"], 16), f"Bad checksum for {filename}"
@@ -81,29 +80,24 @@ def readGauge(
         assert numpy.isclose(link_trace_nersc(gauge), float(header["LINK_TRACE"])), f"Bad link trace for {filename}"
     if plaquette:
         assert numpy.isclose(
-            gaugePlaquette(latt_size, grid_size, gauge)[0], float(header["PLAQUETTE"])
+            gaugePlaquette(latt_size, gauge)[0], float(header["PLAQUETTE"])
         ), f"Bad plaquette for {filename}"
     return latt_size, gauge
 
 
 def writeGauge(
-    filename: str,
-    latt_size: List[int],
-    grid_size: List[int],
-    gauge: numpy.ndarray,
-    plaquette: float = None,
-    use_fp32: bool = False,
+    filename: str, latt_size: List[int], gauge: numpy.ndarray, plaquette: float = None, use_fp32: bool = False
 ):
     filename = path.expanduser(path.expandvars(filename))
     float_nbytes = 4 if use_fp32 else 8
     dtype, offset = f"<c{2 * float_nbytes}", None
     if plaquette is None:
-        plaquette = gaugePlaquette(latt_size, grid_size, gauge)[0]
+        plaquette = gaugePlaquette(latt_size, gauge)[0]
     gauge = numpy.ascontiguousarray(gauge.transpose(1, 2, 3, 4, 0, 5, 6).astype(dtype))
     link_trace = link_trace_nersc(gauge)
     checksum = checksum_nersc(gauge.reshape(-1))
     timestamp = datetime.now().astimezone().strftime(R"%a %b %d %H:%M:%S %Y %Z")
-    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size, grid_size)
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     header: Dict[str, str] = {
         "HDR_VERSION": "1.0",
         "DATATYPE": "4D_SU3_GAUGE_3x3",
@@ -139,4 +133,4 @@ def writeGauge(
             offset = f.tell()
     offset = MPI.COMM_WORLD.bcast(offset)
 
-    writeMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0), grid_size, gauge)
+    writeMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0), gauge)

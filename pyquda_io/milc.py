@@ -14,9 +14,9 @@ Nd, Ns, Nc = 4, 4, 3
 _precision_map = {"D": 8, "F": 4, "S": 4}
 
 
-def checksum_milc(latt_size: List[int], grid_size: List[int], data):
-    gx, gy, gz, gt = getGridCoord(grid_size)
-    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size, grid_size)
+def checksum_milc(latt_size: List[int], data):
+    gx, gy, gz, gt = getGridCoord()
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     gLx, gLy, gLz, gLt = gx * Lx, gy * Ly, gz * Lz, gt * Lt
     GLx, GLy, GLz, GLt = latt_size
 
@@ -33,11 +33,11 @@ def checksum_milc(latt_size: List[int], grid_size: List[int], data):
     return sum29, sum31
 
 
-def checksum_qio(latt_size: List[int], grid_size: List[int], data):
+def checksum_qio(latt_size: List[int], data):
     import zlib
 
-    gx, gy, gz, gt = getGridCoord(grid_size)
-    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size, grid_size)
+    gx, gy, gz, gt = getGridCoord()
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     gLx, gLy, gLz, gLt = gx * Lx, gy * Ly, gz * Lz, gt * Lt
     GLx, GLy, GLz, GLt = latt_size
     work = numpy.empty((Lt * Lz * Ly * Lx), "<u4")
@@ -55,7 +55,7 @@ def checksum_qio(latt_size: List[int], grid_size: List[int], data):
     return sum29, sum31
 
 
-def readGauge(filename: str, grid_size: List[int], checksum: bool = True, reunitarize_sigma: float = 5e-7):
+def readGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 5e-7):
     filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
         magic = f.read(4)
@@ -69,12 +69,12 @@ def readGauge(filename: str, grid_size: List[int], checksum: bool = True, reunit
         assert struct.unpack(f"{endian}i", f.read(4))[0] == 0  # order
         sum29, sum31 = struct.unpack(f"{endian}II", f.read(8))
         offset = f.tell()
-    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size, grid_size)
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     dtype = f"{endian}c8"
 
-    gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0), grid_size)
+    gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
     if checksum:
-        assert checksum_milc(latt_size, grid_size, gauge.astype("<c8").reshape(-1)) == (
+        assert checksum_milc(latt_size, gauge.astype("<c8").reshape(-1)) == (
             sum29,
             sum31,
         ), f"Bad checksum for {filename}"
@@ -83,13 +83,13 @@ def readGauge(filename: str, grid_size: List[int], checksum: bool = True, reunit
     return latt_size, gauge
 
 
-def writeGauge(filename: str, latt_size: List[int], grid_size: List[int], gauge: numpy.ndarray):
+def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray):
     filename = path.expanduser(path.expandvars(filename))
-    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size, grid_size)
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     dtype, offset = "<c8", None
 
     gauge = numpy.ascontiguousarray(gauge.transpose(1, 2, 3, 4, 0, 5, 6).astype(dtype))
-    sum29, sum31 = checksum_milc(latt_size, grid_size, gauge.reshape(-1))
+    sum29, sum31 = checksum_milc(latt_size, gauge.reshape(-1))
     if MPI.COMM_WORLD.Get_rank() == 0:
         with open(filename, "wb") as f:
             f.write(struct.pack("<i", 20103))
@@ -100,10 +100,10 @@ def writeGauge(filename: str, latt_size: List[int], grid_size: List[int], gauge:
             offset = f.tell()
     offset = MPI.COMM_WORLD.bcast(offset)
 
-    writeMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0), grid_size, gauge)
+    writeMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0), gauge)
 
 
-def readQIOPropagator(filename: str, grid_size: List[int]):
+def readQIOPropagator(filename: str):
     from .lime import Lime
 
     lime = Lime(filename)
@@ -129,7 +129,7 @@ def readQIOPropagator(filename: str, grid_size: List[int]):
     assert int(scidac_private_record_xml.find("datacount").text) == 1
     assert int(scidac_private_file_xml.find("spacetime").text) == Nd
     latt_size = [int(L) for L in scidac_private_file_xml.find("dims").text.split()]
-    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size, grid_size)
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     dtype = f">c{2 * precision}"
 
     if not staggered:
@@ -137,14 +137,12 @@ def readQIOPropagator(filename: str, grid_size: List[int]):
         for spin in range(Ns):
             for color in range(Nc):
                 propagator[spin, color] = readMPIFile(
-                    filename, dtype, offset[spin * Nc + color], (Lt, Lz, Ly, Lx, Ns, Nc), (3, 2, 1, 0), grid_size
+                    filename, dtype, offset[spin * Nc + color], (Lt, Lz, Ly, Lx, Ns, Nc), (3, 2, 1, 0)
                 )
         propagator = propagator.transpose(2, 3, 4, 5, 6, 0, 7, 1).astype("<c16")
     else:
         propagator = numpy.empty((Nc, Lt, Lz, Ly, Lx, Nc), dtype)
         for color in range(Nc):
-            propagator[color] = readMPIFile(
-                filename, dtype, offset[color], (Lt, Lz, Ly, Lx, Nc), (3, 2, 1, 0), grid_size
-            )
+            propagator[color] = readMPIFile(filename, dtype, offset[color], (Lt, Lz, Ly, Lx, Nc), (3, 2, 1, 0))
         propagator = propagator.transpose(1, 2, 3, 4, 5, 0).astype("<c16")
     return latt_size, staggered, propagator

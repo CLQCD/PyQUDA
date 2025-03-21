@@ -5,9 +5,12 @@ import numpy
 from mpi4py import MPI
 import h5py
 
+from . import getLogger, getMPIComm, getGridSize, getGridCoord
+
 
 class _LatticeInfo:
-    def __init__(self, latt_size: List[int], grid_size: List[int]) -> None:
+    def __init__(self, latt_size: List[int]) -> None:
+        grid_size = getGridSize()
         self._checkLattice(latt_size, grid_size)
         self._setLattice(latt_size, grid_size)
 
@@ -15,17 +18,13 @@ class _LatticeInfo:
         assert len(latt_size) == len(grid_size), "lattice size and grid size must have the same dimension"
         for GL, G in zip(latt_size, grid_size):
             if not (GL % G == 0):
-                raise ValueError("lattice size must be divisible by gird size")
+                getLogger().critical(f"lattice size {latt_size} must be divisible by gird size {grid_size}", ValueError)
 
     def _setLattice(self, latt_size: List[int], grid_size: List[int]):
-        if MPI.COMM_WORLD.Get_size() != int(numpy.prod(grid_size)):
-            raise ValueError(f"The MPI size {MPI.COMM_WORLD.Get_size()} does not match the grid size {grid_size}")
+        grid_coord = getGridCoord()
         sublatt_size = [GL // G for GL, G in zip(latt_size, grid_size)]
         sublatt_slice = []
-        mpi_rank = MPI.COMM_WORLD.Get_rank()
-        for G, L in zip(grid_size[::-1], sublatt_size[::-1]):
-            g = mpi_rank % G
-            mpi_rank //= G
+        for g, L in zip(grid_coord[::-1], sublatt_size[::-1]):
             sublatt_slice.append(slice(g * L, (g + 1) * L))
 
         self.global_size = latt_size
@@ -102,7 +101,7 @@ def checksum(latt_info, data: numpy.ndarray) -> Tuple[int, int]:
     #         ^ CRC32LUT[3].take(work_view[:, 3], mode="wrap")
     #     )
     # work ^= 0xFFFFFFFF
-    work = numpy.bitwise_xor.reduce(data, 1)
+    work = numpy.bitwise_xor.reduce(data.view("<u4"), 1)
     rank = (
         numpy.arange(latt_info.global_volume, dtype="<u8")
         .reshape(*latt_info.global_size[::-1])[latt_info.slice]
@@ -110,8 +109,8 @@ def checksum(latt_info, data: numpy.ndarray) -> Tuple[int, int]:
     )
     rank29 = (rank % 29).astype("<u4")
     rank31 = (rank % 31).astype("<u4")
-    sum29 = MPI.COMM_WORLD.allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)), MPI.BXOR)
-    sum31 = MPI.COMM_WORLD.allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)), MPI.BXOR)
+    sum29 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)), MPI.BXOR)
+    sum31 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)), MPI.BXOR)
     return sum29, sum31
 
 
@@ -141,22 +140,18 @@ def _spin_color_dtype(name: str, shape: Sequence[int], use_fp32: bool = True) ->
     return Ns, Nc, dtype
 
 
-def _field_info(
-    group: str,
-    label: Union[int, str, Sequence[str], Sequence[str]],
-    field: numpy.ndarray,
-    grid_size: Sequence[int],
-    use_fp32: bool,
-):
+def _field_info(group: str, label: Union[int, str, Sequence[str], Sequence[str]], field: numpy.ndarray, use_fp32: bool):
+    grid_size = getGridSize()
+    Nd = len(grid_size)
     if isinstance(label, (int, str)):
         keys = str(label)
-        sublatt_size = field.shape[0 : len(grid_size)][::-1]
-        field_shape = field.shape[len(grid_size) :]
+        sublatt_size = field.shape[0:Nd][::-1]
+        field_shape = field.shape[Nd:]
     elif isinstance(label, (list, tuple, range)):
         assert len(label) == field.shape[0]
         keys = [str(key) for key in label]
-        sublatt_size = field.shape[1 : 1 + len(grid_size)][::-1]
-        field_shape = field.shape[1 + len(grid_size) :]
+        sublatt_size = field.shape[1 : 1 + Nd][::-1]
+        field_shape = field.shape[1 + Nd :]
     else:
         raise TypeError(f"Invalid label {label} for field type {group}")
     latt_size = [G * L for G, L in zip(grid_size, sublatt_size)]
@@ -179,25 +174,18 @@ class File(h5py.File):
             w- or x  Create file, fail if exists
             a        Read/write if exists, create otherwise
         """
-        super().__init__(name, mode, driver="mpio", comm=MPI.COMM_WORLD, **kwds)
+        super().__init__(name, mode, driver="mpio", comm=getMPIComm(), **kwds)
 
     @classmethod
     def _load(cls, latt_info: _LatticeInfo, dataset: h5py.Dataset, check: bool = True):
         data: numpy.ndarray = dataset[latt_info.slice]
         if check:
-            sum29, sum31 = checksum(latt_info, data.reshape(latt_info.volume, -1).view("<u4"))
+            sum29, sum31 = checksum(latt_info, data.reshape(latt_info.volume, -1))
             assert dataset.attrs["sum29"] == f"{sum29:08x}", f"{dataset.attrs['sum29']} != {sum29:08x}"
             assert dataset.attrs["sum31"] == f"{sum31:08x}", f"{dataset.attrs['sum31']} != {sum31:08x}"
         return data
 
-    def load(
-        self,
-        group: str,
-        label: Union[int, str, Sequence[int], Sequence[str]],
-        grid_size: Sequence[int],
-        *,
-        check: bool = True,
-    ):
+    def load(self, group: str, label: Union[int, str, Sequence[int], Sequence[str]], *, check: bool = True):
         s = perf_counter()
         gbytes = 0
         g = self[group]
@@ -216,7 +204,7 @@ class File(h5py.File):
         for key in g.keys():
             field_dtype = g[key].dtype.str.replace("<c8", "<c16").replace("<f4", "<f8")
             break
-        latt_info = _LatticeInfo(latt_size, grid_size)
+        latt_info = _LatticeInfo(latt_size)
         if isinstance(keys, str):
             key = keys
             value = self._load(latt_info, g[key], check).astype(field_dtype)
@@ -227,15 +215,14 @@ class File(h5py.File):
                 value.append(self._load(latt_info, g[key], check).astype(field_dtype))
                 gbytes += g[key].nbytes / 1024**3
         secs = perf_counter() - s
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"Loaded {group} from {self.filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
+        getLogger().info(f"Loaded {group} from {self.filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
         return latt_size, Ns, Nc, value
 
     @classmethod
     def _save(cls, latt_info: _LatticeInfo, dataset: h5py.Dataset, data: numpy.ndarray, check: bool = True):
         dataset[latt_info.slice] = data
         if check:
-            sum29, sum31 = checksum(latt_info, data.reshape(latt_info.volume, -1).view("<u4"))
+            sum29, sum31 = checksum(latt_info, data.reshape(latt_info.volume, -1))
             dataset.attrs["sum29"] = f"{sum29:08x}"
             dataset.attrs["sum31"] = f"{sum31:08x}"
 
@@ -244,7 +231,6 @@ class File(h5py.File):
         group: str,
         label: Union[int, str, Sequence[int], Sequence[str]],
         field: numpy.ndarray,
-        grid_size: Sequence[int],
         *,
         annotation: str = "",
         check: bool = True,
@@ -252,7 +238,7 @@ class File(h5py.File):
     ):
         s = perf_counter()
         gbytes = 0
-        keys, latt_size, Ns, Nc, field_shape, field_dtype = _field_info(group, label, field, grid_size, use_fp32)
+        keys, latt_size, Ns, Nc, field_shape, field_dtype = _field_info(group, label, field, use_fp32)
         g = self.create_group(group)
         g.attrs["Annotation"] = annotation
         g.attrs["Lattice"] = " ".join([str(GL) for GL in latt_size])
@@ -261,7 +247,7 @@ class File(h5py.File):
         if "Color" in group:
             g.attrs["Color"] = str(Nc)
 
-        latt_info = _LatticeInfo(latt_size, grid_size)
+        latt_info = _LatticeInfo(latt_size)
         if isinstance(keys, str):
             key = keys
             g.create_dataset(key, (*latt_size[::-1], *field_shape), field_dtype)
@@ -273,15 +259,13 @@ class File(h5py.File):
                 self._save(latt_info, g[key], field[index].astype(field_dtype), check)
                 gbytes += g[key].nbytes / 1024**3
         secs = perf_counter() - s
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"Saved {group} to {self.filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
+        getLogger().info(f"Saved {group} to {self.filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
 
     def append(
         self,
         group: str,
         label: Union[int, str, Sequence[int], Sequence[str]],
         field: numpy.ndarray,
-        grid: Sequence[int],
         *,
         annotation: str = "",
         check: bool = True,
@@ -289,7 +273,7 @@ class File(h5py.File):
     ):
         s = perf_counter()
         gbytes = 0
-        keys, latt_size, Ns, Nc, field_shape, field_dtype = _field_info(group, label, field, grid, use_fp32)
+        keys, latt_size, Ns, Nc, field_shape, field_dtype = _field_info(group, label, field, use_fp32)
         g = self.create_group(group)
         g.attrs["Annotation"] = annotation
         g.attrs["Lattice"] = " ".join([str(GL) for GL in latt_size])
@@ -298,7 +282,7 @@ class File(h5py.File):
         if "Color" in group:
             g.attrs["Color"] = str(Nc)
 
-        latt_info = _LatticeInfo(latt_size, grid)
+        latt_info = _LatticeInfo(latt_size)
         if isinstance(keys, str):
             key = keys
             g.create_dataset(key, (*latt_size[::-1], *field_shape), field_dtype)
@@ -310,22 +294,20 @@ class File(h5py.File):
                 self._save(latt_info, g[key], field[index].astype(field_dtype), check)
                 gbytes += g[key].nbytes / 1024**3
         secs = perf_counter() - s
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"Append {group} to {self.filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
+        getLogger().info(f"Append {group} to {self.filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
 
     def update(
         self,
         group: str,
         label: Union[int, str, Sequence[int], Sequence[str]],
         field: numpy.ndarray,
-        grid: Sequence[int],
         *,
         annotation: str = "",
         check: bool = True,
     ):
         s = perf_counter()
         gbytes = 0
-        keys, latt_size, Ns, Nc, field_shape, field_dtype = _field_info(group, label, field, grid, False)
+        keys, latt_size, Ns, Nc, field_shape, field_dtype = _field_info(group, label, field, False)
         g = self[group]
         if annotation != "":
             g.attrs["Annotation"] = annotation
@@ -338,7 +320,7 @@ class File(h5py.File):
         for key in g.keys():
             field_dtype = g[key].dtype.str
             break
-        latt_info = _LatticeInfo(latt_size, grid)
+        latt_info = _LatticeInfo(latt_size)
         if isinstance(keys, str):
             key = keys
             if key not in g:
@@ -352,5 +334,4 @@ class File(h5py.File):
                 self._save(latt_info, g[key], field[index].astype(field_dtype), check)
                 gbytes += g[key].nbytes / 1024**3
         secs = perf_counter() - s
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"Updated {group} to {self.filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
+        getLogger().info(f"Updated {group} to {self.filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
