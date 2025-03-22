@@ -1,9 +1,11 @@
 import logging
 from os import environ
 from sys import stdout
-from typing import Any, Callable, Dict, List, Literal, NamedTuple, Tuple, Union
+from typing import Any, Callable, Dict, List, Literal, NamedTuple, Sequence, Tuple, Union
 
+import numpy
 from mpi4py import MPI
+from mpi4py.util import dtlib
 
 
 class _MPILogger:
@@ -314,3 +316,58 @@ def getCUDADevice():
 
 def getCUDAComputeCapability():
     return _CUDA_COMPUTE_CAPABILITY
+
+
+def getSubarray(shape: Sequence[int], axes: Sequence[int]):
+    sizes = [d for d in shape]
+    subsizes = [d for d in shape]
+    starts = [d if i in axes else 0 for i, d in enumerate(shape)]
+    grid = getGridSize()
+    coord = getGridCoord()
+    for j, i in enumerate(axes):
+        sizes[i] *= grid[j]
+        starts[i] *= coord[j]
+    return sizes, subsizes, starts
+
+
+def readMPIFile(
+    filename: str,
+    dtype: str,
+    offset: int,
+    shape: Sequence[int],
+    axes: Sequence[int],
+):
+    sizes, subsizes, starts = getSubarray(shape, axes)
+    native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
+    buf = numpy.empty(subsizes, native_dtype)
+
+    fh = MPI.File.Open(getMPIComm(), filename, MPI.MODE_RDONLY)
+    filetype = dtlib.from_numpy_dtype(native_dtype).Create_subarray(sizes, subsizes, starts)
+    filetype.Commit()
+    fh.Set_view(disp=offset, filetype=filetype)
+    fh.Read_all(buf)
+    filetype.Free()
+    fh.Close()
+
+    return buf.view(dtype)
+
+
+def writeMPIFile(
+    filename: str,
+    dtype: str,
+    offset: int,
+    shape: Sequence[int],
+    axes: Sequence[int],
+    buf: numpy.ndarray,
+):
+    sizes, subsizes, starts = getSubarray(shape, axes)
+    native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
+    buf = buf.view(native_dtype)
+
+    fh = MPI.File.Open(getMPIComm(), filename, MPI.MODE_WRONLY | MPI.MODE_CREATE)
+    filetype = dtlib.from_numpy_dtype(native_dtype).Create_subarray(sizes, subsizes, starts)
+    filetype.Commit()
+    fh.Set_view(disp=offset, filetype=filetype)
+    fh.Write_all(buf)
+    filetype.Free()
+    fh.Close()

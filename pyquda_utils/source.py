@@ -1,6 +1,6 @@
 from typing import List, Literal, Union
 
-from pyquda import pyquda as quda, getGridSize, getLogger
+from pyquda import getGridSize, getLogger
 from pyquda.enum_quda import QudaDslashType, QudaParity
 from pyquda.field import (
     Ns,
@@ -326,6 +326,7 @@ def gaussian3(x3: LatticeStaggeredPropagator, gauge: LatticeGauge, rho: float, n
 
 
 def _gaussian3(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, n_steps: int):
+    from pyquda import pyquda as quda
     from .. import core
 
     _b = point(latt_info, t_srce, None, color)
@@ -344,6 +345,7 @@ def _gaussian3(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int,
 
 
 def _gaussian2(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, n_steps: int, xi: float):
+    from pyquda import pyquda as quda
     from .. import core
 
     def _Laplacian(src, aux, sigma, invert_param):
@@ -374,6 +376,7 @@ def _gaussian2(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int,
 
 
 def _gaussian1(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, n_steps: int, xi: float):
+    from pyquda import pyquda as quda
     from .. import core
 
     def _Laplacian(src, aux, sigma, xi, invert_param):

@@ -12,11 +12,11 @@ cdef class Pointer:
         return f"Pointer at 0x{<size_t>self.ptr:016x}"
 
 cdef class Pointers(Pointer):
-    def __cinit__(self, str dtype, unsigned int n1):
-        self.n1 = n1
-        if n1 > 0:
-            self.ptrs = <void **>malloc(n1 * sizeof(void *))
-            for i in range(n1):
+    def __cinit__(self, str dtype, unsigned int n0):
+        self.n0 = n0
+        if n0 > 0:
+            self.ptrs = <void **>malloc(n0 * sizeof(void *))
+            for i in range(n0):
                 self.ptrs[i] = NULL
         else:
             self.ptrs = <void **>NULL
@@ -26,32 +26,32 @@ cdef class Pointers(Pointer):
             free(self.ptrs)
 
     cdef set_ptrs(self, void **ptrs):
-        for i in range(self.n1):
+        for i in range(self.n0):
             self.ptrs[i] = ptrs[i]
         self.ptr = <void *>self.ptrs
 
 cdef class Pointerss(Pointer):
-    def __cinit__(self, str dtype, unsigned int n1, unsigned int n2):
+    def __cinit__(self, str dtype, unsigned int n0, unsigned int n1):
+        self.n0 = n0
         self.n1 = n1
-        self.n2 = n2
-        if n1 > 0 and n2 > 0:
-            self.ptrss = <void ***>malloc(n1 * sizeof(void **))
-            for i in range(n1):
-                self.ptrss[i] = <void **>malloc(n2 * sizeof(void *))
-                for j in range(n2):
+        if n0 > 0 and n1 > 0:
+            self.ptrss = <void ***>malloc(n0 * sizeof(void **))
+            for i in range(n0):
+                self.ptrss[i] = <void **>malloc(n1 * sizeof(void *))
+                for j in range(n1):
                     self.ptrss[i][j] = NULL
         else:
             self.ptrss = <void ***>NULL
 
     def __dealloc__(self):
         if self.ptrss:
-            for i in range(self.n1):
+            for i in range(self.n0):
                 free(self.ptrss[i])
             free(self.ptrss)
 
     cdef set_ptrss(self, void ***ptrss):
-        for i in range(self.n1):
-            for j in range(self.n2):
+        for i in range(self.n0):
+            for j in range(self.n1):
                 self.ptrss[i][j] = ptrss[i][j]
         self.ptr = <void *>self.ptrss
 
@@ -142,4 +142,39 @@ def ndarrayPointer(ndarray, as_void=False):
     else:
         raise NotImplementedError("ndarray.ndim > 3 not implemented yet")
 
-ndarrayDataPointer = ndarrayPointer
+cdef class _NDArray:
+    def __cinit__(self, data):
+        shape = data.shape
+        ndim = data.ndim
+        cdef size_t ptr_uint64
+        if ndim == 1:
+            assert data.flags["C_CONTIGUOUS"]
+            self.n0, self.n1 = 0, 0
+            ptr_uint64 = data.ctypes.data
+            self.ptr = <void *>ptr_uint64
+        elif ndim == 2:
+            self.n0, self.n1 = shape[0], 0
+            self.ptrs = <void **>malloc(shape[0] * sizeof(void *))
+            for i in range(shape[0]):
+                assert data[i].flags["C_CONTIGUOUS"]
+                ptr_uint64 = data[i].ctypes.data
+                self.ptrs[i] = <void *>ptr_uint64
+        elif ndim == 3:
+            self.n0, self.n1 = shape[0], shape[1]
+            self.ptrss = <void ***>malloc(shape[0] * sizeof(void **))
+            for i in range(shape[0]):
+                self.ptrss[i] = <void **>malloc(shape[1] * sizeof(void *))
+                for j in range(shape[1]):
+                    assert data[i, j].flags["C_CONTIGUOUS"]
+                    ptr_uint64 = data[i, j].ctypes.data
+                    self.ptrss[i][j] = <void *>ptr_uint64
+        else:
+            raise NotImplementedError("ndarray.ndim > 3 not implemented yet")
+
+    def __dealloc__(self):
+        if self.ptrs:
+            free(self.ptrs)
+        if self.ptrss:
+            for i in range(self.n0):
+                free(self.ptrss[i])
+            free(self.ptrss)

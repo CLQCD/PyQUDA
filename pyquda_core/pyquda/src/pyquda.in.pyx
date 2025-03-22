@@ -11,7 +11,7 @@ from numpy cimport ndarray
 ctypedef double complex double_complex
 
 cimport quda
-from pyquda.pointer cimport Pointer, Pointers, Pointerss
+from pyquda.pointer cimport Pointer, Pointers, Pointerss, _NDArray
 
 
 @contextmanager
@@ -34,49 +34,6 @@ def redirect_stdout(value: bytearray):
         value.extend(buffer)
     os.dup2(stdout_dup_fd, stdout_fd)
     os.close(stdout_dup_fd)
-
-
-cdef class _NDArray:
-    cdef int n0, n1
-    cdef void *ptr
-    cdef void **ptrs
-    cdef void ***ptrss
-
-    def __cinit__(self, data):
-        shape = data.shape
-        ndim = data.ndim
-        cdef size_t ptr_uint64
-        if ndim == 1:
-            assert data.flags["C_CONTIGUOUS"]
-            self.n0, self.n1 = 0, 0
-            ptr_uint64 = data.ctypes.data
-            self.ptr = <void *>ptr_uint64
-        elif ndim == 2:
-            self.n0, self.n1 = shape[0], 0
-            self.ptrs = <void **>malloc(shape[0] * sizeof(void *))
-            for i in range(shape[0]):
-                assert data[i].flags["C_CONTIGUOUS"]
-                ptr_uint64 = data[i].ctypes.data
-                self.ptrs[i] = <void *>ptr_uint64
-        elif ndim == 3:
-            self.n0, self.n1 = shape[0], shape[1]
-            self.ptrss = <void ***>malloc(shape[0] * sizeof(void **))
-            for i in range(shape[0]):
-                self.ptrss[i] = <void **>malloc(shape[1] * sizeof(void *))
-                for j in range(shape[1]):
-                    assert data[i, j].flags["C_CONTIGUOUS"]
-                    ptr_uint64 = data[i, j].ctypes.data
-                    self.ptrss[i][j] = <void *>ptr_uint64
-        else:
-            raise NotImplementedError("ndarray.ndim > 3 not implemented yet")
-
-    def __dealloc__(self):
-        if self.ptrs:
-            free(self.ptrs)
-        if self.ptrss:
-            for i in range(self.n0):
-                free(self.ptrss[i])
-            free(self.ptrss)
 
 
 cdef class QudaGaugeParam:
