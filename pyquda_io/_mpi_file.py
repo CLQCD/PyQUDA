@@ -16,8 +16,6 @@ from pyquda_comm import (  # noqa: F401
 
 
 def getSublatticeSize(latt_size: Sequence[int], evenodd: bool = True):
-    if not isGridInitialized():
-        initGrid(None, latt_size, evenodd)
     GLx, GLy, GLz, GLt = latt_size
     Gx, Gy, Gz, Gt = getGridSize()
     if evenodd:

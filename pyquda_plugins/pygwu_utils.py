@@ -4,15 +4,19 @@ from typing import Sequence
 
 import numpy as np
 
-from pyquda_comm import getLogger, readMPIFile
+from pyquda_comm import initGrid, initDevice, getLogger, readMPIFile, setGridMap
 from pyquda.field import LatticeInfo, LatticeGauge, MultiLatticeFermion, evenodd
 from . import pygwu
 
+setGridMap("TZYX_FASTEST")
 
-def init():
+
+def init(latt_size: Sequence[int]):
     import atexit
 
-    pygwu.init()
+    initGrid(None, latt_size)
+    initDevice("numpy")
+    pygwu.init(np.asarray(latt_size, "<i4"))
     atexit.register(pygwu.shutdown)
 
 
@@ -105,7 +109,7 @@ def eigenVectorFromDiracPauli(dirac_pauli: MultiLatticeFermion):
     return degrand_rossi
 
 
-def loadEigenValue(file: str):
+def readEigenValue(file: str):
     eigvals = []
     with open(file, "r") as f:
         for line in f.readlines():
@@ -115,11 +119,11 @@ def loadEigenValue(file: str):
     return eigvals
 
 
-def loadHWilsonEigenSystem(latt_info: LatticeInfo, file: str, use_fp32: bool):
+def readHWilsonEigenSystem(latt_info: LatticeInfo, file: str, use_fp32: bool):
     """Convert to the negative DeGrand-Rossi"""
     s = perf_counter()
     file = path.expanduser(path.expandvars(file))
-    eigvals = loadEigenValue(f"{file}.eigvals")
+    eigvals = readEigenValue(f"{file}.eigvals")
     eignum = len(eigvals)
     Lx, Ly, Lz, Lt = latt_info.size
     Ns, Nc = latt_info.Ns, latt_info.Nc
@@ -140,11 +144,11 @@ def loadHWilsonEigenSystem(latt_info: LatticeInfo, file: str, use_fp32: bool):
     return eigvals, eigvecs
 
 
-def loadOverlapEigenSystem(latt_info: LatticeInfo, file: str, use_fp32: bool):
+def readOverlapEigenSystem(latt_info: LatticeInfo, file: str, use_fp32: bool):
     """Keep the Dirac-Pauli basis"""
     s = perf_counter()
     file = path.expanduser(path.expandvars(file))
-    eigvals = loadEigenValue(f"{file}.eigvals")
+    eigvals = readEigenValue(f"{file}.eigvals")
     eignum = len(eigvals)
     Lx, Ly, Lz, Lt = latt_info.size
     Ns, Nc = latt_info.Ns, latt_info.Nc
@@ -165,69 +169,35 @@ def loadOverlapEigenSystem(latt_info: LatticeInfo, file: str, use_fp32: bool):
     return eigvals, eigvecs
 
 
-def invertOverlap(
-    b: MultiLatticeFermion,
-    gauge: LatticeGauge,
-    kappa: float,
-    masses: Sequence[float],
-    tol: float,
-    maxiter: int,
-    ov_ploy_prec: float,
-    ov_use_fp32: float,
-    ov_test: int,
-    one_minus_half_d: int,
-    hw_eigvals: Sequence[complex],
-    hw_eigvecs: MultiLatticeFermion,
-    hw_eigprec: float,
-    ov_eigvals: Sequence[complex],
-    ov_eigvecs: MultiLatticeFermion,
-    ov_eigprec: float,
-    dirac_pauli: bool = False,
-):
-    latt_info = b.latt_info
-    x = MultiLatticeFermion(latt_info, len(masses) * b.L5)
-    if not dirac_pauli:
-        b = multiFermionToDiracPauli(b)
-    pygwu.invert_overlap(
-        x.data_ptrs,
-        b.data_ptrs,
-        gauge.data_ptr(0),
-        kappa,
-        np.asarray(latt_info.global_size, "<i4"),
-        np.asarray(masses, "<f8"),
-        tol,
-        maxiter,
-        ov_ploy_prec,
-        ov_use_fp32,
-        ov_test,
-        one_minus_half_d,
-        np.asarray(hw_eigvals, "<c16"),
-        hw_eigvecs.data_ptrs,
-        hw_eigprec,
-        np.asarray(ov_eigvals, "<c16"),
-        ov_eigvecs.data_ptrs,
-        ov_eigprec,
-    )
-    if not dirac_pauli:
-        x = multiFermionFromDiracPauli(x)
-    return x
-
-
 class Overlap:
-    def __init__(self, latt_info: LatticeInfo, gauge: LatticeGauge, kappa: float):
+    def __init__(self, latt_info: LatticeInfo):
         self.latt_info = latt_info
-        self.gauge = gauge
-        self.kappa = kappa
-        self.hw_eigvals, self.hw_eigvecs = None, None
-        self.ov_eigvals, self.ov_eigvecs = None, None
 
-    def loadHWilsonEigenSystem(self, file: str, use_fp32: bool, eigprec: float):
-        self.hw_eigvals, self.hw_eigvecs = loadHWilsonEigenSystem(self.latt_info, file, use_fp32)
-        self.hw_eigprec = eigprec
+    def buildHWilson(self, gauge: LatticeGauge, kappa: float):
+        pygwu.build_hw(gauge.data_ptr(0), kappa)
 
-    def loadOverlapEigenSystem(self, file: str, use_fp32: bool, eigprec: float):
-        self.ov_eigvals, self.ov_eigvecs = loadOverlapEigenSystem(self.latt_info, file, use_fp32)
-        self.ov_eigprec = eigprec
+    def loadHWilsonEigen(self, file: str, use_fp32: bool, eignum: int, eigprec: float):
+        eigvals, eigvecs = readHWilsonEigenSystem(self.latt_info, file, use_fp32)
+        pygwu.load_hw_eigen(eignum, eigprec, np.asarray(eigvals, "<c16"), eigvecs.data_ptrs)
+
+    def buildOverlap(self, ov_poly_prec: float, ov_use_fp32: int):
+        pygwu.build_ov(ov_poly_prec, ov_use_fp32)
+
+    def loadOverlapEigen(self, file: str, use_fp32: bool, eignum: int, eigprec: float):
+        eigvals, eigvecs = readOverlapEigenSystem(self.latt_info, file, use_fp32)
+        pygwu.load_ov_eigen(eignum, eigprec, np.asarray(eigvals, "<c16"), eigvecs.data_ptrs)
+
+    def buildHWilsonEigen(
+        self,
+        eignum: int,
+        eigprec: float,
+        iseed: int,
+        maxiter: int,
+        hw_extra_krylov: int,
+        chebyshev_order: int,
+        chebyshev_cut: float,
+    ):
+        pygwu.build_hw_eigen(eignum, eigprec, iseed, maxiter, hw_extra_krylov, chebyshev_order, chebyshev_cut)
 
     def invert(
         self,
@@ -235,27 +205,15 @@ class Overlap:
         masses: Sequence[float],
         tol: float,
         maxiter: int,
-        ov_ploy_prec: float,
-        ov_use_fp32: float,
-        ov_test: int,
         one_minus_half_d: int,
+        mode: int = 3,
+        dirac_pauli: bool = False,
     ):
-        return invertOverlap(
-            b,
-            self.gauge,
-            self.kappa,
-            masses,
-            tol,
-            maxiter,
-            ov_ploy_prec,
-            ov_use_fp32,
-            ov_test,
-            one_minus_half_d,
-            self.hw_eigvals,
-            self.hw_eigvecs,
-            self.hw_eigprec,
-            self.ov_eigvals,
-            self.ov_eigvecs,
-            self.ov_eigprec,
-            False,
-        )
+        latt_info = b.latt_info
+        x = MultiLatticeFermion(latt_info, len(masses) * b.L5)
+        if not dirac_pauli:
+            b = multiFermionToDiracPauli(b)
+        pygwu.invert_overlap(x.data_ptrs, b.data_ptrs, np.asarray(masses, "<f8"), tol, maxiter, one_minus_half_d, mode)
+        if not dirac_pauli:
+            x = multiFermionFromDiracPauli(x)
+        return x

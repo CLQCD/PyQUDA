@@ -3,59 +3,48 @@ from numpy cimport ndarray
 from pyquda.pointer cimport Pointer, Pointers, _NDArray
 cimport gwu
 
-def init():
-    gwu.gwu_init_machine()
+def init(ndarray[int, ndim=1] latt_size):
+    _latt_size = _NDArray(latt_size)
+    gwu.gwu_init_machine(<int *>_latt_size.ptr)
 
 def shutdown():
     gwu.gwu_shutdown_machine()
 
+def build_hw(Pointer links_in, double kappa):
+    gwu.gwu_build_hw(links_in.ptr, kappa)
+
+def load_hw_eigen(int hw_eignum, double hw_eigprec, ndarray[double complex, ndim=1] hw_eigvals, Pointers hw_eigvecs):
+    _hw_eigvals = _NDArray(hw_eigvals)
+    gwu.gwu_load_hw_eigen(hw_eignum, hw_eigprec, _hw_eigvals.ptr, hw_eigvecs.ptr)
+
+def build_ov(double ov_poly_prec, int ov_use_fp32):
+    gwu.gwu_build_ov(ov_poly_prec, ov_use_fp32)
+
+def load_ov_eigen(int ov_eignum, double ov_eigprec, ndarray[double complex, ndim=1] ov_eigvals, Pointers ov_eigvecs):
+    _ov_eigvals = _NDArray(ov_eigvals)
+    gwu.gwu_load_ov_eigen(ov_eignum, ov_eigprec, _ov_eigvals.ptr, ov_eigvecs.ptr)
+
+def build_hw_eigen(int hw_eignum, double hw_eigprec, int iseed, int maxiter, int hw_extra_krylov, int chebyshev_order, double chebyshev_cut):
+    gwu.gwu_build_hw_eigen(hw_eignum, hw_eigprec, iseed, maxiter, hw_extra_krylov, chebyshev_order, chebyshev_cut)
+
 def invert_overlap(
     Pointers propag_in,
     Pointers source_in,
-    Pointer links_in,
-    double kappa,
-    ndarray[int, ndim=1] latt_size,
     ndarray[double, ndim=1] masses,
     double tol,
     int maxiter,
-    double ov_ploy_prec,
-    int ov_use_fp32,
-    int ov_test,
     int one_minus_half_d,
-    ndarray[double complex, ndim=1] hw_eigvals,
-    Pointers hw_eigvecs,
-    double hw_eigprec,
-    ndarray[double complex, ndim=1] ov_eigvals,
-    Pointers ov_eigvecs,
-    double ov_eigprec,
+    int mode,
 ):
-    _latt_size = _NDArray(latt_size)
     cdef int _num_mass = masses.size
     _masses = _NDArray(masses)
-    cdef int _hw_eignum = hw_eigvals.size
-    _hw_eigvals = _NDArray(hw_eigvals)
-    cdef int _ov_eignum = ov_eigvals.size
-    _ov_eigvals = _NDArray(ov_eigvals)
     gwu.gwu_invert_overlap(
         propag_in.ptr,
         source_in.ptr,
-        links_in.ptr,
-        <int *>_latt_size.ptr,
-        kappa,
         _num_mass,
         <double *>_masses.ptr,
         tol,
         maxiter,
-        ov_ploy_prec,
-        ov_use_fp32,
-        ov_test,
         one_minus_half_d,
-        _hw_eignum,
-        _hw_eigvals.ptr,
-        hw_eigvecs.ptr,
-        hw_eigprec,
-        _ov_eignum,
-        _ov_eigvals.ptr,
-        ov_eigvecs.ptr,
-        ov_eigprec,
+        mode,
     )

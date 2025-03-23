@@ -6,8 +6,6 @@ from typing import Any, List, Literal, Sequence, Tuple, Union
 import numpy
 
 from pyquda_comm import (
-    isGridInitialized,
-    isDeviceInitialized,
     getLogger,
     getMPIComm,
     getMPISize,
@@ -26,10 +24,6 @@ class LatticeInfo:
     Nc: int = 3
 
     def __init__(self, latt_size: List[int], t_boundary: Literal[1, -1] = 1, anisotropy: float = 1.0) -> None:
-        from . import init
-
-        if not isGridInitialized() or not isDeviceInitialized():
-            init(None, latt_size)
         self._checkLattice(latt_size)
         self._setLattice(latt_size, t_boundary, anisotropy)
 
