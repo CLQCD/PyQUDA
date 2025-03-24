@@ -191,13 +191,13 @@ class Overlap:
         self,
         eignum: int,
         eigprec: float,
-        iseed: int,
+        extra_krylov: int,
         maxiter: int,
-        hw_extra_krylov: int,
         chebyshev_order: int,
         chebyshev_cut: float,
+        iseed: int,
     ):
-        pygwu.build_hw_eigen(eignum, eigprec, iseed, maxiter, hw_extra_krylov, chebyshev_order, chebyshev_cut)
+        pygwu.build_hw_eigen(eignum, eigprec, extra_krylov, maxiter, chebyshev_order, chebyshev_cut, iseed)
 
     def invert(
         self,
