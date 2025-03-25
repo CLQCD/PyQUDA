@@ -3,8 +3,7 @@ from typing import List
 from mpi4py import MPI
 import numpy
 
-from pyquda_comm import getMPIComm, getMPIRank
-from ._mpi_file import getSublatticeSize, getNeighbourRank
+from ._mpi_file import getMPIComm, getMPIRank, getSublatticeSize, getNeighbourRank
 
 Nd, Ns, Nc = 4, 4, 3
 

@@ -14,7 +14,6 @@ from pyquda_comm import (
     getGridCoord,
     getCUDABackend,
 )
-from pyquda_comm.file import File
 from .pointer import ndarrayPointer, Pointer, Pointers
 
 
@@ -249,6 +248,8 @@ class BaseField:
         check: bool = True,
         use_fp32: bool = False,
     ):
+        from pyquda_comm.file import File
+
         assert hasattr(self, "lexico")
         s = perf_counter()
         gbytes = 0
@@ -274,6 +275,8 @@ class BaseField:
         check: bool = True,
         use_fp32: bool = False,
     ):
+        from pyquda_comm.file import File
+
         assert hasattr(self, "lexico")
         s = perf_counter()
         gbytes = 0
@@ -298,6 +301,8 @@ class BaseField:
         annotation: str = "",
         check: bool = True,
     ):
+        from pyquda_comm.file import File
+
         assert hasattr(self, "lexico")
         s = perf_counter()
         gbytes = 0
@@ -517,6 +522,8 @@ class GeneralField(BaseField):
         *,
         check: bool = True,
     ):
+        from pyquda_comm.file import File
+
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
@@ -628,6 +635,8 @@ class FullField:
         *,
         check: bool = True,
     ):
+        from pyquda_comm.file import File
+
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
