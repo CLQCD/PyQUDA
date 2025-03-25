@@ -4,8 +4,8 @@ from typing import Sequence
 
 import numpy as np
 
-from pyquda_comm import initGrid, initDevice, getLogger, readMPIFile, setGridMap
-from pyquda.field import LatticeInfo, LatticeGauge, MultiLatticeFermion, evenodd
+from pyquda_comm import initGrid, initDevice, getLogger, setGridMap, readMPIFile, readMPIFileInChunks
+from pyquda.field import LatticeInfo, LatticeGauge, LatticeFermion, MultiLatticeFermion, evenodd
 from . import pygwu
 
 setGridMap("TZYX_FASTEST")
@@ -98,7 +98,7 @@ _MINUS_TO_DIRAC_PAULI = np.array(
 )
 
 
-def eigenVectorFromDiracPauli(dirac_pauli: MultiLatticeFermion):
+def negMultiFermionFromDiracPauli(dirac_pauli: MultiLatticeFermion):
     """Convert to the negative DeGrand-Rossi basis"""
     data = dirac_pauli.data / 2**0.5
     degrand_rossi = MultiLatticeFermion(dirac_pauli.latt_info, dirac_pauli.L5)
@@ -106,6 +106,17 @@ def eigenVectorFromDiracPauli(dirac_pauli: MultiLatticeFermion):
     degrand_rossi.data[:, :, :, :, :, :, 1, :] = data[:, :, :, :, :, :, 0] - data[:, :, :, :, :, :, 2]
     degrand_rossi.data[:, :, :, :, :, :, 2, :] = data[:, :, :, :, :, :, 1] + data[:, :, :, :, :, :, 3]
     degrand_rossi.data[:, :, :, :, :, :, 3, :] = -data[:, :, :, :, :, :, 0] - data[:, :, :, :, :, :, 2]
+    return degrand_rossi
+
+
+def negFermionFromDiracPauli(dirac_pauli: LatticeFermion):
+    """Convert to the negative DeGrand-Rossi basis"""
+    data = dirac_pauli.data / 2**0.5
+    degrand_rossi = LatticeFermion(dirac_pauli.latt_info)
+    degrand_rossi.data[:, :, :, :, :, 0, :] = -data[:, :, :, :, :, 1] + data[:, :, :, :, :, 3]
+    degrand_rossi.data[:, :, :, :, :, 1, :] = data[:, :, :, :, :, 0] - data[:, :, :, :, :, 2]
+    degrand_rossi.data[:, :, :, :, :, 2, :] = data[:, :, :, :, :, 1] + data[:, :, :, :, :, 3]
+    degrand_rossi.data[:, :, :, :, :, 3, :] = -data[:, :, :, :, :, 0] - data[:, :, :, :, :, 2]
     return degrand_rossi
 
 
@@ -119,12 +130,12 @@ def readEigenValue(file: str):
     return eigvals
 
 
-def readHWilsonEigenSystem(latt_info: LatticeInfo, file: str, use_fp32: bool):
+def readEigenSystem(latt_info: LatticeInfo, eignum: int, file: str, use_fp32: bool):
     """Convert to the negative DeGrand-Rossi"""
     s = perf_counter()
     file = path.expanduser(path.expandvars(file))
     eigvals = readEigenValue(f"{file}.eigvals")
-    eignum = len(eigvals)
+    assert eignum <= len(eigvals)
     Lx, Ly, Lz, Lt = latt_info.size
     Ns, Nc = latt_info.Ns, latt_info.Nc
     if use_fp32:
@@ -139,34 +150,38 @@ def readHWilsonEigenSystem(latt_info: LatticeInfo, file: str, use_fp32: bool):
             .view("<c16")
         )
     eigvecs = MultiLatticeFermion(latt_info, eignum, evenodd(eigvecs_raw, [1, 2, 3, 4]))
-    eigvecs = eigenVectorFromDiracPauli(eigvecs)
-    getLogger().info(f"{perf_counter() - s:.3} secs")
-    return eigvals, eigvecs
+    eigvecs = negMultiFermionFromDiracPauli(eigvecs)
+    getLogger().info(f"Read {eignum} eigen system in {perf_counter() - s:.3} secs")
+    return eigvals[:eignum], eigvecs
 
 
-def readOverlapEigenSystem(latt_info: LatticeInfo, file: str, use_fp32: bool):
-    """Keep the Dirac-Pauli basis"""
+def readEigenSystemInChunks(latt_info: LatticeInfo, eignum: int, file: str, use_fp32: bool):
+    """Convert to the negative DeGrand-Rossi"""
     s = perf_counter()
     file = path.expanduser(path.expandvars(file))
     eigvals = readEigenValue(f"{file}.eigvals")
-    eignum = len(eigvals)
+    assert eignum <= len(eigvals)
     Lx, Ly, Lz, Lt = latt_info.size
     Ns, Nc = latt_info.Ns, latt_info.Nc
+    eigvecs = MultiLatticeFermion(latt_info, eignum)
     if use_fp32:
-        eigvecs_raw = readMPIFile(f"{file}.s", "<c8", 0, (eignum, Lt, Lz, Ly, Lx, Ns, Nc), (4, 3, 2, 1)).astype("<c16")
+        for i, eigvecs_raw in readMPIFileInChunks(
+            f"{file}.s", "<c8", 0, eignum, (Lt, Lz, Ly, Lx, Ns, Nc), (3, 2, 1, 0)
+        ):
+            eigvecs_raw = eigvecs_raw.astype("<c16")
+            eigvecs[i] = negFermionFromDiracPauli(LatticeFermion(latt_info, evenodd(eigvecs_raw, [0, 1, 2, 3])))
     else:
-        eigvecs_raw = (
-            readMPIFile(file, ">f8", 0, (eignum, 2, Ns, Nc, Lt, Lz, Ly, Lx), (7, 6, 5, 4))
-            .astype("<f8")
-            .transpose(0, 4, 5, 6, 7, 2, 3, 1)
-            .reshape(eignum, Lt, Lz, Ly, Lx, Ns, Nc * 2)
-            .copy()
-            .view("<c16")
-        )
-    eigvecs = MultiLatticeFermion(latt_info, eignum, evenodd(eigvecs_raw, [1, 2, 3, 4]))
-    eigvecs = eigenVectorFromDiracPauli(eigvecs)
-    getLogger().info(f"{perf_counter() - s:.3} secs")
-    return eigvals, eigvecs
+        for i, eigvecs_raw in readMPIFileInChunks(file, ">f8", 0, eignum, (2, Ns, Nc, Lt, Lz, Ly, Lx), (6, 5, 4, 3)):
+            eigvecs_raw = (
+                eigvecs_raw.astype("<f8")
+                .transpose(3, 4, 5, 6, 1, 2, 0)
+                .reshape(Lt, Lz, Ly, Lx, Ns, Nc * 2)
+                .copy()
+                .view("<c16")
+            )
+            eigvecs[i] = negFermionFromDiracPauli(LatticeFermion(latt_info, evenodd(eigvecs_raw, [0, 1, 2, 3])))
+    getLogger().info(f"Read {eignum} eigen system in {perf_counter() - s:.3} secs")
+    return eigvals[:eignum], eigvecs
 
 
 class Overlap:
@@ -174,17 +189,26 @@ class Overlap:
         self.latt_info = latt_info
 
     def buildHWilson(self, gauge: LatticeGauge, kappa: float):
-        pygwu.build_hw(gauge.data_ptr(0), kappa)
+        gauge_in = gauge.copy()
+        if self.latt_info.t_boundary == -1:
+            gauge_in.setAntiPeriodicT()
+        pygwu.build_hw(gauge_in.data_ptr(0), kappa)
 
-    def loadHWilsonEigen(self, file: str, use_fp32: bool, eignum: int, eigprec: float):
-        eigvals, eigvecs = readHWilsonEigenSystem(self.latt_info, file, use_fp32)
+    def loadHWilsonEigen(self, eignum: int, eigprec: float, file: str, use_fp32: bool, chunk: bool = False):
+        if chunk:
+            eigvals, eigvecs = readEigenSystemInChunks(self.latt_info, eignum, file, use_fp32)
+        else:
+            eigvals, eigvecs = readEigenSystem(self.latt_info, eignum, file, use_fp32)
         pygwu.load_hw_eigen(eignum, eigprec, np.asarray(eigvals, "<c16"), eigvecs.data_ptrs)
 
     def buildOverlap(self, ov_poly_prec: float, ov_use_fp32: int):
         pygwu.build_ov(ov_poly_prec, ov_use_fp32)
 
-    def loadOverlapEigen(self, file: str, use_fp32: bool, eignum: int, eigprec: float):
-        eigvals, eigvecs = readOverlapEigenSystem(self.latt_info, file, use_fp32)
+    def loadOverlapEigen(self, eignum: int, eigprec: float, file: str, use_fp32: bool, chunk: bool = False):
+        if chunk:
+            eigvals, eigvecs = readEigenSystemInChunks(self.latt_info, eignum, file, use_fp32)
+        else:
+            eigvals, eigvecs = readEigenSystem(self.latt_info, eignum, file, use_fp32)
         pygwu.load_ov_eigen(eignum, eigprec, np.asarray(eigvals, "<c16"), eigvecs.data_ptrs)
 
     def buildHWilsonEigen(

@@ -1,4 +1,3 @@
-from libc.stdlib cimport malloc, free
 from numpy cimport ndarray
 from pyquda.pointer cimport Pointer, Pointers, _NDArray
 cimport gwu

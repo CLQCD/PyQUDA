@@ -1,7 +1,7 @@
 import logging
 from os import environ
 from sys import stdout
-from typing import Any, Callable, Dict, List, Literal, NamedTuple, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Literal, NamedTuple, Tuple, Union
 
 import numpy
 from mpi4py import MPI
@@ -318,7 +318,7 @@ def getCUDAComputeCapability():
     return _CUDA_COMPUTE_CAPABILITY
 
 
-def getSubarray(shape: Sequence[int], axes: Sequence[int]):
+def getSubarray(shape: List[int], axes: List[int]):
     sizes = [d for d in shape]
     subsizes = [d for d in shape]
     starts = [d if i in axes else 0 for i, d in enumerate(shape)]
@@ -330,13 +330,7 @@ def getSubarray(shape: Sequence[int], axes: Sequence[int]):
     return sizes, subsizes, starts
 
 
-def readMPIFile(
-    filename: str,
-    dtype: str,
-    offset: int,
-    shape: Sequence[int],
-    axes: Sequence[int],
-):
+def readMPIFile(filename: str, dtype: str, offset: int, shape: List[int], axes: List[int]):
     sizes, subsizes, starts = getSubarray(shape, axes)
     native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
     buf = numpy.empty(subsizes, native_dtype)
@@ -352,14 +346,23 @@ def readMPIFile(
     return buf.view(dtype)
 
 
-def writeMPIFile(
-    filename: str,
-    dtype: str,
-    offset: int,
-    shape: Sequence[int],
-    axes: Sequence[int],
-    buf: numpy.ndarray,
-):
+def readMPIFileInChunks(filename: str, dtype: str, offset: int, count: int, shape: List[int], axes: List[int]):
+    sizes, subsizes, starts = getSubarray(shape, axes)
+    native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
+    buf = numpy.empty(subsizes, native_dtype)
+
+    fh = MPI.File.Open(getMPIComm(), filename, MPI.MODE_RDONLY)
+    filetype = dtlib.from_numpy_dtype(native_dtype).Create_subarray(sizes, subsizes, starts)
+    filetype.Commit()
+    for i in range(count):
+        fh.Set_view(disp=offset + i * _MPI_SIZE * filetype.size, filetype=filetype)
+        fh.Read_all(buf)
+        yield i, buf.view(dtype)
+    filetype.Free()
+    fh.Close()
+
+
+def writeMPIFile(filename: str, dtype: str, offset: int, shape: List[int], axes: List[int], buf: numpy.ndarray):
     sizes, subsizes, starts = getSubarray(shape, axes)
     native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
     buf = buf.view(native_dtype)
@@ -369,5 +372,23 @@ def writeMPIFile(
     filetype.Commit()
     fh.Set_view(disp=offset, filetype=filetype)
     fh.Write_all(buf)
+    filetype.Free()
+    fh.Close()
+
+
+def writeMPIFileInChunks(
+    filename: str, dtype: str, offset: int, count: int, shape: List[int], axes: List[int], buf: numpy.ndarray
+):
+    sizes, subsizes, starts = getSubarray(shape, axes)
+    native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
+    buf = buf.view(native_dtype)
+
+    fh = MPI.File.Open(getMPIComm(), filename, MPI.MODE_WRONLY | MPI.MODE_CREATE)
+    filetype = dtlib.from_numpy_dtype(native_dtype).Create_subarray(sizes, subsizes, starts)
+    filetype.Commit()
+    for i in range(count):
+        fh.Set_view(disp=offset + i * _MPI_SIZE * filetype.size, filetype=filetype)
+        yield i  # Waiting for buf
+        fh.Write_all(buf)
     filetype.Free()
     fh.Close()
