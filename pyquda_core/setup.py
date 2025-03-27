@@ -25,8 +25,8 @@ elif "QUDA_PATH" in os.environ:
     extensions = cythonize(
         [
             Extension(
-                name="pyquda.pointer",
-                sources=["pyquda/src/pointer.pyx"],
+                name="pyquda_comm.pointer",
+                sources=["pyquda_comm/src/pointer.pyx"],
                 language="c",
             ),
             Extension(

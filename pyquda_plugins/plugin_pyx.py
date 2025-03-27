@@ -24,7 +24,7 @@ class Plugin:
         self.pylib_pyx = (
             "from libcpp cimport bool\n"
             "from numpy cimport ndarray\n"
-            "from pyquda.pointer cimport Pointer, Pointers, Pointerss, _NDArray\n"
+            "from pyquda_comm.pointer cimport Pointer, Pointers, Pointerss, _NDArray\n"
             f"cimport {lib}\n"
             "\n"
             "\n"
@@ -32,7 +32,7 @@ class Plugin:
         self.pylib_pyi = (
             "from numpy import int32, float64, complex128\n"
             "from numpy.typing import NDArray\n"
-            "from pyquda.pointer import Pointer, Pointers, Pointerss\n"
+            "from pyquda_comm.pointer import Pointer, Pointers, Pointerss\n"
             "\n"
             "\n"
         )
@@ -104,10 +104,14 @@ class Plugin:
         arg = [f"{n}: {t}" for t, n in zip(args_type_stub, args_name)]
         self.pylib_pyi += f"def {func}({', '.join(arg)}) -> {_C_TO_PYTHON[ret_type]}:\n" "    ...\n" "\n"
 
-    def write(self, pyquda_plugins_root: str):
-        with open(os.path.join(pyquda_plugins_root, f"{self.lib}.pxd"), "w") as f:
+    def write(self, plugin_root: str):
+        if not os.path.exists(plugin_root):
+            os.mkdir(plugin_root)
+        if not os.path.exists(os.path.join(plugin_root, "src")):
+            os.mkdir(os.path.join(plugin_root, "src"))
+        with open(os.path.join(plugin_root, "src", f"{self.lib}.pxd"), "w") as f:
             f.write(self.lib_pxd)
-        with open(os.path.join(pyquda_plugins_root, f"py{self.lib}.pyx"), "w") as f:
+        with open(os.path.join(plugin_root, "src", f"py{self.lib}.pyx"), "w") as f:
             f.write(self.pylib_pyx)
-        with open(os.path.join(pyquda_plugins_root, f"py{self.lib}.pyi"), "w") as f:
+        with open(os.path.join(plugin_root, f"py{self.lib}.pyi"), "w") as f:
             f.write(self.pylib_pyi)

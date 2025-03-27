@@ -7,8 +7,8 @@ from opt_einsum import contract
 
 from check_pyquda import weak_field
 
+from pyquda_comm.field import LatticeGauge, LatticeInfo, LatticeStaggeredFermion, MultiLatticeStaggeredFermion, Nc
 from pyquda import enum_quda, pyquda as quda
-from pyquda.field import LatticeGauge, LatticeInfo, LatticeStaggeredFermion, MultiLatticeStaggeredFermion, Nc
 from pyquda.dirac import setGlobalPrecision
 from pyquda_utils import core, io
 

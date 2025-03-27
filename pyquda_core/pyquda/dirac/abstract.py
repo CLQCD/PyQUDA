@@ -1,7 +1,15 @@
 from abc import ABC, abstractmethod
 
 from pyquda_comm import getLogger
-from ..pointer import Pointer
+from pyquda_comm.pointer import Pointer
+from pyquda_comm.field import (
+    LatticeInfo,
+    LatticeGauge,
+    LatticeFermion,
+    MultiLatticeFermion,
+    LatticeStaggeredFermion,
+    MultiLatticeStaggeredFermion,
+)
 from ..pyquda import (
     QudaGaugeParam,
     QudaInvertParam,
@@ -27,14 +35,6 @@ from ..enum_quda import (
     QudaReconstructType,
     # QudaSolverNormalization,
     QudaVerbosity,
-)
-from ..field import (
-    LatticeInfo,
-    LatticeGauge,
-    LatticeFermion,
-    MultiLatticeFermion,
-    LatticeStaggeredFermion,
-    MultiLatticeStaggeredFermion,
 )
 
 from .general import (

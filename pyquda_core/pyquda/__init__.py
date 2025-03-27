@@ -2,7 +2,7 @@ from os import environ
 from typing import List, Literal, Union
 
 from ._version import __version__  # noqa: F401
-from .field import LatticeInfo
+from pyquda_comm.field import LatticeInfo
 from pyquda_comm import (  # noqa: F401
     initGrid,
     initDevice,

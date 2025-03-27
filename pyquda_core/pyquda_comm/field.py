@@ -5,7 +5,7 @@ from typing import Any, List, Literal, Sequence, Tuple, Union
 
 import numpy
 
-from pyquda_comm import (
+from . import (
     getLogger,
     getMPIComm,
     getMPISize,
@@ -248,7 +248,7 @@ class BaseField:
         check: bool = True,
         use_fp32: bool = False,
     ):
-        from pyquda_comm.file import File
+        from .file import File
 
         assert hasattr(self, "lexico")
         s = perf_counter()
@@ -275,7 +275,7 @@ class BaseField:
         check: bool = True,
         use_fp32: bool = False,
     ):
-        from pyquda_comm.file import File
+        from .file import File
 
         assert hasattr(self, "lexico")
         s = perf_counter()
@@ -301,7 +301,7 @@ class BaseField:
         annotation: str = "",
         check: bool = True,
     ):
-        from pyquda_comm.file import File
+        from .file import File
 
         assert hasattr(self, "lexico")
         s = perf_counter()
@@ -522,7 +522,7 @@ class GeneralField(BaseField):
         *,
         check: bool = True,
     ):
-        from pyquda_comm.file import File
+        from .file import File
 
         s = perf_counter()
         gbytes = 0
@@ -635,7 +635,7 @@ class FullField:
         *,
         check: bool = True,
     ):
-        from pyquda_comm.file import File
+        from .file import File
 
         s = perf_counter()
         gbytes = 0
@@ -845,7 +845,7 @@ class LatticeGauge(MultiField, LatticeLink):
     @property
     def gauge_dirac(self):
         if not hasattr(self, "_gauge_dirac"):
-            from .dirac import GaugeDirac
+            from pyquda.dirac import GaugeDirac
 
             self._gauge_dirac = GaugeDirac(self.latt_info)
         return self._gauge_dirac
@@ -1248,7 +1248,7 @@ class LatticeMom(MultiField, FullField, ParityField):
     @property
     def gauge_dirac(self):
         if self._gauge_dirac is None:
-            from .dirac import GaugeDirac
+            from pyquda.dirac import GaugeDirac
 
             self._gauge_dirac = GaugeDirac(self.latt_info)
         return self._gauge_dirac

@@ -1,6 +1,6 @@
 from typing import List, Union
 
-from ..field import LatticeInfo, LatticeGauge, LatticeClover
+from pyquda_comm.field import LatticeInfo, LatticeGauge, LatticeClover
 from ..enum_quda import QudaDslashType, QudaPrecision
 
 from . import general

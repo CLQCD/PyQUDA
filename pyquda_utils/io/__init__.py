@@ -2,7 +2,7 @@ from typing import List, Union
 
 import numpy
 
-from pyquda.field import (
+from pyquda_comm.field import (
     Ns,
     Nc,
     LatticeInfo,

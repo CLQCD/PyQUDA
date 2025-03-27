@@ -21,7 +21,7 @@ from pyquda import (
     setLoggerLevel,
     dirac as fermion,
 )
-from pyquda.field import (
+from pyquda_comm.field import (
     Ns,
     Nc,
     Nd,

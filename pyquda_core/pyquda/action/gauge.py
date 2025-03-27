@@ -3,9 +3,9 @@ from typing import List, NamedTuple
 import numpy
 from numpy.typing import NDArray
 
-from ..pointer import Pointers
+from pyquda_comm.pointer import Pointers
+from pyquda_comm.field import LatticeInfo
 from ..pyquda import computeGaugeLoopTraceQuda, computeGaugeForceQuda
-from ..field import LatticeInfo
 from ..dirac import GaugeDirac
 
 nullptr = Pointers("void", 0)

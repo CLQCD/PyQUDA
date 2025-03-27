@@ -6,6 +6,7 @@ double_complex = complex
 from numpy import int32, float64, complex128
 from numpy.typing import NDArray
 
+from pyquda_comm.pointer import Pointer, Pointers, Pointerss
 from .enum_quda import (  # noqa: F401
     QUDA_INVALID_ENUM,
     QUDA_VERSION_MAJOR,
@@ -84,7 +85,6 @@ from .enum_quda import (  # noqa: F401
     QudaExtLibType,
 )
 
-from .pointer import Pointer, Pointers, Pointerss
 
 class QudaGaugeParam:
     """

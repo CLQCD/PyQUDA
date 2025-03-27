@@ -4,7 +4,14 @@ import numpy
 from numpy.typing import NDArray
 
 from pyquda_comm import getLogger, getCUDABackend, isHIP, getCUDAComputeCapability
-from ..pointer import Pointer, Pointers
+from pyquda_comm.pointer import Pointer, Pointers
+from pyquda_comm.field import (
+    LatticeInfo,
+    LatticeGauge,
+    LatticeClover,
+    LatticeFermion,
+    LatticeStaggeredFermion,
+)
 from ..pyquda import (
     QudaGaugeParam,
     QudaInvertParam,
@@ -18,13 +25,6 @@ from ..pyquda import (
     cloverQuda,
     computeKSLinkQuda,
     staggeredPhaseQuda,
-)
-from ..field import (
-    LatticeInfo,
-    LatticeGauge,
-    LatticeClover,
-    LatticeFermion,
-    LatticeStaggeredFermion,
 )
 from ..enum_quda import (
     QUDA_MAX_DIM,

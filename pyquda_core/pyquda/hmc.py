@@ -4,7 +4,8 @@ from random import Random
 from typing import List, Union
 
 from pyquda_comm import getLogger, getCUDABackend
-from .pointer import Pointers
+from pyquda_comm.pointer import Pointers
+from pyquda_comm.field import LatticeInfo, LatticeGauge, LatticeMom, LatticeReal
 from .pyquda import (
     QudaGaugeObservableParam,
     gaugeObservablesQuda,
@@ -16,7 +17,6 @@ from .pyquda import (
     updateGaugeFieldQuda,
 )
 from .enum_quda import QudaBoolean, QudaTboundary
-from .field import LatticeInfo, LatticeGauge, LatticeMom, LatticeReal
 from .dirac import WilsonDirac, StaggeredDirac
 from .action.abstract import Action, FermionAction, StaggeredFermionAction
 

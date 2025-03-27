@@ -2,7 +2,8 @@ from typing import Union, List
 
 import numpy
 
-from pyquda.pointer import Pointers
+from pyquda_comm.field import LatticeInfo, LatticeGauge, LatticeMom
+from pyquda_comm.pointer import Pointers
 from pyquda.pyquda import (
     gaussGaugeQuda,
     gaussMomQuda,
@@ -17,7 +18,6 @@ from pyquda.pyquda import (
     computeGaugeForceQuda,
 )
 from pyquda.enum_quda import QudaTboundary, QudaVerbosity
-from pyquda.field import LatticeInfo, LatticeGauge, LatticeMom
 from pyquda.dirac import GaugeDirac
 
 nullptr = Pointers("void", 0)

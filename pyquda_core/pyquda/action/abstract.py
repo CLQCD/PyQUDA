@@ -3,16 +3,16 @@ from functools import partial
 from typing import List, Literal, NamedTuple, Union
 
 from pyquda_comm import getCUDABackend
-from ..enum_quda import QUDA_MAX_MULTI_SHIFT, QudaDagType, QudaMatPCType
-from ..pyquda import QudaGaugeParam, QudaInvertParam, invertQuda, MatQuda, invertMultiShiftQuda
-from ..dirac.abstract import Dirac, FermionDirac, StaggeredFermionDirac
-from ..field import (
+from pyquda_comm.field import (
     LatticeInfo,
     LatticeFermion,
     LatticeStaggeredFermion,
     MultiLatticeFermion,
     MultiLatticeStaggeredFermion,
 )
+from ..enum_quda import QUDA_MAX_MULTI_SHIFT, QudaDagType, QudaMatPCType
+from ..pyquda import QudaGaugeParam, QudaInvertParam, invertQuda, MatQuda, invertMultiShiftQuda
+from ..dirac.abstract import Dirac, FermionDirac, StaggeredFermionDirac
 
 
 class LoopParam(NamedTuple):

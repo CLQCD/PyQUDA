@@ -2,9 +2,10 @@
 requires = ["setuptools", "wheel", "Cython", "numpy"]
 
 [tool.setuptools.packages.find]
-include = ["pyquda*", "pyquda_comm*"]
+include = ["pyquda_comm*", "pyquda*"]
 
 [tool.setuptools.package-data]
+pyquda_comm = ["*.pyi", "*.pxd", "src/*.pxd", "src/*.pyx"]
 pyquda = ["*.pyi", "*.pxd", "src/*.pxd", "src/*.pyx"]
 
 [tool.setuptools.dynamic]
@@ -34,7 +35,6 @@ classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Cython",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX :: Linux",
     "Environment :: GPU",
     "Environment :: GPU :: NVIDIA CUDA",

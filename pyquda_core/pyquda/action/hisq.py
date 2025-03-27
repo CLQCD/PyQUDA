@@ -3,7 +3,8 @@ from typing import List
 import numpy
 
 from pyquda_comm import getLogger
-from ..pointer import Pointers
+from pyquda_comm.pointer import Pointers
+from pyquda_comm.field import LatticeInfo, LatticeGauge, LatticeStaggeredFermion, MultiLatticeStaggeredFermion
 from ..pyquda import computeHISQForceQuda, dslashQuda, saveGaugeQuda
 from ..enum_quda import (
     QudaInverterType,
@@ -14,7 +15,6 @@ from ..enum_quda import (
     QudaSolveType,
     QudaVerbosity,
 )
-from ..field import LatticeInfo, LatticeGauge, LatticeStaggeredFermion, MultiLatticeStaggeredFermion
 from ..dirac import HISQDirac
 
 nullptr = Pointers("void", 0)

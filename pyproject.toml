@@ -1,8 +1,8 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools", "wheel", "Cython", "numpy"]
 
 [tool.setuptools.packages.find]
-include = ["pyquda_utils*", "pyquda_io*"]
+include = ["pyquda_utils*", "pyquda_io*", "pyquda_plugins*"]
 
 [tool.setuptools.dynamic]
 version = { attr = "pyquda_utils._version.__version__" }
@@ -31,7 +31,6 @@ classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Cython",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX :: Linux",
     "Environment :: GPU",
     "Environment :: GPU :: NVIDIA CUDA",

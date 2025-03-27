@@ -1,8 +1,7 @@
 from typing import List, Literal, Union
 
 from pyquda import getGridSize, getLogger
-from pyquda.enum_quda import QudaDslashType, QudaParity
-from pyquda.field import (
+from pyquda_comm.field import (
     Ns,
     Nc,
     LatticeInfo,
@@ -14,6 +13,7 @@ from pyquda.field import (
     MultiLatticeStaggeredFermion,
     LatticeStaggeredPropagator,
 )
+from pyquda.enum_quda import QudaDslashType, QudaParity
 
 
 def point(latt_info: LatticeInfo, t_srce: List[int], spin: Union[int, None], color: int, phase=None):

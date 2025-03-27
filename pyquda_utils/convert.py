@@ -1,7 +1,7 @@
 from typing import Union
 
 from pyquda import getLogger
-from pyquda.field import (
+from pyquda_comm.field import (
     LatticeLink,
     LatticeFermion,
     LatticePropagator,

@@ -2,6 +2,14 @@ from typing import List, Literal, Union
 
 import numpy
 
+from pyquda_comm.field import (
+    LatticeInfo,
+    LatticeGauge,
+    LatticeMom,
+    LatticeFermion,
+    LatticeStaggeredFermion,
+    LatticeReal,
+)
 from ..pyquda import (
     QudaEigParam,
     QudaGaugeSmearParam,
@@ -23,14 +31,6 @@ from ..pyquda import (
     projectSU3Quda,
     computeGaugeFixingOVRQuda,
     computeGaugeFixingFFTQuda,
-)
-from ..field import (
-    LatticeInfo,
-    LatticeGauge,
-    LatticeMom,
-    LatticeFermion,
-    LatticeStaggeredFermion,
-    LatticeReal,
 )
 from ..enum_quda import (
     QudaBoolean,

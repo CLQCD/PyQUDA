@@ -1,11 +1,7 @@
-from pyquda_plugins_pyx import Plugin
+from pyquda_plugins.plugin_pyx import Plugin
 
 
-args = "void *propag_in, void*source_in, int num_mass, double *masses, double tol, int maxiter, int one_minus_half_d, int mode"
-print(Plugin.parseArguments(args))
-
-
-def setup(lib: str, header: str):
+def bind(lib: str, header: str):
     gwu = Plugin(lib, header)
 
     gwu.function("gwu_init_machine", "init", [("int *", "latt_size")])

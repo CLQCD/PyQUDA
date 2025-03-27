@@ -1,7 +1,8 @@
 import numpy
 
 from pyquda_comm import getLogger
-from ..pointer import Pointers
+from pyquda_comm.pointer import Pointers
+from pyquda_comm.field import LatticeInfo, LatticeFermion, MultiLatticeFermion
 from ..pyquda import computeCloverForceQuda, loadCloverQuda, loadGaugeQuda
 from ..enum_quda import (
     QudaDagType,
@@ -12,7 +13,6 @@ from ..enum_quda import (
     QudaSolveType,
     QudaVerbosity,
 )
-from ..field import LatticeInfo, LatticeFermion, MultiLatticeFermion
 from ..dirac import CloverWilsonDirac
 
 nullptr = Pointers("void", 0)
