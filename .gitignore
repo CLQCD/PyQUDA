@@ -24,6 +24,10 @@ pyquda_core/pyquda/src/*.cpp
 pyquda_utils/_version.py
 pyquda_io/_version.py
 pyquda_plugins/*/*.c
+pyquda_plugins/*.pyx
+pyquda_plugins/*.pxd
+pyquda_plugins/*.pyi
+pyquda_plugins/*.c
 
 # symbolic link
 /pyquda
