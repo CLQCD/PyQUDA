@@ -4,6 +4,7 @@ from time import perf_counter
 from typing import Any, List, Literal, Sequence, Tuple, Union
 
 import numpy
+from numpy.typing import NDArray
 
 from . import (
     getLogger,
@@ -14,7 +15,6 @@ from . import (
     getGridCoord,
     getCUDABackend,
 )
-from .pointer import ndarrayPointer, Pointer, Pointers
 
 
 class LatticeInfo:
@@ -334,8 +334,8 @@ class BaseField:
             self._data = value.contiguous()
 
     @property
-    def data_ptr(self) -> Pointer:
-        return ndarrayPointer(self.data.reshape(-1), True)
+    def data_ptr(self) -> NDArray:
+        return self.data.reshape(-1)
 
     @classmethod
     def _field(cls) -> str:
@@ -614,12 +614,12 @@ class FullField:
         self.data[1] = value.data
 
     @property
-    def even_ptr(self) -> Pointer:
-        return ndarrayPointer(self.data.reshape(2, -1)[0], True)
+    def even_ptr(self) -> NDArray:
+        return self.data.reshape(2, -1)[0]
 
     @property
-    def odd_ptr(self) -> Pointer:
-        return ndarrayPointer(self.data.reshape(2, -1)[1], True)
+    def odd_ptr(self) -> NDArray:
+        return self.data.reshape(2, -1)[1]
 
     def lexico(self, dtype=None):
         return lexico(self.getHost(), [0, 1, 2, 3, 4], dtype)
@@ -715,30 +715,30 @@ class MultiField:
     def odd(self, index: int):
         return super(FullField, self).__field_class__(self.latt_info, self.data[index, 1])
 
-    def data_ptr(self, index: int = 0) -> Pointer:
-        return ndarrayPointer(self.data.reshape(self.L5, -1)[index], True)
+    def data_ptr(self, index: int = 0) -> NDArray:
+        return self.data.reshape(self.L5, -1)[index]
 
-    def even_ptr(self, index: int) -> Pointer:
+    def even_ptr(self, index: int) -> NDArray:
         assert self.full_field
-        return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[index, 0], True)
+        return self.data.reshape(self.L5, 2, -1)[index, 0]
 
-    def odd_ptr(self, index: int) -> Pointer:
+    def odd_ptr(self, index: int) -> NDArray:
         assert self.full_field
-        return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[index, 1], True)
+        return self.data.reshape(self.L5, 2, -1)[index, 1]
 
     @property
-    def data_ptrs(self) -> Pointers:
-        return ndarrayPointer(self.data.reshape(self.L5, -1), True)
+    def data_ptrs(self) -> NDArray:
+        return self.data.reshape(self.L5, -1)
 
     @property
-    def even_ptrs(self) -> Pointers:
+    def even_ptrs(self) -> NDArray:
         assert self.full_field
-        return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[:, 0], True)
+        return self.data.reshape(self.L5, 2, -1)[:, 0]
 
     @property
-    def odd_ptrs(self) -> Pointers:
+    def odd_ptrs(self) -> NDArray:
         assert self.full_field
-        return ndarrayPointer(self.data.reshape(self.L5, 2, -1)[:, 1], True)
+        return self.data.reshape(self.L5, 2, -1)[:, 1]
 
     def copy(self):
         return self.__class__(self.latt_info, self.L5, self.backup())

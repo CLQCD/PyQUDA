@@ -3,7 +3,6 @@ from typing import List
 import numpy
 
 from pyquda_comm import getLogger
-from pyquda_comm.pointer import Pointers
 from pyquda_comm.field import LatticeInfo, LatticeGauge, LatticeStaggeredFermion, MultiLatticeStaggeredFermion
 from ..pyquda import computeHISQForceQuda, dslashQuda, saveGaugeQuda
 from ..enum_quda import (
@@ -17,7 +16,7 @@ from ..enum_quda import (
 )
 from ..dirac import HISQDirac
 
-nullptr = Pointers("void", 0)
+nullptr = numpy.empty((0, 0), "<c16")
 
 from .abstract import RationalParam, StaggeredFermionAction
 

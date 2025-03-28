@@ -1,13 +1,13 @@
-from importlib import import_module
 import os
 import sys
 from setuptools import Extension, setup
 
 
 def dynamic(lib, header, include_path, library_path):
-    import_module(f"pyquda_plugins.bind_{lib}").bind(lib, header).write(
-        os.path.join(os.path.dirname(__file__), "pyquda_plugins", f"py{lib}")
-    )
+    from plugin_pyx import Plugin
+
+    plugin = Plugin(lib, header, include_path)
+    plugin.write(os.path.join(os.path.dirname(__file__), "pyquda_plugins", f"py{lib}"))
     return Extension(
         name=f"pyquda_plugins.py{lib}.py{lib}",
         sources=[f"pyquda_plugins/py{lib}/src/py{lib}.pyx"],

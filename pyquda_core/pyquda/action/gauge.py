@@ -3,12 +3,11 @@ from typing import List, NamedTuple
 import numpy
 from numpy.typing import NDArray
 
-from pyquda_comm.pointer import Pointers
 from pyquda_comm.field import LatticeInfo
 from ..pyquda import computeGaugeLoopTraceQuda, computeGaugeForceQuda
 from ..dirac import GaugeDirac
 
-nullptr = Pointers("void", 0)
+nullptr = numpy.empty((0, 0), "<c16")
 
 from .abstract import LoopParam, Action
 

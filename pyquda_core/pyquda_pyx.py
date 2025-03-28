@@ -104,10 +104,7 @@ void_ptr = """
         return ptr
 
     @%name%.setter
-    def %name%(self, value):
-        self.set_%name%(value)
-
-    cdef set_%name%(self, Pointer value):
+    def %name%(self, Pointer value):
         assert value.dtype == "void"
         self.param.%name% = value.ptr
 """
@@ -115,33 +112,23 @@ void_ptr = """
 ptr = """
     @property
     def %name%(self):
-        ptr = Pointer("%type%")
-        ptr.set_ptr(self.param.%name%)
-        return ptr
+        raise AttributeError("'%name%' cannot be accessed directly in Python")
 
     @%name%.setter
-    def %name%(self, value):
-        self.set_%name%(value)
-
-    cdef set_%name%(self, Pointer value):
-        assert value.dtype == "%type%"
-        self.param.%name% = <%type% *>value.ptr
+    def %name%(self, ndarray[%type%, ndim=1] value):
+        _value = _NDArray(value)
+        self.param.%name% = <%type% *>_value.ptr
 """
 
 ptrptr = """
     @property
     def %name%(self):
-        ptr = Pointers("%type%", self.param.num_paths)
-        ptr.set_ptrs(<void **>self.param.%name%)
-        return ptr
+        raise AttributeError("'%name%' cannot be accessed directly in Python")
 
     @%name%.setter
-    def %name%(self, value):
-        self.set_%name%(value)
-
-    cdef set_%name%(self, Pointers value):
-        assert value.dtype == "%type%"
-        self.param.%name% = <%type% **>value.ptrs
+    def %name%(self, ndarray[%type%, ndim=2] value):
+        _value = _NDArray(value)
+        self.param.%name% = <%type% **>_value.ptrs
 """
 
 
@@ -241,6 +228,70 @@ def build_pyquda_pyx(pyquda_root, quda_path):
                         raise ValueError(f"Unexpected node {node}")
                 else:
                     raise ValueError(f"Unexpected node {node}")
+        if isinstance(node.type, c_ast.FuncDecl):
+            continue
+            if node.name in ["set_dim", "pack_ghost"]:
+                continue
+            p = []
+            if node.type.args is not None:
+                for arg in node.type.args.params:
+                    n, t = arg.name, arg.type
+                    tt = t.type
+                    if type(t) is c_ast.TypeDecl:
+                        p.append((" ".join(t.quals + tt.names + [""]), n))
+                    elif type(t) is c_ast.PtrDecl:
+                        ttt = tt.type
+                        if type(tt) is c_ast.TypeDecl:
+                            p.append(
+                                (" ".join(tt.quals + ttt.names + ["*"]), " ".join(t.quals + [n]))
+                            )  # const type * const
+                        elif type(tt) is c_ast.PtrDecl:
+                            tttt = ttt.type
+                            if type(ttt) is c_ast.TypeDecl:
+                                p.append((" ".join(ttt.quals + tttt.names + ["**"]), n))
+                            elif type(ttt) is c_ast.PtrDecl:
+                                ttttt = tttt.type
+                                if type(tttt) is c_ast.TypeDecl:
+                                    p.append((" ".join(tttt.quals + ttttt.names + ["***"]), n))
+                                else:
+                                    raise ValueError(f"Unexpected node {node}")
+                            else:
+                                raise ValueError(f"Unexpected node {node}")
+                        else:
+                            raise ValueError(f"Unexpected node {node}")
+                    elif type(t) is c_ast.ArrayDecl:
+                        ttt = tt.type
+                        if t.dim is not None:
+                            if type(tt) is c_ast.TypeDecl:
+                                p.append((" ".join(tt.quals + ttt.names + [""]), f"{n}[{t.dim.value}]"))
+                            elif type(tt) is c_ast.PtrDecl:
+                                tttt = ttt.type
+                                if type(ttt) is c_ast.TypeDecl:
+                                    p.append((" ".join(ttt.quals + tttt.names + ["*"]), f"{n}[{t.dim.value}]"))
+                                else:
+                                    raise ValueError(f"Unexpected node {node}")
+                            else:
+                                raise ValueError(f"Unexpected node {node}")
+                        else:
+                            if type(tt) is c_ast.TypeDecl:
+                                p.append((" ".join(tt.quals + ttt.names + [""]), f"{n}[]"))
+                            elif type(tt) is c_ast.PtrDecl:
+                                tttt = ttt.type
+                                if type(ttt) is c_ast.TypeDecl:
+                                    p.append((" ".join(ttt.quals + tttt.names + ["*"]), f"{n}[]"))
+                                else:
+                                    raise ValueError(f"Unexpected node {node}")
+                    else:
+                        raise ValueError(f"Unexpected node {node}")
+            ntt = node.type.type
+            p = [""] if p == [("void", None)] else [f"{_t}{_a}" for _t, _a in p]
+            if type(ntt) is c_ast.TypeDecl:
+                print(" ".join(ntt.quals + ntt.type.names + [""]) + f"{node.name}(" + ", ".join(p) + ")")
+            elif type(ntt) is c_ast.PtrDecl:
+                nttt = ntt.type
+                print(" ".join(nttt.quals + nttt.type.names + ["*"]) + f"{node.name}(" + ", ".join(p) + ")")
+            else:
+                raise ValueError(f"Unexpected node {node}")
 
     with open(os.path.join(quda_include, "quda_constants.h"), "r") as f:
         quda_constants_h = f.read()

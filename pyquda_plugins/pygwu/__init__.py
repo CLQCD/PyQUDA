@@ -16,8 +16,8 @@ def init(latt_size: Sequence[int]):
 
     initGrid(None, latt_size)
     initDevice("numpy")
-    gwu.init(np.asarray(latt_size, "<i4"))
-    atexit.register(gwu.shutdown)
+    gwu.gwu_init_machine(np.asarray(latt_size, "<i4"))
+    atexit.register(gwu.gwu_shutdown_machine)
 
 
 # matrices to convert gamma basis bewteen DeGrand-Rossi and Dirac-Pauli
@@ -192,24 +192,24 @@ class Overlap:
         gauge_in = gauge.copy()
         if self.latt_info.t_boundary == -1:
             gauge_in.setAntiPeriodicT()
-        gwu.build_hw(gauge_in.data_ptr(0), kappa)
+        gwu.gwu_build_hw(gauge_in.data_ptr(0), kappa)
 
     def loadHWilsonEigen(self, eignum: int, eigprec: float, file: str, use_fp32: bool, chunk: bool = False):
         if chunk:
             eigvals, eigvecs = readEigenSystemInChunks(self.latt_info, eignum, file, use_fp32)
         else:
             eigvals, eigvecs = readEigenSystem(self.latt_info, eignum, file, use_fp32)
-        gwu.load_hw_eigen(eignum, eigprec, np.asarray(eigvals, "<c16"), eigvecs.data_ptrs)
+        gwu.gwu_load_hw_eigen(eignum, eigprec, np.asarray(eigvals, "<c16"), eigvecs.data_ptrs)
 
     def buildOverlap(self, ov_poly_prec: float, ov_use_fp32: int):
-        gwu.build_ov(ov_poly_prec, ov_use_fp32)
+        gwu.gwu_build_ov(ov_poly_prec, ov_use_fp32)
 
     def loadOverlapEigen(self, eignum: int, eigprec: float, file: str, use_fp32: bool, chunk: bool = False):
         if chunk:
             eigvals, eigvecs = readEigenSystemInChunks(self.latt_info, eignum, file, use_fp32)
         else:
             eigvals, eigvecs = readEigenSystem(self.latt_info, eignum, file, use_fp32)
-        gwu.load_ov_eigen(eignum, eigprec, np.asarray(eigvals, "<c16"), eigvecs.data_ptrs)
+        gwu.gwu_load_ov_eigen(eignum, eigprec, np.asarray(eigvals, "<c16"), eigvecs.data_ptrs)
 
     def buildHWilsonEigen(
         self,
@@ -221,7 +221,7 @@ class Overlap:
         chebyshev_cut: float,
         iseed: int,
     ):
-        gwu.build_hw_eigen(eignum, eigprec, extra_krylov, maxiter, chebyshev_order, chebyshev_cut, iseed)
+        gwu.gwu_build_hw_eigen(eignum, eigprec, extra_krylov, maxiter, chebyshev_order, chebyshev_cut, iseed)
 
     def invert(
         self,
@@ -237,7 +237,7 @@ class Overlap:
         x = MultiLatticeFermion(latt_info, len(masses) * b.L5)
         if not dirac_pauli:
             b = multiFermionToDiracPauli(b)
-        gwu.invert_overlap(
+        gwu.gwu_invert_overlap(
             x.data_ptrs, b.data_ptrs, len(masses), np.asarray(masses, "<f8"), tol, maxiter, one_minus_half_d, mode
         )
         if not dirac_pauli:

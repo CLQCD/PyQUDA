@@ -3,8 +3,9 @@ from math import exp
 from random import Random
 from typing import List, Union
 
+import numpy
+
 from pyquda_comm import getLogger, getCUDABackend
-from pyquda_comm.pointer import Pointers
 from pyquda_comm.field import LatticeInfo, LatticeGauge, LatticeMom, LatticeReal
 from .pyquda import (
     QudaGaugeObservableParam,
@@ -20,7 +21,7 @@ from .enum_quda import QudaBoolean, QudaTboundary
 from .dirac import WilsonDirac, StaggeredDirac
 from .action.abstract import Action, FermionAction, StaggeredFermionAction
 
-nullptr = Pointers("void", 0)
+nullptr = numpy.empty((0, 0), "<c16")
 
 
 class Integrator(ABC):

@@ -17,9 +17,10 @@ cdef class Pointers(Pointer):
         if n0 > 0:
             self.ptrs = <void **>malloc(n0 * sizeof(void *))
             for i in range(n0):
-                self.ptrs[i] = NULL
+                self.ptrs[i] = <void *>NULL
         else:
             self.ptrs = <void **>NULL
+        self.ptr = <void *>self.ptrs
 
     def __dealloc__(self):
         if self.ptrs:
@@ -28,7 +29,6 @@ cdef class Pointers(Pointer):
     cdef set_ptrs(self, void **ptrs):
         for i in range(self.n0):
             self.ptrs[i] = ptrs[i]
-        self.ptr = <void *>self.ptrs
 
 cdef class Pointerss(Pointer):
     def __cinit__(self, str dtype, unsigned int n0, unsigned int n1):
@@ -39,9 +39,10 @@ cdef class Pointerss(Pointer):
             for i in range(n0):
                 self.ptrss[i] = <void **>malloc(n1 * sizeof(void *))
                 for j in range(n1):
-                    self.ptrss[i][j] = NULL
+                    self.ptrss[i][j] = <void *>NULL
         else:
             self.ptrss = <void ***>NULL
+        self.ptr = <void *>self.ptrss
 
     def __dealloc__(self):
         if self.ptrss:
@@ -53,21 +54,99 @@ cdef class Pointerss(Pointer):
         for i in range(self.n0):
             for j in range(self.n1):
                 self.ptrss[i][j] = ptrss[i][j]
-        self.ptr = <void *>self.ptrss
+
+def _data_ptr(_data, _backend):
+    if _backend == "numpy":
+        assert _data.flags["C_CONTIGUOUS"]
+        return _data.ctypes.data
+    elif _backend == "cupy":
+        assert _data.flags["C_CONTIGUOUS"]
+        return _data.data.ptr
+    elif _backend == "torch":
+        assert _data.is_contiguous()
+        return _data.data_ptr()
+
+cdef class _NDArray:
+    def __cinit__(self, ndarray, int ndim = 0):
+        ndarray_type = ".".join([type(ndarray).__module__, type(ndarray).__name__])
+        if ndarray_type == "numpy.ndarray":
+            backend = "numpy"
+            dtype = ndarray.dtype.str
+        elif ndarray_type == "cupy.ndarray":
+            backend = "cupy"
+            dtype = ndarray.dtype.str
+        elif ndarray_type == "torch.Tensor":
+            backend = "torch"
+            dtype = f"<{'c' if ndarray.dtype.is_complex else 'f' if ndarray.dtype.is_floating_point else 'i' if ndarray.dtype.is_signed else 'u'}{ndarray.dtype.itemsize}"
+        else:
+            raise TypeError(f"_NDArray: ndarray has unsupported type={type(ndarray)}")
+
+        if ndim == 0:
+            ndim = ndarray.ndim
+            # if backend != "numpy":
+            #     raise ValueError(f"_NDArray: typed ndarray has unexpected type={type(ndarray)}")
+        elif ndim != ndarray.ndim:
+            raise ValueError(f"_NDArray: untyped ndarray has unexpected ndim={ndarray.ndim}")
+        elif dtype != "<i4" and dtype != "<f8" and dtype != "<c16":
+            raise ValueError(f"_NDArray: untyped ndarray has unexpected dtype={dtype}")
+        shape = ndarray.shape
+        cdef size_t ptr_uint64
+        if ndim == 1:
+            self.n0, self.n1 = 0, 0
+            if shape[0] > 0:
+                ptr_uint64 = _data_ptr(ndarray, backend)
+                self.ptr = <void *>ptr_uint64
+            else:
+                self.ptr = <void *>NULL
+        elif ndim == 2:
+            self.n0, self.n1 = shape[0], 0
+            if shape[0] > 0:
+                self.ptrs = <void **>malloc(shape[0] * sizeof(void *))
+                for i in range(shape[0]):
+                    if shape[1] > 0:
+                        ptr_uint64 = _data_ptr(ndarray[i], backend)
+                        self.ptrs[i] = <void *>ptr_uint64
+                    else:
+                        self.ptrs[i] = <void *>NULL
+            else:
+                self.ptrs = <void **>NULL
+            self.ptr = <void *>self.ptrs
+        elif ndim == 3:
+            self.n0, self.n1 = shape[0], shape[1]
+            if shape[0] > 0 and shape[1] > 0:
+                self.ptrss = <void ***>malloc(shape[0] * sizeof(void **))
+                for i in range(shape[0]):
+                    self.ptrss[i] = <void **>malloc(shape[1] * sizeof(void *))
+                    for j in range(shape[1]):
+                        if shape[2] > 0:
+                            ptr_uint64 = _data_ptr(ndarray[i, j], backend)
+                            self.ptrss[i][j] = <void *>ptr_uint64
+                        else:
+                            self.ptrss[i][j] = <void *>NULL
+            else:
+                self.ptrss = <void ***>NULL
+            self.ptr = <void *>self.ptrss
+        else:
+            raise NotImplementedError("ndarray.ndim > 3 not implemented yet")
+
+    def __dealloc__(self):
+        if self.ptrs:
+            free(self.ptrs)
+        if self.ptrss:
+            for i in range(self.n0):
+                free(self.ptrss[i])
+            free(self.ptrss)
 
 def ndarrayPointer(ndarray, as_void=False):
+    _ndarray = _NDArray(ndarray)
+
     ndarray_type = ".".join([type(ndarray).__module__, type(ndarray).__name__])
     if ndarray_type == "numpy.ndarray":
-        gpu = None
         dtype = ndarray.dtype.str
     elif ndarray_type == "cupy.ndarray":
-        gpu = "cupy"
         dtype = ndarray.dtype.str
     elif ndarray_type == "torch.Tensor":
-        gpu = "torch"
         dtype = f"<{'c' if ndarray.dtype.is_complex else 'f' if ndarray.dtype.is_floating_point else 'i' if ndarray.dtype.is_signed else 'u'}{ndarray.dtype.itemsize}"
-    else:
-        raise TypeError(f"ndarrayPointer: ndarray has unsupported type={type(ndarray)}")
 
     if not as_void:
         if dtype == "<i4":
@@ -81,100 +160,16 @@ def ndarrayPointer(ndarray, as_void=False):
     else:
         dtype = "void"
 
-    shape = ndarray.shape
     ndim = ndarray.ndim
-    cdef size_t ptr_uint64
-    cdef void **ptrs
-    cdef void ***ptrss
     if ndim == 1:
         ptr1 = Pointer(dtype)
-        if gpu == "cupy":
-            ptr_uint64 = ndarray.data.ptr
-        elif gpu == "torch":
-            ptr_uint64 = ndarray.data_ptr()
-        else:
-            ptr_uint64 = ndarray.ctypes.data
-        ptr1.set_ptr(<void *>ptr_uint64)
+        ptr1.set_ptr(_ndarray.ptr)
         return ptr1
     elif ndim == 2:
         ptr2 = Pointers(dtype, shape[0])
-        ptrs = <void **>malloc(shape[0] * sizeof(void *))
-        if gpu == "cupy":
-            for i in range(shape[0]):
-                ptr_uint64 = ndarray[i].data.ptr
-                ptrs[i] = <void *>ptr_uint64
-        elif gpu == "torch":
-            for i in range(shape[0]):
-                ptr_uint64 = ndarray[i].data_ptr()
-                ptrs[i] = <void *>ptr_uint64
-        else:
-            for i in range(shape[0]):
-                ptr_uint64 = ndarray[i].ctypes.data
-                ptrs[i] = <void *>ptr_uint64
-        ptr2.set_ptrs(ptrs)
-        free(ptrs)
+        ptr2.set_ptrs(_ndarray.ptrs)
         return ptr2
     elif ndim == 3:
         ptr3 = Pointerss(dtype, shape[0], shape[1])
-        ptrss = <void ***>malloc(shape[0] * sizeof(void **))
-        for i in range(shape[0]):
-            ptrss[i] = <void **>malloc(shape[1] * sizeof(void *))
-        if gpu == "cupy":
-            for i in range(shape[0]):
-                for j in range(shape[1]):
-                    ptr_uint64 = ndarray[i, j].data.ptr
-                    ptrss[i][j] = <void *>ptr_uint64
-        elif gpu == "torch":
-            for i in range(shape[0]):
-                for j in range(shape[1]):
-                    ptr_uint64 = ndarray[i, j].data_ptr()
-                    ptrss[i][j] = <void *>ptr_uint64
-        else:
-            for i in range(shape[0]):
-                for j in range(shape[1]):
-                    ptr_uint64 = ndarray[i, j].ctypes.data
-                    ptrss[i][j] = <void *>ptr_uint64
-        ptr3.set_ptrss(ptrss)
-        for i in range(shape[0]):
-            free(ptrss[i])
-        free(ptrss)
+        ptr3.set_ptrss(_ndarray.ptrss)
         return ptr3
-    else:
-        raise NotImplementedError("ndarray.ndim > 3 not implemented yet")
-
-cdef class _NDArray:
-    def __cinit__(self, data):
-        shape = data.shape
-        ndim = data.ndim
-        cdef size_t ptr_uint64
-        if ndim == 1:
-            assert data.flags["C_CONTIGUOUS"]
-            self.n0, self.n1 = 0, 0
-            ptr_uint64 = data.ctypes.data
-            self.ptr = <void *>ptr_uint64
-        elif ndim == 2:
-            self.n0, self.n1 = shape[0], 0
-            self.ptrs = <void **>malloc(shape[0] * sizeof(void *))
-            for i in range(shape[0]):
-                assert data[i].flags["C_CONTIGUOUS"]
-                ptr_uint64 = data[i].ctypes.data
-                self.ptrs[i] = <void *>ptr_uint64
-        elif ndim == 3:
-            self.n0, self.n1 = shape[0], shape[1]
-            self.ptrss = <void ***>malloc(shape[0] * sizeof(void **))
-            for i in range(shape[0]):
-                self.ptrss[i] = <void **>malloc(shape[1] * sizeof(void *))
-                for j in range(shape[1]):
-                    assert data[i, j].flags["C_CONTIGUOUS"]
-                    ptr_uint64 = data[i, j].ctypes.data
-                    self.ptrss[i][j] = <void *>ptr_uint64
-        else:
-            raise NotImplementedError("ndarray.ndim > 3 not implemented yet")
-
-    def __dealloc__(self):
-        if self.ptrs:
-            free(self.ptrs)
-        if self.ptrss:
-            for i in range(self.n0):
-                free(self.ptrss[i])
-            free(self.ptrss)

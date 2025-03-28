@@ -4,7 +4,6 @@ import numpy
 from numpy.typing import NDArray
 
 from pyquda_comm import getLogger, getCUDABackend, isHIP, getCUDAComputeCapability
-from pyquda_comm.pointer import Pointer, Pointers
 from pyquda_comm.field import (
     LatticeInfo,
     LatticeGauge,
@@ -60,8 +59,8 @@ from ..enum_quda import (
     QudaStaggeredPhase,
 )
 
-nullptr = Pointer("void")
-nullptrs = Pointers("void", 0)
+nullptr = numpy.empty((0), "<c16")
+nullptrs = numpy.empty((0, 0), "<c16")
 
 
 class Precision(NamedTuple):
