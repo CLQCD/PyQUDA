@@ -166,10 +166,10 @@ def ndarrayPointer(ndarray, as_void=False):
         ptr1.set_ptr(_ndarray.ptr)
         return ptr1
     elif ndim == 2:
-        ptr2 = Pointers(dtype, shape[0])
+        ptr2 = Pointers(dtype, _ndarray.n0)
         ptr2.set_ptrs(_ndarray.ptrs)
         return ptr2
     elif ndim == 3:
-        ptr3 = Pointerss(dtype, shape[0], shape[1])
+        ptr3 = Pointerss(dtype, _ndarray.n0, _ndarray.n1)
         ptr3.set_ptrss(_ndarray.ptrss)
         return ptr3
