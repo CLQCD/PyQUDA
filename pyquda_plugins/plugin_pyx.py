@@ -205,3 +205,8 @@ def build_plugin_pyx(plugins_root, lib: str, header: str, include_path: str):
         f.write(pylib_pyx)
     with open(os.path.join(plugins_root, f"py{lib}", f"_py{lib}.pyi"), "w") as f:
         f.write(pylib_pyi)
+
+    if os.path.exists(os.path.join(plugins_root, "yacctab.py")):
+        os.remove(os.path.join(plugins_root, "yacctab.py"))
+    if os.path.exists(os.path.join(plugins_root, "lextab.py")):
+        os.remove(os.path.join(plugins_root, "lextab.py"))

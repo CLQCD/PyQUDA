@@ -42,3 +42,6 @@ Homepage = "https://github.com/CLQCD/PyQUDA"
 Documentation = "https://github.com/CLQCD/PyQUDA/wiki/Documentation"
 Repository = "https://github.com/CLQCD/PyQUDA.git"
 Issues = "https://github.com/CLQCD/PyQUDA/issues"
+
+[project.scripts]
+pyquda_plugins = "pyquda_plugins.__main__:main"
