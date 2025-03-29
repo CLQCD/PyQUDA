@@ -1,5 +1,4 @@
 import os
-import sys
 from typing import Dict, List, NamedTuple, Tuple
 
 _C_TO_PYTHON: Dict[str, str] = {
@@ -120,26 +119,14 @@ class FunctionMeta(NamedTuple):
 
 
 def parseHeader(header, include_path):
-    pyquda_root = os.path.join(os.path.dirname(__file__), "pyquda_core")
-    fake_libc_include = os.path.join(pyquda_root, "pycparser", "utils", "fake_libc_include")
-    assert os.path.exists(fake_libc_include), f"{fake_libc_include} not found"
     print(f"Building wrapper from {os.path.join(include_path, header)}")
-    sys.path.insert(1, os.path.join(pyquda_root, "pycparser"))
     try:
         from pycparser import parse_file, c_ast
     except ImportError or ModuleNotFoundError:
         from pyquda_core.pycparser.pycparser import parse_file, c_ast  # This is for the language server
-    sys.path.remove(os.path.join(pyquda_root, "pycparser"))
 
     ast = parse_file(
-        os.path.join(include_path, header),
-        use_cpp=True,
-        cpp_path="cc",
-        cpp_args=[
-            "-E",
-            Rf"-I{fake_libc_include}",
-            Rf"-I{include_path}",
-        ],
+        os.path.join(include_path, header), use_cpp=True, cpp_path="cc", cpp_args=["-E", Rf"-I{include_path}"]
     )
     funcs: List[FunctionMeta] = []
     for node in ast:
@@ -213,14 +200,11 @@ class Plugin:
             self.pylib_pyx += "\n" + c_func.pyx(self.lib)
             self.pylib_pyi += c_func.pyi()
 
-    def write(self, plugin_root: str):
-        if not os.path.exists(plugin_root):
-            os.mkdir(plugin_root)
-        if not os.path.exists(os.path.join(plugin_root, "src")):
-            os.mkdir(os.path.join(plugin_root, "src"))
-        with open(os.path.join(plugin_root, "src", f"{self.lib}.pxd"), "w") as f:
+    def write(self, plugins_root: str):
+        os.makedirs(os.path.join(plugins_root, f"py{self.lib}", "src"), exist_ok=True)
+        with open(os.path.join(plugins_root, f"py{self.lib}", "src", f"{self.lib}.pxd"), "w") as f:
             f.write(self.lib_pxd)
-        with open(os.path.join(plugin_root, "src", f"py{self.lib}.pyx"), "w") as f:
+        with open(os.path.join(plugins_root, f"py{self.lib}", "src", f"_py{self.lib}.pyx"), "w") as f:
             f.write(self.pylib_pyx)
-        with open(os.path.join(plugin_root, f"py{self.lib}.pyi"), "w") as f:
+        with open(os.path.join(plugins_root, f"py{self.lib}", f"_py{self.lib}.pyi"), "w") as f:
             f.write(self.pylib_pyi)

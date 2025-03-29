@@ -4,7 +4,7 @@ from . import init
 
 
 def main():
-    parser = ArgumentParser(prog="pyquda", description="PyQUDA initializer", epilog="Text at the bottom of help")
+    parser = ArgumentParser(prog="pyquda", description="PyQUDA initializer", epilog="")
     parser.add_argument("script")
     parser.add_argument(
         "-g",

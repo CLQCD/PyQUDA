@@ -1,11 +1,8 @@
 [build-system]
-requires = ["setuptools", "wheel", "Cython", "numpy"]
+requires = ["setuptools", "wheel"]
 
 [tool.setuptools.packages.find]
 include = ["pyquda_utils*", "pyquda_io*", "pyquda_plugins*"]
-
-[tool.setuptools.package-data]
-pyquda_plugins = ["*/*.pyi", "*/src/*.pxd", "*/src/*.pyx"]
 
 [tool.setuptools.dynamic]
 version = { attr = "pyquda_utils._version.__version__" }
@@ -13,7 +10,7 @@ version = { attr = "pyquda_utils._version.__version__" }
 [project]
 dynamic = ["version"]
 name = "PyQUDA-Utils"
-dependencies = ["PyQUDA"]
+dependencies = ["PyQUDA", "pycparser"]
 requires-python = ">=3.8"
 authors = [
     { name = "SaltyChiang", email = "SaltyChiang@users.noreply.github.com" },
