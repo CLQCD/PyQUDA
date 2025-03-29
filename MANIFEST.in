@@ -1,1 +1,6 @@
 exclude tests/*
+
+include plugin_pyx.py
+include pyquda_core/pycparser/LICENSE
+recursive-include pyquda_core/pycparser/pycparser *.py *.cfg LICENSE
+recursive-include pyquda_core/pycparser/utils/fake_libc_include *.h

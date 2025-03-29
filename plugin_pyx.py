@@ -1,4 +1,5 @@
 import os
+import sys
 from typing import Dict, List, NamedTuple, Tuple
 
 _C_TO_PYTHON: Dict[str, str] = {
@@ -119,13 +120,26 @@ class FunctionMeta(NamedTuple):
 
 
 def parseHeader(header, include_path):
-    from pycparser import parse_file, c_ast
+    pyquda_root = os.path.join(os.path.dirname(__file__), "pyquda_core")
+    fake_libc_include = os.path.join(pyquda_root, "pycparser", "utils", "fake_libc_include")
+    assert os.path.exists(fake_libc_include), f"{fake_libc_include} not found"
+    print(f"Building wrapper from {os.path.join(include_path, header)}")
+    sys.path.insert(1, os.path.join(pyquda_root, "pycparser"))
+    try:
+        from pycparser import parse_file, c_ast
+    except ImportError or ModuleNotFoundError:
+        from pyquda_core.pycparser.pycparser import parse_file, c_ast  # This is for the language server
+    sys.path.remove(os.path.join(pyquda_root, "pycparser"))
 
     ast = parse_file(
         os.path.join(include_path, header),
         use_cpp=True,
         cpp_path="cc",
-        cpp_args=["-E", Rf"-I{include_path}"],
+        cpp_args=[
+            "-E",
+            Rf"-I{fake_libc_include}",
+            Rf"-I{include_path}",
+        ],
     )
     funcs: List[FunctionMeta] = []
     for node in ast:
