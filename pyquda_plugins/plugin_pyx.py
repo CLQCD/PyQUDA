@@ -182,29 +182,26 @@ def parseHeader(header, include_path):
     return funcs
 
 
-class Plugin:
-    def __init__(self, lib: str, header: str, include_path: str):
-        self.lib = lib
-        self.lib_pxd = f'cdef extern from "{header}":\n'
-        self.pylib_pyx = (
-            "from libcpp cimport bool\n"
-            "from numpy cimport ndarray\n"
-            "from pyquda_comm.pointer cimport Pointer, _NDArray\n"
-            f"cimport {lib}\n"
-            "\n"
-        )
-        self.pylib_pyi = "from numpy import int32, float64, complex128\n" "from numpy.typing import NDArray\n" "\n"
-        c_funcs = parseHeader(header, include_path)
-        for c_func in c_funcs:
-            self.lib_pxd += f"    {c_func}\n"
-            self.pylib_pyx += "\n" + c_func.pyx(self.lib)
-            self.pylib_pyi += c_func.pyi()
+def build_plugin_pyx(plugins_root, lib: str, header: str, include_path: str):
+    lib_pxd = f'cdef extern from "{header}":\n'
+    pylib_pyx = (
+        "from libcpp cimport bool\n"
+        "from numpy cimport ndarray\n"
+        "from pyquda_comm.pointer cimport Pointer, _NDArray\n"
+        f"cimport {lib}\n"
+        "\n"
+    )
+    pylib_pyi = "from numpy import int32, float64, complex128\n" "from numpy.typing import NDArray\n" "\n"
+    c_funcs = parseHeader(header, include_path)
+    for c_func in c_funcs:
+        lib_pxd += f"    {c_func}\n"
+        pylib_pyx += "\n" + c_func.pyx(lib)
+        pylib_pyi += c_func.pyi()
 
-    def write(self, plugins_root: str):
-        os.makedirs(os.path.join(plugins_root, f"py{self.lib}", "src"), exist_ok=True)
-        with open(os.path.join(plugins_root, f"py{self.lib}", "src", f"{self.lib}.pxd"), "w") as f:
-            f.write(self.lib_pxd)
-        with open(os.path.join(plugins_root, f"py{self.lib}", "src", f"_py{self.lib}.pyx"), "w") as f:
-            f.write(self.pylib_pyx)
-        with open(os.path.join(plugins_root, f"py{self.lib}", f"_py{self.lib}.pyi"), "w") as f:
-            f.write(self.pylib_pyi)
+    os.makedirs(os.path.join(plugins_root, f"py{lib}", "src"), exist_ok=True)
+    with open(os.path.join(plugins_root, f"py{lib}", "src", f"{lib}.pxd"), "w") as f:
+        f.write(lib_pxd)
+    with open(os.path.join(plugins_root, f"py{lib}", "src", f"_py{lib}.pyx"), "w") as f:
+        f.write(pylib_pyx)
+    with open(os.path.join(plugins_root, f"py{lib}", f"_py{lib}.pyi"), "w") as f:
+        f.write(pylib_pyi)
