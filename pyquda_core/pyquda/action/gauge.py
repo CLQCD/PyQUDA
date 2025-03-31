@@ -3,7 +3,7 @@ from typing import List, NamedTuple
 import numpy
 from numpy.typing import NDArray
 
-from pyquda_comm.field import LatticeInfo
+from ..field import LatticeInfo
 from ..pyquda import computeGaugeLoopTraceQuda, computeGaugeForceQuda
 from ..dirac import GaugeDirac
 

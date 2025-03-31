@@ -1,7 +1,7 @@
 from math import log
 from typing import Dict, Tuple
 
-from pyquda_comm.field import X, Y, Z, T
+from pyquda.field import X, Y, Z, T
 from pyquda.action.abstract import LoopParam, RationalParam
 
 

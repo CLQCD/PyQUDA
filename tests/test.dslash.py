@@ -4,7 +4,7 @@ import cupy as cp
 from check_pyquda import weak_field
 
 from pyquda import init, pyquda as quda
-from pyquda_comm.field import Ns, Nc
+from pyquda.field import Ns, Nc
 from pyquda.enum_quda import QudaParity
 from pyquda_utils import core
 

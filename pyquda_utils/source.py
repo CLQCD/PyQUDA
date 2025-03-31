@@ -1,7 +1,7 @@
 from typing import List, Literal, Union
 
 from pyquda import getGridSize, getLogger
-from pyquda_comm.field import (
+from pyquda.field import (
     Ns,
     Nc,
     LatticeInfo,

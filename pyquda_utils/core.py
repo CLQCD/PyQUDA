@@ -1,3 +1,4 @@
+from math import prod
 from typing import List, Literal, Union
 
 import numpy
@@ -21,7 +22,7 @@ from pyquda import (
     setLoggerLevel,
     dirac as fermion,
 )
-from pyquda_comm.field import (
+from pyquda.field import (  # noqa: F401
     Ns,
     Nc,
     Nd,
@@ -238,8 +239,8 @@ def gatherLattice(data: numpy.ndarray, axes: List[int], reduce_op: Literal["sum"
     reduce_axis = tuple([keep[0] + d for d in range(4) if axes[d] == -1])
     prefix = data.shape[: keep[0]]
     suffix = data.shape[keep[-1] + 1 :]
-    prefix_size = int(numpy.prod(prefix))
-    suffix_size = int(numpy.prod(suffix))
+    prefix_size = prod(prefix)
+    suffix_size = prod(suffix)
 
     if getMPIRank() == root:
         sendbuf = numpy.ascontiguousarray(data.reshape(-1))

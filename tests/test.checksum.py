@@ -1,4 +1,5 @@
 import io
+from math import prod
 from os import path
 import struct
 from typing import Dict, Tuple
@@ -64,7 +65,7 @@ def readGauge(filename: str):
         sum29, sum31 = struct.unpack(f"{endian}II", f.read(8))
         offset = f.tell()
     print(latt_size, timestamp, sum29, sum31)
-    return offset, f"{endian}c8", int(np.prod(latt_size)) * Nd * Nc * Nc
+    return offset, f"{endian}c8", prod(latt_size) * Nd * Nc * Nc
 
 
 offset, dtype, count = readGauge("/public/ensemble/a09m310/l3296f211b630m0074m037m440e.4728")

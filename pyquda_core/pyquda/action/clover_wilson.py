@@ -1,7 +1,7 @@
 import numpy
 
 from pyquda_comm import getLogger
-from pyquda_comm.field import LatticeInfo, LatticeFermion, MultiLatticeFermion
+from ..field import LatticeInfo, LatticeFermion, MultiLatticeFermion
 from ..pyquda import computeCloverForceQuda, loadCloverQuda, loadGaugeQuda
 from ..enum_quda import (
     QudaDagType,

@@ -2,7 +2,6 @@ from os import environ
 from typing import List, Literal, Union
 
 from ._version import __version__  # noqa: F401
-from pyquda_comm.field import LatticeInfo
 from pyquda_comm import (  # noqa: F401
     initGrid,
     initDevice,
@@ -22,6 +21,7 @@ from pyquda_comm import (  # noqa: F401
     getCUDADevice,
     getCUDAComputeCapability,
 )
+from pyquda_comm.field import LatticeInfo
 
 _DEFAULT_LATTICE: Union[LatticeInfo, None] = None
 _QUDA_INITIALIZED: bool = False

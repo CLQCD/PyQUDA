@@ -1,3 +1,4 @@
+from math import prod
 from typing import List
 
 from mpi4py import MPI
@@ -78,7 +79,7 @@ def gaugePlaquette(latt_size: List[int], gauge: numpy.ndarray):
     plaq[3] = numpy.vdot(gauge[0] @ extended[3, :-1, :-1, :-1, 1:], gauge[3] @ extended[0, 1:, :-1, :-1, :-1]).real
     plaq[4] = numpy.vdot(gauge[1] @ extended[3, :-1, :-1, 1:, :-1], gauge[3] @ extended[1, 1:, :-1, :-1, :-1]).real
     plaq[5] = numpy.vdot(gauge[2] @ extended[3, :-1, 1:, :-1, :-1], gauge[3] @ extended[2, 1:, :-1, :-1, :-1]).real
-    plaq /= int(numpy.prod(latt_size)) * Nc
+    plaq /= prod(latt_size) * Nc
     plaq = getMPIComm().allreduce(plaq, MPI.SUM)
     return numpy.array([plaq.mean(), plaq[:3].mean(), plaq[3:].mean()])
 
@@ -303,7 +304,7 @@ def propagatorToDiracPauli(degrand_rossi: numpy.ndarray):
 #     plaq[3] = numpy.vdot(gauge[1, 1] @ gauge[2, 0], gauge[2, 1] @ gauge[1, 0]).real
 #     plaq[4] = numpy.vdot(gauge[1, 1] @ gauge[3, 0], gauge[3, 1] @ gauge[1, 0]).real
 #     plaq[5] = numpy.vdot(gauge[2, 1] @ gauge[3, 0], gauge[3, 1] @ gauge[2, 0]).real
-#     plaq /= int(numpy.prod(latt_size)) * Nc
+#     plaq /= prod(latt_size) * Nc
 #     plaq = getMPIComm().allreduce(plaq, MPI.SUM)
 #     return numpy.array([plaq.mean(), plaq[:3].mean(), plaq[3:].mean()])
 
@@ -382,6 +383,6 @@ def propagatorToDiracPauli(degrand_rossi: numpy.ndarray):
 #     plaq[3] = numpy.vdot(link_munu[3], link_numu[3]).real
 #     plaq[4] = numpy.vdot(link_munu[4], link_numu[4]).real
 #     plaq[5] = numpy.vdot(link_munu[5], link_numu[5]).real
-#     plaq /= int(numpy.prod(latt_size)) * Nc
+#     plaq /= prod(latt_size) * Nc
 #     plaq = getMPIComm().allreduce(plaq, MPI.SUM)
 #     return numpy.array([plaq.mean(), plaq[:3].mean(), plaq[3:].mean()])

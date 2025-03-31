@@ -1,7 +1,7 @@
 from typing import List
 
 from pyquda import getLogger, getGridSize, pyquda as quda, enum_quda
-from pyquda_comm.field import LatticeFermion, LatticeGauge, LatticeInfo, LatticePropagator, Nc, Ns
+from pyquda.field import LatticeFermion, LatticeGauge, LatticeInfo, LatticePropagator, Nc, Ns
 from pyquda.dirac.abstract import FermionDirac
 
 

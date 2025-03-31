@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 from pyquda_comm import getLogger
 from pyquda_comm.pointer import Pointer
-from pyquda_comm.field import (
+from ..field import (
     LatticeInfo,
     LatticeGauge,
     LatticeFermion,

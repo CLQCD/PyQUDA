@@ -1,3 +1,4 @@
+from math import prod
 from time import perf_counter
 from typing import List, Sequence, Tuple, Union
 
@@ -28,9 +29,9 @@ class _LatticeInfo:
             sublatt_slice.append(slice(g * L, (g + 1) * L))
 
         self.global_size = latt_size
-        self.global_volume = int(numpy.prod(latt_size))
+        self.global_volume = prod(latt_size)
         self.size = sublatt_size
-        self.volume = int(numpy.prod(sublatt_size))
+        self.volume = prod(sublatt_size)
         self.slice = tuple(sublatt_slice)
 
 

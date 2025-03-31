@@ -6,7 +6,7 @@ from typing import Literal, Sequence, Tuple
 from gmpy2 import mpfr
 
 from pyquda_comm import getMPIComm, getMPIRank
-from pyquda_comm.field import X, Y, Z, T
+from pyquda.field import X, Y, Z, T
 from pyquda.action.abstract import LoopParam, RationalParam
 from .alg_remez import AlgRemez
 

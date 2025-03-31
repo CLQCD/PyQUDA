@@ -6,7 +6,7 @@ from typing import List, Union
 import numpy
 
 from pyquda_comm import getLogger, getCUDABackend
-from pyquda_comm.field import LatticeInfo, LatticeGauge, LatticeMom, LatticeReal
+from .field import LatticeInfo, LatticeGauge, LatticeMom, LatticeReal
 from .pyquda import (
     QudaGaugeObservableParam,
     gaugeObservablesQuda,

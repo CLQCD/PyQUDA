@@ -3,7 +3,7 @@ from typing import List
 import numpy
 
 from pyquda_comm import getLogger
-from pyquda_comm.field import LatticeInfo, LatticeGauge, LatticeStaggeredFermion, MultiLatticeStaggeredFermion
+from ..field import LatticeInfo, LatticeGauge, LatticeStaggeredFermion, MultiLatticeStaggeredFermion
 from ..pyquda import computeHISQForceQuda, dslashQuda, saveGaugeQuda
 from ..enum_quda import (
     QudaInverterType,

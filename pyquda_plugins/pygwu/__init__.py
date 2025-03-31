@@ -5,7 +5,7 @@ from typing import Sequence
 import numpy as np
 
 from pyquda_comm import initGrid, initDevice, getLogger, setGridMap, readMPIFile, readMPIFileInChunks
-from pyquda_comm.field import LatticeInfo, LatticeGauge, LatticeFermion, MultiLatticeFermion, evenodd
+from pyquda_comm.field import evenodd, LatticeInfo, LatticeGauge, LatticeFermion, MultiLatticeFermion
 from . import _pygwu as gwu
 
 setGridMap("TZYX_FASTEST")

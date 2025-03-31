@@ -4,7 +4,7 @@ import numpy
 from numpy.typing import NDArray
 
 from pyquda_comm import getLogger, getCUDABackend, isHIP, getCUDAComputeCapability
-from pyquda_comm.field import (
+from ..field import (
     LatticeInfo,
     LatticeGauge,
     LatticeClover,

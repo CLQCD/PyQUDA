@@ -3,7 +3,7 @@ from functools import partial
 from typing import List, Literal, NamedTuple, Union
 
 from pyquda_comm import getCUDABackend
-from pyquda_comm.field import (
+from ..field import (
     LatticeInfo,
     LatticeFermion,
     LatticeStaggeredFermion,

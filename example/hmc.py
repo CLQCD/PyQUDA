@@ -2,8 +2,7 @@ from typing import Union, List
 
 import numpy
 
-from pyquda_comm.field import LatticeInfo, LatticeGauge, LatticeMom
-from pyquda_comm.pointer import Pointers
+from pyquda.field import LatticeInfo, LatticeGauge, LatticeMom
 from pyquda.pyquda import (
     gaussGaugeQuda,
     gaussMomQuda,
@@ -20,7 +19,7 @@ from pyquda.pyquda import (
 from pyquda.enum_quda import QudaTboundary, QudaVerbosity
 from pyquda.dirac import GaugeDirac
 
-nullptr = Pointers("void", 0)
+nullptr = numpy.empty((0, 0), "<c16")
 
 
 def getLoopsCoeffs(loops: List[List[int]], coeffs: List[float]):
