@@ -246,9 +246,8 @@ def invertMultiShiftQuda(_hp_x, _hp_b, QudaInvertParam param):
     quda.invertMultiShiftQuda(__hp_x.ptrs, __hp_b.ptr, &param.param)
 
 def newMultigridQuda(QudaMultigridParam param):
-    cdef void *ptr = quda.newMultigridQuda(&param.param)
     mg_instance = Pointer("void")
-    mg_instance.set_ptr(ptr)
+    mg_instance.set_ptr(quda.newMultigridQuda(&param.param))
     return mg_instance
 
 def destroyMultigridQuda(Pointer mg_instance):
@@ -433,9 +432,8 @@ def flushChronoQuda(int index):
     quda.flushChronoQuda(index)
 
 def newDeflationQuda(QudaEigParam param):
-    cdef void *ptr = quda.newDeflationQuda(&param.param)
     df_instance = Pointer("void")
-    df_instance.set_ptr(ptr)
+    df_instance.set_ptr(quda.newDeflationQuda(&param.param))
     return df_instance
 
 def destroyDeflationQuda(Pointer df_instance):
