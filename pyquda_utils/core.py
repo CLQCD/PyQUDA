@@ -18,6 +18,8 @@ from pyquda import (
     setDefaultLattice,
     getDefaultLattice,
     getCUDABackend,
+    getCUDADevice,
+    getCUDAComputeCapability,
     getLogger,
     setLoggerLevel,
     dirac as fermion,

@@ -9,23 +9,20 @@ from check_pyquda import weak_field
 
 from pyquda.field import LatticeGauge, LatticeInfo, LatticeStaggeredFermion, MultiLatticeStaggeredFermion, Nc
 from pyquda import enum_quda, pyquda as quda
-from pyquda.dirac import setGlobalPrecision
-from pyquda_utils import core, io
+from pyquda_utils import core, io, eigensolve
 
 core.init(resource_path=".cache")
-setGlobalPrecision(eigensolver=8)
 
 t = 3
 
 gauge = io.readChromaQIOGauge(weak_field)
 gauge.smearSTOUT(10, 0.12, 3)
-Lx, Ly, Lz = gauge.latt_info.Lx, gauge.latt_info.Ly, gauge.latt_info.Lz
+Lx, Ly, Lz, Lt = gauge.latt_info.size
 latt_info = LatticeInfo([Lx, Ly, Lz, 1])
 gauge_tmp_lexico = cp.array(gauge.lexico()[:, t])
 gauge_tmp_lexico_dagger = gauge_tmp_lexico.transpose(0, 1, 2, 3, 5, 4).conj().copy()
 gauge_tmp = LatticeGauge(latt_info, core.cb2(gauge.lexico()[:, t : t + 1], [1, 2, 3, 4]))
 
-Lx, Ly, Lz, _ = latt_info.size
 n_ev = 20
 n_kr = min(max(2 * n_ev, n_ev + 32), Lz * Ly * Lx * Nc - 1)
 tol = 1e-9
@@ -86,6 +83,10 @@ eig_param.tol = tol
 eig_param.vec_infile = b""
 eig_param.vec_outfile = b""
 eig_param.max_restarts = max_restarts
+eig_param.use_poly_acc = enum_quda.QudaBoolean.QUDA_BOOLEAN_TRUE
+eig_param.poly_deg = 20
+eig_param.a_min = 0.4
+eig_param.a_max = 2.0
 
 evecs = MultiLatticeStaggeredFermion(latt_info, n_ev)
 evals = np.zeros((n_ev), "<c16")
@@ -93,3 +94,14 @@ s = perf_counter()
 quda.eigensolveQuda(evecs.data_ptrs, evals, eig_param)
 print(f"{perf_counter() - s:.3f} secs")
 print(evals.real)
+evecs = evecs.lexico().reshape(n_ev, -1)
+evecs *= np.exp(-1j * np.angle(evecs[:, 0])).reshape(n_ev, 1)
+
+s = perf_counter()
+evals_all, evecs_all = eigensolve.laplace3d(gauge, n_ev, n_kr, tol, max_restarts, poly_deg=20, poly_cut=0.4)
+print(f"{perf_counter() - s:.3f} secs")
+print(evals_all[:, t])
+evecs_all = evecs_all.lexico().reshape(n_ev, Lt, -1)
+evecs_all *= np.exp(-1j * np.angle(evecs_all[:, :, 0])).reshape(n_ev, Lt, 1)
+
+print(np.linalg.norm(evecs - evecs_all[:, t]))
