@@ -100,7 +100,7 @@ evecs *= np.exp(-1j * np.angle(evecs[:, 0])).reshape(n_ev, 1)
 s = perf_counter()
 evals_all, evecs_all = eigensolve.laplace3d(gauge, n_ev, n_kr, tol, max_restarts, poly_deg=20, poly_cut=0.4)
 print(f"{perf_counter() - s:.3f} secs")
-print(evals_all[:, t])
+print(evals_all[t])
 evecs_all = evecs_all.lexico().reshape(n_ev, Lt, -1)
 evecs_all *= np.exp(-1j * np.angle(evecs_all[:, :, 0])).reshape(n_ev, Lt, 1)
 
