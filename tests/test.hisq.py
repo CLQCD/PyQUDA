@@ -19,11 +19,11 @@ dslash.loadGauge(gauge)
 # Cz = np.arange(Lz).reshape(1, Lz, 1, 1).repeat(Lx, 3).repeat(Ly, 2).repeat(Lt, 0)
 # Ct = np.arange(Lt).reshape(Lt, 1, 1, 1).repeat(Lx, 3).repeat(Ly, 2).repeat(Lz, 1)
 # Convert from CPS(QUDA, Old) to Chroma
-# phase = cp.asarray(core.cb2(np.where((Cx) % 2 == 1, -1, 1), [0, 1, 2, 3]))
+# phase = cp.asarray(core.evenodd(np.where((Cx) % 2 == 1, -1, 1), [0, 1, 2, 3]))
 # Convert from MILC to Chroma
-# phase = cp.asarray(core.cb2(np.where(((Cx + Cy + Cz) % 2 == 1) | (Ct % 2 == 1), -1, 1), [0, 1, 2, 3]))
+# phase = cp.asarray(core.evenodd(np.where(((Cx + Cy + Cz) % 2 == 1) | (Ct % 2 == 1), -1, 1), [0, 1, 2, 3]))
 # # Convert from CPS(QUDA, New) to Chroma
-# phase = cp.asarray(core.cb2(np.where((Cx + Cy + Cz + Ct) % 2 == 1, -1, 1), [0, 1, 2, 3]))
+# phase = cp.asarray(core.evenodd(np.where((Cx + Cy + Cz + Ct) % 2 == 1, -1, 1), [0, 1, 2, 3]))
 
 propagator = core.invertStaggered(dslash, "point", [0, 0, 0, 0])
 

@@ -1,8 +1,15 @@
-from typing import List
+from typing import Any, List
+
+import numpy
 
 from pyquda import getLogger, getGridSize, pyquda as quda, enum_quda
-from pyquda.field import LatticeFermion, LatticeGauge, LatticeInfo, LatticePropagator, Nc, Ns
+from pyquda.field import LatticeFermion, LatticeGauge, LatticeInfo, LatticePropagator, Nc, Ns, evenodd
 from pyquda.dirac.abstract import FermionDirac
+
+
+def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
+    getLogger().warning("Use evenodd instead", DeprecationWarning)
+    return evenodd(data, axes, dtype)
 
 
 def smear(latt_size: List[int], gauge: LatticeGauge, nstep: int, rho: float):

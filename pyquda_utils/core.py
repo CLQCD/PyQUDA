@@ -47,12 +47,11 @@ from pyquda.field import (  # noqa: F401
     LatticeStaggeredPropagator,
     lexico,
     evenodd,
-    evenodd as cb2,
 )
 from pyquda.dirac.abstract import Multigrid, FermionDirac, StaggeredFermionDirac
 
 from . import source
-from .deprecated import smear, smear4, invert12, getDslash, getStaggeredDslash
+from .deprecated import smear, smear4, invert12, getDslash, getStaggeredDslash, cb2
 
 LaplaceLatticeInfo = LatticeInfo
 

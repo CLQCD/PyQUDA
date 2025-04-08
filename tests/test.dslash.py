@@ -23,7 +23,7 @@ def applyDslash(Mp, p, U_seed):
     dslash.loadGauge(U)
 
     # Load a from p and allocate b
-    a = core.LatticeFermion(latt_info, cp.asarray(core.cb2(p, [0, 1, 2, 3])))
+    a = core.LatticeFermion(latt_info, cp.asarray(core.evenodd(p, [0, 1, 2, 3])))
     b = core.LatticeFermion(latt_info)
 
     # Dslash a = b
