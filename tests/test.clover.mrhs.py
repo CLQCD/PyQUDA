@@ -2,7 +2,7 @@ import cupy as cp
 
 from check_pyquda import weak_field
 
-from pyquda_utils import core, io, source
+from pyquda_utils import core, io, source, convert
 
 xi_0, nu = 2.464, 0.95
 kappa = 0.115
@@ -18,7 +18,7 @@ gauge = io.readQIOGauge(weak_field)
 dslash.loadGauge(gauge)
 
 point_source = source.multiFermion(core.getDefaultLattice(), "point", [0, 0, 0, 0])
-propagator = dslash.invertMultiSrc(point_source).toPropagator()
+propagator = convert.multiFermionToPropagator(dslash.invertMultiSrc(point_source))
 
 dslash.destroy()
 
