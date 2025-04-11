@@ -127,10 +127,7 @@ def invertStaggeredPropagator(
 
 
 def gatherLattice2(
-    data: numpy.ndarray,
-    tzyx: List[int],
-    reduce_op: Literal["sum", "mean", "prod", "max", "min"] = "sum",
-    root: int = 0,
+    data: numpy.ndarray, tzyx: List[int], reduce_op: Literal["sum", "mean", "prod", "max", "min"] = "sum", root: int = 0
 ):
     sendobj = numpy.ascontiguousarray(data)
     recvobj = getMPIComm().gather(sendobj, root)
@@ -201,6 +198,14 @@ def scatterLattice(data: numpy.ndarray, tzyx: List[int], root: int = 0):
     recvobj = getMPIComm().scatter(sendobj, root)
 
     return recvobj
+
+
+def gatherScatterLattice(
+    data: numpy.ndarray, tzyx: List[int], reduce_op: Literal["sum", "mean", "prod", "max", "min"] = "sum", root: int = 0
+):
+    data = gatherLattice2(data, tzyx, reduce_op, root)
+    data = scatterLattice(data, tzyx, root)
+    return data
 
 
 def gatherLattice(data: numpy.ndarray, axes: List[int], reduce_op: Literal["sum", "mean"] = "sum", root: int = 0):
