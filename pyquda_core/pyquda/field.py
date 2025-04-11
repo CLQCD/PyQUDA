@@ -11,7 +11,7 @@ from pyquda_comm.field import (  # noqa: F401
     LatticeInt,
     LatticeReal,
     LatticeComplex,
-    LatticeLink as _LatticeLink,
+    LatticeLink,
     LatticeGauge as _LatticeGauge,
     LatticeMom as _LatticeMom,
     LatticeClover,
@@ -42,16 +42,6 @@ X = _Direction(0)
 Y = _Direction(1)
 Z = _Direction(2)
 T = _Direction(3)
-
-
-class LatticeLink(_LatticeLink):
-    def pack(self, x: "LatticeFermion"):
-        for color in range(self.latt_info.Nc):
-            x.data[:, :, :, :, :, color, :] = self.data[:, :, :, :, :, :, color]
-
-    def unpack(self, x: "LatticeFermion"):
-        for color in range(self.latt_info.Nc):
-            self.data[:, :, :, :, :, :, color] = x.data[:, :, :, :, :, color, :]
 
 
 class LatticeGauge(_LatticeGauge):
@@ -90,6 +80,14 @@ class LatticeGauge(_LatticeGauge):
     def ensurePureGauge(self):
         pass
 
+    def pack(self, index: int, x: "LatticeFermion"):
+        for color in range(self.latt_info.Nc):
+            x.data[:, :, :, :, :, color, :] = self[index].data[:, :, :, :, :, :, color]
+
+    def unpack(self, index: int, x: "LatticeFermion"):
+        for color in range(self.latt_info.Nc):
+            self[index].data[:, :, :, :, :, :, color] = x.data[:, :, :, :, :, color, :]
+
     def covDev(self, x: "LatticeFermion", covdev_mu: int):
         self.gauge_dirac.loadGauge(self)
         b = self._gauge_dirac.covDev(x, covdev_mu)
@@ -113,9 +111,9 @@ class LatticeGauge(_LatticeGauge):
         x = LatticeFermion(self.latt_info)
         self.gauge_dirac.loadGauge(unit)
         for mu, covdev_mu in enumerate(shift_mu):
-            self[mu].pack(x)
+            self.pack(mu, x)
             b = self._gauge_dirac.covDev(x, covdev_mu)
-            unit[mu].unpack(b)
+            unit.unpack(mu, b)
             # x.data[:, :, :, :, :, :Nc, :Nc] = self.data[mu]
             # unit.data[mu] = self._gauge_dirac.covDev(x, covdev_mu).data[:, :, :, :, :, :Nc, :Nc]
         self._gauge_dirac.freeGauge()
