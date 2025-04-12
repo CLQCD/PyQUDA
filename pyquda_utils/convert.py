@@ -12,7 +12,7 @@ from pyquda.field import (
 
 
 def linkToFermion(link: LatticeLink):
-    fermion = LatticeLink(link.latt_info)
+    fermion = LatticeFermion(link.latt_info)
     for color in range(link.latt_info.Nc):
         fermion.data[:, :, :, :, :, color, :] = link.data[:, :, :, :, :, :, color]
     return fermion

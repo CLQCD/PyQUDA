@@ -142,11 +142,6 @@ def evenodd(data: numpy.ndarray, axes: List[int], dtype=None):
     return data_evenodd.reshape(*shape[: axes[0]], 2, Lt, Lz, Ly, Lx // 2, *shape[axes[-1] + 1 :])
 
 
-def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
-    getLogger().warning("cb2 is deprecated, use evenodd instead", DeprecationWarning)
-    return evenodd(data, axes, dtype)
-
-
 def checksum(latt_info: Union[LatticeInfo, GeneralInfo], data: numpy.ndarray) -> Tuple[int, int]:
     import zlib
     from mpi4py import MPI
@@ -183,6 +178,10 @@ def _field_shape_dtype(field: str, Ns: int, Nc: int, use_fp32: bool = False):
         return [Ns, Nc], f"<c{2 * float_nbytes}"
     elif field in ["SpinColorMatrix"]:
         return [Ns, Ns, Nc, Nc], f"<c{2 * float_nbytes}"
+    elif field in ["SpinVector"]:
+        return [Ns], f"<c{2 * float_nbytes}"
+    elif field in ["SpinMatrix"]:
+        return [Ns, Ns], f"<c{2 * float_nbytes}"
     elif field in ["ColorVector"]:
         return [Nc], f"<c{2 * float_nbytes}"
     elif field in ["ColorMatrix"]:
@@ -773,7 +772,65 @@ class LatticeComplex(FullField, ParityField):
     pass
 
 
-class LatticeLink(FullField, ParityField):
+class HalfLatticeSpinColorVector(ParityField):
+    @property
+    def __field_class__(self):
+        return HalfLatticeSpinColorVector
+
+
+class MultiHalfLatticeSpinColorVector(MultiField, HalfLatticeSpinColorVector):
+    pass
+
+
+class LatticeSpinColorVector(FullField, HalfLatticeSpinColorVector):
+    @property
+    def __field_class__(self):
+        return LatticeSpinColorVector
+
+
+class MultiLatticeSpinColorVector(MultiField, LatticeSpinColorVector):
+    pass
+
+
+class LatticeSpinColorMatrix(FullField, ParityField):
+    @property
+    def __field_class__(self):
+        return LatticeColorMatrix
+
+
+class HalfLatticeColorVector(ParityField):
+    @property
+    def __field_class__(self):
+        return HalfLatticeColorVector
+
+
+class MultiHalfLatticeColorVector(MultiField, HalfLatticeColorVector):
+    pass
+
+
+class LatticeColorVector(FullField, HalfLatticeColorVector):
+    @property
+    def __field_class__(self):
+        return LatticeColorVector
+
+
+class MultiLatticeColorVector(MultiField, LatticeColorVector):
+    pass
+
+
+class LatticeColorMatrix(FullField, ParityField):
+    @property
+    def __field_class__(self):
+        return LatticeColorMatrix
+
+
+class LatticeSpinMatrix(FullField, ParityField):
+    @property
+    def __field_class__(self):
+        return LatticeSpinMatrix
+
+
+class LatticeLink(LatticeColorMatrix):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info, value)
         if value is None:
@@ -824,27 +881,23 @@ class LatticeClover(FullField, ParityField):
     pass
 
 
-class HalfLatticeFermion(ParityField):
-    @property
-    def __field_class__(self):
-        return HalfLatticeFermion
-
-
-class LatticeFermion(FullField, HalfLatticeFermion):
-    @property
-    def __field_class__(self):
-        return LatticeFermion
-
-
-class MultiHalfLatticeFermion(MultiField, HalfLatticeFermion):
+class HalfLatticeFermion(HalfLatticeSpinColorVector):
     pass
 
 
-class MultiLatticeFermion(MultiField, LatticeFermion):
+class MultiHalfLatticeFermion(MultiHalfLatticeSpinColorVector):
     pass
 
 
-class LatticePropagator(FullField, ParityField):
+class LatticeFermion(LatticeSpinColorVector):
+    pass
+
+
+class MultiLatticeFermion(MultiLatticeSpinColorVector):
+    pass
+
+
+class LatticePropagator(LatticeSpinColorMatrix):
     def setFermion(self, fermion: LatticeFermion, spin: int, color: int):
         self.data[:, :, :, :, :, :, spin, :, color] = fermion.data
 
@@ -852,29 +905,25 @@ class LatticePropagator(FullField, ParityField):
         return LatticeFermion(self.latt_info, self.data[:, :, :, :, :, :, spin, :, color])
 
 
-class HalfLatticeStaggeredFermion(ParityField):
-    @property
-    def __field_class__(self):
-        return HalfLatticeStaggeredFermion
-
-
-class MultiHalfLatticeStaggeredFermion(MultiField, HalfLatticeStaggeredFermion):
+class HalfLatticeStaggeredFermion(HalfLatticeColorVector):
     pass
 
 
-class LatticeStaggeredFermion(FullField, HalfLatticeStaggeredFermion):
-    @property
-    def __field_class__(self):
-        return LatticeStaggeredFermion
-
-
-class MultiLatticeStaggeredFermion(MultiField, LatticeStaggeredFermion):
+class MultiHalfLatticeStaggeredFermion(MultiHalfLatticeColorVector):
     pass
 
 
-class LatticeStaggeredPropagator(FullField, ParityField):
+class LatticeStaggeredFermion(LatticeColorVector):
+    pass
+
+
+class MultiLatticeStaggeredFermion(MultiLatticeColorVector):
+    pass
+
+
+class LatticeStaggeredPropagator(LatticeColorMatrix):
     def setFermion(self, fermion: LatticeStaggeredFermion, color: int):
         self.data[:, :, :, :, :, :, color] = fermion.data
 
-    def getFermion(self, color: int) -> LatticeStaggeredFermion:
+    def getFermion(self, color: int):
         return LatticeStaggeredFermion(self.latt_info, self.data[:, :, :, :, :, :, color])

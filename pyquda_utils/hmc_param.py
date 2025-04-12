@@ -307,7 +307,7 @@ def staggeredFermionRationalParam(
             fermion_action = remez.getIPFE()
             rational_param = RationalParam(*molecular_dynamics, *pseudo_fermion, *fermion_action)
             cache[key] = rational_param
-        _dumpCache(cache)
+            _dumpCache(cache)
     else:
         rational_param = None
     return getMPIComm().bcast(rational_param)

@@ -1,5 +1,7 @@
 from typing import Any, List, Literal, Union
 
+import numpy
+
 from pyquda_comm import getLogger
 from pyquda_comm.field import (  # noqa: F401
     lexico,
@@ -42,6 +44,11 @@ X = _Direction(0)
 Y = _Direction(1)
 Z = _Direction(2)
 T = _Direction(3)
+
+
+def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
+    getLogger().warning("cb2 is deprecated, use evenodd instead", DeprecationWarning)
+    return evenodd(data, axes, dtype)
 
 
 class LatticeGauge(_LatticeGauge):
