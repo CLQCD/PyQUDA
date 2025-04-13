@@ -5,8 +5,13 @@ _C_TO_PYTHON: Dict[str, str] = {
     "void *": "Pointer",
     "void": "None",
     "short": "int",
+    "unsigned short": "int",
     "int": "int",
+    "unsigned int": "int",
     "long": "int",
+    "unsigned long": "int",
+    "long long": "int",
+    "unsigned long long": "int",
     "float": "float",
     "double": "float",
     "long double": "float",
@@ -125,10 +130,29 @@ def parseHeader(header, include_path):
     except ImportError or ModuleNotFoundError:
         from pyquda_core.pycparser.pycparser import parse_file, c_ast  # This is for the language server
 
+    def evaluate(node):
+        if node is None:
+            return
+        elif type(node) is c_ast.UnaryOp:
+            if node.op == "+":
+                return evaluate(node.expr)
+            elif node.op == "-":
+                return -evaluate(node.expr)
+        elif type(node) is c_ast.BinaryOp:
+            if node.op == "+":
+                return evaluate(node.left) + evaluate(node.right)
+            elif node.op == "-":
+                return evaluate(node.left) - evaluate(node.right)
+        elif type(node) is c_ast.Constant:
+            return int(node.value, 0)
+        else:
+            raise ValueError(f"Unknown node {node}")
+
     ast = parse_file(
         os.path.join(include_path, header), use_cpp=True, cpp_path="cc", cpp_args=["-E", Rf"-I{include_path}"]
     )
     funcs: List[FunctionMeta] = []
+    enums: Dict[str, List[Tuple[str, int]]] = {}
     for node in ast:
         if isinstance(node.type, c_ast.FuncDecl):
             a = []
@@ -179,24 +203,53 @@ def parseHeader(header, include_path):
                 funcs.append(FunctionMeta((" ".join(nttt.type.names), "*"), node.name, a))
             else:
                 raise ValueError(f"Unexpected node {node}")
-    return funcs
+        elif type(node.type.type) is c_ast.Enum:
+            print(node.name)
+            current_value = -1
+            enums[node.name] = []
+            for item in node.type.type.values:
+                item_value = evaluate(item.value)
+                if item_value is not None:
+                    current_value = item_value
+                else:
+                    current_value += 1
+                enums[node.name].append((item.name, current_value))
+    return funcs, enums
 
 
 def build_plugin_pyx(plugins_root, lib: str, header: str, include_path: str):
     lib_pxd = f'cdef extern from "{header}":\n'
     pylib_pyx = (
+        "from enum import IntEnum\n"
         "from libcpp cimport bool\n"
         "from numpy cimport ndarray\n"
         "from pyquda_comm.pointer cimport Pointer, _NDArray\n"
         f"cimport {lib}\n"
         "\n"
     )
-    pylib_pyi = "from numpy import int32, float64, complex128\n" "from numpy.typing import NDArray\n" "\n"
-    c_funcs = parseHeader(header, include_path)
+    pylib_pyi = (
+        "from enum import IntEnum\n"
+        "from numpy import int32, float64, complex128\n"
+        "from numpy.typing import NDArray\n"
+        "\n"
+    )
+    c_funcs, c_enums = parseHeader(header, include_path)
+    for c_enum in c_enums.keys():
+        lib_pxd += f"    ctypedef enum {c_enum}:\n        pass\n\n"
+        pylib_pyx += f"class {c_enum}(IntEnum):\n"
+        pylib_pyi += f"class {c_enum}(IntEnum):\n"
+        for key, value in c_enums[c_enum]:
+            pylib_pyx += f"    {key} = {value}\n"
+            pylib_pyi += f"    {key} = {value}\n"
+        pylib_pyx += "\n"
+        pylib_pyi += "\n"
+        _C_TO_PYTHON.update({c_enum: c_enum})
     for c_func in c_funcs:
         lib_pxd += f"    {c_func}\n"
         pylib_pyx += "\n" + c_func.pyx(lib)
         pylib_pyi += c_func.pyi()
+    for c_enum in c_enums.keys():
+        pylib_pyx = pylib_pyx.replace(f"{c_enum} ", f"{lib}.{c_enum} ")
 
     os.makedirs(os.path.join(plugins_root, f"py{lib}", "src"), exist_ok=True)
     with open(os.path.join(plugins_root, f"py{lib}", "src", f"{lib}.pxd"), "w") as f:
