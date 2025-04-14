@@ -31,7 +31,7 @@ def baryonTwoPoint(
             gamma_kl.index,
             gamma_mn.index,
         )
-        correl.data *= gamma_ij.sign * gamma_kl.sign * gamma_mn.sign
+        correl.data *= gamma_ij.factor * gamma_kl.factor * gamma_mn.factor
         return correl
     elif isinstance(gamma_mn, Polarize):
         correl_left = baryonTwoPoint(propag_i, propag_j, propag_m, contract_type, gamma_ij, gamma_kl, gamma_mn.left)
