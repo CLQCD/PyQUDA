@@ -181,11 +181,13 @@ def setPrecisionParam(
         mg_inv_param.cuda_prec = precision.cuda
         mg_inv_param.cuda_prec_sloppy = precision.sloppy
         mg_inv_param.cuda_prec_precondition = precision.precondition
+        mg_inv_param.cuda_prec_eigensolver = precision.eigensolver
 
         mg_inv_param.clover_cpu_prec = precision.cpu
         mg_inv_param.clover_cuda_prec = precision.cuda
         mg_inv_param.clover_cuda_prec_sloppy = precision.sloppy
         mg_inv_param.clover_cuda_prec_precondition = precision.precondition
+        mg_inv_param.clover_cuda_prec_eigensolver = precision.eigensolver
 
     if mg_param is not None:
         mg_param.precision_null = [precision.precondition] * QUDA_MAX_MG_LEVEL

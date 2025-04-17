@@ -440,42 +440,50 @@ class BaseField:
         else:
             return norm2
 
-    def __add__(self, other):
-        assert self.__class__ == other.__class__ and self.location == other.location
-        return self.__class__(self.latt_info, self.data + other.data)
+    def __add__(self, rhs):
+        if not self.__class__ == rhs.__class__:
+            return NotImplemented
+        assert self.location == rhs.location
+        return self.__class__(self.latt_info, self.data + rhs.data)
 
-    def __sub__(self, other):
-        assert self.__class__ == other.__class__ and self.location == other.location
-        return self.__class__(self.latt_info, self.data - other.data)
+    def __sub__(self, rhs):
+        if not self.__class__ == rhs.__class__:
+            return NotImplemented
+        assert self.location == rhs.location
+        return self.__class__(self.latt_info, self.data - rhs.data)
 
-    def __mul__(self, other):
-        return self.__class__(self.latt_info, self.data * other)
+    def __mul__(self, rhs):
+        return self.__class__(self.latt_info, self.data * rhs)
 
-    def __rmul__(self, other):
-        return self.__class__(self.latt_info, other * self.data)
+    def __rmul__(self, lhs):
+        return self.__class__(self.latt_info, lhs * self.data)
 
-    def __truediv__(self, other):
-        return self.__class__(self.latt_info, self.data / other)
+    def __truediv__(self, rhs):
+        return self.__class__(self.latt_info, self.data / rhs)
 
     def __neg__(self):
         return self.__class__(self.latt_info, -self.data)
 
-    def __iadd__(self, other):
-        assert self.__class__ == other.__class__ and self.location == other.location
-        self._data += other.data
+    def __iadd__(self, rhs):
+        if not self.__class__ == rhs.__class__:
+            return NotImplemented
+        assert self.location == rhs.location
+        self._data += rhs.data
         return self
 
-    def __isub__(self, other):
-        assert self.__class__ == other.__class__ and self.location == other.location
-        self._data -= other.data
+    def __isub__(self, rhs):
+        if not self.__class__ == rhs.__class__:
+            return NotImplemented
+        assert self.location == rhs.location
+        self._data -= rhs.data
         return self
 
-    def __imul__(self, other):
-        self._data *= other
+    def __imul__(self, rhs):
+        self._data *= rhs
         return self
 
-    def __itruediv__(self, other):
-        self._data /= other
+    def __itruediv__(self, rhs):
+        self._data /= rhs
         return self
 
 
@@ -739,22 +747,26 @@ class MultiField:
     def checksum(self) -> List[Tuple[int, int]]:
         return [self[index].checksum() for index in range(self.L5)]
 
-    def __add__(self, other):
-        assert self.__class__ == other.__class__ and self.location == other.location
-        return self.__class__(self.latt_info, self.L5, self.data + other.data)
+    def __add__(self, rhs):
+        if not self.__class__ == rhs.__class__:
+            return NotImplemented
+        assert self.location == rhs.location
+        return self.__class__(self.latt_info, self.L5, self.data + rhs.data)
 
-    def __sub__(self, other):
-        assert self.__class__ == other.__class__ and self.location == other.location
-        return self.__class__(self.latt_info, self.L5, self.data - other.data)
+    def __sub__(self, rhs):
+        if not self.__class__ == rhs.__class__:
+            return NotImplemented
+        assert self.location == rhs.location
+        return self.__class__(self.latt_info, self.L5, self.data - rhs.data)
 
-    def __mul__(self, other):
-        return self.__class__(self.latt_info, self.L5, self.data * other)
+    def __mul__(self, rhs):
+        return self.__class__(self.latt_info, self.L5, self.data * rhs)
 
-    def __rmul__(self, other):
-        return self.__class__(self.latt_info, self.L5, other * self.data)
+    def __rmul__(self, lhs):
+        return self.__class__(self.latt_info, self.L5, lhs * self.data)
 
-    def __truediv__(self, other):
-        return self.__class__(self.latt_info, self.L5, self.data / other)
+    def __truediv__(self, rhs):
+        return self.__class__(self.latt_info, self.L5, self.data / rhs)
 
     def __neg__(self):
         return self.__class__(self.latt_info, self.L5, -self.data)
