@@ -8,7 +8,7 @@ xi_0, nu = 2.464, 0.95
 kappa = 0.125
 mass = 1 / (2 * kappa) - 4
 
-core.init([1, 1, 1, 1], [4, 4, 4, 8], -1, xi_0 / nu, resource_path=".cache")
+core.init(None, [4, 4, 4, 8], -1, xi_0 / nu, resource_path=".cache")
 
 dslash = core.getDefaultDirac(mass, 1e-12, 1000)
 gauge = io.readQIOGauge(weak_field)

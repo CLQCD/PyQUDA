@@ -62,15 +62,21 @@ def invert(
     t_srce: Union[List[int], int, None],
     source_phase=None,
     restart: int = 0,
+    mrhs: int = 1,
 ):
     latt_info = dirac.latt_info
+    assert mrhs <= Ns * Nc
 
     propag = LatticePropagator(latt_info)
-    for spin in range(Ns):
-        for color in range(Nc):
-            b = source.source(latt_info, source_type, t_srce, spin, color, source_phase)
-            x = dirac.invertRestart(b, restart)
-            propag.setFermion(x, spin, color)
+    s = 0
+    while s < Ns * Nc:
+        b = MultiLatticeFermion(latt_info, min(mrhs, Ns * Nc - s))
+        for i in range(b.L5):
+            b[i] = source.source(latt_info, source_type, t_srce, (s + i) // Nc, (s + i) % Nc, source_phase)
+        x = dirac.invertMultiSrcRestart(b, restart)
+        for i in range(b.L5):
+            propag.setFermion(x[i], (s + i) // Nc, (s + i) % Nc)
+        s += mrhs
 
     return propag
 
@@ -98,14 +104,21 @@ def invertStaggered(
     t_srce: Union[List[int], int, None],
     source_phase=None,
     restart: int = 0,
+    mrhs: int = 1,
 ):
     latt_info = dirac.latt_info
+    assert mrhs <= Nc
 
     propag = LatticeStaggeredPropagator(latt_info)
-    for color in range(Nc):
-        b = source.source(latt_info, source_type, t_srce, None, color, source_phase)
-        x = dirac.invertRestart(b, restart)
-        propag.setFermion(x, color)
+    s = 0
+    while s < Nc:
+        b = MultiLatticeStaggeredFermion(latt_info, min(mrhs, Nc - s))
+        for i in range(b.L5):
+            b[i] = source.source(latt_info, source_type, t_srce, None, s + i, source_phase)
+        x = dirac.invertMultiSrcRestart(b, restart)
+        for i in range(b.L5):
+            propag.setFermion(x[i], s + i)
+        s += mrhs
 
     return propag
 

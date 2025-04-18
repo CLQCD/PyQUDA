@@ -209,6 +209,21 @@ class FermionDirac(Dirac):
         self.performance()
         return x
 
+    def invertMultiSrcRestart(self, b: MultiLatticeFermion, restart: int):
+        x = self.invertMultiSrc(b)
+        for _ in range(restart):
+            r = MultiLatticeFermion(b.latt_info, b.L5)
+            norm = []
+            for i in range(b.L5):
+                r[i] = b[i] - self.mat(x[i])
+                norm.append(r[i].norm2() ** 0.5)
+                r[i] /= norm[i]
+            r = self.invertMultiSrc(r)
+            for i in range(b.L5):
+                r[i] *= norm[i]
+                x[i] += r[i]
+        return x
+
     def dslashMultiSrc(self, x: MultiLatticeFermion, parity: QudaParity):
         self.invert_param.num_src = x.L5
         b = MultiLatticeFermion(x.latt_info, x.L5)
@@ -241,7 +256,11 @@ class StaggeredFermionDirac(FermionDirac):
         x = self.invert(b)
         for _ in range(restart):
             r = b - self.mat(x)
-            x += self.invert(r)
+            norm = r.norm2() ** 0.5
+            r /= norm
+            r = self.invert(r)
+            r *= norm
+            x += r
         return x
 
     def mat(self, x: LatticeStaggeredFermion):
@@ -264,6 +283,21 @@ class StaggeredFermionDirac(FermionDirac):
         x = MultiLatticeStaggeredFermion(b.latt_info, b.L5)
         invertMultiSrcQuda(x.data_ptrs, b.data_ptrs, self.invert_param)
         self.performance()
+        return x
+
+    def invertMultiSrcRestart(self, b: MultiLatticeStaggeredFermion, restart: int):
+        x = self.invertMultiSrc(b)
+        for _ in range(restart):
+            r = MultiLatticeStaggeredFermion(b.latt_info, b.L5)
+            norm = []
+            for i in range(b.L5):
+                r[i] = b[i] - self.mat(x[i])
+                norm.append(r[i].norm2() ** 0.5)
+                r[i] /= norm[i]
+            r = self.invertMultiSrc(r)
+            for i in range(b.L5):
+                r[i] *= norm[i]
+                x[i] += r[i]
         return x
 
     def dslashMultiSrc(self, x: MultiLatticeStaggeredFermion, parity: QudaParity):

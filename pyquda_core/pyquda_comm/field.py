@@ -790,18 +790,10 @@ class HalfLatticeSpinColorVector(ParityField):
         return HalfLatticeSpinColorVector
 
 
-class MultiHalfLatticeSpinColorVector(MultiField, HalfLatticeSpinColorVector):
-    pass
-
-
 class LatticeSpinColorVector(FullField, HalfLatticeSpinColorVector):
     @property
     def __field_class__(self):
         return LatticeSpinColorVector
-
-
-class MultiLatticeSpinColorVector(MultiField, LatticeSpinColorVector):
-    pass
 
 
 class LatticeSpinColorMatrix(FullField, ParityField):
@@ -816,18 +808,10 @@ class HalfLatticeColorVector(ParityField):
         return HalfLatticeColorVector
 
 
-class MultiHalfLatticeColorVector(MultiField, HalfLatticeColorVector):
-    pass
-
-
 class LatticeColorVector(FullField, HalfLatticeColorVector):
     @property
     def __field_class__(self):
         return LatticeColorVector
-
-
-class MultiLatticeColorVector(MultiField, LatticeColorVector):
-    pass
 
 
 class LatticeColorMatrix(FullField, ParityField):
@@ -894,18 +878,22 @@ class LatticeClover(FullField, ParityField):
 
 
 class HalfLatticeFermion(HalfLatticeSpinColorVector):
-    pass
+    @property
+    def __field_class__(self):
+        return HalfLatticeFermion
 
 
-class MultiHalfLatticeFermion(MultiHalfLatticeSpinColorVector):
+class MultiHalfLatticeFermion(MultiField, HalfLatticeFermion):
     pass
 
 
 class LatticeFermion(LatticeSpinColorVector):
-    pass
+    @property
+    def __field_class__(self):
+        return LatticeFermion
 
 
-class MultiLatticeFermion(MultiLatticeSpinColorVector):
+class MultiLatticeFermion(MultiField, LatticeFermion):
     pass
 
 
@@ -918,18 +906,22 @@ class LatticePropagator(LatticeSpinColorMatrix):
 
 
 class HalfLatticeStaggeredFermion(HalfLatticeColorVector):
-    pass
+    @property
+    def __field_class__(self):
+        return HalfLatticeStaggeredFermion
 
 
-class MultiHalfLatticeStaggeredFermion(MultiHalfLatticeColorVector):
+class MultiHalfLatticeStaggeredFermion(MultiField, HalfLatticeStaggeredFermion):
     pass
 
 
 class LatticeStaggeredFermion(LatticeColorVector):
-    pass
+    @property
+    def __field_class__(self):
+        return LatticeStaggeredFermion
 
 
-class MultiLatticeStaggeredFermion(MultiLatticeColorVector):
+class MultiLatticeStaggeredFermion(MultiField, LatticeStaggeredFermion):
     pass
 
 
