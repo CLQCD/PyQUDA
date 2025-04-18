@@ -12,7 +12,7 @@ coeff_r, coeff_t = 0.91, 1.07
 
 core.init(None, [4, 4, 4, 8], -1, xi_0 / nu, resource_path=".cache")
 
-dslash = core.getDefaultDirac(mass, 1e-12, 1000, xi_0, coeff_t, coeff_r)
+dslash = core.getDefaultDirac(mass, 1e-12, 1000, xi_0, coeff_t, coeff_r, [[4, 4, 4, 4]])
 gauge = io.readQIOGauge(weak_field)
 
 dslash.loadGauge(gauge)
