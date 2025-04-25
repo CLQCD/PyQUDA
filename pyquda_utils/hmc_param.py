@@ -244,7 +244,7 @@ class _StaggeredMD:
     def __str__(self):
         ret = ""
         for m, nf in zip(self.m, self.nf):
-            ret += f"(x+4*{m}^2+x)^({nf}/4)*"
+            ret += f"(x+4*{m}^2)^({nf}/4)*"
         return f"Approximating the function {ret[:-1]}"
 
     def __call__(self, x):

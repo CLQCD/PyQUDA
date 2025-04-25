@@ -525,7 +525,7 @@ class GeneralField(BaseField):
         if not issubclass(cls, MultiField):
             retval = cls(latt_info, value)
         else:
-            retval = cls(latt_info, len(label), numpy.asarray(value))
+            retval = cls(latt_info, len(label), value)
         secs = perf_counter() - s
         getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
         return retval
@@ -646,9 +646,7 @@ class FullField:
         if not issubclass(cls, MultiField):
             retval = cls(latt_info, evenodd(value, list(range(0, latt_info.Nd))))
         else:
-            retval = cls(
-                latt_info, len(label), numpy.asarray([evenodd(data, list(range(0, latt_info.Nd))) for data in value])
-            )
+            retval = cls(latt_info, len(label), evenodd(value, list(range(1, latt_info.Nd + 1))))
         secs = perf_counter() - s
         getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
         return retval

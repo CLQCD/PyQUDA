@@ -181,7 +181,7 @@ class FermionDirac(Dirac):
             r = b - self.mat(x)
             norm = r.norm2() ** 0.5
             r /= norm
-            r = self.invert(r)
+            r = self.invertRestart(r, restart - 1)
             r *= norm
             x += r
         # self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
@@ -218,7 +218,7 @@ class FermionDirac(Dirac):
                 r[i] = b[i] - self.mat(x[i])
                 norm.append(r[i].norm2() ** 0.5)
                 r[i] /= norm[i]
-            r = self.invertMultiSrc(r)
+            r = self.invertMultiSrcRestart(r, restart - 1)
             for i in range(b.L5):
                 r[i] *= norm[i]
                 x[i] += r[i]
@@ -258,7 +258,7 @@ class StaggeredFermionDirac(FermionDirac):
             r = b - self.mat(x)
             norm = r.norm2() ** 0.5
             r /= norm
-            r = self.invert(r)
+            r = self.invertRestart(r, restart - 1)
             r *= norm
             x += r
         return x
@@ -294,7 +294,7 @@ class StaggeredFermionDirac(FermionDirac):
                 r[i] = b[i] - self.mat(x[i])
                 norm.append(r[i].norm2() ** 0.5)
                 r[i] /= norm[i]
-            r = self.invertMultiSrc(r)
+            r = self.invertMultiSrcRestart(r, restart - 1)
             for i in range(b.L5):
                 r[i] *= norm[i]
                 x[i] += r[i]

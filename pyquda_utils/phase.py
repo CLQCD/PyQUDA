@@ -30,7 +30,7 @@ class MomentumPhase:
         gx, gy, gz, gt = latt_info.grid_coord
         Lx, Ly, Lz, Lt = latt_info.size
 
-        x = numpy.zeros((4, 2, Lt, Lz, Ly, Lx // 2), "<c16")
+        x = numpy.zeros((4, 2, Lt, Lz, Ly, Lx // 2), "<i4")
         xx = numpy.arange(gx * Lx, (gx + 1) * Lx)
         for it in range(Lt):
             for iz in range(Lz):

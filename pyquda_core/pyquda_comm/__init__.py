@@ -99,48 +99,59 @@ def getCoordFromRank(mpi_rank: int, grid_size: List[int] = None) -> List[int]:
     return grid_coord
 
 
-def _composition4(n):
+def _composition(n: int, d: int):
     """
-    Writing n as the sum of 4 natural numbers
+    Writing n as the sum of d natural numbers
     """
     addend: List[Tuple[int, int, int, int]] = []
-    for i in range(n + 1):
-        for j in range(i, n + 1):
-            for k in range(j, n + 1):
-                x, y, z, t = i, j - i, k - j, n - k
-                addend.append((x, y, z, t))
+    i = [0 for _ in range(d - 1)] + [n] + [0]
+    while i[0] <= n:
+        addend.append([i[s] - i[s - 1] for s in range(d)])
+        i[d - 2] += 1
+        for s in range(d - 2, 0, -1):
+            if i[s] == n + 1:
+                i[s] = 0
+                i[s - 1] += 1
+        for s in range(1, d - 1, 1):
+            if i[s] < i[s - 1]:
+                i[s] = i[s - 1]
     return addend
 
 
-def _factorization4(k: int):
+def _factorization(k: int, d: int):
     """
-    Writing k as the product of 4 positive numbers
+    Writing k as the product of d positive numbers
     """
-    prime_factor: List[List[Tuple[int, int, int, int]]] = []
+    prime_factor: List[List[List[int]]] = []
     for p in range(2, int(k**0.5) + 1):
         n = 0
         while k % p == 0:
             n += 1
             k //= p
         if n != 0:
-            prime_factor.append([(p**x, p**y, p**z, p**t) for x, y, z, t in _composition4(n)])
+            prime_factor.append([[p**a for a in addend] for addend in _composition(n, d)])
     if k != 1:
-        prime_factor.append([(k**x, k**y, k**z, k**t) for x, y, z, t in _composition4(1)])
+        prime_factor.append([[k**a for a in addend] for addend in _composition(n, d)])
     return prime_factor
 
 
-def _partition(factor: List[List[Tuple[int, int, int, int]]], idx: int, sublatt_size: List[int], grid_size: List[int]):
+def _partition(factor: List[List[List[int]]], sublatt_size: List[int], grid_size: List[int] = None, idx: int = 0):
     if idx == 0:
-        factor = _factorization4(factor)
+        grid_size = [1 for _ in range(len(sublatt_size))]
+        factor = _factorization(factor, len(sublatt_size))
     if idx == len(factor):
         yield grid_size
     else:
-        Lx, Ly, Lz, Lt = sublatt_size
-        Gx, Gy, Gz, Gt = grid_size
-        for x, y, z, t in factor[idx]:
-            if Lx % x == 0 and Ly % y == 0 and Lz % z == 0 and Lt % t == 0:
+        for factor_size in factor[idx]:
+            for L, x in zip(sublatt_size, factor_size):
+                if L % x != 0:
+                    break
+            else:
                 yield from _partition(
-                    factor, idx + 1, [Lx // x, Ly // y, Lz // z, Lt // t], [Gx * x, Gy * y, Gz * z, Gt * t]
+                    factor,
+                    [L // f for L, f in zip(sublatt_size, factor_size)],
+                    [G * f for G, f in zip(grid_size, factor_size)],
+                    idx + 1,
                 )
 
 
@@ -154,9 +165,9 @@ def getDefaultGrid(mpi_size: int, latt_size: List[int], evenodd: bool = True):
         assert (
             Lx % 2 == 0 and Ly % 2 == 0 and Lz % 2 == 0 and Lt % 2 == 0
         ), "lattice size must be even in all directions for even-odd preconditioning"
-        partition = _partition(mpi_size, 0, [Lx // 2, Ly // 2, Lz // 2, Lt // 2], [1, 1, 1, 1])
+        partition = _partition(mpi_size, [Lx // 2, Ly // 2, Lz // 2, Lt // 2])
     else:
-        partition = _partition(mpi_size, 0, [Lx, Ly, Lz, Lt], [1, 1, 1, 1])
+        partition = _partition(mpi_size, [Lx, Ly, Lz, Lt])
     for grid_size in partition:
         comm = [latt_surf[dir] * grid_size[dir] for dir in range(4) if grid_size[dir] > 1]
         if sum(comm) < min_comm:

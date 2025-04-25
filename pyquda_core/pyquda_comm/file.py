@@ -202,18 +202,19 @@ class File(h5py.File):
             assert len(label) <= len(g)
             keys = [str(key) for key in label]
 
-        for key in g.keys():
-            field_dtype = g[key].dtype.str.replace("<c8", "<c16").replace("<f4", "<f8")
-            break
         latt_info = _LatticeInfo(latt_size)
         if isinstance(keys, str):
             key = keys
+            field_dtype = g[key].dtype.str.replace("<c8", "<c16").replace("<f4", "<f8")
             value = self._load(latt_info, g[key], check).astype(field_dtype)
             gbytes += g[key].nbytes / 1024**3
         else:
-            value = []
-            for key in keys:
-                value.append(self._load(latt_info, g[key], check).astype(field_dtype))
+            field_dtype = g[keys[0]].dtype.str.replace("<c8", "<c16").replace("<f4", "<f8")
+            value = numpy.empty(
+                (len(keys), *latt_info.size[::-1], *g[keys[0]].shape[len(latt_info.size) :]), dtype=field_dtype
+            )
+            for index, key in enumerate(keys):
+                value[index] = self._load(latt_info, g[key], check).astype(field_dtype)
                 gbytes += g[key].nbytes / 1024**3
         secs = perf_counter() - s
         getLogger().info(f"Loaded {group} from {self.filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
