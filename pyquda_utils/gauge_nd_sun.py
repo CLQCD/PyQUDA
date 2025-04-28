@@ -1,81 +1,37 @@
-from os import environ
-from typing import Sequence
+from typing import Literal, Sequence
 
 import numpy
-from mpi4py import MPI
 
-_RANK = MPI.COMM_WORLD.Get_rank()
-_DEVICE: int = -1
+from pyquda_comm import initGrid, initDevice, getMPIComm, getMPIRank, getGridSize, getGridCoord, getRankFromCoord
 
 
-def initDevice(device: int = -1):
-    from platform import node as gethostname
-    import cupy
-
-    rank = _RANK
-
-    # quda/include/communicator_quda.h
-    # determine which GPU this rank will use
-    hostname = gethostname()
-    hostname_recv_buf = MPI.COMM_WORLD.allgather(hostname)
-
-    if device < 0:
-        device_count = cupy.cuda.runtime.getDeviceCount()
-        if device_count == 0:
-            raise RuntimeError("No devices found")
-
-        # We initialize gpuid if it's still negative.
-        device = 0
-        for i in range(rank):
-            if hostname == hostname_recv_buf[i]:
-                device += 1
-
-        if device >= device_count:
-            if "QUDA_ENABLE_MPS" in environ and environ["QUDA_ENABLE_MPS"] == "1":
-                device %= device_count
-                print(f"MPS enabled, rank={rank} -> gpu={device}")
-            else:
-                raise RuntimeError(f"Too few GPUs available on {hostname}")
-
-    cupy.cuda.Device(device).use()
-    print(f"Rank {rank} uses GPU {device}")
-
-    global _DEVICE
-    _DEVICE = device
+def init(grid_size: Sequence[int], latt_size: Sequence[int] = None, backend: Literal["cupy", "numpy"] = "numpy"):
+    initGrid(grid_size, latt_size)
+    initDevice(backend)
 
 
-def getSublatticeSize(latt_size: Sequence[int], grid_size: Sequence[int]):
+def getSublatticeSize(latt_size: Sequence[int]):
+    grid_size = getGridSize()
     assert len(latt_size) == len(grid_size)
     for GL, G in zip(latt_size, grid_size):
         assert GL % G == 0
     return [GL // G for GL, G in zip(latt_size, grid_size)]
 
 
-def getGridCoord(grid_size: Sequence[int]):
-    rank = _RANK
-    grid_coord = []
-    for G in grid_size[::-1]:
-        grid_coord.append(rank % G)
-        rank //= G
-    return grid_coord[::-1]
-
-
-def getShiftedRank(grid_coord: Sequence[int], grid_size: Sequence[int], delta: Sequence[int]):
-    Nd = len(grid_size)
+def getShiftedRank(delta: Sequence[int]):
+    grid_coord = getGridCoord()
+    grid_size = getGridSize()
     grid_coord = [(g + d) % G for g, G, d in zip(grid_coord, grid_size, delta)]
-    rank = grid_coord[0]
-    for mu in range(1, Nd):
-        rank = rank * grid_size[mu] + grid_coord[mu]
-    return rank
+    return getRankFromCoord(grid_coord)
 
 
 def gaugeSendRecv(extended, gauge, dest, source):
-    rank = _RANK
+    rank = getMPIRank()
     if rank == dest and rank == source:
         extended[:] = gauge
     else:
         buf = gauge.copy()
-        MPI.COMM_WORLD.Sendrecv_replace(buf, dest=dest, source=source)
+        getMPIComm().Sendrecv_replace(buf, dest=dest, source=source)
         extended[:] = buf
 
 
@@ -83,18 +39,14 @@ class LatticeLink:
     def __init__(
         self,
         latt_size: Sequence[int],
-        grid_size: Sequence[int],
         color: int,
         value: numpy.ndarray = None,
         mu: int = None,
     ):
-        assert len(latt_size) == len(grid_size)
         self.Nd = len(latt_size)
         self.Nc = color
         self.latt_size = tuple(latt_size)
-        self.grid_size = tuple(grid_size)
-        self.grid_coord = getGridCoord(grid_size)
-        self.sublatt_size = getSublatticeSize(latt_size, grid_size)
+        self.sublatt_size = getSublatticeSize(latt_size)
         if value is None:
             self.data = numpy.empty((*self.sublatt_size[::-1], self.Nc, self.Nc), numpy.complex128)
             self.data[...] = numpy.identity(self.Nc, dtype=numpy.complex128)
@@ -129,9 +81,9 @@ class LatticeLink:
         right_slice = [slice(None, None) for nu in range(self.Nd)]
         result = backend.empty_like(self.data)
         right = self.data
-        rank = _RANK
-        dest = getShiftedRank(self.grid_coord, self.grid_size, [0 if nu != mu else -dir for nu in range(Nd)])
-        source = getShiftedRank(self.grid_coord, self.grid_size, [0 if nu != mu else dir for nu in range(Nd)])
+        rank = getMPIRank()
+        dest = getShiftedRank([0 if nu != mu else -dir for nu in range(Nd)])
+        source = getShiftedRank([0 if nu != mu else dir for nu in range(Nd)])
 
         left_slice[mu] = slice(-1, None) if dir == 1 else slice(None, 1)
         right_slice[mu] = slice(None, 1) if dir == 1 else slice(-1, None)
@@ -142,7 +94,7 @@ class LatticeLink:
             pass
         else:
             sendbuf = backend.ascontiguousarray(sendbuf)
-            request = MPI.COMM_WORLD.Isend(sendbuf, dest)
+            request = getMPIComm().Isend(sendbuf, dest)
 
         left_slice[mu] = slice(None, -1) if dir == 1 else slice(1, None)
         right_slice[mu] = slice(1, None) if dir == 1 else slice(None, -1)
@@ -156,11 +108,11 @@ class LatticeLink:
             recvbuf = sendbuf
         else:
             recvbuf = backend.empty_like(sendbuf)
-            MPI.COMM_WORLD.Recv(recvbuf, source)
+            getMPIComm().Recv(recvbuf, source)
             request.Wait()
         result[*left_slice[::-1]] = recvbuf
 
-        return LatticeLink(self.latt_size, self.grid_size, self.Nc, result, self.mu)
+        return LatticeLink(self.latt_size, self.Nc, result, self.mu)
 
     def matmul_shift(self, right: "LatticeLink"):
         assert self.mu is not None, "Ambiguous dimension and direction"
@@ -173,9 +125,9 @@ class LatticeLink:
         result = backend.empty_like(self.data)
         left = self.data
         right = right.data
-        rank = _RANK
-        dest = getShiftedRank(self.grid_coord, self.grid_size, [0 if nu != mu else -dir for nu in range(Nd)])
-        source = getShiftedRank(self.grid_coord, self.grid_size, [0 if nu != mu else dir for nu in range(Nd)])
+        rank = getMPIRank()
+        dest = getShiftedRank([0 if nu != mu else -dir for nu in range(Nd)])
+        source = getShiftedRank([0 if nu != mu else dir for nu in range(Nd)])
 
         left_slice[mu] = slice(-1, None) if dir == 1 else slice(None, 1)
         right_slice[mu] = slice(None, 1) if dir == 1 else slice(-1, None)
@@ -185,7 +137,7 @@ class LatticeLink:
             pass
         else:
             sendbuf = backend.ascontiguousarray(sendbuf)
-            request = MPI.COMM_WORLD.Isend(sendbuf, dest)
+            request = getMPIComm().Isend(sendbuf, dest)
 
         left_slice[mu] = slice(None, -1) if dir == 1 else slice(1, None)
         right_slice[mu] = slice(1, None) if dir == 1 else slice(None, -1)
@@ -197,16 +149,15 @@ class LatticeLink:
             recvbuf = sendbuf
         else:
             recvbuf = backend.empty_like(sendbuf)
-            MPI.COMM_WORLD.Recv(recvbuf, source)
+            getMPIComm().Recv(recvbuf, source)
             request.Wait()
         result[*left_slice[::-1]] = left[*left_slice[::-1]] @ recvbuf
 
-        return LatticeLink(self.latt_size, self.grid_size, self.Nc, result)
+        return LatticeLink(self.latt_size, self.Nc, result)
 
     def dagger(self):
         return LatticeLink(
             self.latt_size,
-            self.grid_size,
             self.Nc,
             self.data.swapaxes(-2, -1).conjugate(),
         )
@@ -214,8 +165,6 @@ class LatticeLink:
     def toDevice(self):
         import cupy
 
-        if _DEVICE < 0:
-            initDevice()
         self.data = cupy.asarray(self.data)
 
     def toHost(self):
@@ -226,19 +175,15 @@ class LatticeGauge:
     def __init__(
         self,
         latt_size: Sequence[int],
-        grid_size: Sequence[int],
         color: int,
         border: int = 0,
         value: numpy.ndarray = None,
         extended: numpy.ndarray = None,
     ):
-        assert len(latt_size) == len(grid_size)
         self.Nd = len(latt_size)
         self.Nc = color
         self.latt_size = tuple(latt_size)
-        self.grid_size = tuple(grid_size)
-        self.grid_coord = getGridCoord(grid_size)
-        self.sublatt_size = getSublatticeSize(latt_size, grid_size)
+        self.sublatt_size = getSublatticeSize(latt_size)
         shape = (self.Nd, *self.sublatt_size[::-1], self.Nc, self.Nc)
         if value is None:
             self.data = numpy.empty(shape, numpy.complex128)
@@ -249,7 +194,7 @@ class LatticeGauge:
 
     def __getitem__(self, mu):
         assert 0 <= mu < 2 * self.Nd
-        gauge_mu = LatticeLink(self.latt_size, self.grid_size, self.Nc, self.data[mu % self.Nd], mu)
+        gauge_mu = LatticeLink(self.latt_size, self.Nc, self.data[mu % self.Nd], mu)
         return gauge_mu if mu < self.Nd else gauge_mu.shift(mu, True)
 
     @property
@@ -297,8 +242,8 @@ class LatticeGauge:
             gaugeSendRecv(
                 self.extended[:, *extended_slice[::-1]],
                 self.data[:, *gauge_slice[::-1]],
-                getShiftedRank(self.grid_coord, self.grid_size, delta),
-                getShiftedRank(self.grid_coord, self.grid_size, [-d for d in delta]),
+                getShiftedRank(delta),
+                getShiftedRank([-d for d in delta]),
             )
             for mu in range(Nd):
                 if delta[mu] != 0:
@@ -309,13 +254,11 @@ class LatticeGauge:
         assert numpy.abs(delta).max() <= self.Lb
         Lb = self.Lb
         extended_slice = [slice(Lb + d, None if Lb == d else -(Lb - d)) for d in delta[::-1]]
-        return LatticeGauge(self.latt_size, self.grid_size, self.Nc, 0, self.extended[:, *extended_slice], None)
+        return LatticeGauge(self.latt_size, self.Nc, 0, self.extended[:, *extended_slice], None)
 
     def toDevice(self):
         import cupy
 
-        if _DEVICE < 0:
-            initDevice()
         self.data = cupy.asarray(self.data)
         if self.extended is not None:
             self.extended = cupy.asarray(self.extended)
