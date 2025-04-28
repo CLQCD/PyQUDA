@@ -131,7 +131,7 @@ def _factorization(k: int, d: int):
         if n != 0:
             prime_factor.append([[p**a for a in addend] for addend in _composition(n, d)])
     if k != 1:
-        prime_factor.append([[k**a for a in addend] for addend in _composition(n, d)])
+        prime_factor.append([[k**a for a in addend] for addend in _composition(1, d)])
     return prime_factor
 
 
