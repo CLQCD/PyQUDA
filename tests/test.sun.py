@@ -4,7 +4,6 @@ from mpi4py import MPI
 
 from check_pyquda import weak_field
 
-from pyquda_comm import getGridSize
 from pyquda_io.chroma import readQIOGauge as readChromaQIOGauge
 from pyquda_utils.gauge_nd_sun import init, LatticeGauge, link
 
