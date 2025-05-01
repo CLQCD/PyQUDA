@@ -112,6 +112,28 @@ class Multigrid:
         self.inv_param = inv_param
         self.instance = None
 
+    def setParam(
+        self,
+        *,
+        coarse_tol: float = 0.25,
+        coarse_maxiter: int = 16,
+        setup_tol: float = 1e-6,
+        setup_maxiter: int = 1000,
+        smoother_tol: float = 0.25,
+        smoother_nu_pre: int = 0,
+        smoother_nu_post: int = 8,
+        smoother_omega: float = 1.0,
+    ):
+        self.param.coarse_solver_tol = [coarse_tol] * QUDA_MAX_MG_LEVEL
+        self.param.coarse_solver_maxiter = [coarse_maxiter] * QUDA_MAX_MG_LEVEL
+        self.param.setup_tol = [setup_tol] * QUDA_MAX_MG_LEVEL
+        self.param.setup_maxiter = [setup_maxiter] * QUDA_MAX_MG_LEVEL
+        self.param.setup_maxiter_refresh = [setup_maxiter // 10] * QUDA_MAX_MG_LEVEL
+        self.param.smoother_tol = [smoother_tol] * QUDA_MAX_MG_LEVEL
+        self.param.nu_pre = [smoother_nu_pre] * QUDA_MAX_MG_LEVEL
+        self.param.nu_post = [smoother_nu_post] * QUDA_MAX_MG_LEVEL
+        self.param.omega = [smoother_omega] * QUDA_MAX_MG_LEVEL
+
     def new(self):
         if self.instance is not None:
             destroyMultigridQuda(self.instance)

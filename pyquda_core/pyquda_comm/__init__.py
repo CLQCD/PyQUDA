@@ -240,6 +240,7 @@ def initDevice(backend: Literal["numpy", "cupy", "torch"] = None, device: int = 
             if device_count == 0:
                 _MPI_LOGGER.critical("No devices found", RuntimeError)
 
+            # We initialize gpuid if it's still negative.
             device = 0
             for i in range(_MPI_RANK):
                 if hostname == hostname_recv_buf[i]:
@@ -250,7 +251,7 @@ def initDevice(backend: Literal["numpy", "cupy", "torch"] = None, device: int = 
                     device %= device_count
                     print(f"MPS enabled, rank={_MPI_RANK:3d} -> gpu={device}")
                 else:
-                    raise RuntimeError(f"Too few GPUs available on {hostname}")
+                    _MPI_LOGGER.critical(f"Too few GPUs available on {hostname}", RuntimeError)
         _CUDA_DEVICE = device
 
         props = cudaGetDeviceProperties(device)

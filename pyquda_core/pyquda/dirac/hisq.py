@@ -22,7 +22,7 @@ class HISQDirac(StaggeredFermionDirac):
         self.naik_epsilon = naik_epsilon
         self.newPathCoeff()
         self.newQudaGaugeParam(naik_epsilon)
-        self.newQudaMultigridParam(multigrid, mass, kappa, 0.25, 16, 1e-6, 1000, 0, 8)
+        self.newQudaMultigridParam(multigrid, mass, kappa)
         self.newQudaInvertParam(mass, kappa, tol, maxiter)
         # Using half with multigrid doesn't work
         if multigrid is not None:
@@ -44,34 +44,12 @@ class HISQDirac(StaggeredFermionDirac):
         gauge_param.staggered_phase_applied = 1
         self.gauge_param = gauge_param
 
-    def newQudaMultigridParam(
-        self,
-        multigrid: Union[List[List[int]], Multigrid],
-        mass: float,
-        kappa: float,
-        coarse_tol: float,
-        coarse_maxiter: int,
-        setup_tol: float,
-        setup_maxiter: int,
-        nu_pre: int,
-        nu_post: int,
-    ):
+    def newQudaMultigridParam(self, multigrid: Union[List[List[int]], Multigrid], mass: float, kappa: float):
         if isinstance(multigrid, Multigrid):
             self.multigrid = multigrid
         elif multigrid is not None:
             geo_block_size = multigrid
-            mg_param, mg_inv_param = general.newQudaMultigridParam(
-                mass,
-                kappa,
-                geo_block_size,
-                coarse_tol,
-                coarse_maxiter,
-                setup_tol,
-                setup_maxiter,
-                nu_pre,
-                nu_post,
-                True,
-            )
+            mg_param, mg_inv_param = general.newQudaMultigridParam(mass, kappa, geo_block_size, True)
             mg_inv_param.dslash_type = QudaDslashType.QUDA_ASQTAD_DSLASH
             self.multigrid = Multigrid(mg_param, mg_inv_param)
         else:

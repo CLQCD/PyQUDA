@@ -240,12 +240,6 @@ def newQudaMultigridParam(
     mass: float,
     kappa: float,
     geo_block_size: List[List[int]],
-    coarse_tol: float,
-    coarse_maxiter: int,
-    setup_tol: float,
-    setup_maxiter: int,
-    nu_pre: int,
-    nu_post: int,
     staggered: bool,
 ):
     mg_param = QudaMultigridParam()
@@ -312,9 +306,9 @@ def newQudaMultigridParam(
     mg_param.setup_inv_type = [QudaInverterType.QUDA_CGNR_INVERTER] * QUDA_MAX_MG_LEVEL
     mg_param.n_vec_batch = [1] * QUDA_MAX_MG_LEVEL
     mg_param.num_setup_iter = [1] * QUDA_MAX_MG_LEVEL
-    mg_param.setup_tol = [setup_tol] * QUDA_MAX_MG_LEVEL
-    mg_param.setup_maxiter = [setup_maxiter] * QUDA_MAX_MG_LEVEL
-    mg_param.setup_maxiter_refresh = [setup_maxiter // 10] * QUDA_MAX_MG_LEVEL
+    mg_param.setup_tol = [1e-6] * QUDA_MAX_MG_LEVEL
+    mg_param.setup_maxiter = [1000] * QUDA_MAX_MG_LEVEL
+    mg_param.setup_maxiter_refresh = [1000 // 10] * QUDA_MAX_MG_LEVEL
     mg_param.setup_type = QudaSetupType.QUDA_NULL_VECTOR_SETUP
     mg_param.pre_orthonormalize = QudaBoolean.QUDA_BOOLEAN_FALSE
     mg_param.post_orthonormalize = QudaBoolean.QUDA_BOOLEAN_TRUE
@@ -322,15 +316,15 @@ def newQudaMultigridParam(
     mg_param.coarse_solver = [QudaInverterType.QUDA_GCR_INVERTER] * (n_level - 1) + [
         QudaInverterType.QUDA_CA_GCR_INVERTER
     ] * (QUDA_MAX_MG_LEVEL - (n_level - 1))
-    mg_param.coarse_solver_tol = [coarse_tol] * QUDA_MAX_MG_LEVEL
-    mg_param.coarse_solver_maxiter = [coarse_maxiter] * QUDA_MAX_MG_LEVEL
+    mg_param.coarse_solver_tol = [0.25] * QUDA_MAX_MG_LEVEL
+    mg_param.coarse_solver_maxiter = [16] * QUDA_MAX_MG_LEVEL
     # mg_param.coarse_solver_ca_basis_size = [16] * QUDA_MAX_MG_LEVEL
 
     mg_param.smoother = [QudaInverterType.QUDA_CA_GCR_INVERTER] * QUDA_MAX_MG_LEVEL
     mg_param.smoother_tol = [0.25] * QUDA_MAX_MG_LEVEL
     # mg_param.smoother_tol = [1e-10] * QUDA_MAX_MG_LEVEL
-    mg_param.nu_pre = [nu_pre] * QUDA_MAX_MG_LEVEL
-    mg_param.nu_post = [nu_post] * QUDA_MAX_MG_LEVEL
+    mg_param.nu_pre = [0] * QUDA_MAX_MG_LEVEL
+    mg_param.nu_post = [8] * QUDA_MAX_MG_LEVEL
     mg_param.omega = [1.0] * QUDA_MAX_MG_LEVEL
     mg_param.smoother_schwarz_type = [QudaSchwarzType.QUDA_INVALID_SCHWARZ] * QUDA_MAX_MG_LEVEL
     mg_param.smoother_schwarz_cycle = [1] * QUDA_MAX_MG_LEVEL
