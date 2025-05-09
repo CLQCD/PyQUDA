@@ -1,21 +1,25 @@
-import cupy as cp
-
 from check_pyquda import weak_field
 
-from pyquda_utils import core, source, io
+from pyquda_utils import core, io, source
 
-core.init([1, 1, 1, 2], resource_path=".cache")
-latt_info = core.LatticeInfo([4, 4, 4, 8])
+xi_0, nu = 2.464, 0.95
+kappa = 0.115
+mass = 1 / (2 * kappa) - 4
+coeff_r, coeff_t = 0.91, 1.07
 
-rho = 2.0
-n_steps = 5
+core.init(None, [4, 4, 4, 8], -1, xi_0 / nu, resource_path=".cache")
 
 gauge = io.readQIOGauge(weak_field)
-# point_source = source.source12(latt_info, "point", [0, 0, 0, 0])
-point_source = source.propagator(latt_info, "point", [0, 0, 0, 0])
-# shell_source = source.gaussian12(point_source, gauge, rho, n_steps)
+
+rho, n_steps = 2.0, 5
+point_source = source.propagator(core.getDefaultLattice(), "point", [0, 0, 0, 0])
 shell_source = source.gaussianSmear(point_source, gauge, rho, n_steps)
 
-shell_source_chroma = io.readQIOPropagator("pt_prop_4")
-shell_source_chroma.toDevice()
-print(cp.linalg.norm(shell_source.data - shell_source_chroma.data))
+dslash = core.getDefaultDirac(mass, 1e-12, 1000, xi_0, coeff_t, coeff_r)
+dslash.loadGauge(gauge)
+propagator = core.invertPropagator(dslash, shell_source)
+dslash.destroy()
+
+propagator_chroma = io.readQIOPropagator("pt_prop_4")
+propagator_chroma.toDevice()
+print((propagator - propagator_chroma).norm2() ** 0.5)

@@ -45,10 +45,48 @@
       </elem>
 
       <elem>
+        <Name>PROPAGATOR</Name>
+        <Frequency>1</Frequency>
+        <Param>
+          <version>10</version>
+          <quarkSpinType>FULL</quarkSpinType>
+          <obsvP>false</obsvP>
+          <numRetries>1</numRetries>
+          <FermionAction>
+            <FermAct>CLOVER</FermAct>
+            <Kappa>0.115</Kappa>
+            <clovCoeff>1.17</clovCoeff>
+            <clovCoeffR>0.91</clovCoeffR>
+            <clovCoeffT>1.07</clovCoeffT>
+            <AnisoParam>
+              <anisoP>true</anisoP>
+              <t_dir>3</t_dir>
+              <xi_0>2.464</xi_0>
+              <nu>0.95</nu>
+            </AnisoParam>
+            <FermionBC>
+              <FermBC>SIMPLE_FERMBC</FermBC>
+              <boundary>1 1 1 -1</boundary>
+            </FermionBC>
+          </FermionAction>
+          <InvertParam>
+            <invType>BICGSTAB_INVERTER</invType>
+            <RsdBiCGStab>1.0e-12</RsdBiCGStab>
+            <MaxBiCGStab>1000</MaxBiCGStab>
+          </InvertParam>
+        </Param>
+        <NamedObject>
+          <gauge_id>default_gauge_field</gauge_id>
+          <source_id>sh_source_0</source_id>
+          <prop_id>sh_prop_0</prop_id>
+        </NamedObject>
+      </elem>
+
+      <elem>
         <Name>QIO_WRITE_NAMED_OBJECT</Name>
         <Frequency>1</Frequency>
         <NamedObject>
-          <object_id>sh_source_0</object_id>
+          <object_id>sh_prop_0</object_id>
           <object_type>LatticePropagator</object_type>
         </NamedObject>
         <File>
