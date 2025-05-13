@@ -62,7 +62,10 @@ https://github.com/CLQCD/PyQUDA/wiki/Documentation
 
 ## Plugin
 
-https://github.com/CLQCD/PyQUDA/wiki/Plugin
+Refer to https://github.com/CLQCD/PyQUDA/wiki/Plugin for detailed instructions to build PyQUDA plugins.
+
+Here are plugins developed by PyQUDA developers:
+- [pycontract](https://github.com/CLQCD/contract)
 
 ## Development
 
