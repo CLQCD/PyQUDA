@@ -16,7 +16,7 @@ def baryonTwoPoint(
     gamma_ij: Gamma,
     gamma_kl: Gamma,
     gamma_mn: Union[Gamma, Polarize],
-):
+) -> LatticeComplex:
     latt_info = propag_i.latt_info
     if isinstance(gamma_mn, Gamma):
         correl = LatticeComplex(latt_info)

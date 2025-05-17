@@ -1,4 +1,5 @@
 import os
+import sys
 from typing import Dict, List, NamedTuple, Tuple
 
 _C_TO_PYTHON: Dict[str, str] = {
@@ -123,12 +124,16 @@ class FunctionMeta(NamedTuple):
         return result.replace("_Complex", "complex")
 
 
-def parseHeader(header, include_path):
-    print(f"Building wrapper from {os.path.join(include_path, header)}")
+def parseHeader(plugins_root, header, include):
+    fake_libc_include = os.path.join(plugins_root, "pycparser", "utils", "fake_libc_include")
+    assert os.path.exists(fake_libc_include), f"{fake_libc_include} not found"
+    print(f"Building wrapper from {os.path.join(include, header)}")
+    sys.path.insert(1, os.path.join(plugins_root, "pycparser"))
     try:
         from pycparser import parse_file, c_ast
     except ImportError or ModuleNotFoundError:
-        from pyquda_core.pycparser.pycparser import parse_file, c_ast  # This is for the language server
+        from pycparser.pycparser import parse_file, c_ast  # This is for the language server
+    sys.path.remove(os.path.join(plugins_root, "pycparser"))
 
     def evaluate(node):
         if node is None:
@@ -149,7 +154,14 @@ def parseHeader(header, include_path):
             raise ValueError(f"Unknown node {node}")
 
     ast = parse_file(
-        os.path.join(include_path, header), use_cpp=True, cpp_path="cc", cpp_args=["-E", Rf"-I{include_path}"]
+        os.path.join(include, header),
+        use_cpp=True,
+        cpp_path="cc",
+        cpp_args=[
+            "-E",
+            Rf"-I{fake_libc_include}",
+            Rf"-I{include}",
+        ],
     )
     funcs: List[FunctionMeta] = []
     enums: Dict[str, List[Tuple[str, int]]] = {}
@@ -217,7 +229,7 @@ def parseHeader(header, include_path):
     return funcs, enums
 
 
-def build_plugin_pyx(plugins_root, lib: str, header: str, include_path: str):
+def build_plugin_pyx(plugins_root, lib: str, header: str, include: str):
     lib_pxd = f'cdef extern from "{header}":\n'
     pylib_pyx = (
         "from enum import IntEnum\n"
@@ -233,7 +245,7 @@ def build_plugin_pyx(plugins_root, lib: str, header: str, include_path: str):
         "from numpy.typing import NDArray\n"
         "\n"
     )
-    c_funcs, c_enums = parseHeader(header, include_path)
+    c_funcs, c_enums = parseHeader(plugins_root, header, include)
     for c_enum in c_enums.keys():
         lib_pxd += f"    ctypedef enum {c_enum}:\n        pass\n\n"
         pylib_pyx += f"class {c_enum}(IntEnum):\n"
