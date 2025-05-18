@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <chroma>
   <annotation>
-    ; $Id: prec_clover.ini.xml,v 3.2 2006-06-11 06:30:36 edwards Exp $
+    ; $Id: prec_wilson.ini.xml,v 3.2 2006-06-11 06:30:36 edwards Exp $
     ;
     ; Test input file for chroma main program
     ;
@@ -19,6 +19,7 @@
             <SourceType>POINT_SOURCE</SourceType>
             <j_decay>3</j_decay>
             <t_srce>0 0 0 0</t_srce>
+            <t_source>0</t_source>
 
             <Displacement>
               <version>1</version>
@@ -41,22 +42,44 @@
           <obsvP>false</obsvP>
           <numRetries>1</numRetries>
           <FermionAction>
-            <FermAct>CLOVER</FermAct>
-            <Kappa>0.115</Kappa>
-            <clovCoeff>1.17</clovCoeff>
-            <clovCoeffR>0.91</clovCoeffR>
-            <clovCoeffT>1.07</clovCoeffT>
+            <FermAct>WILSON</FermAct>
+            <Kappa>0.125</Kappa>
             <AnisoParam>
-              <anisoP>false</anisoP>
+              <anisoP>true</anisoP>
               <t_dir>3</t_dir>
-              <xi_0>1.0</xi_0>
-              <nu>1.0</nu>
+              <xi_0>2.464</xi_0>
+              <nu>0.95</nu>
             </AnisoParam>
             <FermionBC>
               <FermBC>SIMPLE_FERMBC</FermBC>
               <boundary>1 1 1 -1</boundary>
             </FermionBC>
           </FermionAction>
+          <!-- <InvertParam>
+            <invType>QUDA_WILSON_INVERTER</invType>
+            <WilsonParams>
+              <Mass>-0.296296296296297</Mass>
+              <AnisoParam>
+                <anisoP>true</anisoP>
+                <t_dir>3</t_dir>
+                <xi_0>2.464</xi_0>
+                <nu>0.95</nu>
+              </AnisoParam>
+            </WilsonParams>
+            <RsdTarget>1e-12</RsdTarget>
+            <Delta>0.001</Delta>
+            <MaxIter>1000</MaxIter>
+            <RsdToleranceFactor>50</RsdToleranceFactor>
+            <AntiPeriodicT>true</AntiPeriodicT>
+            <SolverType>CG</SolverType>
+            <Verbose>false</Verbose>
+            <AsymmetricLinop>true</AsymmetricLinop>
+            <CudaReconstruct>RECONS_12</CudaReconstruct>
+            <CudaSloppyPrecision>HALF</CudaSloppyPrecision>
+            <CudaSloppyReconstruct>RECONS_12</CudaSloppyReconstruct>
+            <AxialGaugeFix>false</AxialGaugeFix>
+            <AutotuneDslash>true</AutotuneDslash>
+          </InvertParam> -->
           <InvertParam>
             <invType>BICGSTAB_INVERTER</invType>
             <RsdBiCGStab>1.0e-12</RsdBiCGStab>
@@ -78,7 +101,7 @@
           <object_type>LatticePropagator</object_type>
         </NamedObject>
         <File>
-          <file_name>./pt_prop_3</file_name>
+          <file_name>data/pt_prop_0</file_name>
           <file_volfmt>SINGLEFILE</file_volfmt>
         </File>
       </elem>
@@ -98,6 +121,6 @@
 
   <Cfg>
     <cfg_type>SZINQIO</cfg_type>
-    <cfg_file>tests/weak_field.lime</cfg_file>
+    <cfg_file>weak_field.lime</cfg_file>
   </Cfg>
 </chroma>

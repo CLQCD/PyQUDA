@@ -66,7 +66,7 @@
           <object_type>LatticeStaggeredPropagator</object_type>
         </NamedObject>
         <File>
-          <file_name>./pt_prop_2</file_name>
+          <file_name>data/pt_prop_2</file_name>
           <file_volfmt>SINGLEFILE</file_volfmt>
         </File>
       </elem>
@@ -85,7 +85,7 @@
 
   <Cfg>
     <cfg_type>SZINQIO</cfg_type>
-    <cfg_file>tests/weak_field.lime</cfg_file>
+    <cfg_file>weak_field.lime</cfg_file>
   </Cfg>
 
 </chroma>

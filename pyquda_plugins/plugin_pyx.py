@@ -216,7 +216,6 @@ def parseHeader(plugins_root, header, include):
             else:
                 raise ValueError(f"Unexpected node {node}")
         elif type(node.type.type) is c_ast.Enum:
-            print(node.name)
             current_value = -1
             enums[node.name] = []
             for item in node.type.type.values:

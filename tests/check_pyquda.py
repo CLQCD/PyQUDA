@@ -16,6 +16,16 @@ finally:
 
 
 def chroma(ini_xml: str):
-    chroma_path = os.path.abspath(os.path.join(test_dir, "bin", "chroma"))
+    chroma_path = os.path.abspath(os.path.join(test_dir, "chroma", "bin", "chroma"))
     ini_xml_path = os.path.abspath(os.path.join(test_dir, ini_xml))
     return os.system(f"{chroma_path} -i {ini_xml_path}")
+
+
+def hmc(ini_xml: str):
+    hmc_path = os.path.abspath(os.path.join(test_dir, "chroma", "bin", "hmc"))
+    ini_xml_path = os.path.abspath(os.path.join(test_dir, ini_xml))
+    return os.system(f"{hmc_path} -i {ini_xml_path}")
+
+
+def data(filename: str):
+    return os.path.abspath(os.path.join(test_dir, "data", filename))

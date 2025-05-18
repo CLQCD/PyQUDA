@@ -1,5 +1,5 @@
 #!/usr/bin/env -S python3 -m pyquda -l 4 4 4 8 -t -1 -a 2.593684210526316 -p .cache
-from tests.check_pyquda import weak_field
+from tests.check_pyquda import weak_field, data
 
 from pyquda_utils import core, io
 
@@ -15,6 +15,6 @@ dirac.loadGauge(gauge)
 propagator = core.invert(dirac, "point", [0, 0, 0, 0])
 dirac.destroy()
 
-propagator_chroma = io.readQIOPropagator("pt_prop_1")
+propagator_chroma = io.readQIOPropagator(data("pt_prop_1"))
 propagator_chroma.toDevice()
 print((propagator - propagator_chroma).norm2() ** 0.5)

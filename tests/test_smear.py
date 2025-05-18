@@ -1,4 +1,4 @@
-from check_pyquda import weak_field
+from check_pyquda import weak_field, data
 
 from pyquda_utils import core, io
 
@@ -14,11 +14,11 @@ gauge_hyp = gauge.copy()
 gauge_hyp.hypSmear(1, 0.75, 0.6, 0.3, 4)
 # gauge.setAntiPeriodicT()  # for fermion smearing
 
-gauge_chroma = io.readQIOGauge("ape.lime")
+gauge_chroma = io.readQIOGauge(data("ape.lime"))
 print((gauge_ape - gauge_chroma).norm2() ** 0.5)
 
-gauge_chroma = io.readQIOGauge("stout.lime")
+gauge_chroma = io.readQIOGauge(data("stout.lime"))
 print((gauge_stout - gauge_chroma).norm2() ** 0.5)
 
-gauge_chroma = io.readQIOGauge("hyp.lime")
+gauge_chroma = io.readQIOGauge(data("hyp.lime"))
 print((gauge_hyp - gauge_chroma).norm2() ** 0.5)
