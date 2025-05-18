@@ -46,3 +46,7 @@ lextab.py
 *.png
 *.pdf
 data
+
+# Chroma files
+XMLLOG
+XMLDAT
