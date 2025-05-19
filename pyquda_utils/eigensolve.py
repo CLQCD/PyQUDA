@@ -4,7 +4,7 @@ from pyquda.field import LatticeGauge, MultiLatticeStaggeredFermion
 
 
 def laplace3d(
-    gauge: LatticeGauge, n_ev: int, n_kr: int, tol: int, max_restarts: int, poly_deg: int = 1, poly_cut: float = 0.0
+    gauge: LatticeGauge, n_ev: int, n_kr: int, tol: float, max_restarts: int, poly_deg: int = 1, poly_cut: float = 0.0
 ):
     import numpy
 

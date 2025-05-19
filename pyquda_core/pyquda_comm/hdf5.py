@@ -115,33 +115,9 @@ def checksum(latt_info, data: numpy.ndarray) -> Tuple[int, int]:
     return sum29, sum31
 
 
-def _name_spin_color_dtype(name: str, shape: Sequence[int], use_fp32: bool) -> Tuple[int, int]:
-    float_nbytes = 4 if use_fp32 else 8
-    Ns, Nc, dtype = None, None, f"<c{2 * float_nbytes}"
-    if name.endswith("Int"):
-        () = shape
-        dtype = "<i4"
-    elif name.endswith("Real"):
-        () = shape
-        dtype = f"<f{float_nbytes}"
-    elif name.endswith("Complex"):
-        () = shape
-    elif name.endswith("SpinColorVector"):
-        Ns, Nc = shape
-    elif name.endswith("SpinColorMatrix"):
-        Ns, Ns_, Nc, Nc_ = shape
-        assert Ns == Ns_ and Nc == Nc_
-    elif name.endswith("ColorVector"):
-        (Nc,) = shape
-    elif name.endswith("ColorMatrix"):
-        Nc, Nc_ = shape
-        assert Nc == Nc_
-    else:
-        raise ValueError(f"Invalid field type: {name}")
-    return Ns, Nc, dtype
-
-
 def _field_info(group: str, label: Union[int, str, Sequence[str], Sequence[str]], field: numpy.ndarray, use_fp32: bool):
+    from .field import _field_spin_color_dtype
+
     grid_size = getGridSize()
     Nd = len(grid_size)
     if isinstance(label, (int, str)):
@@ -156,7 +132,9 @@ def _field_info(group: str, label: Union[int, str, Sequence[str], Sequence[str]]
     else:
         raise TypeError(f"Invalid label {label} for field type {group}")
     latt_size = [G * L for G, L in zip(grid_size, sublatt_size)]
-    Ns, Nc, field_dtype = _name_spin_color_dtype(group, field_shape, use_fp32)
+    Ns, Nc, field_dtype = _field_spin_color_dtype(
+        group[group.index("Lattice") + len("Lattice") :], field_shape, use_fp32
+    )
     return keys, latt_size, Ns, Nc, field_shape, field_dtype
 
 

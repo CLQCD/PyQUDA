@@ -37,7 +37,7 @@ class LatticeInfo:
         if not all([(GL % (2 * G) == 0 or GL * G == 1) for GL, G in zip(latt_size, grid_size)]):
             getLogger().critical(
                 "lattice size must be divisible by gird size, "
-                "and sublattice size must be even in all directions for consistant even-odd preconditioning, ",
+                "and sublattice size must be even in all directions for consistant even-odd preconditioning, "
                 "otherwise the lattice size and grid size for this direction must be 1",
                 ValueError,
             )
@@ -170,7 +170,7 @@ def checksum(latt_info: Union[LatticeInfo, GeneralInfo], data: numpy.ndarray) ->
     return sum29, sum31
 
 
-def read_array_header(filename: str):
+def read_array_header(filename: str) -> Tuple[Tuple[int, ...], str, int]:
     with open(filename, "rb") as f:
         assert read_magic(f) == (1, 0)
         shape, fortran_order, dtype = read_array_header_1_0(f)
@@ -187,7 +187,9 @@ def write_array_header(filename: str, shape: Tuple[int, ...], dtype: str):
     getMPIComm().Barrier()
 
 
-def _field_spin_color_dtype(field: str, shape: Sequence[int], use_fp32: bool) -> Tuple[int, int, str]:
+def _field_spin_color_dtype(
+    field: str, shape: Sequence[int], use_fp32: bool
+) -> Tuple[Union[int, None], Union[int, None], str]:
     float_nbytes = 4 if use_fp32 else 8
     if field in ["Int"]:
         () = shape
@@ -278,13 +280,60 @@ class BaseField:
             .replace("Propagator", "SpinColorMatrix")
         )
 
-    def saveNPY(
-        self,
-        filename: str,
-        *,
-        use_fp32: bool = False,
-    ):
-        assert hasattr(self, "lexico")
+    @classmethod
+    def loadNPY(cls, filename: str):
+        assert issubclass(cls, (GeneralField, FullField))
+        s = perf_counter()
+        gbytes = 0
+        filename = path.expanduser(path.expandvars(filename))
+        grid_size = getGridSize()
+        Nd = len(grid_size)
+        shape, dtype, offset = read_array_header(filename)
+        if not issubclass(cls, MultiField):
+            latt_size = shape[:Nd][::-1]
+            field_shape = shape[Nd:]
+            sublatt_size = [GL // G for GL, G in zip(latt_size, grid_size)]
+            value = readMPIFile(
+                filename, dtype, offset, [*sublatt_size[::-1], *field_shape], list(range(Nd - 1, -1, -1))
+            )
+            gbytes += value.nbytes / 1024**3
+        else:
+            L5 = shape[0]
+            latt_size = shape[1 : Nd + 1][::-1]
+            field_shape = shape[Nd + 1 :]
+            sublatt_size = [GL // G for GL, G in zip(latt_size, grid_size)]
+            value = readMPIFile(
+                filename, dtype, offset, [L5, *sublatt_size[::-1], *field_shape], list(range(Nd, 0, -1))
+            )
+            gbytes += value.nbytes / 1024**3
+        Ns, Nc, field_dtype = _field_spin_color_dtype(cls._field(), field_shape, False)
+        value = value.astype(field_dtype)
+        if issubclass(cls, GeneralField):
+            latt_info = GeneralInfo(latt_size)
+            if Ns is not None:
+                latt_info.Ns = Ns
+            if Nc is not None:
+                latt_info.Nc = Nc
+            if not issubclass(cls, MultiField):
+                retval = cls(latt_info, value)
+            else:
+                retval = cls(latt_info, L5, value)
+        elif issubclass(cls, FullField):
+            latt_info = LatticeInfo(latt_size)
+            if Ns is not None:
+                latt_info.Ns = Ns
+            if Nc is not None:
+                latt_info.Nc = Nc
+            if not issubclass(cls, MultiField):
+                retval = cls(latt_info, evenodd(value, list(range(0, Nd))))
+            else:
+                retval = cls(latt_info, L5, evenodd(value, list(range(1, Nd + 1))))
+        secs = perf_counter() - s
+        getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
+        return retval
+
+    def saveNPY(self, filename: str, *, use_fp32: bool = False):
+        assert isinstance(self, (GeneralField, FullField))
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
@@ -309,6 +358,46 @@ class BaseField:
         secs = perf_counter() - s
         getLogger().debug(f"Saved {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
 
+    @classmethod
+    def load(
+        cls,
+        filename: str,
+        label: Union[int, str, Sequence[int], Sequence[str]],
+        *,
+        check: bool = True,
+    ):
+        from .hdf5 import File
+
+        assert issubclass(cls, (GeneralField, FullField))
+        s = perf_counter()
+        gbytes = 0
+        filename = path.expanduser(path.expandvars(filename))
+        with File(filename, "r") as f:
+            latt_size, Ns, Nc, value = f.load(cls._groupName(), label, check=check)
+        if issubclass(cls, GeneralField):
+            latt_info = GeneralInfo(latt_size)
+            if Ns is not None:
+                latt_info.Ns = Ns
+            if Nc is not None:
+                latt_info.Nc = Nc
+            if not issubclass(cls, MultiField):
+                retval = cls(latt_info, value)
+            else:
+                retval = cls(latt_info, len(label), value)
+        elif issubclass(cls, FullField):
+            latt_info = LatticeInfo(latt_size)
+            if Ns is not None:
+                latt_info.Ns = Ns
+            if Nc is not None:
+                latt_info.Nc = Nc
+            if not issubclass(cls, MultiField):
+                retval = cls(latt_info, evenodd(value, list(range(0, latt_info.Nd))))
+            else:
+                retval = cls(latt_info, len(label), evenodd(value, list(range(1, latt_info.Nd + 1))))
+        secs = perf_counter() - s
+        getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
+        return retval
+
     def save(
         self,
         filename: str,
@@ -318,9 +407,9 @@ class BaseField:
         check: bool = True,
         use_fp32: bool = False,
     ):
-        from .file import File
+        from .hdf5 import File
 
-        assert hasattr(self, "lexico")
+        assert isinstance(self, (GeneralField, FullField))
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
@@ -347,9 +436,9 @@ class BaseField:
         check: bool = True,
         use_fp32: bool = False,
     ):
-        from .file import File
+        from .hdf5 import File
 
-        assert hasattr(self, "lexico")
+        assert isinstance(self, (GeneralField, FullField))
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
@@ -373,9 +462,9 @@ class BaseField:
         annotation: str = "",
         check: bool = True,
     ):
-        from .file import File
+        from .hdf5 import File
 
-        assert hasattr(self, "lexico")
+        assert isinstance(self, (GeneralField, FullField))
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
@@ -594,78 +683,6 @@ class GeneralField(BaseField):
     def checksum(self) -> Tuple[int, int]:
         return checksum(self.latt_info, self.lexico().reshape(self.latt_info.volume, self.field_size).view("<u4"))
 
-    @classmethod
-    def loadNPY(
-        cls,
-        filename: str,
-    ):
-        s = perf_counter()
-        gbytes = 0
-        filename = path.expanduser(path.expandvars(filename))
-        grid_size = getGridSize()
-        Nd = len(grid_size)
-
-        shape, dtype, offset = read_array_header(filename)
-        if not issubclass(cls, MultiField):
-            latt_size = shape[:Nd][::-1]
-            field_shape = shape[Nd:]
-            sublatt_size = [GL // G for GL, G in zip(latt_size, grid_size)]
-            value = readMPIFile(
-                filename, dtype, offset, (*sublatt_size[::-1], *field_shape), list(range(Nd - 1, -1, -1))
-            )
-            gbytes += value.nbytes / 1024**3
-        else:
-            L5 = shape[0]
-            latt_size = shape[1 : Nd + 1][::-1]
-            field_shape = shape[Nd + 1 :]
-            sublatt_size = [GL // G for GL, G in zip(latt_size, grid_size)]
-            value = readMPIFile(
-                filename, dtype, offset, (L5, *sublatt_size[::-1], *field_shape), list(range(Nd - 1, -1, -1))
-            )
-            gbytes += value.nbytes / 1024**3
-        Ns, Nc, field_dtype = _field_spin_color_dtype(cls._field(), field_shape, False)
-        value = value.astype(field_dtype)
-        latt_info = GeneralInfo(latt_size)
-        if Ns is not None:
-            latt_info.Ns = Ns
-        if Nc is not None:
-            latt_info.Nc = Nc
-        if not issubclass(cls, MultiField):
-            retval = cls(latt_info, value)
-        else:
-            retval = cls(latt_info, L5, value)
-        secs = perf_counter() - s
-        getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
-        return retval
-
-    @classmethod
-    def load(
-        cls,
-        filename: str,
-        label: Union[int, str, Sequence[int], Sequence[str]],
-        *,
-        check: bool = True,
-    ):
-        from .file import File
-
-        s = perf_counter()
-        gbytes = 0
-        filename = path.expanduser(path.expandvars(filename))
-        with File(filename, "r") as f:
-            latt_size, Ns, Nc, value = f.load(cls._groupName(), label, check=check)
-        latt_info = GeneralInfo(latt_size)
-        if Ns is not None:
-            latt_info.Ns = Ns
-        if Nc is not None:
-            latt_info.Nc = Nc
-        if not issubclass(cls, MultiField):
-            retval = cls(latt_info, value)
-        else:
-            retval = cls(latt_info, len(label), value)
-        secs = perf_counter() - s
-        getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
-        return retval
-
 
 class ParityField(BaseField):
     def __init__(self, latt_info: LatticeInfo, value: Any = None, init_data: bool = True) -> None:
@@ -686,34 +703,34 @@ class ParityField(BaseField):
         else:
             return (self.L5, *self.lattice_shape, *self.field_shape)
 
-    def timeslice(self, start: int, stop: int = None, step: int = None, return_field: bool = True):
-        Lt = self.latt_info.size[0]
-        gt = self.latt_info.grid_size[0]
-        stop = (start + 1) if stop is None else stop
-        step = 1 if step is None else step
-        s = (start - gt * Lt) % step if start < gt * Lt and stop > gt * Lt else 0
-        start = min(max(start - gt * Lt, 0), Lt) + s
-        stop = min(max(stop - gt * Lt, 0), Lt)
-        assert start <= stop and step > 0
-        if return_field:
-            if self.L5 is None:
-                x = self.__class__(self.latt_info)
-            else:
-                x = self.__class__(self.latt_info, self.L5)
-            if self.full_field and self.L5 is not None:
-                x.data[:, :, start:stop:step] = self.data[:, :, start:stop:step]
-            elif self.full_field or self.L5 is not None:
-                x.data[:, start:stop:step] = self.data[:, start:stop:step]
-            else:
-                x.data[start:stop:step] = self.data[start:stop:step]
-        else:
-            if self.full_field and self.L5 is not None:
-                x = self.data[:, :, start:stop:step]
-            elif self.full_field or self.L5 is not None:
-                x = self.data[:, start:stop:step]
-            else:
-                x = self.data[start:stop:step]
-        return x
+    # def timeslice(self, start: int, stop: int = None, step: int = None, return_field: bool = True):
+    #     Lt = self.latt_info.size[0]
+    #     gt = self.latt_info.grid_size[0]
+    #     stop = (start + 1) if stop is None else stop
+    #     step = 1 if step is None else step
+    #     s = (start - gt * Lt) % step if start < gt * Lt and stop > gt * Lt else 0
+    #     start = min(max(start - gt * Lt, 0), Lt) + s
+    #     stop = min(max(stop - gt * Lt, 0), Lt)
+    #     assert start <= stop and step > 0
+    #     if return_field:
+    #         if self.L5 is None:
+    #             x = self.__class__(self.latt_info)
+    #         else:
+    #             x = self.__class__(self.latt_info, self.L5)
+    #         if self.full_field and self.L5 is not None:
+    #             x.data[:, :, start:stop:step] = self.data[:, :, start:stop:step]
+    #         elif self.full_field or self.L5 is not None:
+    #             x.data[:, start:stop:step] = self.data[:, start:stop:step]
+    #         else:
+    #             x.data[start:stop:step] = self.data[start:stop:step]
+    #     else:
+    #         if self.full_field and self.L5 is not None:
+    #             x = self.data[:, :, start:stop:step]
+    #         elif self.full_field or self.L5 is not None:
+    #             x = self.data[:, start:stop:step]
+    #         else:
+    #             x = self.data[start:stop:step]
+    #     return x
 
 
 class FullField:
@@ -758,77 +775,6 @@ class FullField:
 
     def checksum(self) -> Tuple[int, int]:
         return checksum(self.latt_info, self.lexico().reshape(self.latt_info.volume, self.field_size).view("<u4"))
-
-    @classmethod
-    def loadNPY(
-        cls,
-        filename: str,
-    ):
-        s = perf_counter()
-        gbytes = 0
-        filename = path.expanduser(path.expandvars(filename))
-        grid_size = getGridSize()
-        Nd = len(grid_size)
-        shape, dtype, offset = read_array_header(filename)
-        if not issubclass(cls, MultiField):
-            latt_size = shape[:Nd][::-1]
-            field_shape = shape[Nd:]
-            sublatt_size = [GL // G for GL, G in zip(latt_size, grid_size)]
-            value = readMPIFile(
-                filename, dtype, offset, (*sublatt_size[::-1], *field_shape), list(range(Nd - 1, -1, -1))
-            )
-            gbytes += value.nbytes / 1024**3
-        else:
-            L5 = shape[0]
-            latt_size = shape[1 : Nd + 1][::-1]
-            field_shape = shape[Nd + 1 :]
-            sublatt_size = [GL // G for GL, G in zip(latt_size, grid_size)]
-            value = readMPIFile(
-                filename, dtype, offset, (L5, *sublatt_size[::-1], *field_shape), list(range(Nd, 0, -1))
-            )
-            gbytes += value.nbytes / 1024**3
-        Ns, Nc, field_dtype = _field_spin_color_dtype(cls._field(), field_shape, False)
-        value = value.astype(field_dtype)
-        latt_info = LatticeInfo(latt_size)
-        if Ns is not None:
-            latt_info.Ns = Ns
-        if Nc is not None:
-            latt_info.Nc = Nc
-        if not issubclass(cls, MultiField):
-            retval = cls(latt_info, evenodd(value, list(range(0, Nd))))
-        else:
-            retval = cls(latt_info, L5, evenodd(value, list(range(1, Nd + 1))))
-        secs = perf_counter() - s
-        getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
-        return retval
-
-    @classmethod
-    def load(
-        cls,
-        filename: str,
-        label: Union[int, str, Sequence[int], Sequence[str]],
-        *,
-        check: bool = True,
-    ):
-        from .file import File
-
-        s = perf_counter()
-        gbytes = 0
-        filename = path.expanduser(path.expandvars(filename))
-        with File(filename, "r") as f:
-            latt_size, Ns, Nc, value = f.load(cls._groupName(), label, check=check)
-        latt_info = LatticeInfo(latt_size)
-        if Ns is not None:
-            latt_info.Ns = Ns
-        if Nc is not None:
-            latt_info.Nc = Nc
-        if not issubclass(cls, MultiField):
-            retval = cls(latt_info, evenodd(value, list(range(0, latt_info.Nd))))
-        else:
-            retval = cls(latt_info, len(label), evenodd(value, list(range(1, latt_info.Nd + 1))))
-        secs = perf_counter() - s
-        getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
-        return retval
 
 
 class MultiField:

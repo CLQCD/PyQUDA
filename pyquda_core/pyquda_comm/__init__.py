@@ -1,7 +1,7 @@
 import logging
 from os import environ
 from sys import stdout
-from typing import Any, Callable, Dict, List, Literal, NamedTuple, Tuple, Union
+from typing import Any, Callable, Dict, List, Literal, NamedTuple, Sequence, Type, Union
 
 import numpy
 from mpi4py import MPI
@@ -31,15 +31,15 @@ class _MPILogger:
         if _MPI_RANK == self.root:
             self.logger.info(msg)
 
-    def warning(self, msg: str, category: Warning):
+    def warning(self, msg: str, category: Type[Warning]):
         if _MPI_RANK == self.root:
             self.logger.warning(msg, exc_info=category(msg), stack_info=True)
 
-    def error(self, msg: str, category: Exception):
+    def error(self, msg: str, category: Type[Exception]):
         if _MPI_RANK == self.root:
             self.logger.error(msg, exc_info=category(msg), stack_info=True)
 
-    def critical(self, msg: str, category: Exception):
+    def critical(self, msg: str, category: Type[Exception]):
         if _MPI_RANK == self.root:
             self.logger.critical(msg, exc_info=category(msg), stack_info=True)
         raise category(msg)
@@ -51,7 +51,7 @@ class _ComputeCapability(NamedTuple):
 
 
 _MPI_LOGGER: _MPILogger = _MPILogger()
-_MPI_COMM: MPI.Comm = MPI.COMM_WORLD
+_MPI_COMM: MPI.Intracomm = MPI.COMM_WORLD
 _MPI_SIZE: int = _MPI_COMM.Get_size()
 _MPI_RANK: int = _MPI_COMM.Get_rank()
 _GRID_SIZE: Union[List[int], None] = None
@@ -90,7 +90,11 @@ def getCoordFromRank(mpi_rank: int, grid_size: List[int] = None) -> List[int]:
         else:
             _MPI_LOGGER.critical(f"Unsupported grid mapping {_GRID_MAP}", ValueError)
 
-    grid_size = _process(_GRID_SIZE if grid_size is None else grid_size)
+    if grid_size is None:
+        assert isGridInitialized()
+        grid_size = _process(_GRID_SIZE)
+    else:
+        grid_size = _process(grid_size)
     grid_coord = []
     for G in grid_size:
         grid_coord.append(mpi_rank % G)
@@ -103,7 +107,7 @@ def _composition(n: int, d: int):
     """
     Writing n as the sum of d natural numbers
     """
-    addend: List[Tuple[int, int, int, int]] = []
+    addend: List[List[int]] = []
     i = [0 for _ in range(d - 1)] + [n] + [0]
     while i[0] <= n:
         addend.append([i[s] - i[s - 1] for s in range(d)])
@@ -330,7 +334,7 @@ def getCUDAComputeCapability():
     return _CUDA_COMPUTE_CAPABILITY
 
 
-def getSubarray(shape: List[int], axes: List[int]):
+def getSubarray(shape: Sequence[int], axes: Sequence[int]):
     sizes = [d for d in shape]
     subsizes = [d for d in shape]
     starts = [d if i in axes else 0 for i, d in enumerate(shape)]
@@ -342,7 +346,7 @@ def getSubarray(shape: List[int], axes: List[int]):
     return sizes, subsizes, starts
 
 
-def readMPIFile(filename: str, dtype: str, offset: int, shape: List[int], axes: List[int]):
+def readMPIFile(filename: str, dtype: str, offset: int, shape: Sequence[int], axes: Sequence[int]):
     sizes, subsizes, starts = getSubarray(shape, axes)
     native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
     buf = numpy.empty(subsizes, native_dtype)
@@ -358,7 +362,7 @@ def readMPIFile(filename: str, dtype: str, offset: int, shape: List[int], axes: 
     return buf.view(dtype)
 
 
-def readMPIFileInChunks(filename: str, dtype: str, offset: int, count: int, shape: List[int], axes: List[int]):
+def readMPIFileInChunks(filename: str, dtype: str, offset: int, count: int, shape: Sequence[int], axes: Sequence[int]):
     sizes, subsizes, starts = getSubarray(shape, axes)
     native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
     buf = numpy.empty(subsizes, native_dtype)
@@ -374,7 +378,7 @@ def readMPIFileInChunks(filename: str, dtype: str, offset: int, count: int, shap
     fh.Close()
 
 
-def writeMPIFile(filename: str, dtype: str, offset: int, shape: List[int], axes: List[int], buf: numpy.ndarray):
+def writeMPIFile(filename: str, dtype: str, offset: int, shape: Sequence[int], axes: Sequence[int], buf: numpy.ndarray):
     sizes, subsizes, starts = getSubarray(shape, axes)
     native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
     buf = buf.view(native_dtype)
@@ -389,7 +393,7 @@ def writeMPIFile(filename: str, dtype: str, offset: int, shape: List[int], axes:
 
 
 def writeMPIFileInChunks(
-    filename: str, dtype: str, offset: int, count: int, shape: List[int], axes: List[int], buf: numpy.ndarray
+    filename: str, dtype: str, offset: int, count: int, shape: Sequence[int], axes: Sequence[int], buf: numpy.ndarray
 ):
     sizes, subsizes, starts = getSubarray(shape, axes)
     native_dtype = dtype if not dtype.startswith(">") else dtype.replace(">", "<")
