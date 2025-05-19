@@ -5,6 +5,7 @@ from time import perf_counter
 from typing import Any, List, Literal, Sequence, Tuple, Union
 
 import numpy
+from numpy.lib.format import dtype_to_descr, read_magic, read_array_header_1_0, write_array_header_1_0
 from numpy.typing import NDArray
 
 from . import (
@@ -15,15 +16,18 @@ from . import (
     getGridSize,
     getGridCoord,
     getCUDABackend,
+    readMPIFile,
+    writeMPIFile,
 )
 
 
 class LatticeInfo:
-
     def __init__(
         self, latt_size: List[int], t_boundary: Literal[1, -1] = 1, anisotropy: float = 1.0, Ns: int = 4, Nc: int = 3
     ) -> None:
-        self.Nd, self.Ns, self.Nc = len(latt_size), Ns, Nc
+        self.Nd = len(latt_size)
+        self.Ns = Ns
+        self.Nc = Nc
         self._checkLattice(latt_size)
         self._setLattice(latt_size, t_boundary, anisotropy)
 
@@ -69,11 +73,11 @@ class LatticeInfo:
 
 class GeneralInfo:
     def __init__(self, latt_size: List[int], Ns: int = 4, Nc: int = 3) -> None:
-        self._checkLattice(latt_size)
-        self._setLattice(latt_size)
         self.Nd = len(latt_size)
         self.Ns = Ns
         self.Nc = Nc
+        self._checkLattice(latt_size)
+        self._setLattice(latt_size)
 
     def _checkLattice(self, latt_size: List[int]):
         grid_size = getGridSize()
@@ -166,6 +170,57 @@ def checksum(latt_info: Union[LatticeInfo, GeneralInfo], data: numpy.ndarray) ->
     return sum29, sum31
 
 
+def read_array_header(filename: str):
+    with open(filename, "rb") as f:
+        assert read_magic(f) == (1, 0)
+        shape, fortran_order, dtype = read_array_header_1_0(f)
+        dtype = dtype_to_descr(dtype)
+        assert not fortran_order
+        offset = f.tell()
+    return shape, dtype, offset
+
+
+def write_array_header(filename: str, shape: Tuple[int, ...], dtype: str):
+    if getMPIRank() == 0:
+        with open(filename, "wb") as f:
+            write_array_header_1_0(f, {"shape": shape, "fortran_order": False, "descr": dtype})
+    getMPIComm().Barrier()
+
+
+def _field_spin_color_dtype(field: str, shape: Sequence[int], use_fp32: bool) -> Tuple[int, int, str]:
+    float_nbytes = 4 if use_fp32 else 8
+    if field in ["Int"]:
+        () = shape
+        return None, None, "<i4"
+    elif field in ["Real"]:
+        return None, None, f"<f{float_nbytes}"
+    elif field in ["Complex"]:
+        return None, None, f"<c{2 * float_nbytes}"
+    elif field in ["SpinColorVector"]:
+        Ns, Nc = shape
+        return Ns, Nc, f"<c{2 * float_nbytes}"
+    elif field in ["SpinColorMatrix"]:
+        Ns, Ns_, Nc, Nc_ = shape
+        assert Ns == Ns_ and Nc == Nc_
+        return Ns, Nc, f"<c{2 * float_nbytes}"
+    elif field in ["SpinVector"]:
+        (Ns,) = shape
+        return Ns, None, f"<c{2 * float_nbytes}"
+    elif field in ["SpinMatrix"]:
+        Ns, Ns_ = shape
+        assert Ns == Ns_
+        return Ns, None, f"<c{2 * float_nbytes}"
+    elif field in ["ColorVector"]:
+        (Nc,) = shape
+        return None, Nc, f"<c{2 * float_nbytes}"
+    elif field in ["ColorMatrix"]:
+        Nc, Nc_ = shape
+        assert Nc == Nc_
+        return None, Nc, f"<c{2 * float_nbytes}"
+    else:
+        getLogger().critical(f"Unknown field type: {field}", ValueError)
+
+
 def _field_shape_dtype(field: str, Ns: int, Nc: int, use_fp32: bool = False):
     float_nbytes = 4 if use_fp32 else 8
     if field in ["Int"]:
@@ -223,6 +278,37 @@ class BaseField:
             .replace("Propagator", "SpinColorMatrix")
         )
 
+    def saveNPY(
+        self,
+        filename: str,
+        *,
+        use_fp32: bool = False,
+    ):
+        assert hasattr(self, "lexico")
+        s = perf_counter()
+        gbytes = 0
+        filename = path.expanduser(path.expandvars(filename))
+        if not filename.endswith(".npy"):
+            filename += ".npy"
+        field = self.lexico()
+        _, _, dtype = _field_spin_color_dtype(self._field(), self.field_shape, use_fp32)
+        if self.L5 is None:
+            write_array_header(filename, (*self.latt_info.global_size[::-1], *self.field_shape), dtype)
+            _, _, offset = read_array_header(filename)
+            shape = (*self.latt_info.size[::-1], *self.field_shape)
+            axes = list(range(self.latt_info.Nd - 1, -1, -1))
+            writeMPIFile(filename, dtype, offset, shape, axes, field.astype(dtype))
+            gbytes += field.nbytes / 1024**3
+        else:
+            write_array_header(filename, (self.L5, *self.latt_info.global_size[::-1], *self.field_shape), dtype)
+            _, _, offset = read_array_header(filename)
+            shape = (self.L5, *self.latt_info.size[::-1], *self.field_shape)
+            axes = list(range(self.latt_info.Nd, 0, -1))
+            writeMPIFile(filename, dtype, offset, shape, axes, field.astype(dtype))
+            gbytes += field.nbytes / 1024**3
+        secs = perf_counter() - s
+        getLogger().debug(f"Saved {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
+
     def save(
         self,
         filename: str,
@@ -238,6 +324,8 @@ class BaseField:
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
+        if not filename.endswith(".h5") and not filename.endswith(".hdf5"):
+            filename += ".h5"
         with File(filename, "w") as f:
             f.save(
                 self._groupName(),
@@ -507,6 +595,50 @@ class GeneralField(BaseField):
         return checksum(self.latt_info, self.lexico().reshape(self.latt_info.volume, self.field_size).view("<u4"))
 
     @classmethod
+    def loadNPY(
+        cls,
+        filename: str,
+    ):
+        s = perf_counter()
+        gbytes = 0
+        filename = path.expanduser(path.expandvars(filename))
+        grid_size = getGridSize()
+        Nd = len(grid_size)
+
+        shape, dtype, offset = read_array_header(filename)
+        if not issubclass(cls, MultiField):
+            latt_size = shape[:Nd][::-1]
+            field_shape = shape[Nd:]
+            sublatt_size = [GL // G for GL, G in zip(latt_size, grid_size)]
+            value = readMPIFile(
+                filename, dtype, offset, (*sublatt_size[::-1], *field_shape), list(range(Nd - 1, -1, -1))
+            )
+            gbytes += value.nbytes / 1024**3
+        else:
+            L5 = shape[0]
+            latt_size = shape[1 : Nd + 1][::-1]
+            field_shape = shape[Nd + 1 :]
+            sublatt_size = [GL // G for GL, G in zip(latt_size, grid_size)]
+            value = readMPIFile(
+                filename, dtype, offset, (L5, *sublatt_size[::-1], *field_shape), list(range(Nd - 1, -1, -1))
+            )
+            gbytes += value.nbytes / 1024**3
+        Ns, Nc, field_dtype = _field_spin_color_dtype(cls._field(), field_shape, False)
+        value = value.astype(field_dtype)
+        latt_info = GeneralInfo(latt_size)
+        if Ns is not None:
+            latt_info.Ns = Ns
+        if Nc is not None:
+            latt_info.Nc = Nc
+        if not issubclass(cls, MultiField):
+            retval = cls(latt_info, value)
+        else:
+            retval = cls(latt_info, L5, value)
+        secs = perf_counter() - s
+        getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
+        return retval
+
+    @classmethod
     def load(
         cls,
         filename: str,
@@ -521,7 +653,11 @@ class GeneralField(BaseField):
         filename = path.expanduser(path.expandvars(filename))
         with File(filename, "r") as f:
             latt_size, Ns, Nc, value = f.load(cls._groupName(), label, check=check)
-        latt_info = GeneralInfo(latt_size, Ns, Nc)
+        latt_info = GeneralInfo(latt_size)
+        if Ns is not None:
+            latt_info.Ns = Ns
+        if Nc is not None:
+            latt_info.Nc = Nc
         if not issubclass(cls, MultiField):
             retval = cls(latt_info, value)
         else:
@@ -622,6 +758,49 @@ class FullField:
 
     def checksum(self) -> Tuple[int, int]:
         return checksum(self.latt_info, self.lexico().reshape(self.latt_info.volume, self.field_size).view("<u4"))
+
+    @classmethod
+    def loadNPY(
+        cls,
+        filename: str,
+    ):
+        s = perf_counter()
+        gbytes = 0
+        filename = path.expanduser(path.expandvars(filename))
+        grid_size = getGridSize()
+        Nd = len(grid_size)
+        shape, dtype, offset = read_array_header(filename)
+        if not issubclass(cls, MultiField):
+            latt_size = shape[:Nd][::-1]
+            field_shape = shape[Nd:]
+            sublatt_size = [GL // G for GL, G in zip(latt_size, grid_size)]
+            value = readMPIFile(
+                filename, dtype, offset, (*sublatt_size[::-1], *field_shape), list(range(Nd - 1, -1, -1))
+            )
+            gbytes += value.nbytes / 1024**3
+        else:
+            L5 = shape[0]
+            latt_size = shape[1 : Nd + 1][::-1]
+            field_shape = shape[Nd + 1 :]
+            sublatt_size = [GL // G for GL, G in zip(latt_size, grid_size)]
+            value = readMPIFile(
+                filename, dtype, offset, (L5, *sublatt_size[::-1], *field_shape), list(range(Nd, 0, -1))
+            )
+            gbytes += value.nbytes / 1024**3
+        Ns, Nc, field_dtype = _field_spin_color_dtype(cls._field(), field_shape, False)
+        value = value.astype(field_dtype)
+        latt_info = LatticeInfo(latt_size)
+        if Ns is not None:
+            latt_info.Ns = Ns
+        if Nc is not None:
+            latt_info.Nc = Nc
+        if not issubclass(cls, MultiField):
+            retval = cls(latt_info, evenodd(value, list(range(0, Nd))))
+        else:
+            retval = cls(latt_info, L5, evenodd(value, list(range(1, Nd + 1))))
+        secs = perf_counter() - s
+        getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
+        return retval
 
     @classmethod
     def load(
@@ -842,6 +1021,22 @@ class LatticeLink(LatticeColorMatrix):
     @property
     def __field_class__(self):
         return LatticeLink
+
+
+class LatticeRotation(MultiField, LatticeLink):
+    def __init__(self, latt_info: LatticeInfo, value=None) -> None:
+        super().__init__(latt_info, 1, value)
+        if value is None:
+            if self.backend == "numpy":
+                self.data[:] = numpy.identity(latt_info.Nc)
+            elif self.backend == "cupy":
+                import cupy
+
+                self.data[:] = cupy.identity(latt_info.Nc)
+            elif self.backend == "torch":
+                import torch
+
+                self.data[:] = torch.eye(latt_info.Nc)
 
 
 class LatticeGauge(MultiField, LatticeLink):

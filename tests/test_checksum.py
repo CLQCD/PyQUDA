@@ -13,7 +13,7 @@ Nd, Ns, Nc = 4, 4, 3
 def readQIOGauge(filename: str):
     filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
-        meta: Dict[str, Tuple[int]] = {}
+        meta: Dict[str, Tuple[int, ...]] = {}
         buffer = f.read(8)
         while buffer != b"" and buffer != b"\x0A":
             assert buffer.startswith(b"\x45\x67\x89\xAB\x00\x01")
@@ -33,7 +33,7 @@ def readQIOGauge(filename: str):
 def readQIOPropagator(filename: str):
     filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
-        meta: Dict[str, Tuple[int]] = {}
+        meta: Dict[str, Tuple[int, ...]] = {}
         buffer = f.read(8)
         while buffer != b"" and buffer != b"\x0A":
             assert buffer.startswith(b"\x45\x67\x89\xAB\x00\x01")

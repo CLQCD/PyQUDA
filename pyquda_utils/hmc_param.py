@@ -237,7 +237,7 @@ def wilsonFermionRationalParam(
 
 
 class _StaggeredMD:
-    def __init__(self, m: Tuple[int], nf: Tuple[int]):
+    def __init__(self, m: Tuple[float, ...], nf: Tuple[int, ...]):
         self.m = m
         self.nf = nf
 
@@ -255,7 +255,7 @@ class _StaggeredMD:
 
 
 class _StaggeredFA:
-    def __init__(self, m: Tuple[int], nf: Tuple[int]):
+    def __init__(self, m: Tuple[float, ...], nf: Tuple[int, ...]):
         self.m = m
         self.nf = nf
 

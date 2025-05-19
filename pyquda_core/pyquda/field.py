@@ -14,6 +14,7 @@ from pyquda_comm.field import (  # noqa: F401
     LatticeReal,
     LatticeComplex,
     LatticeLink,
+    LatticeRotation as _LatticeRotation,
     LatticeGauge as _LatticeGauge,
     LatticeMom as _LatticeMom,
     LatticeClover,
@@ -49,6 +50,37 @@ T = _Direction(3)
 def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
     getLogger().warning("cb2 is deprecated, use evenodd instead", DeprecationWarning)
     return evenodd(data, axes, dtype)
+
+
+class LatticeRotation(_LatticeRotation):
+    @classmethod
+    def load(cls, filename: str, *, check: bool = True) -> "LatticeRotation":
+        return super().load(filename, ["R"], check=check)
+
+    def save(self, filename: str, *, annotation: str = "", check: bool = True):
+        super().save(filename, ["R"], annotation=annotation, check=check)
+
+    def append(self, filename: str, *, annotation: str = "", check: bool = True, use_fp32: bool = False):
+        super().append(filename, ["R"], annotation=annotation, check=check, use_fp32=use_fp32)
+
+    def update(self, filename: str, *, annotation: str = "", check: bool = True):
+        super().update(filename, ["R"], annotation=annotation, check=check)
+
+    @property
+    def gauge_dirac(self):
+        if not hasattr(self, "_gauge_dirac"):
+            from pyquda.dirac import GaugeDirac
+
+            self._gauge_dirac = GaugeDirac(self.latt_info)
+        return self._gauge_dirac
+
+    def pack(self, x: "LatticeFermion"):
+        for color in range(self.latt_info.Nc):
+            x.data[:, :, :, :, :, color, :] = self[0].data[:, :, :, :, :, :, color]
+
+    def unpack(self, x: "LatticeFermion"):
+        for color in range(self.latt_info.Nc):
+            self[0].data[:, :, :, :, :, :, color] = x.data[:, :, :, :, :, color, :]
 
 
 class LatticeGauge(_LatticeGauge):

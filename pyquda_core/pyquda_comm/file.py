@@ -115,9 +115,9 @@ def checksum(latt_info, data: numpy.ndarray) -> Tuple[int, int]:
     return sum29, sum31
 
 
-def _spin_color_dtype(name: str, shape: Sequence[int], use_fp32: bool = True) -> Tuple[int, int]:
+def _name_spin_color_dtype(name: str, shape: Sequence[int], use_fp32: bool) -> Tuple[int, int]:
     float_nbytes = 4 if use_fp32 else 8
-    Ns, Nc, dtype = 4, 3, f"<c{2 * float_nbytes}"
+    Ns, Nc, dtype = None, None, f"<c{2 * float_nbytes}"
     if name.endswith("Int"):
         () = shape
         dtype = "<i4"
@@ -146,7 +146,7 @@ def _field_info(group: str, label: Union[int, str, Sequence[str], Sequence[str]]
     Nd = len(grid_size)
     if isinstance(label, (int, str)):
         keys = str(label)
-        sublatt_size = field.shape[0:Nd][::-1]
+        sublatt_size = field.shape[:Nd][::-1]
         field_shape = field.shape[Nd:]
     elif isinstance(label, (list, tuple, range)):
         assert len(label) == field.shape[0]
@@ -156,7 +156,7 @@ def _field_info(group: str, label: Union[int, str, Sequence[str], Sequence[str]]
     else:
         raise TypeError(f"Invalid label {label} for field type {group}")
     latt_size = [G * L for G, L in zip(grid_size, sublatt_size)]
-    Ns, Nc, field_dtype = _spin_color_dtype(group, field_shape, use_fp32)
+    Ns, Nc, field_dtype = _name_spin_color_dtype(group, field_shape, use_fp32)
     return keys, latt_size, Ns, Nc, field_shape, field_dtype
 
 
@@ -245,8 +245,10 @@ class File(h5py.File):
         g.attrs["Annotation"] = annotation
         g.attrs["Lattice"] = " ".join([str(GL) for GL in latt_size])
         if "Spin" in group:
+            assert Ns is not None
             g.attrs["Spin"] = str(Ns)
         if "Color" in group:
+            assert Nc is not None
             g.attrs["Color"] = str(Nc)
 
         latt_info = _LatticeInfo(latt_size)
@@ -280,8 +282,10 @@ class File(h5py.File):
         g.attrs["Annotation"] = annotation
         g.attrs["Lattice"] = " ".join([str(GL) for GL in latt_size])
         if "Spin" in group:
+            assert Ns is not None
             g.attrs["Spin"] = str(Ns)
         if "Color" in group:
+            assert Nc is not None
             g.attrs["Color"] = str(Nc)
 
         latt_info = _LatticeInfo(latt_size)
