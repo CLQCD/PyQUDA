@@ -16,8 +16,8 @@ class Lime:
         self._records: List[LimeRecord] = []
         with open(self.filename, "rb") as f:
             buffer = f.read(8)
-            while buffer != b"" and buffer != b"\x0A":
-                assert buffer.startswith(b"\x45\x67\x89\xAB\x00\x01")
+            while buffer != b"" and buffer != b"\x0a":
+                assert buffer.startswith(b"\x45\x67\x89\xab\x00\x01")
                 length = struct.unpack(">Q", f.read(8))[0]
                 name = f.read(128).strip(b"\x00").decode("utf-8")
                 self._records.append(LimeRecord(name, f.tell(), length))

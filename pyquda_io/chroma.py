@@ -37,6 +37,7 @@ def checksum_qio(latt_size: List[int], data):
 def readQIOGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 5e-7):
     from .lime import Lime
 
+    filename = path.expanduser(path.expandvars(filename))
     lime = Lime(filename)
     scidac_private_file_xml = ET.ElementTree(
         ET.fromstring(lime.read("scidac-private-file-xml").strip(b"\x00").decode("utf-8"))
@@ -85,6 +86,7 @@ def readILDGBinGauge(filename: str, dtype: str, latt_size: List[int]):
 def readQIOPropagator(filename: str, checksum: bool = True):
     from .lime import Lime
 
+    filename = path.expanduser(path.expandvars(filename))
     lime = Lime(filename)
     scidac_private_file_xml = ET.ElementTree(
         ET.fromstring(lime.read("scidac-private-file-xml").strip(b"\x00").decode("utf-8"))

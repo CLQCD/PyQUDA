@@ -115,7 +115,7 @@ def checksum(latt_info, data: numpy.ndarray) -> Tuple[int, int]:
     return sum29, sum31
 
 
-def _field_info(group: str, label: Union[int, str, Sequence[str], Sequence[str]], field: numpy.ndarray, use_fp32: bool):
+def _field_info(group: str, label: Union[int, str, Sequence[int], Sequence[str]], field: numpy.ndarray, use_fp32: bool):
     from .field import _field_spin_color_dtype
 
     grid_size = getGridSize()

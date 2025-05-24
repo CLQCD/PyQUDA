@@ -106,6 +106,7 @@ def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray):
 def readQIOPropagator(filename: str):
     from .lime import Lime
 
+    filename = path.expanduser(path.expandvars(filename))
     lime = Lime(filename)
     scidac_private_file_xml = ET.ElementTree(
         ET.fromstring(lime.read("scidac-private-file-xml", 0).strip(b"\x00").decode("utf-8"))
