@@ -9,6 +9,7 @@
  * as the Fortran interface in lib/quda_fortran.F90.
  */
 
+#include <stdbool.h> // bool support
 #include <enum_quda.h>
 #include <stdio.h> /* for FILE */
 // #include <quda_define.h>
@@ -283,8 +284,6 @@ extern "C" {
     double temp;                           /**< The mean temperature of the device for the duration of the solve */
     double clock;                          /**< The mean clock frequency of the device for the duration of the solve */
 
-    QudaTune tune; /**< Enable auto-tuning? (default = QUDA_TUNE_YES) */
-
     /** Number of steps in s-step algorithms */
     int Nsteps;
 
@@ -496,7 +495,7 @@ extern "C" {
     QudaBoolean preserve_deflation;
 
     /** This is where we store the deflation space.  This will point
-        to an instance of deflation_space. When a deflated solver is enabled, the deflation space will be obtained from this.  */
+        to an instance of deflation_space. When a deflated solver is enabled, the deflation space will be obtained from this. */
     void *preserve_deflation_space;
 
     /** If we restore the deflation space, this boolean indicates
@@ -505,6 +504,10 @@ extern "C" {
         than the one used to generate the space, then this should be
         false, but preserve_deflation would be true */
     QudaBoolean preserve_evals;
+
+    /** Whether to use the smeared gauge field for the Dirac operator
+        for whose eigenvalues are are computing. */
+    bool use_smeared_gauge;
 
     /** What type of Dirac operator we are using **/
     /** If !(use_norm_op) && !(use_dagger) use M. **/
@@ -568,6 +571,12 @@ extern "C" {
 
     /** Name of the QUDA logfile (residua, upper Hessenberg/tridiag matrix updates) **/
     char QUDA_logfile[512];
+
+    /** The orthogonal direction in the 3D eigensolver **/
+    int ortho_dim;
+
+    /** The size of the orthogonal direction in the 3D eigensolver, local **/
+    int ortho_dim_size_local;
 
     //-------------------------------------------------
 
@@ -651,6 +660,9 @@ extern "C" {
 
     /** Dslash MMA usage on each level of the multigrid */
     QudaBoolean dslash_use_mma[QUDA_MAX_MG_LEVEL];
+
+    /** Transfer MMA usage on each level of the multigrid */
+    QudaBoolean transfer_use_mma[QUDA_MAX_MG_LEVEL];
 
     /** Inverter to use in the setup phase */
     QudaInverterType setup_inv_type[QUDA_MAX_MG_LEVEL];
@@ -767,11 +779,6 @@ extern "C" {
     /** Whether to use eigenvectors for the nullspace or, if the coarsest instance deflate*/
     QudaBoolean use_eig_solver[QUDA_MAX_MG_LEVEL];
 
-    /** Minimize device memory allocations during the adaptive setup,
-        placing temporary fields in mapped memory instad of device
-        memory */
-    QudaBoolean setup_minimize_memory;
-
     /** Whether to compute the null vectors or reload them */
     QudaComputeNullVector compute_null_vector;
 
@@ -829,6 +836,8 @@ extern "C" {
     QudaBoolean su_project;               /**< Whether to project onto the manifold prior to measurement */
     QudaBoolean compute_plaquette;        /**< Whether to compute the plaquette */
     double plaquette[3];                  /**< Total, spatial and temporal field energies, respectively */
+    QudaBoolean compute_rectangle;        /**< Whether to compute the rectangle */
+    double rectangle[3];                  /**< Total, spatial and temporal rectangle, respectively */
     QudaBoolean compute_polyakov_loop;    /**< Whether to compute the temporal Polyakov loop */
     double ploop[2];                      /**< Real and imaginary part of temporal Polyakov loop */
     QudaBoolean compute_gauge_loop_trace; /**< Whether to compute gauge loop traces */
@@ -855,6 +864,8 @@ extern "C" {
     unsigned int n_steps; /**< The total number of smearing steps to perform. */
     double epsilon;       /**< Serves as one of the coefficients in Over Improved Stout smearing, or as the step size in
                              Wilson/Symanzik flow */
+    double smear_anisotropy; /** Used in anisotropic Wilson/Symanzik flow and APE, STOUT, and OvrimpSTOUT **/
+    unsigned int rk_order;   /** Order of the Runga-Kutta integrator: 3 or 4 **/
     double alpha;         /**< The single coefficient used in APE smearing */
     double rho; /**< Serves as one of the coefficients used in Over Improved Stout smearing, or as the single coefficient used in Stout */
     double alpha1;                 /**< The coefficient used in HYP smearing step 3 (will not be used in 3D smearing)*/
@@ -862,6 +873,8 @@ extern "C" {
     double alpha3;                 /**< The coefficient used in HYP smearing step 1*/
     unsigned int meas_interval;    /**< Perform the requested measurements on the gauge field at this interval */
     QudaGaugeSmearType smear_type; /**< The smearing type to perform */
+    unsigned int adj_n_save; /**< How many intermediate gauge fields to save at each large nblock to perform adj flow*/
+    unsigned int hier_threshold;   /**< Minimum *hierarchical* threshold for adj gradient flow*/
     QudaBoolean restart;           /**< Used to restart the smearing from existing gaugeSmeared */
     double t0;                     /**< Starting flow time for Wilson flow */
     int dir_ignore;                /**< The direction to be ignored by the smearing algorithm
@@ -1485,7 +1498,7 @@ extern "C" {
    * @param inGauge Pointer to the device gauge field (QUDA device field)
    * @param param The parameters of the host and device fields
    */
-  void  saveGaugeFieldQuda(void* outGauge, void* inGauge, QudaGaugeParam* param);
+  void saveGaugeFieldQuda(void *outGauge, void *inGauge, QudaGaugeParam *param);
 
   /**
    * Reinterpret gauge as a pointer to a GaugeField and call destructor.
@@ -1685,6 +1698,45 @@ extern "C" {
   void performWFlowQuda(QudaGaugeSmearParam *smear_param, QudaGaugeObservableParam *obs_param);
 
   /**
+   * Performs Gradient Flow (gauge + fermion) on gaugePrecise and stores it in gaugeSmeared
+   * @param[out] h_out Output fermion field set
+   * @param[in] h_in Input fermion field set
+   * @param[in] inv_param Dirac/Laplacian and solver meta data
+   * @param[in] smear_param Parameter struct that defines the computation parameters
+   * @param[in,out] obs_param Parameter struct that defines which
+   * observables we are making and the resulting observables.
+   * @param[in] nSpinors Number of spinors in the input and output fields
+   */
+  void performGFlowQuda(void **h_out, void **h_in, QudaInvertParam *inv_param, QudaGaugeSmearParam *smear_param,
+                        QudaGaugeObservableParam *obs_param, size_t nSpinors);
+
+  /**
+   * Performs Adjoint Gradient Flow (gauge + fermion) the "safe" way on gaugePrecise and stores it in gaugeSmeared
+   * @param[out] h_out Output fermion field set
+   * @param[in] h_in Input fermion field set
+   * @param[in] inv_param Dirac/Laplacian and solver meta data
+   * @param[in] smear_param Parameter struct that defines the computation parameters
+   * @param[in,out] obs_param Parameter struct that defines which
+   * observables we are making and the resulting observables.
+   * @param[in] nSpinors Number of spinors in the input and output fields
+   */
+  void performAdjGFlowSafe(void **h_out, void **h_in, QudaInvertParam *inv_param, QudaGaugeSmearParam *smear_param,
+                           size_t nSpinors);
+
+  /**
+   * Performs Adjoint Gradient Flow (gauge + fermion) the Hierarchical way on gaugePrecise and stores it in gaugeSmeared
+   * @param[out] h_out Output fermion field set
+   * @param[in] h_in Input fermion field set
+   * @param[in] inv_param Dirac/Laplacian and solver meta data
+   * @param[in] smear_param Parameter struct that defines the computation parameters
+   * @param[in,out] obs_param Parameter struct that defines which
+   * observables we are making and the resulting observables.
+   * @param[in] nSpinors Number of spinors in the input and output fields
+   */
+  void performAdjGFlowHier(void **h_out, void **h_in, QudaInvertParam *inv_param, QudaGaugeSmearParam *smear_param,
+                           size_t nSpinors);
+
+  /**
    * @brief Calculates a variety of gauge-field observables.  If a
    * smeared gauge field is presently loaded (in gaugeSmeared) the
    * observables are computed on this, else the resident gauge field
@@ -1793,6 +1845,15 @@ extern "C" {
    * Free resources allocated by the deflated solver
    */
   void destroyDeflationQuda(void *df_instance);
+
+  /**
+   * @brief Flush the memory pools associated with the supplied type.
+   * At present this only supports the options QUDA_MEMORY_DEVICE and
+   * QUDA_MEMORY_HOST_PINNED, and any other type will result in an
+   * error.
+   * @param[in] type The memory type whose pool we wish to flush.
+   */
+  void flushPoolQuda(QudaMemoryType type);
 
   void setMPICommHandleQuda(void *mycomm);
   

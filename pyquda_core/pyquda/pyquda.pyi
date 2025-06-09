@@ -85,7 +85,6 @@ from .enum_quda import (  # noqa: F401
     QudaExtLibType,
 )
 
-
 class QudaGaugeParam:
     """
     Parameters having to do with the gauge field or the
@@ -708,6 +707,12 @@ class QudaEigParam:
     false, but preserve_deflation would be true
     """
 
+    use_smeared_gauge: bool
+    """
+    Whether to use the smeared gauge field for the Dirac operator
+    for whose eigenvalues are are computing.
+    """
+
     # What type of Dirac operator we are using
     use_dagger: QudaBoolean
     """
@@ -780,6 +785,12 @@ class QudaEigParam:
 
     QUDA_logfile: bytes[512]
     """Name of the QUDA logfile (residua, upper Hessenberg/tridiag matrix updates)"""
+
+    ortho_dim: int
+    """The orthogonal direction in the 3D eigensolver"""
+
+    ortho_dim_size_local: int
+    """The size of the orthogonal direction in the 3D eigensolver, local"""
 
     # EIG-CG PARAMS
 
@@ -863,6 +874,9 @@ class QudaMultigridParam:
 
     dslash_use_mma: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
     """Dslash MMA usage on each level of the multigrid"""
+
+    transfer_use_mma: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
+    """Transfer MMA usage on each level of the multigrid"""
 
     setup_inv_type: List[QudaInverterType, QUDA_MAX_MG_LEVEL]
     """Inverter to use in the setup phase"""
@@ -981,13 +995,6 @@ class QudaMultigridParam:
     use_eig_solver: List[QudaBoolean, QUDA_MAX_MG_LEVEL]
     """Whether to use eigenvectors for the nullspace or, if the coarsest instance deflate"""
 
-    setup_minimize_memory: QudaBoolean
-    """
-    Minimize device memory allocations during the adaptive setup,
-    placing temporary fields in mapped memory instad of device
-    memory
-    """
-
     compute_null_vector: QudaComputeNullVector
     """Whether to compute the null vectors or reload them"""
 
@@ -1051,6 +1058,10 @@ class QudaGaugeObservableParam:
     """Whether to compute the plaquette"""
     plaquette: List[double, 3]
     """Total, spatial and temporal field energies, respectively"""
+    compute_rectangle: QudaBoolean
+    """Whether to compute the rectangle"""
+    rectangle: List[double, 3]
+    """Total, spatial and temporal rectangle, respectively"""
     compute_polyakov_loop: QudaBoolean
     """Whether to compute the temporal Polyakov loop"""
     ploop: List[double, 2]
@@ -1102,6 +1113,10 @@ class QudaGaugeSmearParam:
     Serves as one of the coefficients in Over Improved Stout smearing, or as the step size in
     Wilson/Symanzik flow
     """
+    smear_anisotropy: double
+    """Used in anisotropic Wilson/Symanzik flow and APE, STOUT, and OvrimpSTOUT"""
+    rk_order: int
+    """Order of the Runga-Kutta integrator: 3 or 4"""
     alpha: double
     """The single coefficient used in APE smearing"""
     rho: double
@@ -1116,6 +1131,10 @@ class QudaGaugeSmearParam:
     """Perform the requested measurements on the gauge field at this interval"""
     smear_type: QudaGaugeSmearType
     """The smearing type to perform"""
+    adj_n_save: int
+    """How many intermediate gauge fields to save at each large nblock to perform adj flow"""
+    hier_threshold: int
+    """Minimum *hierarchical* threshold for adj gradient flow"""
     restart: QudaBoolean
     """Used to restart the smearing from existing gaugeSmeared"""
     t0: double
@@ -1923,6 +1942,77 @@ def performWFlowQuda(smear_param: QudaGaugeSmearParam, obs_param: QudaGaugeObser
     """
     ...
 
+def performGFlowQuda(
+    h_out: Pointers,
+    h_in: Pointers,
+    inv_param: QudaInvertParam,
+    smear_param: QudaGaugeSmearParam,
+    obs_param: QudaGaugeObservableParam,
+    nSpinors: size_t,
+):
+    """
+    Performs Gradient Flow (gauge + fermion) on gaugePrecise and stores it in gaugeSmeared
+
+    @param[out] h_out:
+        Output fermion field set
+    @param[in] h_in:
+        Input fermion field set
+    @param[in] inv_param:
+        Dirac/Laplacian and solver meta data
+    @param[in] smear_param:
+        Parameter struct that defines the computation parameters
+    @param[in,out] obs_param:
+        Parameter struct that defines which
+        observables we are making and the resulting observables.
+    @param[in] nSpinors:
+        Number of spinors in the input and output fields
+    """
+    ...
+
+def performAdjGFlowSafe(
+    h_out: Pointers, h_in: Pointers, inv_param: QudaInvertParam, smear_param: QudaGaugeSmearParam, nSpinors: size_t
+):
+    """
+    Performs Adjoint Gradient Flow (gauge + fermion) the "safe" way on gaugePrecise and stores it in gaugeSmeared
+
+    @param[out] h_out:
+        Output fermion field set
+    @param[in] h_in:
+        Input fermion field set
+    @param[in] inv_param:
+        Dirac/Laplacian and solver meta data
+    @param[in] smear_param:
+        Parameter struct that defines the computation parameters
+    @param[in,out] obs_param:
+        Parameter struct that defines which
+        observables we are making and the resulting observables.
+    @param[in] nSpinors:
+        Number of spinors in the input and output fields
+    """
+    ...
+
+def performAdjGFlowHier(
+    h_out: Pointers, h_in: Pointers, inv_param: QudaInvertParam, smear_param: QudaGaugeSmearParam, nSpinors: size_t
+):
+    """
+    Performs Adjoint Gradient Flow (gauge + fermion) the Hierarchical way on gaugePrecise and stores it in gaugeSmeared
+
+    @param[out] h_out:;
+        Output fermion field set
+    @param[in] h_in:
+        Input fermion field set
+    @param[in] inv_param:
+        Dirac/Laplacian and solver meta data
+    @param[in] smear_param:
+        Parameter struct that defines the computation parameters
+    @param[in,out] obs_param:
+        Parameter struct that defines which
+        observables we are making and the resulting observables.
+    @param[in] nSpinors:
+        Number of spinors in the input and output fields
+    """
+    ...
+
 def gaugeObservablesQuda(param: QudaGaugeObservableParam) -> None:
     """
     Calculates a variety of gauge-field observables.  If a
@@ -2079,6 +2169,18 @@ def newDeflationQuda(param: QudaEigParam) -> Pointer:
 def destroyDeflationQuda(df_instance: Pointer) -> None:
     """
     Free resources allocated by the deflated solver
+    """
+    ...
+
+def flushPoolQuda(type: QudaMemoryType):
+    """
+    Flush the memory pools associated with the supplied type.
+    At present this only supports the options QUDA_MEMORY_DEVICE and
+    QUDA_MEMORY_HOST_PINNED, and any other type will result in an
+    error.
+
+    @param[in] type:
+        The memory type whose pool we wish to flush.
     """
     ...
 

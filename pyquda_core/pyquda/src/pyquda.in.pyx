@@ -138,6 +138,23 @@ cdef class QudaGaugeSmearParam:
 
 ##%%!! QudaGaugeSmearParam
 
+# cdef class QudaGaugeFixParam:
+#     cdef quda.QudaGaugeFixParam param
+
+#     def __init__(self):
+#         self.param = quda.newQudaGaugeFixParam()
+
+#     def __repr__(self):
+#         value = bytearray()
+#         with redirect_stdout(value):
+#             quda.printQudaGaugeFixParam(&self.param)
+#         return value.decode(sys.stdout.encoding)
+
+#     cdef from_ptr(self, quda.QudaGaugeFixParam *ptr):
+#         self.param = dereference(ptr)
+
+##%%!! QudaGaugeFixParam
+
 cdef class QudaBLASParam:
     cdef quda.QudaBLASParam param
 
@@ -399,6 +416,21 @@ def performGaugeSmearQuda(QudaGaugeSmearParam smear_param, QudaGaugeObservablePa
 def performWFlowQuda(QudaGaugeSmearParam smear_param, QudaGaugeObservableParam obs_param):
     quda.performWFlowQuda(&smear_param.param, &obs_param.param)
 
+def performGFlowQuda(h_out, h_in, QudaInvertParam inv_param, QudaGaugeSmearParam smear_param, QudaGaugeObservableParam obs_param, size_t nSpinors):
+    _h_out = _NDArray(h_out, 2)
+    _h_in = _NDArray(h_in, 2)
+    quda.performGFlowQuda(_h_out.ptrs, _h_in.ptrs, &inv_param.param, &smear_param.param, &obs_param.param, nSpinors)
+
+def performAdjGFlowSafe(h_out, h_in, QudaInvertParam inv_param, QudaGaugeSmearParam smear_param, size_t nSpinors):
+    _h_out = _NDArray(h_out, 2)
+    _h_in = _NDArray(h_in, 2)
+    quda.performAdjGFlowSafe(_h_out.ptrs, _h_in.ptrs, &inv_param.param, &smear_param.param, nSpinors)
+
+def performAdjGFlowHier(h_out, h_in, QudaInvertParam inv_param, QudaGaugeSmearParam smear_param, size_t nSpinors):
+    _h_out = _NDArray(h_out, 2)
+    _h_in = _NDArray(h_in, 2)
+    quda.performAdjGFlowHier(_h_out.ptrs, _h_in.ptrs, &inv_param.param, &smear_param.param, nSpinors)
+
 def gaugeObservablesQuda(QudaGaugeObservableParam param):
     quda.gaugeObservablesQuda(&param.param)
 
@@ -412,6 +444,16 @@ def contractQuda(x, y, result, quda.QudaContractType cType, QudaInvertParam para
 def computeGaugeFixingOVRQuda(gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double relax_boost, double tolerance, unsigned int reunit_interval, unsigned int stopWtheta, QudaGaugeParam param):
     _gauge = _NDArray(gauge, 2)
     return quda.computeGaugeFixingOVRQuda(_gauge.ptr, gauge_dir, Nsteps, verbose_interval, relax_boost, tolerance, reunit_interval, stopWtheta, &param.param)
+
+# def performGaugeFixQuda(rotation, gauge, QudaGaugeParam param, QudaGaugeFixParam fix_param):
+#     _rotation = _NDArray(rotation, 2)
+#     _gauge = _NDArray(gauge, 2)
+#     quda.performGaugeFixQuda(_rotation.ptr, _gauge.ptr, &param.param, &fix_param.param)
+
+# def performGaugeRotateQuda(rotation, gauge, QudaGaugeParam param):
+#     _gauge = _NDArray(gauge, 2)
+#     _rotation = _NDArray(rotation, 2)
+#     quda.performGaugeRotateQuda(_rotation.ptr, _gauge.ptr, &param.param)
 
 def computeGaugeFixingFFTQuda(gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double alpha, unsigned int autotune, double tolerance, unsigned int stopWtheta, QudaGaugeParam param):
     _gauge = _NDArray(gauge, 2)
@@ -438,6 +480,9 @@ def newDeflationQuda(QudaEigParam param):
 
 def destroyDeflationQuda(Pointer df_instance):
     quda.destroyDeflationQuda(df_instance.ptr)
+
+def flushPoolQuda(quda.QudaMemoryType type_):
+    quda.flushPoolQuda(type_)
 
 cdef class QudaQuarkSmearParam:
     cdef quda.QudaQuarkSmearParam param

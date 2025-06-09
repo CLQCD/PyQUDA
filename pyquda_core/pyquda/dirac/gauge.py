@@ -7,7 +7,9 @@ from ..field import (
     LatticeGauge,
     LatticeMom,
     LatticeFermion,
+    MultiLatticeFermion,
     LatticeStaggeredFermion,
+    MultiLatticeStaggeredFermion,
     LatticeReal,
 )
 from ..pyquda import (
@@ -23,6 +25,9 @@ from ..pyquda import (
     saveGaugeQuda,
     momResidentQuda,
     performWFlowQuda,
+    performGFlowQuda,
+    performAdjGFlowSafe,
+    performAdjGFlowHier,
     freeUniqueGaugeQuda,
     staggeredPhaseQuda,
     performGaugeSmearQuda,
@@ -363,7 +368,10 @@ class GaugeDirac(Dirac):
         epsilon: float,
         t0: float,
         restart: bool,
+        rk_order: int = 3,
         compute_plaquette: bool = False,
+        compute_rectangle: bool = False,
+        compute_polyakov_loop: bool = False,
         compute_qcharge: bool = True,
     ):
         self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_WILSON_FLOW
@@ -372,10 +380,15 @@ class GaugeDirac(Dirac):
         self.smear_param.t0 = t0
         self.smear_param.restart = QudaBoolean(restart)
         self.smear_param.meas_interval = n_steps + 1
+        self.smear_param.rk_order = rk_order
         self.obs_param.compute_plaquette = QudaBoolean(compute_plaquette)
+        self.obs_param.compute_rectangle = QudaBoolean(compute_rectangle)
+        self.obs_param.compute_polyakov_loop = QudaBoolean(compute_polyakov_loop)
         self.obs_param.compute_qcharge = QudaBoolean(compute_qcharge)
         performWFlowQuda(self.smear_param, self.obs_param)
         self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_FALSE
+        self.obs_param.compute_rectangle = QudaBoolean.QUDA_BOOLEAN_FALSE
+        self.obs_param.compute_polyakov_loop = QudaBoolean.QUDA_BOOLEAN_FALSE
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
 
     def symanzikFlow(
@@ -384,7 +397,10 @@ class GaugeDirac(Dirac):
         epsilon: float,
         t0: float,
         restart: bool,
+        rk_order: int = 3,
         compute_plaquette: bool = False,
+        compute_rectangle: bool = False,
+        compute_polyakov_loop: bool = False,
         compute_qcharge: bool = True,
     ):
         self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_SYMANZIK_FLOW
@@ -393,11 +409,88 @@ class GaugeDirac(Dirac):
         self.smear_param.t0 = t0
         self.smear_param.restart = QudaBoolean(restart)
         self.smear_param.meas_interval = n_steps + 1
+        self.smear_param.rk_order = rk_order
         self.obs_param.compute_plaquette = QudaBoolean(compute_plaquette)
+        self.obs_param.compute_rectangle = QudaBoolean(compute_rectangle)
+        self.obs_param.compute_polyakov_loop = QudaBoolean(compute_polyakov_loop)
         self.obs_param.compute_qcharge = QudaBoolean(compute_qcharge)
         performWFlowQuda(self.smear_param, self.obs_param)
         self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_FALSE
+        self.obs_param.compute_rectangle = QudaBoolean.QUDA_BOOLEAN_FALSE
+        self.obs_param.compute_polyakov_loop = QudaBoolean.QUDA_BOOLEAN_FALSE
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
+
+    def gradientFlow(
+        self,
+        x: Union[MultiLatticeFermion, MultiLatticeStaggeredFermion],
+        flow_type: Literal["wilson", "symanzik"],
+        n_steps: int,
+        epsilon: float,
+        t0: float,
+        restart: bool,
+        compute_plaquette: bool = False,
+    ):
+        if isinstance(x, MultiLatticeFermion):
+            b = MultiLatticeFermion(x.latt_info, x.L5)
+            self.invert_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
+        elif isinstance(x, MultiLatticeStaggeredFermion):
+            b = MultiLatticeStaggeredFermion(x.latt_info, x.L5)
+            self.invert_param.dslash_type = QudaDslashType.QUDA_STAGGERED_DSLASH
+        else:
+            raise TypeError("x should be MultiLatticeFermion or MultiLatticeStaggeredFermion")
+        if flow_type == "wilson":
+            self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_WILSON_FLOW
+        elif flow_type == "symanzik":
+            self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_SYMANZIK_FLOW
+        else:
+            raise ValueError("flow_type should be 'wilson' or 'symanzik'")
+        self.smear_param.n_steps = n_steps
+        self.smear_param.epsilon = epsilon
+        self.smear_param.t0 = t0
+        self.smear_param.restart = QudaBoolean(restart)
+        self.smear_param.meas_interval = n_steps + 1
+        self.obs_param.compute_plaquette = QudaBoolean(compute_plaquette)
+        performGFlowQuda(b.data_ptrs, x.data_ptrs, self.invert_param, self.smear_param, self.obs_param, x.L5)
+        self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_FALSE
+        return b
+
+    def adjointGradientFlow(
+        self,
+        x: Union[MultiLatticeFermion, MultiLatticeStaggeredFermion],
+        flow_type: Literal["wilson", "symanzik"],
+        adjoint_type: Literal["safe", "hierarchy"],
+        n_steps: int,
+        epsilon: float,
+        t0: float,
+        restart: bool,
+        rk_order: int = 3,
+    ):
+        if isinstance(x, MultiLatticeFermion):
+            b = MultiLatticeFermion(x.latt_info, x.L5)
+            self.invert_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
+        elif isinstance(x, MultiLatticeStaggeredFermion):
+            b = MultiLatticeStaggeredFermion(x.latt_info, x.L5)
+            self.invert_param.dslash_type = QudaDslashType.QUDA_STAGGERED_DSLASH
+        else:
+            raise TypeError("x should be MultiLatticeFermion or MultiLatticeStaggeredFermion")
+        if flow_type == "wilson":
+            self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_WILSON_FLOW
+        elif flow_type == "symanzik":
+            self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_SYMANZIK_FLOW
+        else:
+            raise ValueError("flow_type should be 'wilson' or 'symanzik'")
+        self.smear_param.n_steps = n_steps
+        self.smear_param.epsilon = epsilon
+        self.smear_param.t0 = t0
+        self.smear_param.restart = QudaBoolean(restart)
+        if adjoint_type == "safe":
+            performAdjGFlowSafe(b.data_ptrs, x.data_ptrs, self.invert_param, self.smear_param, x.L5)
+        elif adjoint_type == "hierarchy":
+            self.smear_param.rk_order = rk_order
+            performAdjGFlowHier(b.data_ptrs, x.data_ptrs, self.invert_param, self.smear_param, x.L5)
+        else:
+            raise ValueError("adjoint_type should be 'safe' or 'hierarchy'")
+        return b
 
     def plaquette(self):
         self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_TRUE

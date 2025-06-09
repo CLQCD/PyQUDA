@@ -47,6 +47,9 @@ cdef extern from "quda.h":
     ctypedef struct QudaGaugeSmearParam:
         pass
 
+    # ctypedef struct QudaGaugeFixParam:
+    #     pass
+
     ctypedef struct QudaBLASParam:
         pass
 
@@ -226,6 +229,15 @@ cdef extern from "quda.h":
     #
     QudaGaugeSmearParam newQudaGaugeSmearParam()
 
+    # #
+    # # A new QudaGaugeFixParam should always be initialized
+    # # immediately after it's defined (and prior to explicitly setting
+    # # its members) using this function.  Typical usage is as follows:
+    # #
+    # #   QudaGaugeFixParam fix_param = newQudaGaugeFixParam();
+    # #
+    # QudaGaugeFixParam newQudaGaugeFixParam()
+
     #
     # A new QudaBLASParam should always be initialized immediately
     # after it's defined (and prior to explicitly setting its members)
@@ -264,6 +276,18 @@ cdef extern from "quda.h":
     # @param param The QudaGaugeObservableParam whose elements we are to print.
     #
     void printQudaGaugeObservableParam(QudaGaugeObservableParam *param)
+
+    # #
+    # # Print the members of QudaGaugeSmearParam.
+    # # @param param The QudaGaugeSmearParam whose elements we are to print.
+    # #
+    # void printQudaGaugeSmearParam(QudaGaugeSmearParam *param)
+
+    # #
+    # # Print the members of QudaGaugeFixParam.
+    # # @param param The QudaGaugeFixParam whose elements we are to print.
+    # #
+    # void printQudaGaugeFixParam(QudaGaugeFixParam *param)
 
     #
     # Print the members of QudaBLASParam.
@@ -634,7 +658,7 @@ cdef extern from "quda.h":
     # @param inGauge Pointer to the device gauge field (QUDA device field)
     # @param param The parameters of the host and device fields
     #
-    void  saveGaugeFieldQuda(void* outGauge, void* inGauge, QudaGaugeParam* param)
+    void saveGaugeFieldQuda(void *outGauge, void *inGauge, QudaGaugeParam *param)
 
     #
     # Reinterpret gauge as a pointer to a GaugeField and call destructor.
@@ -834,6 +858,45 @@ cdef extern from "quda.h":
     void performWFlowQuda(QudaGaugeSmearParam *smear_param, QudaGaugeObservableParam *obs_param)
 
     #
+    # Performs Gradient Flow (gauge + fermion) on gaugePrecise and stores it in gaugeSmeared
+    # @param[out] h_out Output fermion field set
+    # @param[in] h_in Input fermion field set
+    # @param[in] inv_param Dirac/Laplacian and solver meta data
+    # @param[in] smear_param Parameter struct that defines the computation parameters
+    # @param[in,out] obs_param Parameter struct that defines which
+    # observables we are making and the resulting observables.
+    # @param[in] nSpinors Number of spinors in the input and output fields
+    #
+    void performGFlowQuda(void **h_out, void **h_in, QudaInvertParam *inv_param, QudaGaugeSmearParam *smear_param,
+                          QudaGaugeObservableParam *obs_param, size_t nSpinors)
+
+    #
+    # Performs Adjoint Gradient Flow (gauge + fermion) the "safe" way on gaugePrecise and stores it in gaugeSmeared
+    # @param[out] h_out Output fermion field set
+    # @param[in] h_in Input fermion field set
+    # @param[in] inv_param Dirac/Laplacian and solver meta data
+    # @param[in] smear_param Parameter struct that defines the computation parameters
+    # @param[in,out] obs_param Parameter struct that defines which
+    # observables we are making and the resulting observables.
+    # @param[in] nSpinors Number of spinors in the input and output fields
+    #
+    void performAdjGFlowSafe(void **h_out, void **h_in, QudaInvertParam *inv_param, QudaGaugeSmearParam *smear_param,
+                             size_t nSpinors)
+
+    #
+    # Performs Adjoint Gradient Flow (gauge + fermion) the Hierarchical way on gaugePrecise and stores it in gaugeSmeared
+    # @param[out] h_out Output fermion field set
+    # @param[in] h_in Input fermion field set
+    # @param[in] inv_param Dirac/Laplacian and solver meta data
+    # @param[in] smear_param Parameter struct that defines the computation parameters
+    # @param[in,out] obs_param Parameter struct that defines which
+    # observables we are making and the resulting observables.
+    # @param[in] nSpinors Number of spinors in the input and output fields
+    #
+    void performAdjGFlowHier(void **h_out, void **h_in, QudaInvertParam *inv_param, QudaGaugeSmearParam *smear_param,
+                             size_t nSpinors)
+
+    #
     # @brief Calculates a variety of gauge-field observables.  If a
     # smeared gauge field is presently loaded (in gaugeSmeared) the
     # observables are computed on this, else the resident gauge field
@@ -890,6 +953,9 @@ cdef extern from "quda.h":
                                   const unsigned int verbose_interval, const double relax_boost, const double tolerance,
                                   const unsigned int reunit_interval, const unsigned int stopWtheta, QudaGaugeParam *param)
 
+    # void performGaugeFixQuda(void *rotation, void *gauge, QudaGaugeParam *param, QudaGaugeFixParam *fix_param)
+    # void performGaugeRotateQuda(void *rotation, void *gauge, QudaGaugeParam *param)
+
     #
     # @brief Gauge fixing with Steepest descent method with FFTs with support for single GPU only.
     # @param[in,out] gauge, gauge field to be fixed
@@ -943,6 +1009,15 @@ cdef extern from "quda.h":
     # Free resources allocated by the deflated solver
     #
     void destroyDeflationQuda(void *df_instance)
+
+    #
+    # @brief Flush the memory pools associated with the supplied type.
+    # At present this only supports the options QUDA_MEMORY_DEVICE and
+    # QUDA_MEMORY_HOST_PINNED, and any other type will result in an
+    # error.
+    # @param[in] type The memory type whose pool we wish to flush.
+    #
+    void flushPoolQuda(QudaMemoryType type)
 
     void setMPICommHandleQuda(void *mycomm)
 
