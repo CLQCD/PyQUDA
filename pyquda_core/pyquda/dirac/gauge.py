@@ -454,16 +454,14 @@ class GaugeDirac(Dirac):
         self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_FALSE
         return b
 
-    def adjointGradientFlow(
+    def adjointGradientFlowSafe(
         self,
         x: Union[MultiLatticeFermion, MultiLatticeStaggeredFermion],
         flow_type: Literal["wilson", "symanzik"],
-        adjoint_type: Literal["safe", "hierarchy"],
         n_steps: int,
         epsilon: float,
         t0: float,
         restart: bool,
-        rk_order: int = 3,
     ):
         if isinstance(x, MultiLatticeFermion):
             b = MultiLatticeFermion(x.latt_info, x.L5)
@@ -483,13 +481,43 @@ class GaugeDirac(Dirac):
         self.smear_param.epsilon = epsilon
         self.smear_param.t0 = t0
         self.smear_param.restart = QudaBoolean(restart)
-        if adjoint_type == "safe":
-            performAdjGFlowSafe(b.data_ptrs, x.data_ptrs, self.invert_param, self.smear_param, x.L5)
-        elif adjoint_type == "hierarchy":
-            self.smear_param.rk_order = rk_order
-            performAdjGFlowHier(b.data_ptrs, x.data_ptrs, self.invert_param, self.smear_param, x.L5)
+        performAdjGFlowSafe(b.data_ptrs, x.data_ptrs, self.invert_param, self.smear_param, x.L5)
+        return b
+
+    def adjointGradientFlowHierarchy(
+        self,
+        x: Union[MultiLatticeFermion, MultiLatticeStaggeredFermion],
+        flow_type: Literal["wilson", "symanzik"],
+        n_steps: int,
+        epsilon: float,
+        t0: float,
+        restart: bool,
+        rk_order: int = 3,
+        adj_n_save: int = 5,
+        hier_threshold: int = 6,
+    ):
+        if isinstance(x, MultiLatticeFermion):
+            b = MultiLatticeFermion(x.latt_info, x.L5)
+            self.invert_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
+        elif isinstance(x, MultiLatticeStaggeredFermion):
+            b = MultiLatticeStaggeredFermion(x.latt_info, x.L5)
+            self.invert_param.dslash_type = QudaDslashType.QUDA_STAGGERED_DSLASH
         else:
-            raise ValueError("adjoint_type should be 'safe' or 'hierarchy'")
+            raise TypeError("x should be MultiLatticeFermion or MultiLatticeStaggeredFermion")
+        if flow_type == "wilson":
+            self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_WILSON_FLOW
+        elif flow_type == "symanzik":
+            self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_SYMANZIK_FLOW
+        else:
+            raise ValueError("flow_type should be 'wilson' or 'symanzik'")
+        self.smear_param.n_steps = n_steps
+        self.smear_param.epsilon = epsilon
+        self.smear_param.t0 = t0
+        self.smear_param.restart = QudaBoolean(restart)
+        self.smear_param.rk_order = rk_order
+        self.smear_param.adj_n_save = adj_n_save
+        self.smear_param.hier_threshold = hier_threshold
+        performAdjGFlowHier(b.data_ptrs, x.data_ptrs, self.invert_param, self.smear_param, x.L5)
         return b
 
     def plaquette(self):

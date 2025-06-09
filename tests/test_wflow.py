@@ -13,7 +13,7 @@ fermion = core.MultiLatticeFermion(gauge.latt_info, 1)
 fermion.data[0, 0, 0, 0, 0, 0, 0, 0] = 1
 fermion = gauge.gradientFlow(fermion, "wilson", 100, 0.01, True)
 print(fermion.data[0, 0, 0, 0, 0, 0, 0, 0])
-fermion = gauge.adjointGradientFlow(fermion, "wilson", "hierarchy", 100, 0.01)
+fermion = gauge.adjointGradientFlowHierarchy(fermion, "wilson", 100, 0.01)
 print(fermion.data[0, 0, 0, 0, 0, 0, 0, 0])
 
 gauge_chroma = io.readQIOGauge(data("wflow.lime"))

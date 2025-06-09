@@ -310,17 +310,33 @@ class LatticeGauge(_LatticeGauge):
         self._gauge_dirac.freeSmearedGauge()
         return b
 
-    def adjointGradientFlow(
+    def adjointGradientFlowSafe(
         self,
         x: Union[MultiLatticeFermion, MultiLatticeStaggeredFermion],
         flow_type: Literal["wilson", "symanzik"],
-        adjoint_type: Literal["safe", "hierarchy"],
+        n_steps: int,
+        epsilon: float,
+    ):
+        self.gauge_dirac.loadGauge(self)
+        b = self._gauge_dirac.adjointGradientFlowSafe(x, flow_type, n_steps, epsilon, 0, False)
+        self._gauge_dirac.freeGauge()
+        self._gauge_dirac.freeSmearedGauge()
+        return b
+
+    def adjointGradientFlowHierarchy(
+        self,
+        x: Union[MultiLatticeFermion, MultiLatticeStaggeredFermion],
+        flow_type: Literal["wilson", "symanzik"],
         n_steps: int,
         epsilon: float,
         rk_order: int = 3,
+        adj_n_save: int = 5,
+        hier_threshold: int = 6,
     ):
         self.gauge_dirac.loadGauge(self)
-        b = self._gauge_dirac.adjointGradientFlow(x, flow_type, adjoint_type, n_steps, epsilon, 0, False, rk_order)
+        b = self._gauge_dirac.adjointGradientFlowHierarchy(
+            x, flow_type, n_steps, epsilon, 0, False, rk_order, adj_n_save, hier_threshold
+        )
         self._gauge_dirac.freeGauge()
         self._gauge_dirac.freeSmearedGauge()
         return b
