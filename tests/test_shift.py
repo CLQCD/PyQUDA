@@ -1,31 +1,69 @@
-from check_pyquda import weak_field
-
-from pyquda_utils import core, io
+from pyquda_utils import core, convert
 from pyquda_utils.core import X, Y, Z, T
+import cupy as cp
+from time import perf_counter
 
-core.init([1, 1, 1, 2], [4, 4, 4, 8], 1, 1.0, resource_path=".cache")
+core.init(None, [32, 32, 32, 64], resource_path=".cache")
 
-gauge = io.readQIOGauge(weak_field)
-gauge.toDevice()
-gauge_shift = gauge.shift([-1, -1, -1, -1], [X, Y, Z, T])
+latt_info = core.LatticeInfo([32, 32, 32, 64])
+unit = core.LatticeGauge(latt_info)
+unit.gauge_dirac.loadGauge(unit)
+propagator = core.LatticePropagator(latt_info, cp.random.random((latt_info.volume, 4, 4, 3, 3 * 2), "<f8").view("<c16"))
+multi_fermion = convert.propagatorToMultiFermion(propagator)
 
-print(gauge[X].data[0, 0, 0, 0, 0])
-print(gauge_shift[X].data[1, 0, 0, 0, 0])
-print(gauge[Y].data[0, 0, 0, 0, 0])
-print(gauge_shift[Y].data[1, 0, 0, 1, 0])
-print(gauge[Z].data[0, 0, 0, 0, 0])
-print(gauge_shift[Z].data[1, 0, 1, 0, 0])
-print(gauge[T].data[0, 0, 0, 0, 0])
-print(gauge_shift[T].data[1, 1, 0, 0, 0])
+for n, mu in zip([-1, 1], [X, T]):
+    propagator_covdev = core.LatticePropagator(latt_info)
+    cp.cuda.runtime.deviceSynchronize()
+    s = perf_counter()
+    for spin in range(4):
+        for color in range(3):
+            propagator_covdev.setFermion(
+                unit.gauge_dirac.covDev(propagator.getFermion(spin, color), -mu if n < 0 else mu), spin, color
+            )
+    cp.cuda.runtime.deviceSynchronize()
+    e = perf_counter()
+    print(f"Time for GaugeField.covDev(LatticePropagator) on n={n}, mu={mu}:", e - s)
 
-gauge_x = gauge[X]
-gauge_x_shift_1_1 = gauge_x.shift(1, X).shift(1, X)
-gauge_x_shift_2 = gauge_x.shift(2, X)
-print((gauge_x_shift_1_1 - gauge_x_shift_2).norm2() ** 0.5)
+    multi_fermion_covdev = convert.propagatorToMultiFermion(propagator)
+    cp.cuda.runtime.deviceSynchronize()
+    s = perf_counter()
+    for spin in range(4):
+        for color in range(3):
+            multi_fermion_covdev[spin * 3 + color] = unit.gauge_dirac.covDev(
+                multi_fermion[spin * 3 + color], -mu if n < 0 else mu
+            )
+    cp.cuda.runtime.deviceSynchronize()
+    e = perf_counter()
+    print(f"Time for GaugeField.covDev(MultiLatticeFermion) on n={n}, mu={mu}:", e - s)
+    multi_fermion_covdev = convert.multiFermionToPropagator(multi_fermion_covdev)
 
-gauge_t = gauge[T]
-gauge_t_shift_1_2 = gauge_x.shift(1, T).shift(2, T)
-gauge_t_shift_2_1 = gauge_x.shift(2, T).shift(1, T)
-gauge_t_shift_3 = gauge_x.shift(3, T)
-print((gauge_t_shift_1_2 - gauge_t_shift_3).norm2() ** 0.5)
-print((gauge_t_shift_2_1 - gauge_t_shift_3).norm2() ** 0.5)
+    multi_fermion_shift = core.MultiLatticeFermion(latt_info, 12)
+    cp.cuda.runtime.deviceSynchronize()
+    s = perf_counter()
+    for spin in range(4):
+        for color in range(3):
+            multi_fermion_shift[spin * 3 + color] = multi_fermion[spin * 3 + color].shift(n, mu)
+    cp.cuda.runtime.deviceSynchronize()
+    e = perf_counter()
+    print(f"Time for MultiLatticeFermion.shift on n={n}, mu={mu}:", e - s)
+    multi_fermion_shift = convert.multiFermionToPropagator(multi_fermion_shift)
+
+    cp.cuda.runtime.deviceSynchronize()
+    s = perf_counter()
+    propagator_shift = propagator.shift(n, mu)
+    cp.cuda.runtime.deviceSynchronize()
+    e = perf_counter()
+    print(f"Time for LatticePropagator.shift on n={n}, mu={mu}:", e - s)
+
+    print(
+        "Difference between propagator_covdev and propagator_shift",
+        (propagator_covdev - propagator_shift).norm2() ** 0.5,
+    )
+    print(
+        "Difference between propagator_covdev and multi_fermion_covdev",
+        (propagator_covdev - multi_fermion_covdev).norm2() ** 0.5,
+    )
+    print(
+        "Difference between propagator_covdev and multi_fermion_shift",
+        (propagator_shift - multi_fermion_shift).norm2() ** 0.5,
+    )
