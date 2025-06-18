@@ -15,6 +15,7 @@ from ..enum_quda import (
 from ..dirac import CloverWilsonDirac
 
 nullptr = numpy.empty((0, 0), "<c16")
+nullptr_clover = numpy.empty((0), "<c16")
 
 from .abstract import RationalParam, FermionAction
 
@@ -66,7 +67,7 @@ class CloverWilsonAction(FermionAction):
     def updateClover(self, new_gauge: bool):
         if new_gauge:
             loadGaugeQuda(nullptr, self.gauge_param)
-            loadCloverQuda(nullptr, nullptr, self.invert_param)
+            loadCloverQuda(nullptr_clover, nullptr_clover, self.invert_param)
 
     def sample(self, new_gauge: bool):
         self.sampleEta()
