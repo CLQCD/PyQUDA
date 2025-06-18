@@ -22,7 +22,6 @@ def covdev(U: LatticeGauge, x: LatticeFermion, mu: int):
 
 
 gauge = io.readQIOGauge(weak_field)
-gauge.gauge_dirac.invert_param.staggered = False
 
 x = source.wall(latt_info, 0, 0, 0)
 for covdev_mu in range(8):
@@ -42,18 +41,21 @@ def shift(U: LatticeGauge, dim: int, mu: int):
 
 
 unit = LatticeGauge(latt_info)
-unit.gauge_dirac.invert_param.covdev_shift = True
-unit.gauge_dirac.invert_param.staggered = False
 
 gauge.toDevice()
 gauge2 = gauge.copy()
-gauge.gauge_dirac.loadGauge(gauge)
+gauge.gauge_dirac.loadGauge(unit)
 x = LatticeFermion(latt_info)
 for dim in range(Nd):
     for covdev_mu in range(8):
+        gauge3_dim = gauge2[dim].shift(1 - 2 * (covdev_mu // 4), covdev_mu % 4)
+
         x.data[:, :, :, :, :, :Nc, :] = gauge2.data[dim]
         gauge2.data[dim] = unit.gauge_dirac.covDev(x, covdev_mu).data[:, :, :, :, :, :Nc, :]
         gauge2.projectSU3(2e-15)
+
         shift(gauge, dim, covdev_mu)
 
         print(dim, covdev_mu, cp.linalg.norm(gauge.data[dim] - gauge2.data[dim]))
+        print(dim, covdev_mu, cp.linalg.norm(gauge2.data[dim] - gauge3_dim.data))
+

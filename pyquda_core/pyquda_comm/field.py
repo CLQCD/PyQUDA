@@ -9,6 +9,7 @@ from numpy.lib.format import dtype_to_descr, read_magic, read_array_header_1_0, 
 from numpy.typing import NDArray
 
 from . import (
+    getRankFromCoord,
     getLogger,
     getMPIComm,
     getMPISize,
@@ -683,6 +684,75 @@ class GeneralField(BaseField):
     def checksum(self) -> Tuple[int, int]:
         return checksum(self.latt_info, self.lexico().reshape(self.latt_info.volume, self.field_size).view("<u4"))
 
+    def shift(self, n: int, mu: int):
+        def getHostArray(data):
+            backend = self.location
+            if backend == "numpy":
+                return numpy.ascontiguousarray(data)
+            elif backend == "cupy":
+                return data.get()
+            elif backend == "torch":
+                return data.cpu().numpy()
+
+        def getDeviceArray(data):
+            backend = self.location
+            if backend == "numpy":
+                return data
+            elif backend == "cupy":
+                import cupy
+
+                return cupy.asarray(data)
+            elif backend == "torch":
+                import torch
+
+                return torch.as_tensor(data)
+
+        assert 0 <= mu < self.latt_info.Nd
+        Nd = self.latt_info.Nd
+        direction = 1 if n >= 0 else -1
+        left_slice = [slice(None, None) for nu in range(Nd)]
+        right_slice = [slice(None, None) for nu in range(Nd)]
+        left = self.backup()
+        right = self.data if abs(n) <= 1 else self.backup()
+        rank = getMPIRank()
+        coord = [g for g in getGridCoord()]
+        coord[mu] = (getGridCoord()[mu] - direction) % getGridSize()[mu]
+        dest = getRankFromCoord(coord)
+        coord[mu] = (getGridCoord()[mu] + direction) % getGridSize()[mu]
+        source = getRankFromCoord(coord)
+
+        if n == 0:
+            left, right = right, left
+        while abs(n) > 0:
+            left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
+            right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
+            sendbuf = right[*right_slice[::-1]]
+            if rank == source and rank == dest:
+                pass
+            else:
+                sendbuf_host = getHostArray(sendbuf)
+                request = getMPIComm().Isend(sendbuf_host, dest)
+
+            left_slice[mu] = slice(None, -1) if direction == 1 else slice(1, None)
+            right_slice[mu] = slice(1, None) if direction == 1 else slice(None, -1)
+            left[*left_slice[::-1]] = right[*right_slice[::-1]]
+
+            left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
+            right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
+            if rank == source and rank == dest:
+                recvbuf = sendbuf
+            else:
+                recvbuf_host = numpy.empty_like(sendbuf_host)
+                getMPIComm().Recv(recvbuf_host, source)
+                request.Wait()
+                recvbuf = getDeviceArray(recvbuf_host)
+            left[*left_slice[::-1]] = recvbuf
+
+            n -= direction
+            left, right = right, left
+
+        return self.__class__(self.latt_info, right)
+
 
 class ParityField(BaseField):
     def __init__(self, latt_info: LatticeInfo, value: Any = None, init_data: bool = True) -> None:
@@ -775,6 +845,154 @@ class FullField:
 
     def checksum(self) -> Tuple[int, int]:
         return checksum(self.latt_info, self.lexico().reshape(self.latt_info.volume, self.field_size).view("<u4"))
+
+    def shift(self, n: int, mu: int):
+        def getHostArray(data):
+            backend = self.location
+            if backend == "numpy":
+                return numpy.ascontiguousarray(data)
+            elif backend == "cupy":
+                return data.get()
+            elif backend == "torch":
+                return data.cpu().numpy()
+
+        def getDeviceArray(data):
+            backend = self.location
+            if backend == "numpy":
+                return data
+            elif backend == "cupy":
+                import cupy
+
+                return cupy.asarray(data)
+            elif backend == "torch":
+                import torch
+
+                return torch.as_tensor(data)
+
+        assert 0 <= mu < self.latt_info.Nd
+        Nd = self.latt_info.Nd
+        direction = 1 if n >= 0 else -1
+        left_slice = [slice(None, None) for nu in range(Nd)]
+        right_slice = [slice(None, None) for nu in range(Nd)]
+        left = self.backup()
+        right = self.data if abs(n) <= 1 else self.backup()
+        rank = getMPIRank()
+        coord = [g for g in getGridCoord()]
+        coord[mu] = (getGridCoord()[mu] - direction) % getGridSize()[mu]
+        dest = getRankFromCoord(coord)
+        coord[mu] = (getGridCoord()[mu] + direction) % getGridSize()[mu]
+        source = getRankFromCoord(coord)
+
+        if n == 0:
+            left, right = right, left
+        while abs(n) > 0:
+            if mu == 0 and abs(n) == 1:
+                left_flat = left.reshape(2, prod(self.latt_info.size[1:]), self.latt_info.size[0] // 2, -1)
+                right_flat = right.reshape(2 * prod(self.latt_info.size[1:]), self.latt_info.size[0] // 2, -1)
+                eo = numpy.sum(numpy.indices((2, *self.latt_info.size[1:][::-1])), axis=0).reshape(-1) % 2
+                even = eo == 0
+                odd = eo == 1
+                if direction == 1:
+                    sendbuf = right_flat[even, 0]
+                    if rank == source and rank == dest:
+                        pass
+                    else:
+                        sendbuf_host = getHostArray(sendbuf)
+                        request = getMPIComm().Isend(sendbuf_host, dest)
+
+                    right_tmp = right_flat[odd].reshape(
+                        2, prod(self.latt_info.size[1:]) // 2, self.latt_info.size[0] // 2, -1
+                    )
+                    left_flat[1, even.reshape(2, -1)[1]] = right_tmp[0]
+                    left_flat[0, even.reshape(2, -1)[0]] = right_tmp[1]
+                    right_tmp = right_flat[even, 1:].reshape(
+                        2, prod(self.latt_info.size[1:]) // 2, self.latt_info.size[0] // 2 - 1, -1
+                    )
+                    left_flat[1, odd.reshape(2, -1)[1], :-1] = right_tmp[0]
+                    left_flat[0, odd.reshape(2, -1)[0], :-1] = right_tmp[1]
+
+                    if rank == source and rank == dest:
+                        recvbuf = sendbuf
+                    else:
+                        recvbuf_host = numpy.empty_like(sendbuf_host)
+                        getMPIComm().Recv(recvbuf_host, source)
+                        request.Wait()
+                        recvbuf = getDeviceArray(recvbuf_host)
+                    right_tmp = recvbuf.reshape(2, prod(self.latt_info.size[1:]) // 2, -1)
+                    left_flat[1, odd.reshape(2, -1)[1], -1] = right_tmp[0]
+                    left_flat[0, odd.reshape(2, -1)[0], -1] = right_tmp[1]
+                else:
+                    sendbuf = right_flat[odd, -1]
+                    if rank == source and rank == dest:
+                        pass
+                    else:
+                        sendbuf_host = getHostArray(sendbuf)
+                        request = getMPIComm().Isend(sendbuf_host, dest)
+
+                    right_tmp = right_flat[even].reshape(
+                        2, prod(self.latt_info.size[1:]) // 2, self.latt_info.size[0] // 2, -1
+                    )
+                    left_flat[1, odd.reshape(2, -1)[1]] = right_tmp[0]
+                    left_flat[0, odd.reshape(2, -1)[0]] = right_tmp[1]
+                    right_tmp = right_flat[odd, :-1].reshape(
+                        2, prod(self.latt_info.size[1:]) // 2, self.latt_info.size[0] // 2 - 1, -1
+                    )
+                    left_flat[1, even.reshape(2, -1)[1], 1:] = right_tmp[0]
+                    left_flat[0, even.reshape(2, -1)[0], 1:] = right_tmp[1]
+
+                    if rank == source and rank == dest:
+                        recvbuf = sendbuf
+                    else:
+                        recvbuf_host = numpy.empty_like(sendbuf_host)
+                        getMPIComm().Recv(recvbuf_host, source)
+                        request.Wait()
+                        recvbuf = getDeviceArray(recvbuf_host)
+                    right_tmp = recvbuf.reshape(2, prod(self.latt_info.size[1:]) // 2, -1)
+                    left_flat[1, even.reshape(2, -1)[1], 0] = right_tmp[0]
+                    left_flat[0, even.reshape(2, -1)[0], 0] = right_tmp[1]
+
+                n -= direction
+                left, right = right, left
+            else:
+                left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
+                right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
+                sendbuf = right[:, *right_slice[::-1]]
+                if rank == source and rank == dest:
+                    pass
+                else:
+                    sendbuf_host = getHostArray(sendbuf)
+                    request = getMPIComm().Isend(sendbuf_host, dest)
+
+                left_slice[mu] = slice(None, -1) if direction == 1 else slice(1, None)
+                right_slice[mu] = slice(1, None) if direction == 1 else slice(None, -1)
+                if mu == 0:
+                    left[:, *left_slice[::-1]] = right[:, *right_slice[::-1]]
+                else:
+                    left[0, *left_slice[::-1]] = right[1, *right_slice[::-1]]
+                    left[1, *left_slice[::-1]] = right[0, *right_slice[::-1]]
+
+                left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
+                right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
+                if rank == source and rank == dest:
+                    recvbuf = sendbuf
+                else:
+                    recvbuf_host = numpy.empty_like(sendbuf_host)
+                    getMPIComm().Recv(recvbuf_host, source)
+                    request.Wait()
+                    recvbuf = getDeviceArray(recvbuf_host)
+                if mu == 0:
+                    left[:, *left_slice[::-1]] = recvbuf
+                else:
+                    left[0, *left_slice[::-1]] = recvbuf[1]
+                    left[1, *left_slice[::-1]] = recvbuf[0]
+
+                if mu == 0:
+                    n -= 2 * direction
+                else:
+                    n -= direction
+                left, right = right, left
+
+        return self.__class__(self.latt_info, right)
 
 
 class MultiField:
@@ -869,6 +1087,12 @@ class MultiField:
 
     def checksum(self) -> List[Tuple[int, int]]:
         return [self[index].checksum() for index in range(self.L5)]
+
+    def shift(self, n: Sequence[int], mu: Sequence[int]):
+        left = self.copy()
+        for i in range(self.L5):
+            left[i] = self[i].shift(n[i], mu[i])
+        return left
 
     def __add__(self, rhs):
         if not self.__class__ == rhs.__class__:
