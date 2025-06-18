@@ -112,23 +112,27 @@ void_ptr = """
 ptr = """
     @property
     def %name%(self):
-        raise AttributeError("'%name%' cannot be accessed directly in Python")
+        ptr = Pointer("%type%")
+        ptr.set_ptr(<void *>self.param.%name%)
+        return ptr
 
     @%name%.setter
-    def %name%(self, ndarray[%type%, ndim=1] value):
-        _value = _NDArray(value)
-        self.param.%name% = <%type% *>_value.ptr
+    def %name%(self, Pointer value):
+        assert value.dtype == "%type%"
+        self.param.%name% = <%type% *>value.ptr
 """
 
 ptrptr = """
     @property
     def %name%(self):
-        raise AttributeError("'%name%' cannot be accessed directly in Python")
+        ptrs = Pointers("%type%", 0)
+        ptrs.set_ptrs(<void **>self.param.%name%)
+        return ptrs
 
     @%name%.setter
-    def %name%(self, ndarray[%type%, ndim=2] value):
-        _value = _NDArray(value)
-        self.param.%name% = <%type% **>_value.ptrs
+    def %name%(self, Pointers value):
+        assert value.dtype == "%type%"
+        self.param.%name% = <%type% **>value.ptrs
 """
 
 
@@ -195,6 +199,8 @@ def build_pyquda_pyx(pyquda_root, quda_path):
             # print(node.name)
             for decl in node.type.type.decls:
                 n, t = decl.name, decl.type
+                if type(t) is c_ast.Union:
+                    n, t = t.decls[0].name, t.decls[0].type
                 tt = t.type
                 if type(t) is c_ast.TypeDecl:
                     quda_params_meta[node.name].append(QudaParamsMeta(n, " ".join(tt.names), "", []))

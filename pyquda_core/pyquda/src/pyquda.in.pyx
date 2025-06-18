@@ -10,7 +10,7 @@ from libc.string cimport strcmp
 from numpy cimport ndarray
 ctypedef double complex double_complex
 
-from pyquda_comm.pointer cimport Pointer, _NDArray
+from pyquda_comm.pointer cimport Pointer, Pointers, _NDArray
 cimport quda
 
 
