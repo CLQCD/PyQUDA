@@ -1,3 +1,5 @@
+from check_pyquda import weak_field
+
 from pyquda_utils import core, convert
 from pyquda_utils.core import X, Y, Z, T
 import cupy as cp
