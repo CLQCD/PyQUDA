@@ -726,7 +726,7 @@ class GeneralField(BaseField):
         while abs(n) > 0:
             left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
             right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
-            sendbuf = right[*right_slice[::-1]]
+            sendbuf = right[tuple(right_slice[::-1])]
             if rank == source and rank == dest:
                 pass
             else:
@@ -735,7 +735,7 @@ class GeneralField(BaseField):
 
             left_slice[mu] = slice(None, -1) if direction == 1 else slice(1, None)
             right_slice[mu] = slice(1, None) if direction == 1 else slice(None, -1)
-            left[*left_slice[::-1]] = right[*right_slice[::-1]]
+            left[tuple(left_slice[::-1])] = right[tuple(right_slice[::-1])]
 
             left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
             right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
@@ -746,7 +746,7 @@ class GeneralField(BaseField):
                 getMPIComm().Recv(recvbuf_host, source)
                 request.Wait()
                 recvbuf = getDeviceArray(recvbuf_host)
-            left[*left_slice[::-1]] = recvbuf
+            left[tuple(left_slice[::-1])] = recvbuf
 
             n -= direction
             left, right = right, left
