@@ -956,7 +956,7 @@ class FullField:
             else:
                 left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
                 right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
-                sendbuf = right[:, *right_slice[::-1]]
+                sendbuf = right[(slice(0, 2),) + tuple(right_slice[::-1])]
                 if rank == source and rank == dest:
                     pass
                 else:
@@ -966,10 +966,11 @@ class FullField:
                 left_slice[mu] = slice(None, -1) if direction == 1 else slice(1, None)
                 right_slice[mu] = slice(1, None) if direction == 1 else slice(None, -1)
                 if mu == 0:
-                    left[:, *left_slice[::-1]] = right[:, *right_slice[::-1]]
+                    left[(0,) + tuple(left_slice[::-1])] = right[(0,) + tuple(right_slice[::-1])]
+                    left[(1,) + tuple(left_slice[::-1])] = right[(1,) + tuple(right_slice[::-1])]
                 else:
-                    left[0, *left_slice[::-1]] = right[1, *right_slice[::-1]]
-                    left[1, *left_slice[::-1]] = right[0, *right_slice[::-1]]
+                    left[(0,) + tuple(left_slice[::-1])] = right[(1,) + tuple(right_slice[::-1])]
+                    left[(1,) + tuple(left_slice[::-1])] = right[(0,) + tuple(right_slice[::-1])]
 
                 left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
                 right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
@@ -981,10 +982,11 @@ class FullField:
                     request.Wait()
                     recvbuf = getDeviceArray(recvbuf_host)
                 if mu == 0:
-                    left[:, *left_slice[::-1]] = recvbuf
+                    left[(0,) + tuple(left_slice[::-1])] = recvbuf[0]
+                    left[(1,) + tuple(left_slice[::-1])] = recvbuf[1]
                 else:
-                    left[0, *left_slice[::-1]] = recvbuf[1]
-                    left[1, *left_slice[::-1]] = recvbuf[0]
+                    left[(0,) + tuple(left_slice[::-1])] = recvbuf[1]
+                    left[(1,) + tuple(left_slice[::-1])] = recvbuf[0]
 
                 if mu == 0:
                     n -= 2 * direction
