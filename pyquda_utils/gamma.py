@@ -3,6 +3,7 @@ from typing import Union
 import numpy
 
 from pyquda import getCUDABackend
+from pyquda_comm.array import arrayDevice
 from pyquda_comm.field import LatticePropagator
 
 
@@ -62,16 +63,7 @@ class GammaMatrix:
             @ (cls.gamma_4 if index & 0b1000 else cls.gamma_0)
         )
         backend = getCUDABackend()
-        if backend == "numpy":
-            return gamma
-        elif backend == "cupy":
-            import cupy
-
-            return cupy.asarray(gamma)
-        elif backend == "torch":
-            import torch
-
-            return torch.as_tensor(gamma)
+        return arrayDevice(gamma, backend)
 
 
 class GammaSparse:

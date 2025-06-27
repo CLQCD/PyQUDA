@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from functools import partial
 from typing import List, Literal, NamedTuple, Union
 
 from pyquda_comm import getCUDABackend
+from pyquda_comm.array import arrayRandom
 from ..field import (
     LatticeInfo,
     LatticeFermion,
@@ -68,29 +68,21 @@ class FermionAction(Action):
         self.is_fermion = True
 
     def sampleEta(self):
-        def _backend():
-            backend = getCUDABackend()
-            if backend == "numpy":
-                import numpy
+        backend = getCUDABackend()
+        if backend == "numpy":
+            import numpy as backend_
+        elif backend == "cupy":
+            import cupy as backend_
+        elif backend == "torch":
+            import torch as backend_
 
-                return numpy, numpy.random.random
-            elif backend == "cupy":
-                import cupy
-
-                return cupy, partial(cupy.random.random, dtype=cupy.float64)
-            elif backend == "torch":
-                import torch
-
-                return torch, partial(torch.rand, dtype=torch.float64)
-
-        def _normal(backend, random, shape):
-            theta = 2 * backend.pi * random(shape)
-            r = backend.sqrt(-backend.log(random(shape)))
-            z = r * (backend.cos(theta) + 1j * backend.sin(theta))
+        def _normal(shape):
+            theta = 2 * backend_.pi * arrayRandom(shape, backend)
+            r = backend_.sqrt(-backend_.log(arrayRandom(shape, backend)))
+            z = r * (backend_.cos(theta) + 1j * backend_.sin(theta))
             return z
 
-        backend, random = _backend()
-        self.eta.data[:] = _normal(backend, random, self.eta.shape)
+        self.eta.data[:] = _normal(self.eta.shape)
 
     @abstractmethod
     def sample(self, new_gauge: bool):

@@ -6,6 +6,7 @@ from typing import List, Union
 import numpy
 
 from pyquda_comm import getLogger, getCUDABackend
+from pyquda_comm.array import arrayRandomGetState, arrayRandomSetState, arrayRandomSeed
 from .field import LatticeInfo, LatticeGauge, LatticeMom, LatticeReal
 from .pyquda import (
     QudaGaugeObservableParam,
@@ -261,30 +262,11 @@ class HMC:
     def seed(self, state):
         seed = self.random.randrange(2**32)
         backend = getCUDABackend()
-        if backend == "numpy":
-            import numpy
-
-            if state is None:
-                state = numpy.random.get_state()
-                numpy.random.seed(seed)
-            else:
-                numpy.random.set_state(state)
-        elif backend == "cupy":
-            import cupy
-
-            if state is None:
-                state = cupy.random.get_random_state()
-                cupy.random.seed(seed)
-            else:
-                cupy.random.set_random_state(state)
-        elif backend == "torch":
-            import torch
-
-            if state is None:
-                state = torch.random.get_rng_state()
-                torch.random.manual_seed(seed)
-            else:
-                torch.random.set_rng_state(state)
+        if state is None:
+            state = arrayRandomGetState(backend)
+            arrayRandomSeed(seed, backend)
+        else:
+            arrayRandomSetState(state, backend)
         return state
 
     def samplePhi(self):

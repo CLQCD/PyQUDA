@@ -20,6 +20,19 @@ from . import (
     readMPIFile,
     writeMPIFile,
 )
+from .array import (
+    BackendType,
+    arrayDType,
+    arrayHost,
+    arrayHostCopy,
+    arrayDevice,
+    arrayCopy,
+    arrayIsContiguous,
+    arrayContiguous,
+    arrayNorm2,
+    arrayIdentity,
+    arrayZeros,
+)
 
 
 class LatticeInfo:
@@ -256,7 +269,7 @@ class BaseField:
     def __init__(self, latt_info: Union[LatticeInfo, GeneralInfo]) -> None:
         self.latt_info = latt_info
         self._data = None
-        self.backend: Literal["numpy", "cupy", "torch"] = getCUDABackend()
+        self.backend: BackendType = getCUDABackend()
         self.L5 = None
 
     @abstractmethod
@@ -486,14 +499,8 @@ class BaseField:
 
     @data.setter
     def data(self, value):
-        if isinstance(value, numpy.ndarray) or self.backend == "numpy":
-            self._data = numpy.ascontiguousarray(value)
-        elif self.backend == "cupy":
-            import cupy
-
-            self._data = cupy.ascontiguousarray(value)
-        elif self.backend == "torch":
-            self._data = value.contiguous()
+        location = "numpy" if isinstance(value, numpy.ndarray) else self.backend
+        self._data = arrayContiguous(value, location)
 
     @property
     def data_ptr(self) -> NDArray:
@@ -510,109 +517,41 @@ class BaseField:
         self.field_size = prod(field_shape)
         self.field_dtype = field_dtype
         self.shape = self._shape()
-        self.dtype = numpy.dtype(field_dtype).type
-        if self.backend == "torch":
-            import torch
-
-            # from torch.testing._internal.common_utils import numpy_to_torch_dtype_dict
-            # Dict of NumPy dtype -> torch dtype (when the correspondence exists)
-            numpy_to_torch_dtype_dict = {
-                numpy.bool_: torch.bool,
-                numpy.uint8: torch.uint8,
-                numpy.uint16: torch.uint16,
-                numpy.uint32: torch.uint32,
-                numpy.uint64: torch.uint64,
-                numpy.int8: torch.int8,
-                numpy.int16: torch.int16,
-                numpy.int32: torch.int32,
-                numpy.int64: torch.int64,
-                numpy.float16: torch.float16,
-                numpy.float32: torch.float32,
-                numpy.float64: torch.float64,
-                numpy.complex64: torch.complex64,
-                numpy.complex128: torch.complex128,
-            }
-            self.dtype = numpy_to_torch_dtype_dict[self.dtype]
+        self.dtype = arrayDType(field_dtype, self.backend)
 
     def _initData(self, value):
         self._setField()
         backend, value = (value, None) if isinstance(value, str) else (None, value)
         if value is None:
-            if backend == "numpy" or self.backend == "numpy":
-                self.data = numpy.zeros(self.shape, self.dtype)
-            elif self.backend == "cupy":
-                import cupy
-
-                self.data = cupy.zeros(self.shape, self.dtype)
-            elif self.backend == "torch":
-                import torch
-
-                self.data = torch.zeros(self.shape, dtype=self.dtype)
+            location = backend if backend is not None else self.backend
+            self.data = arrayZeros(self.shape, self.dtype, location)
         else:
             self.data = value.reshape(self.shape)
 
     @property
-    def location(self) -> Literal["numpy", "cupy", "torch"]:
+    def location(self) -> BackendType:
         if isinstance(self.data, numpy.ndarray):
             return "numpy"
         else:
             return self.backend
 
     def backup(self):
-        location = self.location
-        if location == "numpy":
-            return self.data.copy()
-        elif location == "cupy":
-            return self.data.copy()
-        elif location == "torch":
-            return self.data.clone()
+        return arrayCopy(self.data, self.location)
 
     def copy(self):
         return self.__class__(self.latt_info, self.backup())
 
     def toDevice(self):
-        backend = self.backend
-        if backend == "numpy":
-            pass
-        elif backend == "cupy":
-            import cupy
-
-            self.data = cupy.asarray(self.data)
-        elif backend == "torch":
-            import torch
-
-            self.data = torch.as_tensor(self.data)
+        self.data = arrayDevice(self.data, self.backend)
 
     def toHost(self):
-        location = self.location
-        if location == "numpy":
-            pass
-        elif location == "cupy":
-            self.data = self.data.get()
-        elif location == "torch":
-            self.data = self.data.cpu().numpy()
+        self.data = arrayHost(self.data, self.location)
 
     def getHost(self):
-        location = self.location
-        if location == "numpy":
-            return self.data.copy()
-        elif location == "cupy":
-            return self.data.get()
-        elif location == "torch":
-            return self.data.cpu().numpy()
+        return arrayHostCopy(self.data, self.location)
 
     def norm2(self, all_reduce=True) -> float:
-        location = self.location
-        if location == "numpy":
-            norm2 = numpy.linalg.norm(self.data).item() ** 2
-        elif location == "cupy":
-            import cupy
-
-            norm2 = cupy.linalg.norm(self.data).item() ** 2
-        elif location == "torch":
-            import torch
-
-            norm2 = torch.linalg.norm(self.data).item() ** 2
+        norm2 = arrayNorm2(self.data, self.location)
         if all_reduce:
             return self.latt_info.mpi_comm.allreduce(norm2)
         else:
@@ -685,31 +624,11 @@ class GeneralField(BaseField):
         return checksum(self.latt_info, self.lexico().reshape(self.latt_info.volume, self.field_size).view("<u4"))
 
     def shift(self, n: int, mu: int):
-        def getHostArray(data):
-            backend = self.location
-            if backend == "numpy":
-                return numpy.ascontiguousarray(data)
-            elif backend == "cupy":
-                return data.get()
-            elif backend == "torch":
-                return data.cpu().numpy()
-
-        def getDeviceArray(data):
-            backend = self.location
-            if backend == "numpy":
-                return data
-            elif backend == "cupy":
-                import cupy
-
-                return cupy.asarray(data)
-            elif backend == "torch":
-                import torch
-
-                return torch.as_tensor(data)
-
-        assert 0 <= mu < self.latt_info.Nd
+        assert n >= 0
+        assert 0 <= mu < 2 * self.latt_info.Nd
         Nd = self.latt_info.Nd
-        direction = 1 if n >= 0 else -1
+        direction = 1 if mu < Nd else -1
+        mu = mu % Nd
         left_slice = [slice(None, None) for nu in range(Nd)]
         right_slice = [slice(None, None) for nu in range(Nd)]
         left = self.backup()
@@ -723,14 +642,14 @@ class GeneralField(BaseField):
 
         if n == 0:
             left, right = right, left
-        while abs(n) > 0:
+        while n > 0:
             left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
             right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
             sendbuf = right[tuple(right_slice[::-1])]
             if rank == source and rank == dest:
                 pass
             else:
-                sendbuf_host = getHostArray(sendbuf)
+                sendbuf_host = arrayHost(sendbuf, self.location)
                 request = getMPIComm().Isend(sendbuf_host, dest)
 
             left_slice[mu] = slice(None, -1) if direction == 1 else slice(1, None)
@@ -745,10 +664,10 @@ class GeneralField(BaseField):
                 recvbuf_host = numpy.empty_like(sendbuf_host)
                 getMPIComm().Recv(recvbuf_host, source)
                 request.Wait()
-                recvbuf = getDeviceArray(recvbuf_host)
+                recvbuf = arrayDevice(recvbuf_host, self.location)
             left[tuple(left_slice[::-1])] = recvbuf
 
-            n -= direction
+            n -= 1
             left, right = right, left
 
         return self.__class__(self.latt_info, right)
@@ -847,31 +766,11 @@ class FullField:
         return checksum(self.latt_info, self.lexico().reshape(self.latt_info.volume, self.field_size).view("<u4"))
 
     def shift(self, n: int, mu: int):
-        def getHostArray(data):
-            backend = self.location
-            if backend == "numpy":
-                return numpy.ascontiguousarray(data)
-            elif backend == "cupy":
-                return data.get()
-            elif backend == "torch":
-                return data.cpu().numpy()
-
-        def getDeviceArray(data):
-            backend = self.location
-            if backend == "numpy":
-                return data
-            elif backend == "cupy":
-                import cupy
-
-                return cupy.asarray(data)
-            elif backend == "torch":
-                import torch
-
-                return torch.as_tensor(data)
-
-        assert 0 <= mu < self.latt_info.Nd
+        assert n >= 0
+        assert 0 <= mu < 2 * self.latt_info.Nd
         Nd = self.latt_info.Nd
-        direction = 1 if n >= 0 else -1
+        direction = 1 if mu < Nd else -1
+        mu = mu % Nd
         left_slice = [slice(None, None) for nu in range(Nd)]
         right_slice = [slice(None, None) for nu in range(Nd)]
         left = self.backup()
@@ -885,8 +784,8 @@ class FullField:
 
         if n == 0:
             left, right = right, left
-        while abs(n) > 0:
-            if mu == 0 and abs(n) == 1:
+        while n > 0:
+            if mu == 0 and n == 1:
                 left_flat = left.reshape(2, prod(self.latt_info.size[1:]), self.latt_info.size[0] // 2, -1)
                 right_flat = right.reshape(2 * prod(self.latt_info.size[1:]), self.latt_info.size[0] // 2, -1)
                 eo = numpy.sum(numpy.indices((2, *self.latt_info.size[1:][::-1])), axis=0).reshape(-1) % 2
@@ -897,7 +796,7 @@ class FullField:
                     if rank == source and rank == dest:
                         pass
                     else:
-                        sendbuf_host = getHostArray(sendbuf)
+                        sendbuf_host = arrayHost(sendbuf, self.location)
                         request = getMPIComm().Isend(sendbuf_host, dest)
 
                     right_tmp = right_flat[odd].reshape(
@@ -917,7 +816,7 @@ class FullField:
                         recvbuf_host = numpy.empty_like(sendbuf_host)
                         getMPIComm().Recv(recvbuf_host, source)
                         request.Wait()
-                        recvbuf = getDeviceArray(recvbuf_host)
+                        recvbuf = arrayDevice(recvbuf_host, self.location)
                     right_tmp = recvbuf.reshape(2, prod(self.latt_info.size[1:]) // 2, -1)
                     left_flat[1, odd.reshape(2, -1)[1], -1] = right_tmp[0]
                     left_flat[0, odd.reshape(2, -1)[0], -1] = right_tmp[1]
@@ -926,7 +825,7 @@ class FullField:
                     if rank == source and rank == dest:
                         pass
                     else:
-                        sendbuf_host = getHostArray(sendbuf)
+                        sendbuf_host = arrayHost(sendbuf, self.location)
                         request = getMPIComm().Isend(sendbuf_host, dest)
 
                     right_tmp = right_flat[even].reshape(
@@ -946,12 +845,12 @@ class FullField:
                         recvbuf_host = numpy.empty_like(sendbuf_host)
                         getMPIComm().Recv(recvbuf_host, source)
                         request.Wait()
-                        recvbuf = getDeviceArray(recvbuf_host)
+                        recvbuf = arrayDevice(recvbuf_host, self.location)
                     right_tmp = recvbuf.reshape(2, prod(self.latt_info.size[1:]) // 2, -1)
                     left_flat[1, even.reshape(2, -1)[1], 0] = right_tmp[0]
                     left_flat[0, even.reshape(2, -1)[0], 0] = right_tmp[1]
 
-                n -= direction
+                n -= 1
                 left, right = right, left
             else:
                 left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
@@ -960,7 +859,7 @@ class FullField:
                 if rank == source and rank == dest:
                     pass
                 else:
-                    sendbuf_host = getHostArray(sendbuf)
+                    sendbuf_host = arrayHost(sendbuf, self.location)
                     request = getMPIComm().Isend(sendbuf_host, dest)
 
                 left_slice[mu] = slice(None, -1) if direction == 1 else slice(1, None)
@@ -980,7 +879,7 @@ class FullField:
                     recvbuf_host = numpy.empty_like(sendbuf_host)
                     getMPIComm().Recv(recvbuf_host, source)
                     request.Wait()
-                    recvbuf = getDeviceArray(recvbuf_host)
+                    recvbuf = arrayDevice(recvbuf_host, self.location)
                 if mu == 0:
                     left[(0,) + tuple(left_slice[::-1])] = recvbuf[0]
                     left[(1,) + tuple(left_slice[::-1])] = recvbuf[1]
@@ -989,9 +888,9 @@ class FullField:
                     left[(1,) + tuple(left_slice[::-1])] = recvbuf[0]
 
                 if mu == 0:
-                    n -= 2 * direction
+                    n -= 2
                 else:
-                    n -= direction
+                    n -= 1
                 left, right = right, left
 
         return self.__class__(self.latt_info, right)
@@ -1018,24 +917,13 @@ class MultiField:
     @data.setter
     def data(self, value):
         contiguous = True
+        location = "numpy" if isinstance(value, numpy.ndarray) else self.backend
         for index in range(self.L5):
-            if isinstance(value, numpy.ndarray) or self.backend == "numpy":
-                contiguous &= value[index].flags.c_contiguous
-            elif self.backend == "cupy":
-                contiguous &= value[index].flags.c_contiguous
-            elif self.backend == "torch":
-                contiguous &= value[index].is_contiguous()
+            contiguous &= arrayIsContiguous(value[index], location)
         if contiguous:
             self._data = value
         else:
-            if isinstance(value, numpy.ndarray) or self.backend == "numpy":
-                self._data = numpy.ascontiguousarray(value)
-            elif self.backend == "cupy":
-                import cupy
-
-                self._data = cupy.ascontiguousarray(value)
-            elif self.backend == "torch":
-                self._data = value.contiguous()
+            self._data = arrayContiguous(value, location)
 
     def __getitem__(self, key: Union[int, list, tuple, slice]):
         if isinstance(key, int):
@@ -1179,16 +1067,7 @@ class LatticeLink(LatticeColorMatrix):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info, value)
         if value is None:
-            if self.backend == "numpy":
-                self.data[:] = numpy.identity(latt_info.Nc)
-            elif self.backend == "cupy":
-                import cupy
-
-                self.data[:] = cupy.identity(latt_info.Nc)
-            elif self.backend == "torch":
-                import torch
-
-                self.data[:] = torch.eye(latt_info.Nc)
+            self.data[:] = arrayIdentity(latt_info.Nc, self.location)
 
     @property
     def __field_class__(self):
@@ -1199,32 +1078,14 @@ class LatticeRotation(MultiField, LatticeLink):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info, 1, value)
         if value is None:
-            if self.backend == "numpy":
-                self.data[:] = numpy.identity(latt_info.Nc)
-            elif self.backend == "cupy":
-                import cupy
-
-                self.data[:] = cupy.identity(latt_info.Nc)
-            elif self.backend == "torch":
-                import torch
-
-                self.data[:] = torch.eye(latt_info.Nc)
+            self.data[:] = arrayIdentity(latt_info.Nc, self.location)
 
 
 class LatticeGauge(MultiField, LatticeLink):
     def __init__(self, latt_info: LatticeInfo, L5: int, value=None) -> None:
         super().__init__(latt_info, L5, value)
         if value is None:
-            if self.backend == "numpy":
-                self.data[:] = numpy.identity(latt_info.Nc)
-            elif self.backend == "cupy":
-                import cupy
-
-                self.data[:] = cupy.identity(latt_info.Nc)
-            elif self.backend == "torch":
-                import torch
-
-                self.data[:] = torch.eye(latt_info.Nc)
+            self.data[:] = arrayIdentity(latt_info.Nc, self.location)
 
     def setAntiPeriodicT(self):
         if self.latt_info.gt == self.latt_info.Gt - 1:

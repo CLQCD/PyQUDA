@@ -7,6 +7,8 @@ import numpy
 from mpi4py import MPI
 from mpi4py.util import dtlib
 
+from .array import BackendType
+
 
 class _MPILogger:
     def __init__(self, root: int = 0) -> None:
@@ -58,7 +60,7 @@ _GRID_SIZE: Union[List[int], None] = None
 _GRID_COORD: Union[List[int], None] = None
 _GRID_MAP: Literal["XYZT_FASTEST", "TZYX_FASTEST"] = "XYZT_FASTEST"
 """For MPI, the default node mapping is lexicographical with t varying fastest."""
-_CUDA_BACKEND: Literal["numpy", "cupy", "torch"] = "cupy"
+_CUDA_BACKEND: BackendType = "cupy"
 _CUDA_IS_HIP: bool = False
 _CUDA_DEVICE: int = -1
 _CUDA_COMPUTE_CAPABILITY: _ComputeCapability = _ComputeCapability(0, 0)
@@ -202,7 +204,7 @@ def initGrid(grid_size: List[int], latt_size: List[int] = None, evenodd: bool = 
         _MPI_LOGGER.warning("Grid is already initialized", RuntimeWarning)
 
 
-def initDevice(backend: Literal["numpy", "cupy", "torch"] = None, device: int = -1, enable_mps: bool = False):
+def initDevice(backend: BackendType = None, device: int = -1, enable_mps: bool = False):
     global _CUDA_BACKEND, _CUDA_IS_HIP, _CUDA_DEVICE, _CUDA_COMPUTE_CAPABILITY
     if _CUDA_DEVICE < 0:
         from platform import node as gethostname

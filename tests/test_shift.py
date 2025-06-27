@@ -13,14 +13,14 @@ unit.gauge_dirac.loadGauge(unit)
 propagator = core.LatticePropagator(latt_info, cp.random.random((latt_info.volume, 4, 4, 3, 3 * 2), "<f8").view("<c16"))
 multi_fermion = convert.propagatorToMultiFermion(propagator)
 
-for n, mu in zip([-1, 1], [X, T]):
+for n, mu in zip([1, 1], [-X, T]):
     propagator_covdev = core.LatticePropagator(latt_info)
     cp.cuda.runtime.deviceSynchronize()
     s = perf_counter()
     for spin in range(4):
         for color in range(3):
             propagator_covdev.setFermion(
-                unit.gauge_dirac.covDev(propagator.getFermion(spin, color), -mu if n < 0 else mu), spin, color
+                unit.gauge_dirac.covDev(propagator.getFermion(spin, color), mu), spin, color
             )
     cp.cuda.runtime.deviceSynchronize()
     e = perf_counter()
@@ -32,7 +32,7 @@ for n, mu in zip([-1, 1], [X, T]):
     for spin in range(4):
         for color in range(3):
             multi_fermion_covdev[spin * 3 + color] = unit.gauge_dirac.covDev(
-                multi_fermion[spin * 3 + color], -mu if n < 0 else mu
+                multi_fermion[spin * 3 + color], mu
             )
     cp.cuda.runtime.deviceSynchronize()
     e = perf_counter()
@@ -44,7 +44,7 @@ for n, mu in zip([-1, 1], [X, T]):
     s = perf_counter()
     for spin in range(4):
         for color in range(3):
-            multi_fermion_shift[spin * 3 + color] = multi_fermion[spin * 3 + color].shift(n, mu)
+            multi_fermion_shift[spin * 3 + color] = multi_fermion[spin * 3 + color].shift(abs(n), mu)
     cp.cuda.runtime.deviceSynchronize()
     e = perf_counter()
     print(f"Time for MultiLatticeFermion.shift on n={n}, mu={mu}:", e - s)
@@ -52,7 +52,7 @@ for n, mu in zip([-1, 1], [X, T]):
 
     cp.cuda.runtime.deviceSynchronize()
     s = perf_counter()
-    propagator_shift = propagator.shift(n, mu)
+    propagator_shift = propagator.shift(abs(n), mu)
     cp.cuda.runtime.deviceSynchronize()
     e = perf_counter()
     print(f"Time for LatticePropagator.shift on n={n}, mu={mu}:", e - s)
