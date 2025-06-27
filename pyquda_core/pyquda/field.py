@@ -145,19 +145,6 @@ class LatticeGauge(_LatticeGauge):
         self._gauge_dirac.freeGauge()
         return b
 
-    def shift(self, shift_mu: List[int]):
-        unit = LatticeGauge(self.latt_info)
-        x = LatticeFermion(self.latt_info)
-        self.gauge_dirac.loadGauge(unit)
-        for mu, covdev_mu in enumerate(shift_mu):
-            self.pack(mu, x)
-            b = self._gauge_dirac.covDev(x, covdev_mu)
-            unit.unpack(mu, b)
-            # x.data[:, :, :, :, :, :Nc, :Nc] = self.data[mu]
-            # unit.data[mu] = self._gauge_dirac.covDev(x, covdev_mu).data[:, :, :, :, :, :Nc, :Nc]
-        self._gauge_dirac.freeGauge()
-        return unit
-
     def staggeredPhase(self, applied: bool):
         self.gauge_dirac.staggeredPhase(self, applied)
 

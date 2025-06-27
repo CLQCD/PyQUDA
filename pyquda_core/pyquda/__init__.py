@@ -21,6 +21,7 @@ from pyquda_comm import (  # noqa: F401
     getCUDADevice,
     getCUDAComputeCapability,
 )
+from pyquda_comm.array import BackendType
 from pyquda_comm.field import LatticeInfo
 
 _DEFAULT_LATTICE: Union[LatticeInfo, None] = None
@@ -84,7 +85,7 @@ def init(
     latt_size: List[int] = None,
     t_boundary: Literal[1, -1] = None,
     anisotropy: float = None,
-    backend: Literal["numpy", "cupy", "torch"] = None,
+    backend: BackendType = None,
     init_quda: bool = True,
     *,
     resource_path: str = "",

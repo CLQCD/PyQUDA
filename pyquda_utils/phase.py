@@ -3,6 +3,7 @@ from typing import Sequence
 
 import numpy
 
+from pyquda_comm.array import arrayDevice, arrayZeros, arrayExp
 from .core import getLogger, getCUDABackend, evenodd, LatticeInfo
 
 
@@ -47,16 +48,7 @@ class MomentumPhase:
         x[3] = numpy.arange(gt * Lt, (gt + 1) * Lt).reshape(1, Lt, 1, 1, 1)
 
         backend = getCUDABackend()
-        if backend == "numpy":
-            self.x = x
-        elif backend == "cupy":
-            import cupy
-
-            self.x = cupy.asarray(x)
-        elif backend == "torch":
-            import torch
-
-            self.x = torch.as_tensor(x)
+        self.x = arrayDevice(x, backend)
 
     def getPhase(self, mom_mode: Sequence[int], x0: Sequence[int] = [0, 0, 0, 0]):
         x = self.x
@@ -74,31 +66,13 @@ class MomentumPhase:
             getLogger().critical(f"mom should be a sequence of int with length 3 or 4, but get {mom_mode}", ValueError)
 
         backend = getCUDABackend()
-        if backend == "numpy":
-            return numpy.exp(ipx - ipx0)
-        elif backend == "cupy":
-            import cupy
-
-            return cupy.exp(ipx - ipx0)
-        elif backend == "torch":
-            import torch
-
-            return torch.exp(ipx - ipx0)
+        return arrayExp(ipx - ipx0, backend)
 
     def getPhases(self, mom_mode_list: Sequence[Sequence[int]], x0: Sequence[int] = [0, 0, 0, 0]):
         Lx, Ly, Lz, Lt = self.latt_info.size
 
         backend = getCUDABackend()
-        if backend == "numpy":
-            phases = numpy.zeros((len(mom_mode_list), 2, Lt, Lz, Ly, Lx // 2), "<c16")
-        elif backend == "cupy":
-            import cupy
-
-            phases = cupy.zeros((len(mom_mode_list), 2, Lt, Lz, Ly, Lx // 2), "<c16")
-        elif backend == "torch":
-            import torch
-
-            phases = torch.zeros((len(mom_mode_list), 2, Lt, Lz, Ly, Lx // 2), dtype=torch.complex128)
+        phases = arrayZeros((len(mom_mode_list), 2, Lt, Lz, Ly, Lx // 2), "<c16", backend)
         for idx, mom in enumerate(mom_mode_list):
             phases[idx] = self.getPhase(mom, x0)
 
@@ -122,31 +96,13 @@ class GridPhase:
         phase = evenodd(phase, [0, 1, 2, 3])
 
         backend = getCUDABackend()
-        if backend == "numpy":
-            return phase
-        elif backend == "cupy":
-            import cupy
-
-            return cupy.asarray(phase)
-        elif backend == "torch":
-            import torch
-
-            return torch.as_tensor(phase)
+        return arrayDevice(phase, backend)
 
     def getPhases(self, t_srce_list: Sequence[Sequence[int]]):
         Lx, Ly, Lz, Lt = self.latt_info.size
 
         backend = getCUDABackend()
-        if backend == "numpy":
-            phases = numpy.zeros((len(t_srce_list), 2, Lt, Lz, Ly, Lx // 2), "<c16")
-        elif backend == "cupy":
-            import cupy
-
-            phases = cupy.zeros((len(t_srce_list), 2, Lt, Lz, Ly, Lx // 2), "<c16")
-        elif backend == "torch":
-            import torch
-
-            phases = torch.zeros((len(t_srce_list), 2, Lt, Lz, Ly, Lx // 2), dtype=torch.complex128)
+        phases = arrayZeros((len(t_srce_list), 2, Lt, Lz, Ly, Lx // 2), "<c16", backend)
         for idx, t_srce in enumerate(t_srce_list):
             phases[idx] = self.getPhase(t_srce)
 
