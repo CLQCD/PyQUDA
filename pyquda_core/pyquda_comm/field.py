@@ -11,6 +11,7 @@ from numpy.typing import NDArray
 from . import (
     getRankFromCoord,
     getLogger,
+    getSublatticeSize,
     getMPIComm,
     getMPISize,
     getMPIRank,
@@ -19,6 +20,7 @@ from . import (
     getCUDABackend,
     readMPIFile,
     writeMPIFile,
+    fieldFFT,
 )
 from .array import (
     BackendType,
@@ -42,19 +44,7 @@ class LatticeInfo:
         self.Nd = len(latt_size)
         self.Ns = Ns
         self.Nc = Nc
-        self._checkLattice(latt_size)
         self._setLattice(latt_size, t_boundary, anisotropy)
-
-    def _checkLattice(self, latt_size: List[int]):
-        grid_size = getGridSize()
-        assert len(latt_size) == len(grid_size), "lattice and grid must have the same dimension"
-        if not all([(GL % (2 * G) == 0 or GL * G == 1) for GL, G in zip(latt_size, grid_size)]):
-            getLogger().critical(
-                "lattice size must be divisible by gird size, "
-                "and sublattice size must be even in all directions for consistant even-odd preconditioning, "
-                "otherwise the lattice size and grid size for this direction must be 1",
-                ValueError,
-            )
 
     def _setLattice(self, latt_size: List[int], t_boundary: Literal[1, -1], anisotropy: float):
         self.mpi_comm = getMPIComm()
@@ -63,7 +53,7 @@ class LatticeInfo:
         self.grid_size = getGridSize()
         self.grid_coord = getGridCoord()
 
-        sublatt_size = [GL // G for GL, G in zip(latt_size, self.grid_size)]
+        sublatt_size = getSublatticeSize(latt_size)
         if self.Nd == 4:
             self.Gx, self.Gy, self.Gz, self.Gt = self.grid_size
             self.gx, self.gy, self.gz, self.gt = self.grid_coord
@@ -84,20 +74,66 @@ class LatticeInfo:
         self.t_boundary = t_boundary
         self.anisotropy = anisotropy
 
+    def _setEvenOdd(self):
+        if hasattr(self, "even") and hasattr(self, "odd"):
+            return
+        eo = numpy.sum(numpy.indices(self.size[::-1], "<i4"), axis=0).reshape(-1) % 2
+        self.even = eo == 0
+        self.odd = eo == 1
+
+    def lexico(self, data: numpy.ndarray, multi: bool, backend: BackendType = "numpy"):
+        self._setEvenOdd()
+        shape = data.shape
+        if multi:
+            L5 = shape[0]
+            assert shape[1] == 2
+            sublatt_size = list(shape[2 : self.Nd + 2][::-1])
+            field_shape = list(shape[self.Nd + 2 :])
+        else:
+            L5 = 1
+            assert shape[0] == 2
+            sublatt_size = list(shape[1 : self.Nd + 1][::-1])
+            field_shape = list(shape[self.Nd + 1 :])
+        sublatt_size[0] *= 2
+        assert sublatt_size == self.size
+        data_evenodd = data.reshape(L5, 2, self.volume // 2, prod(field_shape))
+        data_lexico = arrayZeros((L5, self.volume, prod(field_shape)), data.dtype, backend)
+        data_lexico[:, self.even] = data_evenodd[:, 0]
+        data_lexico[:, self.odd] = data_evenodd[:, 1]
+        if multi:
+            return data_lexico.reshape(L5, *sublatt_size[::-1], *field_shape)
+        else:
+            return data_lexico.reshape(*sublatt_size[::-1], *field_shape)
+
+    def evenodd(self, data: numpy.ndarray, multi: bool, backend: BackendType = "numpy"):
+        self._setEvenOdd()
+        shape = data.shape
+        if multi:
+            L5 = shape[0]
+            sublatt_size = list(shape[1 : self.Nd + 1][::-1])
+            field_shape = list(shape[self.Nd + 1 :])
+        else:
+            L5 = 1
+            sublatt_size = list(shape[0 : self.Nd + 0][::-1])
+            field_shape = list(shape[self.Nd + 0 :])
+        assert sublatt_size == self.size
+        sublatt_size[0] //= 2
+        data_lexico = data.reshape(L5, self.volume, prod(field_shape))
+        data_evenodd = arrayZeros((L5, 2, self.volume // 2, prod(field_shape)), data.dtype, backend)
+        data_evenodd[:, 0] = data_lexico[:, self.even]
+        data_evenodd[:, 1] = data_lexico[:, self.odd]
+        if multi:
+            return data_evenodd.reshape(L5, 2, *sublatt_size[::-1], *field_shape)
+        else:
+            return data_evenodd.reshape(2, *sublatt_size[::-1], *field_shape)
+
 
 class GeneralInfo:
     def __init__(self, latt_size: List[int], Ns: int = 4, Nc: int = 3) -> None:
         self.Nd = len(latt_size)
         self.Ns = Ns
         self.Nc = Nc
-        self._checkLattice(latt_size)
         self._setLattice(latt_size)
-
-    def _checkLattice(self, latt_size: List[int]):
-        grid_size = getGridSize()
-        assert len(latt_size) == len(grid_size), "lattice size and grid size must have the same dimension"
-        if not all([(GL % G == 0) for GL, G in zip(latt_size, grid_size)]):
-            getLogger().critical("lattice size must be divisible by gird size", ValueError)
 
     def _setLattice(self, latt_size: List[int]):
         self.mpi_comm = getMPIComm()
@@ -106,7 +142,7 @@ class GeneralInfo:
         self.grid_size = getGridSize()
         self.grid_coord = getGridCoord()
 
-        sublatt_size = [GL // G for GL, G in zip(latt_size, self.grid_size)]
+        sublatt_size = getSublatticeSize(latt_size, False)
 
         self.global_size = latt_size
         self.global_volume = prod(latt_size)
@@ -304,8 +340,8 @@ class BaseField:
         Nd = len(grid_size)
         shape, dtype, offset = read_array_header(filename)
         if not issubclass(cls, MultiField):
-            latt_size = shape[:Nd][::-1]
-            field_shape = shape[Nd:]
+            latt_size = list(shape[:Nd][::-1])
+            field_shape = list(shape[Nd:])
             sublatt_size = [GL // G for GL, G in zip(latt_size, grid_size)]
             value = readMPIFile(
                 filename, dtype, offset, [*sublatt_size[::-1], *field_shape], list(range(Nd - 1, -1, -1))
@@ -313,8 +349,8 @@ class BaseField:
             gbytes += value.nbytes / 1024**3
         else:
             L5 = shape[0]
-            latt_size = shape[1 : Nd + 1][::-1]
-            field_shape = shape[Nd + 1 :]
+            latt_size = list(shape[1 : Nd + 1][::-1])
+            field_shape = list(shape[Nd + 1 :])
             sublatt_size = [GL // G for GL, G in zip(latt_size, grid_size)]
             value = readMPIFile(
                 filename, dtype, offset, [L5, *sublatt_size[::-1], *field_shape], list(range(Nd, 0, -1))
@@ -339,9 +375,9 @@ class BaseField:
             if Nc is not None:
                 latt_info.Nc = Nc
             if not issubclass(cls, MultiField):
-                retval = cls(latt_info, evenodd(value, list(range(0, Nd))))
+                retval = cls(latt_info, latt_info.evenodd(value, False))
             else:
-                retval = cls(latt_info, L5, evenodd(value, list(range(1, Nd + 1))))
+                retval = cls(latt_info, L5, latt_info.evenodd(value, True))
         secs = perf_counter() - s
         getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
         return retval
@@ -405,9 +441,9 @@ class BaseField:
             if Nc is not None:
                 latt_info.Nc = Nc
             if not issubclass(cls, MultiField):
-                retval = cls(latt_info, evenodd(value, list(range(0, latt_info.Nd))))
+                retval = cls(latt_info, latt_info.evenodd(value, False))
             else:
-                retval = cls(latt_info, len(label), evenodd(value, list(range(1, latt_info.Nd + 1))))
+                retval = cls(latt_info, len(label), latt_info.evenodd(value, True))
         secs = perf_counter() - s
         getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
         return retval
@@ -513,7 +549,7 @@ class BaseField:
 
     def _setField(self):
         field_shape, field_dtype = _field_shape_dtype(self._field(), self.latt_info.Ns, self.latt_info.Nc)
-        self.field_shape = tuple(field_shape)
+        self.field_shape = field_shape
         self.field_size = prod(field_shape)
         self.field_dtype = field_dtype
         self.shape = self._shape()
@@ -553,7 +589,7 @@ class BaseField:
     def norm2(self, all_reduce=True) -> float:
         norm2 = arrayNorm2(self.data, self.location)
         if all_reduce:
-            return self.latt_info.mpi_comm.allreduce(norm2)
+            return getMPIComm().allreduce(norm2)
         else:
             return norm2
 
@@ -617,8 +653,16 @@ class GeneralField(BaseField):
         else:
             return (self.L5, *self.lattice_shape, *self.field_shape)
 
-    def lexico(self, dtype=None):
-        return self.getHost().astype(dtype)
+    def lexico(self, force_numpy: bool = True):
+        if force_numpy:
+            return self.getHost()
+        else:
+            return self.backup()
+
+    def fft(self):
+        data = self.lexico()
+        data_hat = fieldFFT(self.latt_info.size[::-1] + self.field_shape, data)
+        return self.__class__(self.latt_info, arrayDevice(data_hat, self.location))
 
     def checksum(self) -> Tuple[int, int]:
         return checksum(self.latt_info, self.lexico().reshape(self.latt_info.volume, self.field_size).view("<u4"))
@@ -649,7 +693,7 @@ class GeneralField(BaseField):
             if rank == source and rank == dest:
                 pass
             else:
-                sendbuf_host = arrayHost(sendbuf, self.location)
+                sendbuf_host = arrayHostCopy(sendbuf, self.location)
                 request = getMPIComm().Isend(sendbuf_host, dest)
 
             left_slice[mu] = slice(None, -1) if direction == 1 else slice(1, None)
@@ -759,8 +803,18 @@ class FullField:
     def odd_ptr(self) -> NDArray:
         return self.data.reshape(2, -1)[1]
 
-    def lexico(self, dtype=None):
-        return lexico(self.getHost(), list(range(0, self.latt_info.Nd + 1)), dtype)
+    def lexico(self, force_numpy: bool = True):
+        if force_numpy:
+            return self.latt_info.lexico(self.getHost(), self.L5 is not None)
+        else:
+            return self.latt_info.lexico(self.data, self.L5 is not None, self.location)
+
+    def fft(self):
+        data = self.lexico()
+        data_hat = fieldFFT(self.latt_info.size[::-1] + self.field_shape, data)
+        return self.__class__(
+            self.latt_info, arrayDevice(self.latt_info.evenodd(data_hat, False), self.location)
+        )
 
     def checksum(self) -> Tuple[int, int]:
         return checksum(self.latt_info, self.lexico().reshape(self.latt_info.volume, self.field_size).view("<u4"))
@@ -796,7 +850,7 @@ class FullField:
                     if rank == source and rank == dest:
                         pass
                     else:
-                        sendbuf_host = arrayHost(sendbuf, self.location)
+                        sendbuf_host = arrayHostCopy(sendbuf, self.location)
                         request = getMPIComm().Isend(sendbuf_host, dest)
 
                     right_tmp = right_flat[odd].reshape(
@@ -825,7 +879,7 @@ class FullField:
                     if rank == source and rank == dest:
                         pass
                     else:
-                        sendbuf_host = arrayHost(sendbuf, self.location)
+                        sendbuf_host = arrayHostCopy(sendbuf, self.location)
                         request = getMPIComm().Isend(sendbuf_host, dest)
 
                     right_tmp = right_flat[even].reshape(
@@ -859,7 +913,7 @@ class FullField:
                 if rank == source and rank == dest:
                     pass
                 else:
-                    sendbuf_host = arrayHost(sendbuf, self.location)
+                    sendbuf_host = arrayHostCopy(sendbuf, self.location)
                     request = getMPIComm().Isend(sendbuf_host, dest)
 
                 left_slice[mu] = slice(None, -1) if direction == 1 else slice(1, None)
@@ -971,9 +1025,6 @@ class MultiField:
 
     def copy(self):
         return self.__class__(self.latt_info, self.L5, self.backup())
-
-    def lexico(self, dtype=None):
-        return lexico(self.getHost(), list(range(1, self.latt_info.Nd + 2)), dtype)
 
     def checksum(self) -> List[Tuple[int, int]]:
         return [self[index].checksum() for index in range(self.L5)]

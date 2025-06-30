@@ -1,25 +1,25 @@
 import numpy as np
 
-from .core import getRankFromCoord, evenodd, LatticeGauge, LatticeFermion, X, Y, Z, T
+from .core import getRankFromCoord, LatticeGauge, LatticeFermion, X, Y, Z, T
 
 
 def quasiAxialGaugeFixing(gauge: LatticeGauge, dir: int):
     import cupy
     from opt_einsum import contract
 
+    latt_info = gauge.latt_info
     GLi, Gi, gi, Li = (
-        gauge.latt_info.global_size[dir],
-        gauge.latt_info.grid_size[dir],
-        gauge.latt_info.grid_coord[dir],
-        gauge.latt_info.size[dir],
+        latt_info.global_size[dir],
+        latt_info.grid_size[dir],
+        latt_info.grid_coord[dir],
+        latt_info.size[dir],
     )
-    Nc = gauge.latt_info.Nc
-    comm = gauge.latt_info.mpi_comm
+    Nc = latt_info.Nc
+    comm = latt_info.mpi_comm
 
     def get_neighbor_rank(value: int):
         return getRankFromCoord(
-            [gauge.latt_info.grid_coord[i] if i != dir else value for i in range(len(gauge.latt_info.grid_coord))],
-            gauge.latt_info.grid_size,
+            [latt_info.grid_coord[i] if i != dir else value for i in range(len(latt_info.grid_coord))]
         )
 
     axes = [0, 1, 2, 3, 4, 5]
@@ -57,9 +57,9 @@ def quasiAxialGaugeFixing(gauge: LatticeGauge, dir: int):
     rotate[0] = contract("xab,xb->xab", v, cupy.exp(1j * (gi * Li) / GLi * w))
     for i in range(1, Li):
         rotate[i] = contract("xba,xbc,xc->xac", gauge_prod[i - 1].conj(), v, cupy.exp(1j * (i + gi * Li) / GLi * w))
-    rotate = LatticeGauge(gauge.latt_info, 1, evenodd(rotate.reshape(*axes_shape).transpose(*axes).get(), [0, 1, 2, 3]))
+    rotate = LatticeGauge(latt_info, 1, latt_info.evenodd(rotate.reshape(*axes_shape).transpose(*axes).get(), False))
     rotate.toDevice()
-    rotate_ = LatticeFermion(gauge.latt_info)
+    rotate_ = LatticeFermion(latt_info)
     rotate.pack(0, rotate_)
     gauge.data = contract("wtzyxba,dwtzyxbc->dwtzyxac", rotate.data.conj(), gauge.data)
     gauge.gauge_dirac.loadGauge(gauge)

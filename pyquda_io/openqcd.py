@@ -13,7 +13,7 @@ Nd, Ns, Nc = 4, 4, 3
 def readGauge(filename: str, plaquette: bool = True, lexico: bool = True):
     filename = path.expanduser(path.expandvars(filename))
     with open(filename, "rb") as f:
-        latt_size = struct.unpack("<iiii", f.read(16))[::-1]
+        latt_size = list(struct.unpack("<iiii", f.read(16))[::-1])
         plaquette_ = struct.unpack("<d", f.read(8))[0] / Nc
         offset = f.tell()
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
@@ -42,17 +42,19 @@ def readGauge(filename: str, plaquette: bool = True, lexico: bool = True):
     return latt_size, gauge
 
 
-def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray, plaquette: float = None, lexico: bool = True):
+def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray, plaquette: float = 0.0, lexico: bool = True):
     filename = path.expanduser(path.expandvars(filename))
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     dtype, offset = "<c16", None
 
     gauge = gauge.astype(dtype)
+    if plaquette is None:
+        plaquette = 0.0
     if lexico:
-        if plaquette is None:
+        if plaquette == 0.0:
             plaquette = gaugePlaquette(latt_size, gauge)[0]
         gauge = gaugeEvenOdd([Lx, Ly, Lz, Lt], gauge)
-    elif plaquette is None:
+    elif plaquette == 0.0:
         plaquette = gaugePlaquette(latt_size, gaugeLexico([Lx, Ly, Lz, Lt], gauge))[0]
     gauge = gaugeEvenShiftBackward(latt_size, gauge)
     gauge_reorder = numpy.zeros((Lt, Lx, Ly, Lz // 2, Nd, 2, Nc, Nc), dtype)

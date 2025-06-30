@@ -4,7 +4,7 @@ from typing import Sequence
 import numpy
 
 from pyquda_comm.array import arrayDevice, arrayZeros, arrayExp
-from .core import getLogger, getCUDABackend, evenodd, LatticeInfo
+from .core import getLogger, getCUDABackend, LatticeInfo
 
 
 def getMomList(mom2_max, mom2_min=0):
@@ -93,7 +93,7 @@ class GridPhase:
         phase = numpy.zeros((Lt, Lz, Ly, Lx), "<i4")
         if sx < Lx and sy < Ly and sz < Lz and st < Lt:
             phase[st::St, sz::Sz, sy::Sy, sx::Sx] = 1
-        phase = evenodd(phase, [0, 1, 2, 3])
+        phase = self.latt_info.evenodd(phase, False)
 
         backend = getCUDABackend()
         return arrayDevice(phase, backend)

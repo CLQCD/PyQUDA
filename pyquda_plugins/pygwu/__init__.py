@@ -140,7 +140,7 @@ def readEigenSystem(latt_info: LatticeInfo, eignum: int, file: str, use_fp32: bo
     Ns, Nc = latt_info.Ns, latt_info.Nc
     if use_fp32:
         eigvecs_raw = readMPIFile(f"{file}.s", "<c8", 0, (eignum, Lt, Lz, Ly, Lx, Ns, Nc), (4, 3, 2, 1)).astype("<c16")
-        eigvecs = MultiLatticeFermion(latt_info, eignum, evenodd(eigvecs_raw, [1, 2, 3, 4]))
+        eigvecs = MultiLatticeFermion(latt_info, eignum, latt_info.evenodd(eigvecs_raw, True))
     else:
         eigvecs_raw = (
             readMPIFile(file, ">f8", 0, (eignum, 2, Ns, Nc, Lt, Lz, Ly, Lx), (7, 6, 5, 4))
@@ -151,7 +151,7 @@ def readEigenSystem(latt_info: LatticeInfo, eignum: int, file: str, use_fp32: bo
             .view("<c16")
         )
         eigvecs = negMultiFermionFromDiracPauli(
-            MultiLatticeFermion(latt_info, eignum, evenodd(eigvecs_raw, [1, 2, 3, 4]))
+            MultiLatticeFermion(latt_info, eignum, latt_info.evenodd(eigvecs_raw, True))
         )
     getLogger().info(f"Read {eignum} eigen system in {perf_counter() - s:.3} secs")
     return eigvals[:eignum], eigvecs
@@ -171,7 +171,7 @@ def readEigenSystemInChunks(latt_info: LatticeInfo, eignum: int, file: str, use_
             f"{file}.s", "<c8", 0, eignum, (Lt, Lz, Ly, Lx, Ns, Nc), (3, 2, 1, 0)
         ):
             eigvecs_raw = eigvecs_raw.astype("<c16")
-            eigvecs[i] = LatticeFermion(latt_info, evenodd(eigvecs_raw, [0, 1, 2, 3]))
+            eigvecs[i] = LatticeFermion(latt_info, latt_info.evenodd(eigvecs_raw, False))
     else:
         for i, eigvecs_raw in readMPIFileInChunks(file, ">f8", 0, eignum, (2, Ns, Nc, Lt, Lz, Ly, Lx), (6, 5, 4, 3)):
             eigvecs_raw = (
@@ -181,7 +181,7 @@ def readEigenSystemInChunks(latt_info: LatticeInfo, eignum: int, file: str, use_
                 .copy()
                 .view("<c16")
             )
-            eigvecs[i] = negFermionFromDiracPauli(LatticeFermion(latt_info, evenodd(eigvecs_raw, [0, 1, 2, 3])))
+            eigvecs[i] = negFermionFromDiracPauli(LatticeFermion(latt_info, latt_info.evenodd(eigvecs_raw, False)))
     getLogger().info(f"Read {eignum} eigen system in {perf_counter() - s:.3} secs")
     return eigvals[:eignum], eigvecs
 

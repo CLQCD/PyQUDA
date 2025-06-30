@@ -1,7 +1,7 @@
-from typing import List
+from typing import List, Optional
 import numpy
 
-from .core import evenodd, getGridSize, LatticeGauge, LatticeInfo, LatticePropagator
+from .core import getGridSize, LatticeGauge, LatticeInfo, LatticePropagator
 
 import gpt as g
 
@@ -24,7 +24,7 @@ def LatticeInfoGPT(grid: g.grid, gen_simd_width: int):
     return LatticeInfo(grid.fdimensions), [sublatt_size[i] // simd[i] for i in range(Nd)], simd, precision
 
 
-def LatticeGaugeGPT(lattice: List[g.lattice], gen_simd_width: int, gauge: LatticeGauge = None):
+def LatticeGaugeGPT(lattice: List[g.lattice], gen_simd_width: int, gauge: Optional[LatticeGauge] = None):
     latt_info, gpt_latt, gpt_simd, gpt_prec = LatticeInfoGPT(lattice[0].grid, gen_simd_width)
     Lx, Ly, Lz, Lt = latt_info.size
     Nc = latt_info.Nc
@@ -34,14 +34,14 @@ def LatticeGaugeGPT(lattice: List[g.lattice], gen_simd_width: int, gauge: Lattic
         value = []
         for index in range(latt_info.Nd):
             value.append(
-                evenodd(
+                latt_info.evenodd(
                     numpy.asarray(lattice[index].mview()[0])
                     .view(f"<c{2 * gpt_prec}")
                     .reshape(*gpt_latt[::-1], Nc, Nc, *gpt_simd[::-1])
                     .transpose(6, 0, 7, 1, 8, 2, 9, 3, 4, 5)
                     .reshape(Lt, Lz, Ly, Lx, Nc, Nc)
                     .astype("<c16"),
-                    [0, 1, 2, 3],
+                    False,
                 )
             )
         gauge = LatticeGauge(latt_info, numpy.asarray(value))
@@ -62,20 +62,20 @@ def LatticeGaugeGPT(lattice: List[g.lattice], gen_simd_width: int, gauge: Lattic
             )
 
 
-def LatticePropagatorGPT(lattice: g.lattice, gen_simd_width: int, propagator: LatticePropagator = None):
+def LatticePropagatorGPT(lattice: g.lattice, gen_simd_width: int, propagator: Optional[LatticePropagator] = None):
     latt_info, gpt_latt, gpt_simd, gpt_prec = LatticeInfoGPT(lattice.grid, gen_simd_width)
     Lx, Ly, Lz, Lt = latt_info.size
     Ns, Nc = latt_info.Ns, latt_info.Nc
     assert lattice.describe().startswith(f"ot_matrix_spin_color({Ns},{Nc})")
     if propagator is None:
-        value = evenodd(
+        value = latt_info.evenodd(
             numpy.asarray(lattice.mview()[0])
             .view(f"<c{2 * gpt_prec}")
             .reshape(*gpt_latt[::-1], Ns, Ns, Nc, Nc, *gpt_simd[::-1])
             .transpose(8, 0, 9, 1, 10, 2, 11, 3, 4, 5, 6, 7)
             .reshape(Lt, Lz, Ly, Lx, Ns, Ns, Nc, Nc)
             .astype("<c16"),
-            [0, 1, 2, 3],
+            False,
         )
         propagator = LatticePropagator(latt_info, value)
         propagator.toDevice()

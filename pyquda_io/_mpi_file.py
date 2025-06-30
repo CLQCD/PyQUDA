@@ -3,26 +3,17 @@ from typing import Sequence
 from pyquda_comm import (  # noqa: F401
     initGrid,
     isGridInitialized,
+    getCoordFromRank,
+    getRankFromCoord,
+    getSublatticeSize,
     getMPIComm,
     getMPISize,
     getMPIRank,
     getGridSize,
     getGridCoord,
-    getCoordFromRank,
-    getRankFromCoord,
     readMPIFile,
     writeMPIFile,
 )
-
-
-def getSublatticeSize(latt_size: Sequence[int], evenodd: bool = True):
-    GLx, GLy, GLz, GLt = latt_size
-    Gx, Gy, Gz, Gt = getGridSize()
-    if evenodd:
-        assert GLx % (2 * Gx) == 0 and GLy % (2 * Gy) == 0 and GLz % (2 * Gz) == 0 and GLt % (2 * Gt) == 0
-    else:
-        assert GLx % Gx == 0 and GLy % Gy == 0 and GLz % Gz == 0 and GLt % Gt == 0
-    return [GLx // Gx, GLy // Gy, GLz // Gz, GLt // Gt]
 
 
 def getNeighbourRank():

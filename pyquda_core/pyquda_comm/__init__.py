@@ -1,13 +1,14 @@
 import logging
+from math import prod
 from os import environ
 from sys import stdout
-from typing import Any, Callable, Dict, List, Literal, NamedTuple, Sequence, Type, Union
+from typing import List, Literal, NamedTuple, Optional, Sequence, Tuple, Type, get_args
 
 import numpy
 from mpi4py import MPI
 from mpi4py.util import dtlib
 
-from .array import BackendType
+from .array import BackendType, cudaDeviceAPI
 
 
 class _MPILogger:
@@ -56,8 +57,8 @@ _MPI_LOGGER: _MPILogger = _MPILogger()
 _MPI_COMM: MPI.Intracomm = MPI.COMM_WORLD
 _MPI_SIZE: int = _MPI_COMM.Get_size()
 _MPI_RANK: int = _MPI_COMM.Get_rank()
-_GRID_SIZE: Union[List[int], None] = None
-_GRID_COORD: Union[List[int], None] = None
+_GRID_SIZE: Optional[Tuple[int, ...]] = None
+_GRID_COORD: Optional[Tuple[int, ...]] = None
 _GRID_MAP: Literal["XYZT_FASTEST", "TZYX_FASTEST"] = "XYZT_FASTEST"
 """For MPI, the default node mapping is lexicographical with t varying fastest."""
 _CUDA_BACKEND: BackendType = "cupy"
@@ -66,8 +67,8 @@ _CUDA_DEVICE: int = -1
 _CUDA_COMPUTE_CAPABILITY: _ComputeCapability = _ComputeCapability(0, 0)
 
 
-def getRankFromCoord(grid_coord: List[int], grid_size: List[int] = None) -> int:
-    def _process(xyzt: List[int]):
+def getRankFromCoord(grid_coord: List[int]) -> int:
+    def _map(xyzt: List[int]):
         if _GRID_MAP == "XYZT_FASTEST":
             return xyzt
         elif _GRID_MAP == "TZYX_FASTEST":
@@ -75,16 +76,21 @@ def getRankFromCoord(grid_coord: List[int], grid_size: List[int] = None) -> int:
         else:
             _MPI_LOGGER.critical(f"Unsupported grid mapping {_GRID_MAP}", ValueError)
 
-    grid_size = _process(_GRID_SIZE if grid_size is None else grid_size)
-    grid_coord = _process(grid_coord)
+    grid_size = _map(getGridSize())
+    grid_coord = _map(grid_coord)
+    if len(grid_coord) != len(grid_size):
+        _MPI_LOGGER.critical(
+            f"Grid coordinate {grid_coord} and grid size {grid_size} must have the same dimension",
+            ValueError,
+        )
     mpi_rank = 0
     for g, G in zip(grid_coord, grid_size):
         mpi_rank = mpi_rank * G + g
     return mpi_rank
 
 
-def getCoordFromRank(mpi_rank: int, grid_size: List[int] = None) -> List[int]:
-    def _process(xyzt: List[int]):
+def getCoordFromRank(mpi_rank: int) -> List[int]:
+    def _map(xyzt: List[int]):
         if _GRID_MAP == "XYZT_FASTEST":
             return xyzt[::-1]
         elif _GRID_MAP == "TZYX_FASTEST":
@@ -92,17 +98,37 @@ def getCoordFromRank(mpi_rank: int, grid_size: List[int] = None) -> List[int]:
         else:
             _MPI_LOGGER.critical(f"Unsupported grid mapping {_GRID_MAP}", ValueError)
 
-    if grid_size is None:
-        assert isGridInitialized()
-        grid_size = _process(_GRID_SIZE)
-    else:
-        grid_size = _process(grid_size)
+    grid_size = _map(getGridSize())
     grid_coord = []
     for G in grid_size:
         grid_coord.append(mpi_rank % G)
         mpi_rank //= G
-    grid_coord = _process(grid_coord)
+    grid_coord = _map(grid_coord)
     return grid_coord
+
+
+def getSublatticeSize(latt_size: List[int], evenodd: bool = True):
+    grid_size = getGridSize()
+    if len(latt_size) != len(grid_size):
+        _MPI_LOGGER.critical(
+            f"Lattice size {latt_size} and grid size {grid_size} must have the same dimension",
+            ValueError,
+        )
+    if evenodd:
+        if not all([(GL % (2 * G) == 0 or GL * G == 1) for GL, G in zip(latt_size, grid_size)]):
+            _MPI_LOGGER.critical(
+                f"lattice size {latt_size} must be divisible by gird size {grid_size}, "
+                "and sublattice size must be even in all directions for consistant even-odd preconditioning, "
+                "otherwise the lattice size and grid size for this direction must be 1",
+                ValueError,
+            )
+    else:
+        if not all([(GL % G == 0) for GL, G in zip(latt_size, grid_size)]):
+            _MPI_LOGGER.critical(
+                f"lattice size {latt_size} must be divisible by gird size {grid_size}",
+                ValueError,
+            )
+    return [GL // G for GL, G in zip(latt_size, grid_size)]
 
 
 def _composition(n: int, d: int):
@@ -192,13 +218,13 @@ def initGrid(grid_size: List[int], latt_size: List[int] = None, evenodd: bool = 
     if _GRID_SIZE is None:
         if grid_size is None and latt_size is not None:
             grid_size = getDefaultGrid(_MPI_SIZE, latt_size, evenodd)
-        grid_size = grid_size if grid_size is not None else [1, 1, 1, 1]
+        if grid_size is None:
+            grid_size = [1, 1, 1, 1]
 
-        Gx, Gy, Gz, Gt = grid_size
-        if _MPI_SIZE != Gx * Gy * Gz * Gt:
+        if _MPI_SIZE != prod(grid_size):
             _MPI_LOGGER.critical(f"The MPI size {_MPI_SIZE} does not match the grid size {grid_size}", ValueError)
-        _GRID_SIZE = [Gx, Gy, Gz, Gt]
-        _GRID_COORD = getCoordFromRank(_MPI_RANK, _GRID_SIZE)
+        _GRID_SIZE = tuple(grid_size)
+        _GRID_COORD = tuple(getCoordFromRank(_MPI_RANK))
         _MPI_LOGGER.info(f"Using the grid size {_GRID_SIZE}")
     else:
         _MPI_LOGGER.warning("Grid is already initialized", RuntimeWarning)
@@ -211,29 +237,10 @@ def initDevice(backend: BackendType = None, device: int = -1, enable_mps: bool =
 
         if backend is None:
             backend = environ["PYQUDA_BACKEND"] if "PYQUDA_BACKEND" in environ else "cupy"
-        if backend == "numpy":
-            cudaGetDeviceCount: Callable[[], int] = lambda: 0x7FFFFFFF
-            cudaGetDeviceProperties: Callable[[int], Dict[str, Any]] = lambda device: {"major": 0, "minor": 0}
-            cudaSetDevice: Callable[[int], None] = lambda device: None
-        elif backend == "cupy":
-            import cupy
-            from cupy.cuda.runtime import getDeviceCount as cudaGetDeviceCount
-            from cupy.cuda.runtime import getDeviceProperties as cudaGetDeviceProperties
-            from cupy.cuda.runtime import is_hip
-
-            cudaSetDevice: Callable[[int], None] = lambda device: cupy.cuda.Device(device).use()
-            _CUDA_IS_HIP = is_hip
-        elif backend == "torch":
-            import torch
-            from torch.cuda import device_count as cudaGetDeviceCount
-            from torch.cuda import get_device_properties as cudaGetDeviceProperties
-            from torch.version import hip
-
-            cudaSetDevice: Callable[[int], None] = lambda device: torch.set_default_device(f"cuda:{device}")
-            _CUDA_IS_HIP = hip is not None
-        else:
+        if backend not in get_args(BackendType):
             _MPI_LOGGER.critical(f"Unsupported CUDA backend {backend}", ValueError)
         _CUDA_BACKEND = backend
+        cudaGetDeviceCount, cudaGetDeviceProperties, cudaSetDevice, _CUDA_IS_HIP = cudaDeviceAPI(backend)
         _MPI_LOGGER.info(f"Using CUDA backend {backend}")
 
         # quda/include/communicator_quda.h
@@ -302,13 +309,13 @@ def getMPIRank():
 def getGridSize():
     if _GRID_SIZE is None:
         _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
-    return _GRID_SIZE
+    return list(_GRID_SIZE)
 
 
 def getGridCoord():
     if _GRID_COORD is None:
         _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
-    return _GRID_COORD
+    return list(_GRID_COORD)
 
 
 def getGridMap():
@@ -410,3 +417,100 @@ def writeMPIFileInChunks(
         fh.Write_all(buf)
     filetype.Free()
     fh.Close()
+
+
+def fieldFFT(shape: Sequence[int], buf: numpy.ndarray):
+    from time import perf_counter
+
+    size = getMPISize()
+    rank = getMPIRank()
+    grid_size = getGridSize()
+    grid_coord = getGridCoord()
+    Nd = len(grid_size)
+    sublatt_size = list(shape[:Nd][::-1])
+    field_shape = list(shape[Nd:])
+
+    G = numpy.array(grid_size, dtype="<i4")
+    g = numpy.array(grid_coord, dtype="<i4")
+    gp = numpy.array([getCoordFromRank(i) for i in range(size)], dtype="<i4")
+    L = numpy.array(sublatt_size, dtype="<i4")
+    F = numpy.array(field_shape, dtype="<i4")
+
+    send_offsets = (g * L + gp) % G
+    send_subsizes = (L - (g * L + gp) % G - 1) // G + 1
+    send_starts_cumsum = numpy.cumsum(numpy.insert(send_subsizes, 0, 0, axis=0), axis=0)
+    send_starts = numpy.empty_like(send_subsizes)
+    recv_subsizes = (L - (gp * L + g) % G - 1) // G + 1
+    recv_starts_cumsum = numpy.cumsum(numpy.insert(recv_subsizes, 0, 0, axis=0), axis=0)
+    recv_starts = numpy.empty_like(recv_subsizes)
+    for i in range(size):
+        send_starts[i] = numpy.array([send_starts_cumsum.T[ic, c] for ic, c in enumerate(gp[i])], "<i4")
+        recv_starts[i] = numpy.array([recv_starts_cumsum.T[ic, c] for ic, c in enumerate(gp[i])], "<i4")
+
+    sendtypes = [
+        dtlib.from_numpy_dtype("<c16").Create_subarray(
+            L.tolist() + F.tolist(),
+            send_subsizes[i].tolist() + F.tolist(),
+            send_starts[i].tolist() + numpy.zeros_like(F).tolist(),
+        )
+        for i in range(size)
+    ]
+    recvtypes = [
+        dtlib.from_numpy_dtype("<c16").Create_subarray(
+            L.tolist() + F.tolist(),
+            recv_subsizes[i].tolist() + F.tolist(),
+            recv_starts[i].tolist() + numpy.zeros_like(F).tolist(),
+        )
+        for i in range(size)
+    ]
+
+    s = perf_counter()
+    sendbuf = numpy.empty_like(buf)
+    recvbuf = numpy.empty_like(buf)
+    for i in range(size):
+        sendtypes[i].Commit()
+        recvtypes[i].Commit()
+        left_slices = tuple([slice(send_starts[i, d], send_starts[i, d] + send_subsizes[i, d]) for d in range(Nd)])
+        right_slices = tuple([slice(send_offsets[i, d], None, G[d]) for d in range(Nd)])
+        sendbuf[left_slices[::-1]] = buf[right_slices[::-1]]
+    getMPIComm().Alltoallw((sendbuf, sendtypes), (recvbuf, recvtypes))
+    for i in range(size):
+        sendtypes[i].Free()
+        recvtypes[i].Free()
+    print(f"Alltoallw time: {perf_counter() - s:.6f} seconds")
+
+    from pyfftw.interfaces import numpy_fft
+
+    s = perf_counter()
+    sendbuf[:] = numpy_fft.fftn(recvbuf, axes=list(range(0, Nd)))
+    print(f"FFTW time: {perf_counter() - s:.6f} seconds")
+
+    s = perf_counter()
+    k = numpy.indices(L[::-1].tolist(), dtype="<i4")
+    gk = g[0] * k[Nd - 1 - 0] / G[0] / L[0]
+    for d in range(1, Nd):
+        gk += g[d] * k[Nd - 1 - d] / G[d] / L[d]
+    sendbuf *= numpy.exp(-2j * numpy.pi * gk).reshape(*L[::-1].tolist(), *numpy.ones_like(F).tolist())
+    print(f"Phase time: {perf_counter() - s:.6f} seconds")
+
+    s = perf_counter()
+    for d in range(Nd):
+        buf_hat = numpy.exp(-2j * numpy.pi * (g * g / G)[d]) * sendbuf
+        for i in range(1, grid_size[d]):
+            grid_coord[d] = (grid_coord[d] - i) % grid_size[d]
+            dest = getRankFromCoord(grid_coord)
+            grid_coord[d] = (grid_coord[d] + 2 * i) % grid_size[d]
+            source = getRankFromCoord(grid_coord)
+            grid_coord[d] = (grid_coord[d] - i) % grid_size[d]
+            getMPIComm().Sendrecv(sendbuf, dest, i, recvbuf, source, i)
+            buf_hat += numpy.exp(-2j * numpy.pi * (g * gp[source] / G)[d]) * recvbuf
+        sendbuf = buf_hat
+   # buf_hat = numpy.exp(-2j * numpy.pi * numpy.sum(g * g / G)) * sendbuf
+    # for i in range(1, size):
+    #     dest = (rank - i) % size
+    #     source = (rank + i) % size
+    #     getMPIComm().Sendrecv(sendbuf, dest, i, recvbuf, source, i)
+    #     buf_hat += numpy.exp(-2j * numpy.pi * numpy.sum(g * gp[source] / G)) * recvbuf
+    print(f"Sendrecv time: {perf_counter() - s:.6f} seconds")
+
+    return buf_hat

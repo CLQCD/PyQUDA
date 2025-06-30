@@ -84,12 +84,14 @@ def readGauge(
 
 
 def writeGauge(
-    filename: str, latt_size: List[int], gauge: numpy.ndarray, plaquette: float = None, use_fp32: bool = False
+    filename: str, latt_size: List[int], gauge: numpy.ndarray, plaquette: float = 0.0, use_fp32: bool = False
 ):
     filename = path.expanduser(path.expandvars(filename))
     float_nbytes = 4 if use_fp32 else 8
     dtype, offset = f"<c{2 * float_nbytes}", None
     if plaquette is None:
+        plaquette = 0.0
+    if plaquette == 0.0:
         plaquette = gaugePlaquette(latt_size, gauge)[0]
     gauge = numpy.ascontiguousarray(gauge.transpose(1, 2, 3, 4, 0, 5, 6).astype(dtype))
     link_trace = link_trace_nersc(gauge)
