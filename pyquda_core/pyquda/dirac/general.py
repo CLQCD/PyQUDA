@@ -1,4 +1,4 @@
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Optional
 
 import numpy
 from numpy.typing import NDArray
@@ -103,10 +103,10 @@ def getGlobalReconstruct():
 
 def setGlobalPrecision(
     *,
-    cuda: QudaPrecision = None,
-    sloppy: QudaPrecision = None,
-    precondition: QudaPrecision = None,
-    eigensolver: QudaPrecision = None,
+    cuda: Optional[QudaPrecision] = None,
+    sloppy: Optional[QudaPrecision] = None,
+    precondition: Optional[QudaPrecision] = None,
+    eigensolver: Optional[QudaPrecision] = None,
 ):
     global _precision
     _precision = Precision(
@@ -120,10 +120,10 @@ def setGlobalPrecision(
 
 def setGlobalReconstruct(
     *,
-    cuda: QudaReconstructType = None,
-    sloppy: QudaReconstructType = None,
-    precondition: QudaReconstructType = None,
-    eigensolver: QudaReconstructType = None,
+    cuda: Optional[QudaReconstructType] = None,
+    sloppy: Optional[QudaReconstructType] = None,
+    precondition: Optional[QudaReconstructType] = None,
+    eigensolver: Optional[QudaReconstructType] = None,
 ):
     global _reconstruct
     _reconstruct = Reconstruct(
@@ -147,10 +147,10 @@ def _useMMA():
 
 def setPrecisionParam(
     precision: Precision,
-    gauge_param: QudaGaugeParam = None,
-    invert_param: QudaInvertParam = None,
-    mg_param: QudaMultigridParam = None,
-    mg_inv_param: QudaInvertParam = None,
+    gauge_param: Optional[QudaGaugeParam] = None,
+    invert_param: Optional[QudaInvertParam] = None,
+    mg_param: Optional[QudaMultigridParam] = None,
+    mg_inv_param: Optional[QudaInvertParam] = None,
 ):
     if gauge_param is not None:
         gauge_param.cpu_prec = precision.cpu
@@ -193,7 +193,7 @@ def setPrecisionParam(
         mg_param.precision_null = [precision.precondition] * QUDA_MAX_MG_LEVEL
 
 
-def setReconstructParam(reconstruct: Reconstruct, gauge_param: QudaGaugeParam = None):
+def setReconstructParam(reconstruct: Reconstruct, gauge_param: Optional[QudaGaugeParam] = None):
     if gauge_param is not None:
         gauge_param.reconstruct = reconstruct.cuda
         gauge_param.reconstruct_sloppy = reconstruct.sloppy
@@ -216,7 +216,7 @@ def newQudaGaugeParam(
     gauge_param.scale = -(1 + naik_epsilon) / (24 * tadpole_coeff * tadpole_coeff)
     gauge_param.type = QudaLinkType.QUDA_WILSON_LINKS
     gauge_param.gauge_order = QudaGaugeFieldOrder.QUDA_QDP_GAUGE_ORDER
-    gauge_param.t_boundary = lattice.t_boundary
+    gauge_param.t_boundary = QudaTboundary(lattice.t_boundary)
 
     gauge_param.gauge_fix = QudaGaugeFixed.QUDA_GAUGE_FIXED_NO
     gauge_param.ga_pad = lattice.ga_pad

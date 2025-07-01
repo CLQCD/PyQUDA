@@ -2,7 +2,7 @@ import logging
 from math import prod
 from os import environ
 from sys import stdout
-from typing import List, Literal, NamedTuple, Optional, Sequence, Tuple, Type, get_args
+from typing import Generator, List, Literal, NamedTuple, Optional, Sequence, Tuple, Type, Union, get_args
 
 import numpy
 from mpi4py import MPI
@@ -167,10 +167,17 @@ def _factorization(k: int, d: int):
     return prime_factor
 
 
-def _partition(factor: List[List[List[int]]], sublatt_size: List[int], grid_size: List[int] = None, idx: int = 0):
+def _partition(
+    factor: Union[int, List[List[List[int]]]],
+    sublatt_size: List[int],
+    grid_size: Optional[List[int]] = None,
+    idx: int = 0,
+) -> Generator[List[int], None, None]:
     if idx == 0:
+        assert isinstance(factor, int) and grid_size is None
         grid_size = [1 for _ in range(len(sublatt_size))]
         factor = _factorization(factor, len(sublatt_size))
+    assert isinstance(factor, list) and grid_size is not None
     if idx == len(factor):
         yield grid_size
     else:
@@ -187,7 +194,7 @@ def _partition(factor: List[List[List[int]]], sublatt_size: List[int], grid_size
                 )
 
 
-def getDefaultGrid(mpi_size: int, latt_size: List[int], evenodd: bool = True):
+def getDefaultGrid(mpi_size: int, latt_size: Sequence[int], evenodd: bool = True):
     Lx, Ly, Lz, Lt = latt_size
     latt_vol = Lx * Ly * Lz * Lt
     latt_surf = [latt_vol // latt_size[dir] for dir in range(4)]
@@ -213,7 +220,7 @@ def getDefaultGrid(mpi_size: int, latt_size: List[int], evenodd: bool = True):
     return min(min_grid)
 
 
-def initGrid(grid_size: List[int], latt_size: List[int] = None, evenodd: bool = True):
+def initGrid(grid_size: Optional[Sequence[int]], latt_size: Optional[Sequence[int]] = None, evenodd: bool = True):
     global _GRID_SIZE, _GRID_COORD
     if _GRID_SIZE is None:
         if grid_size is None and latt_size is not None:
@@ -230,13 +237,14 @@ def initGrid(grid_size: List[int], latt_size: List[int] = None, evenodd: bool = 
         _MPI_LOGGER.warning("Grid is already initialized", RuntimeWarning)
 
 
-def initDevice(backend: BackendType = None, device: int = -1, enable_mps: bool = False):
+def initDevice(backend: Optional[BackendType] = None, device: int = -1, enable_mps: bool = False):
     global _CUDA_BACKEND, _CUDA_IS_HIP, _CUDA_DEVICE, _CUDA_COMPUTE_CAPABILITY
     if _CUDA_DEVICE < 0:
         from platform import node as gethostname
 
         if backend is None:
             backend = environ["PYQUDA_BACKEND"] if "PYQUDA_BACKEND" in environ else "cupy"
+        assert backend is not None
         if backend not in get_args(BackendType):
             _MPI_LOGGER.critical(f"Unsupported CUDA backend {backend}", ValueError)
         _CUDA_BACKEND = backend
@@ -505,7 +513,7 @@ def fieldFFT(shape: Sequence[int], buf: numpy.ndarray):
             getMPIComm().Sendrecv(sendbuf, dest, i, recvbuf, source, i)
             buf_hat += numpy.exp(-2j * numpy.pi * (g * gp[source] / G)[d]) * recvbuf
         sendbuf = buf_hat
-   # buf_hat = numpy.exp(-2j * numpy.pi * numpy.sum(g * g / G)) * sendbuf
+    # buf_hat = numpy.exp(-2j * numpy.pi * numpy.sum(g * g / G)) * sendbuf
     # for i in range(1, size):
     #     dest = (rank - i) % size
     #     source = (rank + i) % size

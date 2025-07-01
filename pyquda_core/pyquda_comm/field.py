@@ -812,9 +812,7 @@ class FullField:
     def fft(self):
         data = self.lexico()
         data_hat = fieldFFT(self.latt_info.size[::-1] + self.field_shape, data)
-        return self.__class__(
-            self.latt_info, arrayDevice(self.latt_info.evenodd(data_hat, False), self.location)
-        )
+        return self.__class__(self.latt_info, arrayDevice(self.latt_info.evenodd(data_hat, False), self.location))
 
     def checksum(self) -> Tuple[int, int]:
         return checksum(self.latt_info, self.lexico().reshape(self.latt_info.volume, self.field_size).view("<u4"))

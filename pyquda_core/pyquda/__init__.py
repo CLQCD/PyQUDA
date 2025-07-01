@@ -1,5 +1,5 @@
 from os import environ, path
-from typing import List, Literal, Union
+from typing import List, Literal, Optional, Union
 
 from ._version import __version__  # noqa: F401
 from pyquda_comm import (  # noqa: F401
@@ -81,11 +81,11 @@ def initQUDA(grid_size: List[int], device: int, use_quda_allocator: bool = False
 
 
 def init(
-    grid_size: List[int] = None,
-    latt_size: List[int] = None,
-    t_boundary: Literal[1, -1] = None,
-    anisotropy: float = None,
-    backend: BackendType = None,
+    grid_size: Optional[List[int]] = None,
+    latt_size: Optional[List[int]] = None,
+    t_boundary: Optional[Literal[1, -1]] = None,
+    anisotropy: Optional[float] = None,
+    backend: Optional[BackendType] = None,
     init_quda: bool = True,
     *,
     resource_path: str = "",
@@ -133,6 +133,7 @@ def init(
                 f"Using the lattice size {latt_size} only for getting the default grid size {getGridSize()}"
             )
         if use_default_latt:
+            assert latt_size is not None and t_boundary is not None and anisotropy is not None
             _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
             getLogger().info(f"Using the default lattice LatticeInfo({latt_size}, {t_boundary}, {anisotropy})")
 
@@ -142,10 +143,12 @@ def init(
                 resource_path=path.expanduser(path.expandvars(resource_path)) if resource_path != "" else None
             )
             _setEnviron(
-                rank_verbosity=",".join(rank_verbosity) if rank_verbosity != [0] else None,
+                rank_verbosity=",".join([str(i) for i in rank_verbosity]) if rank_verbosity != [0] else None,
                 enable_mps="1" if enable_mps else None,
                 enable_gdr="1" if enable_gdr else None,
-                enable_gdr_blacklist=",".join(enable_gdr_blacklist) if enable_gdr_blacklist != [] else None,
+                enable_gdr_blacklist=(
+                    ",".join([str(i) for i in enable_gdr_blacklist]) if enable_gdr_blacklist != [] else None
+                ),
                 enable_p2p=str(enable_p2p) if enable_p2p != 3 else None,
                 enable_p2p_max_access_rank=(
                     str(enable_p2p_max_access_rank) if enable_p2p_max_access_rank < 0x7FFFFFFF else None
@@ -159,7 +162,9 @@ def init(
                 tune_version_check="0" if not tune_version_check else None,
                 tuning_rank=str(tuning_rank) if tuning_rank > 0 else None,
                 profile_output_base=profile_output_base if profile_output_base != "" else None,
-                enable_target_profile=",".join(enable_target_profile) if enable_target_profile != [] else None,
+                enable_target_profile=(
+                    ",".join([str(i) for i in enable_target_profile]) if enable_target_profile != [] else None
+                ),
                 do_not_profile="1" if do_not_profile else None,
                 enable_trace=str(enable_trace) if enable_trace > 0 else None,
                 enable_force_monitor="1" if enable_force_monitor else None,
