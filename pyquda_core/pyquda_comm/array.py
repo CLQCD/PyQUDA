@@ -31,7 +31,7 @@ def cudaDeviceAPI(backend: BackendType):
     return cudaGetDeviceCount, cudaGetDeviceProperties, cudaSetDevice, cudaIsHIP
 
 
-def arrayDType(dtype: DTypeLike, backend: BackendType):
+def arrayDType(dtype: DTypeLike, backend: BackendType) -> DTypeLike:
     if backend == "numpy":
         return numpy.dtype(dtype).type
     elif backend == "cupy":
@@ -179,7 +179,7 @@ def arrayRandom(shape: Sequence[int], backend: BackendType) -> NDArray:
     elif backend == "cupy":
         import cupy
 
-        return cupy.random.random(shape, dtype=cupy.float64)
+        return cupy.random.random(shape, dtype=numpy.float64)
     elif backend == "torch":
         import torch
 

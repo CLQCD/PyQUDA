@@ -2,7 +2,9 @@ from abc import abstractmethod
 from math import prod
 from os import path
 from time import perf_counter
-from typing import Any, List, Literal, Sequence, Tuple, Union
+from typing import Any, List, Literal, Optional, Sequence, Tuple, Type, TypeVar, Union
+
+Self = TypeVar("Self", bound="BaseField")
 
 import numpy
 from numpy.lib.format import dtype_to_descr, read_magic, read_array_header_1_0, write_array_header_1_0
@@ -20,7 +22,6 @@ from . import (
     getCUDABackend,
     readMPIFile,
     writeMPIFile,
-    fieldFFT,
 )
 from .array import (
     BackendType,
@@ -37,23 +38,21 @@ from .array import (
 )
 
 
-class LatticeInfo:
-    def __init__(
-        self, latt_size: List[int], t_boundary: Literal[1, -1] = 1, anisotropy: float = 1.0, Ns: int = 4, Nc: int = 3
-    ) -> None:
+class BaseInfo:
+    def __init__(self, latt_size: Sequence[int], force_even: bool, Ns: int = 4, Nc: int = 3) -> None:
         self.Nd = len(latt_size)
         self.Ns = Ns
         self.Nc = Nc
-        self._setLattice(latt_size, t_boundary, anisotropy)
+        self._setLattice(latt_size, force_even)
 
-    def _setLattice(self, latt_size: List[int], t_boundary: Literal[1, -1], anisotropy: float):
+    def _setLattice(self, latt_size: Sequence[int], force_even: bool):
         self.mpi_comm = getMPIComm()
         self.mpi_size = getMPISize()
         self.mpi_rank = getMPIRank()
         self.grid_size = getGridSize()
         self.grid_coord = getGridCoord()
 
-        sublatt_size = getSublatticeSize(latt_size)
+        sublatt_size = getSublatticeSize(latt_size, force_even)
         if self.Nd == 4:
             self.Gx, self.Gy, self.Gz, self.Gt = self.grid_size
             self.gx, self.gy, self.gz, self.gt = self.grid_coord
@@ -65,12 +64,21 @@ class LatticeInfo:
             self.GLt = latt_size[-1]
             self.Lt = sublatt_size[-1]
 
-        self.global_size = latt_size
+        self.global_size = [GL for GL in latt_size]
         self.global_volume = prod(latt_size)
         self.size = sublatt_size
         self.volume = prod(sublatt_size)
         self.ga_pad = self.volume // min(sublatt_size) // 2
 
+    def lexico(self, data: NDArray, multi: bool, backend: BackendType = "numpy") -> NDArray:
+        return arrayCopy(data, backend)
+
+
+class LatticeInfo(BaseInfo):
+    def __init__(
+        self, latt_size: List[int], t_boundary: Literal[1, -1] = 1, anisotropy: float = 1.0, Ns: int = 4, Nc: int = 3
+    ) -> None:
+        super().__init__(latt_size, True, Ns, Nc)
         self.t_boundary = t_boundary
         self.anisotropy = anisotropy
 
@@ -81,7 +89,7 @@ class LatticeInfo:
         self.even = eo == 0
         self.odd = eo == 1
 
-    def lexico(self, data: numpy.ndarray, multi: bool, backend: BackendType = "numpy"):
+    def lexico(self, data: NDArray, multi: bool, backend: BackendType = "numpy"):
         self._setEvenOdd()
         shape = data.shape
         if multi:
@@ -105,7 +113,7 @@ class LatticeInfo:
         else:
             return data_lexico.reshape(*sublatt_size[::-1], *field_shape)
 
-    def evenodd(self, data: numpy.ndarray, multi: bool, backend: BackendType = "numpy"):
+    def evenodd(self, data: NDArray, multi: bool, backend: BackendType = "numpy"):
         self._setEvenOdd()
         shape = data.shape
         if multi:
@@ -128,96 +136,9 @@ class LatticeInfo:
             return data_evenodd.reshape(2, *sublatt_size[::-1], *field_shape)
 
 
-class GeneralInfo:
-    def __init__(self, latt_size: List[int], Ns: int = 4, Nc: int = 3) -> None:
-        self.Nd = len(latt_size)
-        self.Ns = Ns
-        self.Nc = Nc
-        self._setLattice(latt_size)
-
-    def _setLattice(self, latt_size: List[int]):
-        self.mpi_comm = getMPIComm()
-        self.mpi_size = getMPISize()
-        self.mpi_rank = getMPIRank()
-        self.grid_size = getGridSize()
-        self.grid_coord = getGridCoord()
-
-        sublatt_size = getSublatticeSize(latt_size, False)
-
-        self.global_size = latt_size
-        self.global_volume = prod(latt_size)
-        self.size = sublatt_size
-        self.volume = prod(self.size)
-
-
-def lexico(data: numpy.ndarray, axes: List[int], dtype=None):
-    assert len(axes) == 5
-    shape = data.shape
-    Np, Lt, Lz, Ly, Lx = [shape[axis] for axis in axes]
-    assert Np == 2
-    Lx *= 2
-    Npre = prod(shape[: axes[0]])
-    Nsuf = prod(shape[axes[-1] + 1 :])
-    dtype = data.dtype if dtype is None else dtype
-    data_evenodd = data.reshape(Npre, 2, Lt, Lz, Ly, Lx // 2, Nsuf)
-    data_lexico = numpy.zeros((Npre, Lt, Lz, Ly, Lx, Nsuf), dtype)
-    for t in range(Lt):
-        for z in range(Lz):
-            for y in range(Ly):
-                eo = (t + z + y) % 2
-                if eo == 0:
-                    data_lexico[:, t, z, y, 0::2] = data_evenodd[:, 0, t, z, y, :]
-                    data_lexico[:, t, z, y, 1::2] = data_evenodd[:, 1, t, z, y, :]
-                else:
-                    data_lexico[:, t, z, y, 1::2] = data_evenodd[:, 0, t, z, y, :]
-                    data_lexico[:, t, z, y, 0::2] = data_evenodd[:, 1, t, z, y, :]
-    return data_lexico.reshape(*shape[: axes[0]], Lt, Lz, Ly, Lx, *shape[axes[-1] + 1 :])
-
-
-def evenodd(data: numpy.ndarray, axes: List[int], dtype=None):
-    assert len(axes) == 4
-    shape = data.shape
-    Lt, Lz, Ly, Lx = [shape[axis] for axis in axes]
-    Npre = prod(shape[: axes[0]])
-    Nsuf = prod(shape[axes[-1] + 1 :])
-    dtype = data.dtype if dtype is None else dtype
-    data_lexico = data.reshape(Npre, Lt, Lz, Ly, Lx, Nsuf)
-    data_evenodd = numpy.zeros((Npre, 2, Lt, Lz, Ly, Lx // 2, Nsuf), dtype)
-    for t in range(Lt):
-        for z in range(Lz):
-            for y in range(Ly):
-                eo = (t + z + y) % 2
-                if eo == 0:
-                    data_evenodd[:, 0, t, z, y, :] = data_lexico[:, t, z, y, 0::2]
-                    data_evenodd[:, 1, t, z, y, :] = data_lexico[:, t, z, y, 1::2]
-                else:
-                    data_evenodd[:, 0, t, z, y, :] = data_lexico[:, t, z, y, 1::2]
-                    data_evenodd[:, 1, t, z, y, :] = data_lexico[:, t, z, y, 0::2]
-    return data_evenodd.reshape(*shape[: axes[0]], 2, Lt, Lz, Ly, Lx // 2, *shape[axes[-1] + 1 :])
-
-
-def checksum(latt_info: Union[LatticeInfo, GeneralInfo], data: numpy.ndarray) -> Tuple[int, int]:
-    import zlib
-    from mpi4py import MPI
-
-    work = numpy.empty((latt_info.volume), "<u4")
-    for i in range(latt_info.volume):
-        work[i] = zlib.crc32(data[i])
-    sublatt_slice = tuple(slice(g * L, (g + 1) * L) for g, L in zip(latt_info.grid_coord[::-1], latt_info.size[::-1]))
-    rank = (
-        numpy.arange(latt_info.global_volume, dtype="<u8")
-        .reshape(*latt_info.global_size[::-1])[sublatt_slice]
-        .reshape(-1)
-    )
-    rank29 = (rank % 29).astype("<u4")
-    rank31 = (rank % 31).astype("<u4")
-    sum29 = latt_info.mpi_comm.allreduce(
-        numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)).item(), MPI.BXOR
-    )
-    sum31 = latt_info.mpi_comm.allreduce(
-        numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)).item(), MPI.BXOR
-    )
-    return sum29, sum31
+class LexicoInfo(BaseInfo):
+    def __init__(self, latt_size: Sequence[int], Ns: int = 4, Nc: int = 3) -> None:
+        super().__init__(latt_size, False, Ns, Nc)
 
 
 def read_array_header(filename: str) -> Tuple[Tuple[int, ...], str, int]:
@@ -239,7 +160,7 @@ def write_array_header(filename: str, shape: Tuple[int, ...], dtype: str):
 
 def _field_spin_color_dtype(
     field: str, shape: Sequence[int], use_fp32: bool
-) -> Tuple[Union[int, None], Union[int, None], str]:
+) -> Tuple[Optional[int], Optional[int], str]:
     float_nbytes = 4 if use_fp32 else 8
     if field in ["Int"]:
         () = shape
@@ -273,7 +194,7 @@ def _field_spin_color_dtype(
         getLogger().critical(f"Unknown field type: {field}", ValueError)
 
 
-def _field_shape_dtype(field: str, Ns: int, Nc: int, use_fp32: bool = False):
+def _field_shape_dtype(field: str, Ns: int, Nc: int, use_fp32: bool = False) -> Tuple[List[int], str]:
     float_nbytes = 4 if use_fp32 else 8
     if field in ["Int"]:
         return [], "<i4"
@@ -302,26 +223,28 @@ def _field_shape_dtype(field: str, Ns: int, Nc: int, use_fp32: bool = False):
 
 
 class BaseField:
-    def __init__(self, latt_info: Union[LatticeInfo, GeneralInfo]) -> None:
+    def __init__(self, latt_info: BaseInfo, *args, **kwargs) -> None:
         self.latt_info = latt_info
-        self._data = None
+        self._data: NDArray = numpy.empty((0, 0), "<c16")
         self.backend: BackendType = getCUDABackend()
-        self.L5 = None
+        self.L5: int = 0
+
+    @property
+    def location(self) -> BackendType:
+        if isinstance(self.data, numpy.ndarray):
+            return "numpy"
+        else:
+            return self.backend
 
     @abstractmethod
     def _shape(self):
-        getLogger().critical("_setShape method must be implemented", NotImplementedError)
+        getLogger().critical(f"{self.__class__.__name__}._shape() not implemented", NotImplementedError)
 
     @classmethod
     def _groupName(cls):
-        if cls.__name__ == "LatticeMom":
-            getLogger().critical("LatticeMom is not supported for save/load", ValueError)
-        elif cls.__name__ == "LatticeClover":
-            getLogger().critical("LatticeClover is not supported for save/load", ValueError)
-
         return (
             cls.__name__.replace("Multi", "")
-            .replace("General", "")
+            .replace("Lexico", "")
             .replace("Link", "ColorMatrix")
             .replace("Gauge", "ColorMatrix")
             .replace("StaggeredFermion", "ColorVector")
@@ -330,9 +253,60 @@ class BaseField:
             .replace("Propagator", "SpinColorMatrix")
         )
 
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, value):
+        location = "numpy" if isinstance(value, numpy.ndarray) else self.backend
+        self._data = arrayContiguous(value, location)
+
+    @property
+    def data_ptr(self) -> NDArray:
+        return self.data.reshape(-1)
+
+    @property
+    def data_ptrs(self) -> NDArray:
+        if self.L5 == 0:
+            getLogger().critical(f"{self.__class__.__name__}.data_ptrs not implemented", NotImplementedError)
+        else:
+            return self.data.reshape(self.L5, -1)
+
     @classmethod
-    def loadNPY(cls, filename: str):
-        assert issubclass(cls, (GeneralField, FullField))
+    def _field(cls) -> str:
+        group_name = cls._groupName()
+        return group_name[group_name.index("Lattice") + len("Lattice") :]
+
+    def _setField(self):
+        field_shape, field_dtype = _field_shape_dtype(self._field(), self.latt_info.Ns, self.latt_info.Nc)
+        self.field_shape = field_shape
+        self.field_size = prod(field_shape)
+        self.field_dtype = field_dtype
+        self.shape = self._shape()
+        self.dtype = arrayDType(field_dtype, self.backend)
+
+    def _initData(self, value: Union[NDArray, BackendType, None]):
+        self._setField()
+        if value is None:
+            self.data = arrayZeros(self.shape, self.dtype, self.backend)
+        elif isinstance(value, str):
+            self.data = arrayZeros(self.shape, self.dtype, value)
+        else:
+            self.data = value.reshape(self.shape)
+
+    def lexico(self, force_numpy: bool = True):
+        if not isinstance(self, _FULL_FILED_LIST):
+            getLogger().critical(f"{self.__class__.__name__}.lexico(force_numpy) not implemented", NotImplementedError)
+        if force_numpy:
+            return self.latt_info.lexico(self.getHost(), self.L5 > 0)
+        else:
+            return self.latt_info.lexico(self.data, self.L5 > 0, self.location)
+
+    @classmethod
+    def loadNPY(cls: Type[Self], filename: str) -> Self:
+        if not issubclass(cls, _FULL_FILED_LIST):
+            getLogger().critical(f"{cls.__name__}.loadNPY(filename) not implemented", NotImplementedError)
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
@@ -340,42 +314,30 @@ class BaseField:
         Nd = len(grid_size)
         shape, dtype, offset = read_array_header(filename)
         if not issubclass(cls, MultiField):
+            L5 = 1
             latt_size = list(shape[:Nd][::-1])
             field_shape = list(shape[Nd:])
-            sublatt_size = [GL // G for GL, G in zip(latt_size, grid_size)]
-            value = readMPIFile(
-                filename, dtype, offset, [*sublatt_size[::-1], *field_shape], list(range(Nd - 1, -1, -1))
-            )
-            gbytes += value.nbytes / 1024**3
         else:
             L5 = shape[0]
             latt_size = list(shape[1 : Nd + 1][::-1])
             field_shape = list(shape[Nd + 1 :])
-            sublatt_size = [GL // G for GL, G in zip(latt_size, grid_size)]
-            value = readMPIFile(
-                filename, dtype, offset, [L5, *sublatt_size[::-1], *field_shape], list(range(Nd, 0, -1))
-            )
-            gbytes += value.nbytes / 1024**3
-        Ns, Nc, field_dtype = _field_spin_color_dtype(cls._field(), field_shape, False)
-        value = value.astype(field_dtype)
-        if issubclass(cls, GeneralField):
-            latt_info = GeneralInfo(latt_size)
-            if Ns is not None:
-                latt_info.Ns = Ns
-            if Nc is not None:
-                latt_info.Nc = Nc
+        sublatt_size = getSublatticeSize(latt_size, False)
+        value = readMPIFile(filename, dtype, offset, [L5, *sublatt_size[::-1], *field_shape], list(range(Nd, 0, -1)))
+        gbytes += value.nbytes / 1024**3
+        Ns, Nc, dtype = _field_spin_color_dtype(cls._field(), field_shape, False)
+        value = value.astype(dtype)
+        Ns = 4 if Ns is None else Ns
+        Nc = 3 if Nc is None else Nc
+        if issubclass(cls, LexicoField):
+            latt_info = LexicoInfo(latt_size, Ns=Ns, Nc=Nc)
             if not issubclass(cls, MultiField):
                 retval = cls(latt_info, value)
             else:
                 retval = cls(latt_info, L5, value)
         elif issubclass(cls, FullField):
-            latt_info = LatticeInfo(latt_size)
-            if Ns is not None:
-                latt_info.Ns = Ns
-            if Nc is not None:
-                latt_info.Nc = Nc
+            latt_info = LatticeInfo(latt_size, Ns=Ns, Nc=Nc)
             if not issubclass(cls, MultiField):
-                retval = cls(latt_info, latt_info.evenodd(value, False))
+                retval = cls(latt_info, latt_info.evenodd(value, True))  # Special case as L5 == 1
             else:
                 retval = cls(latt_info, L5, latt_info.evenodd(value, True))
         secs = perf_counter() - s
@@ -383,7 +345,8 @@ class BaseField:
         return retval
 
     def saveNPY(self, filename: str, *, use_fp32: bool = False):
-        assert isinstance(self, (GeneralField, FullField))
+        if not isinstance(self, _FULL_FILED_LIST):
+            getLogger().critical(f"{self.__class__.__name__}.loadNPY(filename) not implemented", NotImplementedError)
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
@@ -391,7 +354,7 @@ class BaseField:
             filename += ".npy"
         field = self.lexico()
         _, _, dtype = _field_spin_color_dtype(self._field(), self.field_shape, use_fp32)
-        if self.L5 is None:
+        if self.L5 == 0:
             write_array_header(filename, (*self.latt_info.global_size[::-1], *self.field_shape), dtype)
             _, _, offset = read_array_header(filename)
             shape = (*self.latt_info.size[::-1], *self.field_shape)
@@ -410,36 +373,27 @@ class BaseField:
 
     @classmethod
     def load(
-        cls,
-        filename: str,
-        label: Union[int, str, Sequence[int], Sequence[str]],
-        *,
-        check: bool = True,
-    ):
+        cls: Type[Self], filename: str, label: Union[int, str, Sequence[int], Sequence[str]], *, check: bool = True
+    ) -> Self:
         from .hdf5 import File
 
-        assert issubclass(cls, (GeneralField, FullField))
+        if not issubclass(cls, _FULL_FILED_LIST):
+            getLogger().critical(f"{cls.__name__}.load(filename, label, **kwargs) not implemented", NotImplementedError)
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
         with File(filename, "r") as f:
             latt_size, Ns, Nc, value = f.load(cls._groupName(), label, check=check)
-        if issubclass(cls, GeneralField):
-            latt_info = GeneralInfo(latt_size)
-            if Ns is not None:
-                latt_info.Ns = Ns
-            if Nc is not None:
-                latt_info.Nc = Nc
+        Ns = 4 if Ns is None else Ns
+        Nc = 3 if Nc is None else Nc
+        if issubclass(cls, LexicoField):
+            latt_info = LexicoInfo(latt_size, Ns=Ns, Nc=Nc)
             if not issubclass(cls, MultiField):
                 retval = cls(latt_info, value)
             else:
                 retval = cls(latt_info, len(label), value)
         elif issubclass(cls, FullField):
-            latt_info = LatticeInfo(latt_size)
-            if Ns is not None:
-                latt_info.Ns = Ns
-            if Nc is not None:
-                latt_info.Nc = Nc
+            latt_info = LatticeInfo(latt_size, Ns=Ns, Nc=Nc)
             if not issubclass(cls, MultiField):
                 retval = cls(latt_info, latt_info.evenodd(value, False))
             else:
@@ -459,7 +413,10 @@ class BaseField:
     ):
         from .hdf5 import File
 
-        assert isinstance(self, (GeneralField, FullField))
+        if not isinstance(self, _FULL_FILED_LIST):
+            getLogger().critical(
+                f"{self.__class__.__name__}.save(filename, label, **kwargs) not implemented", NotImplementedError
+            )
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
@@ -488,7 +445,10 @@ class BaseField:
     ):
         from .hdf5 import File
 
-        assert isinstance(self, (GeneralField, FullField))
+        if not isinstance(self, _FULL_FILED_LIST):
+            getLogger().critical(
+                f"{self.__class__.__name__}.append(filename, label, **kwargs) not implemented", NotImplementedError
+            )
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
@@ -514,7 +474,10 @@ class BaseField:
     ):
         from .hdf5 import File
 
-        assert isinstance(self, (GeneralField, FullField))
+        if not isinstance(self, _FULL_FILED_LIST):
+            getLogger().critical(
+                f"{self.__class__.__name__}.update(filename, label, **kwargs) not implemented", NotImplementedError
+            )
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
@@ -529,53 +492,11 @@ class BaseField:
         secs = perf_counter() - s
         getLogger().debug(f"Updated {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
 
-    @property
-    def data(self):
-        return self._data
-
-    @data.setter
-    def data(self, value):
-        location = "numpy" if isinstance(value, numpy.ndarray) else self.backend
-        self._data = arrayContiguous(value, location)
-
-    @property
-    def data_ptr(self) -> NDArray:
-        return self.data.reshape(-1)
-
-    @classmethod
-    def _field(cls) -> str:
-        group_name = cls._groupName()
-        return group_name[group_name.index("Lattice") + len("Lattice") :]
-
-    def _setField(self):
-        field_shape, field_dtype = _field_shape_dtype(self._field(), self.latt_info.Ns, self.latt_info.Nc)
-        self.field_shape = field_shape
-        self.field_size = prod(field_shape)
-        self.field_dtype = field_dtype
-        self.shape = self._shape()
-        self.dtype = arrayDType(field_dtype, self.backend)
-
-    def _initData(self, value):
-        self._setField()
-        backend, value = (value, None) if isinstance(value, str) else (None, value)
-        if value is None:
-            location = backend if backend is not None else self.backend
-            self.data = arrayZeros(self.shape, self.dtype, location)
-        else:
-            self.data = value.reshape(self.shape)
-
-    @property
-    def location(self) -> BackendType:
-        if isinstance(self.data, numpy.ndarray):
-            return "numpy"
-        else:
-            return self.backend
-
-    def backup(self):
-        return arrayCopy(self.data, self.location)
-
     def copy(self):
-        return self.__class__(self.latt_info, self.backup())
+        if self.L5 == 0:
+            return self.__class__(self.latt_info, arrayCopy(self.data, self.location))
+        else:
+            return self.__class__(self.latt_info, self.L5, arrayCopy(self.data, self.location))
 
     def toDevice(self):
         self.data = arrayDevice(self.data, self.backend)
@@ -593,38 +514,56 @@ class BaseField:
         else:
             return norm2
 
-    def __add__(self, rhs):
+    def __add__(self: Self, rhs: Self) -> Self:
         if not self.__class__ == rhs.__class__:
             return NotImplemented
         assert self.location == rhs.location
-        return self.__class__(self.latt_info, self.data + rhs.data)
+        if self.L5 == 0:
+            return self.__class__(self.latt_info, self.data + rhs.data)
+        else:
+            return self.__class__(self.latt_info, self.L5, self.data + rhs.data)
 
-    def __sub__(self, rhs):
+    def __sub__(self: Self, rhs: Self) -> Self:
         if not self.__class__ == rhs.__class__:
             return NotImplemented
         assert self.location == rhs.location
-        return self.__class__(self.latt_info, self.data - rhs.data)
+        if self.L5 == 0:
+            return self.__class__(self.latt_info, self.data - rhs.data)
+        else:
+            return self.__class__(self.latt_info, self.L5, self.data - rhs.data)
 
     def __mul__(self, rhs):
-        return self.__class__(self.latt_info, self.data * rhs)
+        if self.L5 == 0:
+            return self.__class__(self.latt_info, self.data * rhs)
+        else:
+            return self.__class__(self.latt_info, self.L5, self.data * rhs)
 
     def __rmul__(self, lhs):
-        return self.__class__(self.latt_info, lhs * self.data)
+        if self.L5 == 0:
+            return self.__class__(self.latt_info, lhs * self.data)
+        else:
+            return self.__class__(self.latt_info, self.L5, lhs * self.data)
 
     def __truediv__(self, rhs):
-        return self.__class__(self.latt_info, self.data / rhs)
+        if self.L5 == 0:
+            return self.__class__(self.latt_info, self.data / rhs)
+        else:
+            return self.__class__(self.latt_info, self.L5, self.data / rhs)
 
     def __neg__(self):
-        return self.__class__(self.latt_info, -self.data)
+        if self.L5 == 0:
+            return self.__class__(self.latt_info, -self.data)
+        else:
+            return self.__class__(self.latt_info, self.L5, -self.data)
 
-    def __iadd__(self, rhs):
+    def __iadd__(self: Self, rhs: Self) -> Self:
         if not self.__class__ == rhs.__class__:
             return NotImplemented
         assert self.location == rhs.location
         self._data += rhs.data
         return self
 
-    def __isub__(self, rhs):
+    def __isub__(self: Self, rhs: Self) -> Self:
         if not self.__class__ == rhs.__class__:
             return NotImplemented
         assert self.location == rhs.location
@@ -640,32 +579,20 @@ class BaseField:
         return self
 
 
-class GeneralField(BaseField):
-    def __init__(self, latt_info: GeneralInfo, value: Any = None, init_data: bool = True) -> None:
+class LexicoField(BaseField):
+    latt_info: LexicoInfo
+
+    def __init__(self, latt_info: LexicoInfo, value: Any = None, init_data: bool = True) -> None:
         super().__init__(latt_info)
         if init_data:
             self._initData(value)
 
     def _shape(self):
         self.lattice_shape = self.latt_info.size[::-1]
-        if self.L5 is None:
+        if self.L5 == 0:
             return (*self.lattice_shape, *self.field_shape)
         else:
             return (self.L5, *self.lattice_shape, *self.field_shape)
-
-    def lexico(self, force_numpy: bool = True):
-        if force_numpy:
-            return self.getHost()
-        else:
-            return self.backup()
-
-    def fft(self):
-        data = self.lexico()
-        data_hat = fieldFFT(self.latt_info.size[::-1] + self.field_shape, data)
-        return self.__class__(self.latt_info, arrayDevice(data_hat, self.location))
-
-    def checksum(self) -> Tuple[int, int]:
-        return checksum(self.latt_info, self.lexico().reshape(self.latt_info.volume, self.field_size).view("<u4"))
 
     def shift(self, n: int, mu: int):
         assert n >= 0
@@ -673,10 +600,11 @@ class GeneralField(BaseField):
         Nd = self.latt_info.Nd
         direction = 1 if mu < Nd else -1
         mu = mu % Nd
+        location = self.location
         left_slice = [slice(None, None) for nu in range(Nd)]
         right_slice = [slice(None, None) for nu in range(Nd)]
-        left = self.backup()
-        right = self.data if abs(n) <= 1 else self.backup()
+        left = arrayCopy(self.data, location)
+        right = arrayCopy(self.data, location) if n > 1 else self.data
         rank = getMPIRank()
         coord = [g for g in getGridCoord()]
         coord[mu] = (getGridCoord()[mu] - direction) % getGridSize()[mu]
@@ -693,7 +621,7 @@ class GeneralField(BaseField):
             if rank == source and rank == dest:
                 pass
             else:
-                sendbuf_host = arrayHostCopy(sendbuf, self.location)
+                sendbuf_host = arrayHostCopy(sendbuf, location)
                 request = getMPIComm().Isend(sendbuf_host, dest)
 
             left_slice[mu] = slice(None, -1) if direction == 1 else slice(1, None)
@@ -708,65 +636,34 @@ class GeneralField(BaseField):
                 recvbuf_host = numpy.empty_like(sendbuf_host)
                 getMPIComm().Recv(recvbuf_host, source)
                 request.Wait()
-                recvbuf = arrayDevice(recvbuf_host, self.location)
+                recvbuf = arrayDevice(recvbuf_host, location)
             left[tuple(left_slice[::-1])] = recvbuf
 
             n -= 1
             left, right = right, left
 
+        assert isinstance(self.latt_info, LexicoInfo)
         return self.__class__(self.latt_info, right)
 
 
 class ParityField(BaseField):
+    latt_info: LatticeInfo
+
     def __init__(self, latt_info: LatticeInfo, value: Any = None, init_data: bool = True) -> None:
         super().__init__(latt_info)
-        self.full_field = False
         if init_data:
             self._initData(value)
 
     def _shape(self):
         latt_size = self.latt_info.size
-        self.lattice_shape = (
-            [2, *latt_size[1:][::-1], latt_size[0] // 2]
-            if self.full_field
-            else [*latt_size[1:][::-1], latt_size[0] // 2]
-        )
-        if self.L5 is None:
+        self.lattice_shape = [*latt_size[1:][::-1], latt_size[0] // 2]
+        if self.L5 == 0:
             return (*self.lattice_shape, *self.field_shape)
         else:
             return (self.L5, *self.lattice_shape, *self.field_shape)
 
-    # def timeslice(self, start: int, stop: int = None, step: int = None, return_field: bool = True):
-    #     Lt = self.latt_info.size[0]
-    #     gt = self.latt_info.grid_size[0]
-    #     stop = (start + 1) if stop is None else stop
-    #     step = 1 if step is None else step
-    #     s = (start - gt * Lt) % step if start < gt * Lt and stop > gt * Lt else 0
-    #     start = min(max(start - gt * Lt, 0), Lt) + s
-    #     stop = min(max(stop - gt * Lt, 0), Lt)
-    #     assert start <= stop and step > 0
-    #     if return_field:
-    #         if self.L5 is None:
-    #             x = self.__class__(self.latt_info)
-    #         else:
-    #             x = self.__class__(self.latt_info, self.L5)
-    #         if self.full_field and self.L5 is not None:
-    #             x.data[:, :, start:stop:step] = self.data[:, :, start:stop:step]
-    #         elif self.full_field or self.L5 is not None:
-    #             x.data[:, start:stop:step] = self.data[:, start:stop:step]
-    #         else:
-    #             x.data[start:stop:step] = self.data[start:stop:step]
-    #     else:
-    #         if self.full_field and self.L5 is not None:
-    #             x = self.data[:, :, start:stop:step]
-    #         elif self.full_field or self.L5 is not None:
-    #             x = self.data[:, start:stop:step]
-    #         else:
-    #             x = self.data[start:stop:step]
-    #     return x
 
-
-class FullField:
+class FullField(BaseField):
     latt_info: LatticeInfo
 
     def __init__(self, latt_info: LatticeInfo, value: Any = None, init_data: bool = True) -> None:
@@ -775,47 +672,72 @@ class FullField:
             s.__field_class__.__base__.__init__(self, latt_info, value, False)
         else:
             s.__init__(latt_info, value, False)
-        self.full_field = True
         if init_data:
             self._initData(value)
 
+    def _shape(self):
+        latt_size = self.latt_info.size
+        self.lattice_shape = [2, *latt_size[1:][::-1], latt_size[0] // 2]
+        if self.L5 == 0:
+            return (*self.lattice_shape, *self.field_shape)
+        else:
+            return (self.L5, *self.lattice_shape, *self.field_shape)
+
     @property
     def even(self):
-        return super(FullField, self).__field_class__(self.latt_info, self.data[0])
+        if self.L5 == 0:
+            return super(FullField, self).__field_class__(self.latt_info, self.data[0])
+        else:
+            getLogger().critical(f"{self.__class__.__name__}.even not implemented", NotImplementedError)
 
     @even.setter
     def even(self, value: ParityField):
-        self.data[0] = value.data
-
-    @property
-    def odd(self):
-        return super(FullField, self).__field_class__(self.latt_info, self.data[1])
-
-    @odd.setter
-    def odd(self, value: ParityField):
-        self.data[1] = value.data
+        if self.L5 == 0:
+            self.data[0] = value.data
+        else:
+            getLogger().critical(f"{self.__class__.__name__}.even not implemented", NotImplementedError)
 
     @property
     def even_ptr(self) -> NDArray:
-        return self.data.reshape(2, -1)[0]
+        if self.L5 == 0:
+            return self.data.reshape(2, -1)[0]
+        else:
+            getLogger().critical(f"{self.__class__.__name__}.even_ptr not implemented", NotImplementedError)
+
+    @property
+    def even_ptrs(self) -> NDArray:
+        if self.L5 == 0:
+            getLogger().critical(f"{self.__class__.__name__}.even_ptrs not implemented", NotImplementedError)
+        else:
+            return self.data.reshape(self.L5, 2, -1)[:, 0]
+
+    @property
+    def odd(self):
+        if self.L5 == 0:
+            return super(FullField, self).__field_class__(self.latt_info, self.data[1])
+        else:
+            getLogger().critical(f"{self.__class__.__name__}.odd not implemented", NotImplementedError)
+
+    @odd.setter
+    def odd(self, value: ParityField):
+        if self.L5 == 0:
+            self.data[1] = value.data
+        else:
+            getLogger().critical(f"{self.__class__.__name__}.odd not implemented", NotImplementedError)
 
     @property
     def odd_ptr(self) -> NDArray:
-        return self.data.reshape(2, -1)[1]
-
-    def lexico(self, force_numpy: bool = True):
-        if force_numpy:
-            return self.latt_info.lexico(self.getHost(), self.L5 is not None)
+        if self.L5 == 0:
+            return self.data.reshape(2, -1)[1]
         else:
-            return self.latt_info.lexico(self.data, self.L5 is not None, self.location)
+            getLogger().critical(f"{self.__class__.__name__}.odd_ptr not implemented", NotImplementedError)
 
-    def fft(self):
-        data = self.lexico()
-        data_hat = fieldFFT(self.latt_info.size[::-1] + self.field_shape, data)
-        return self.__class__(self.latt_info, arrayDevice(self.latt_info.evenodd(data_hat, False), self.location))
-
-    def checksum(self) -> Tuple[int, int]:
-        return checksum(self.latt_info, self.lexico().reshape(self.latt_info.volume, self.field_size).view("<u4"))
+    @property
+    def odd_ptrs(self) -> NDArray:
+        if self.L5 == 0:
+            getLogger().critical(f"{self.__class__.__name__}.odd_ptrs not implemented", NotImplementedError)
+        else:
+            return self.data.reshape(self.L5, 2, -1)[:, 1]
 
     def shift(self, n: int, mu: int):
         assert n >= 0
@@ -823,10 +745,11 @@ class FullField:
         Nd = self.latt_info.Nd
         direction = 1 if mu < Nd else -1
         mu = mu % Nd
+        location = self.location
         left_slice = [slice(None, None) for nu in range(Nd)]
         right_slice = [slice(None, None) for nu in range(Nd)]
-        left = self.backup()
-        right = self.data if abs(n) <= 1 else self.backup()
+        left = arrayCopy(self.data, location)
+        right = arrayCopy(self.data, location) if n > 1 else self.data
         rank = getMPIRank()
         coord = [g for g in getGridCoord()]
         coord[mu] = (getGridCoord()[mu] - direction) % getGridSize()[mu]
@@ -848,7 +771,7 @@ class FullField:
                     if rank == source and rank == dest:
                         pass
                     else:
-                        sendbuf_host = arrayHostCopy(sendbuf, self.location)
+                        sendbuf_host = arrayHostCopy(sendbuf, location)
                         request = getMPIComm().Isend(sendbuf_host, dest)
 
                     right_tmp = right_flat[odd].reshape(
@@ -868,7 +791,7 @@ class FullField:
                         recvbuf_host = numpy.empty_like(sendbuf_host)
                         getMPIComm().Recv(recvbuf_host, source)
                         request.Wait()
-                        recvbuf = arrayDevice(recvbuf_host, self.location)
+                        recvbuf = arrayDevice(recvbuf_host, location)
                     right_tmp = recvbuf.reshape(2, prod(self.latt_info.size[1:]) // 2, -1)
                     left_flat[1, odd.reshape(2, -1)[1], -1] = right_tmp[0]
                     left_flat[0, odd.reshape(2, -1)[0], -1] = right_tmp[1]
@@ -877,7 +800,7 @@ class FullField:
                     if rank == source and rank == dest:
                         pass
                     else:
-                        sendbuf_host = arrayHostCopy(sendbuf, self.location)
+                        sendbuf_host = arrayHostCopy(sendbuf, location)
                         request = getMPIComm().Isend(sendbuf_host, dest)
 
                     right_tmp = right_flat[even].reshape(
@@ -897,7 +820,7 @@ class FullField:
                         recvbuf_host = numpy.empty_like(sendbuf_host)
                         getMPIComm().Recv(recvbuf_host, source)
                         request.Wait()
-                        recvbuf = arrayDevice(recvbuf_host, self.location)
+                        recvbuf = arrayDevice(recvbuf_host, location)
                     right_tmp = recvbuf.reshape(2, prod(self.latt_info.size[1:]) // 2, -1)
                     left_flat[1, even.reshape(2, -1)[1], 0] = right_tmp[0]
                     left_flat[0, even.reshape(2, -1)[0], 0] = right_tmp[1]
@@ -911,7 +834,7 @@ class FullField:
                 if rank == source and rank == dest:
                     pass
                 else:
-                    sendbuf_host = arrayHostCopy(sendbuf, self.location)
+                    sendbuf_host = arrayHostCopy(sendbuf, location)
                     request = getMPIComm().Isend(sendbuf_host, dest)
 
                 left_slice[mu] = slice(None, -1) if direction == 1 else slice(1, None)
@@ -931,7 +854,7 @@ class FullField:
                     recvbuf_host = numpy.empty_like(sendbuf_host)
                     getMPIComm().Recv(recvbuf_host, source)
                     request.Wait()
-                    recvbuf = arrayDevice(recvbuf_host, self.location)
+                    recvbuf = arrayDevice(recvbuf_host, location)
                 if mu == 0:
                     left[(0,) + tuple(left_slice[::-1])] = recvbuf[0]
                     left[(1,) + tuple(left_slice[::-1])] = recvbuf[1]
@@ -948,22 +871,20 @@ class FullField:
         return self.__class__(self.latt_info, right)
 
 
-class MultiField:
-    latt_info: LatticeInfo
-
-    def __init__(self, latt_info: LatticeInfo, L5: int, value: Any = None, init_data: bool = True) -> None:
-        assert L5 > 0
+class MultiField(BaseField):
+    def __init__(self, latt_info: BaseInfo, L5: int, value: Any = None, init_data: bool = True) -> None:
         s = super(MultiField, self)
         if hasattr(s, "__field_class__"):
             s.__field_class__.__base__.__init__(self, latt_info, value, False)
         else:
             s.__init__(latt_info, value, False)
+        assert L5 > 0
         self.L5 = L5
         if init_data:
             self._initData(value)
 
     @property
-    def data(self):
+    def data(self) -> NDArray:
         return self._data
 
     @data.setter
@@ -990,72 +911,14 @@ class MultiField:
     def __setitem__(self, key: Union[int, list, tuple, slice], value):
         self.data[key] = value.data
 
-    def even(self, index: int):
-        return super(FullField, self).__field_class__(self.latt_info, self.data[index, 0])
-
-    def odd(self, index: int):
-        return super(FullField, self).__field_class__(self.latt_info, self.data[index, 1])
-
-    def data_ptr(self, index: int = 0) -> NDArray:
-        return self.data.reshape(self.L5, -1)[index]
-
-    def even_ptr(self, index: int) -> NDArray:
-        assert self.full_field
-        return self.data.reshape(self.L5, 2, -1)[index, 0]
-
-    def odd_ptr(self, index: int) -> NDArray:
-        assert self.full_field
-        return self.data.reshape(self.L5, 2, -1)[index, 1]
-
-    @property
-    def data_ptrs(self) -> NDArray:
-        return self.data.reshape(self.L5, -1)
-
-    @property
-    def even_ptrs(self) -> NDArray:
-        assert self.full_field
-        return self.data.reshape(self.L5, 2, -1)[:, 0]
-
-    @property
-    def odd_ptrs(self) -> NDArray:
-        assert self.full_field
-        return self.data.reshape(self.L5, 2, -1)[:, 1]
-
-    def copy(self):
-        return self.__class__(self.latt_info, self.L5, self.backup())
-
-    def checksum(self) -> List[Tuple[int, int]]:
-        return [self[index].checksum() for index in range(self.L5)]
-
     def shift(self, n: Sequence[int], mu: Sequence[int]):
-        left = self.copy()
+        ret = self.copy()
         for i in range(self.L5):
-            left[i] = self[i].shift(n[i], mu[i])
-        return left
+            ret[i] = self[i].shift(n[i], mu[i])
+        return ret
 
-    def __add__(self, rhs):
-        if not self.__class__ == rhs.__class__:
-            return NotImplemented
-        assert self.location == rhs.location
-        return self.__class__(self.latt_info, self.L5, self.data + rhs.data)
 
-    def __sub__(self, rhs):
-        if not self.__class__ == rhs.__class__:
-            return NotImplemented
-        assert self.location == rhs.location
-        return self.__class__(self.latt_info, self.L5, self.data - rhs.data)
-
-    def __mul__(self, rhs):
-        return self.__class__(self.latt_info, self.L5, self.data * rhs)
-
-    def __rmul__(self, lhs):
-        return self.__class__(self.latt_info, self.L5, lhs * self.data)
-
-    def __truediv__(self, rhs):
-        return self.__class__(self.latt_info, self.L5, self.data / rhs)
-
-    def __neg__(self):
-        return self.__class__(self.latt_info, self.L5, -self.data)
+_FULL_FILED_LIST = (LexicoField, FullField)
 
 
 class LatticeInt(FullField, ParityField):

@@ -6,29 +6,21 @@ import numpy
 from mpi4py import MPI
 import h5py
 
-from . import getLogger, getMPIComm, getGridSize, getGridCoord
+from . import getLogger, getMPIComm, getGridSize, getGridCoord, getSublatticeSize
 
 
 class _LatticeInfo:
     def __init__(self, latt_size: List[int]) -> None:
-        grid_size = getGridSize()
-        self._checkLattice(latt_size, grid_size)
-        self._setLattice(latt_size, grid_size)
+        self._setLattice(latt_size)
 
-    def _checkLattice(self, latt_size: List[int], grid_size: List[int]):
-        assert len(latt_size) == len(grid_size), "lattice size and grid size must have the same dimension"
-        for GL, G in zip(latt_size, grid_size):
-            if not (GL % G == 0):
-                getLogger().critical(f"lattice size {latt_size} must be divisible by gird size {grid_size}", ValueError)
-
-    def _setLattice(self, latt_size: List[int], grid_size: List[int]):
+    def _setLattice(self, latt_size: List[int]):
         grid_coord = getGridCoord()
-        sublatt_size = [GL // G for GL, G in zip(latt_size, grid_size)]
+        sublatt_size = getSublatticeSize(latt_size, False)
         sublatt_slice = []
         for g, L in zip(grid_coord[::-1], sublatt_size[::-1]):
             sublatt_slice.append(slice(g * L, (g + 1) * L))
 
-        self.global_size = latt_size
+        self.global_size = [GL for GL in latt_size]
         self.global_volume = prod(latt_size)
         self.size = sublatt_size
         self.volume = prod(sublatt_size)

@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, overload
 
 from pyquda import getLogger
 from pyquda.field import (
@@ -23,6 +23,12 @@ def fermionToLink(fermion: LatticeFermion):
     for color in range(fermion.latt_info.Nc):
         link.data[:, :, :, :, :, :, color] = fermion.data[:, :, :, :, :, color, :]
     return link
+
+
+@overload
+def multiFermionToPropagator(multi_fermion: MultiLatticeFermion) -> LatticePropagator: ...
+@overload
+def multiFermionToPropagator(multi_fermion: MultiLatticeStaggeredFermion) -> LatticeStaggeredPropagator: ...
 
 
 def multiFermionToPropagator(multi_fermion: Union[MultiLatticeFermion, MultiLatticeStaggeredFermion]):
@@ -53,6 +59,12 @@ def multiFermionToPropagator(multi_fermion: Union[MultiLatticeFermion, MultiLatt
         raise getLogger().critical(
             f"No multiFermionToPropagator implementation for {multi_fermion.__class__.__name__}", NotImplementedError
         )
+
+
+@overload
+def propagatorToMultiFermion(propagator: LatticePropagator) -> MultiLatticeFermion: ...
+@overload
+def propagatorToMultiFermion(propagator: LatticeStaggeredPropagator) -> MultiLatticeStaggeredFermion: ...
 
 
 def propagatorToMultiFermion(propagator: Union[LatticePropagator, LatticeStaggeredPropagator]):

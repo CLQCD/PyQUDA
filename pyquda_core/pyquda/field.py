@@ -1,11 +1,11 @@
+from math import prod
 from typing import Any, List, Literal, Union
 
 import numpy
+from numpy.typing import NDArray
 
 from pyquda_comm import getLogger
 from pyquda_comm.field import (  # noqa: F401
-    lexico,
-    evenodd,
     LatticeInfo,
     ParityField,
     FullField,
@@ -47,7 +47,53 @@ Z = _Direction(2)
 T = _Direction(3)
 
 
-def cb2(data: numpy.ndarray, axes: List[int], dtype=None):
+def lexico(data: NDArray, axes: List[int], dtype=None):
+    assert len(axes) == 5
+    shape = data.shape
+    Np, Lt, Lz, Ly, Lx = [shape[axis] for axis in axes]
+    assert Np == 2
+    Lx *= 2
+    Npre = prod(shape[: axes[0]])
+    Nsuf = prod(shape[axes[-1] + 1 :])
+    dtype = data.dtype if dtype is None else dtype
+    data_evenodd = data.reshape(Npre, 2, Lt, Lz, Ly, Lx // 2, Nsuf)
+    data_lexico = numpy.zeros((Npre, Lt, Lz, Ly, Lx, Nsuf), dtype)
+    for t in range(Lt):
+        for z in range(Lz):
+            for y in range(Ly):
+                eo = (t + z + y) % 2
+                if eo == 0:
+                    data_lexico[:, t, z, y, 0::2] = data_evenodd[:, 0, t, z, y, :]
+                    data_lexico[:, t, z, y, 1::2] = data_evenodd[:, 1, t, z, y, :]
+                else:
+                    data_lexico[:, t, z, y, 1::2] = data_evenodd[:, 0, t, z, y, :]
+                    data_lexico[:, t, z, y, 0::2] = data_evenodd[:, 1, t, z, y, :]
+    return data_lexico.reshape(*shape[: axes[0]], Lt, Lz, Ly, Lx, *shape[axes[-1] + 1 :])
+
+
+def evenodd(data: NDArray, axes: List[int], dtype=None):
+    assert len(axes) == 4
+    shape = data.shape
+    Lt, Lz, Ly, Lx = [shape[axis] for axis in axes]
+    Npre = prod(shape[: axes[0]])
+    Nsuf = prod(shape[axes[-1] + 1 :])
+    dtype = data.dtype if dtype is None else dtype
+    data_lexico = data.reshape(Npre, Lt, Lz, Ly, Lx, Nsuf)
+    data_evenodd = numpy.zeros((Npre, 2, Lt, Lz, Ly, Lx // 2, Nsuf), dtype)
+    for t in range(Lt):
+        for z in range(Lz):
+            for y in range(Ly):
+                eo = (t + z + y) % 2
+                if eo == 0:
+                    data_evenodd[:, 0, t, z, y, :] = data_lexico[:, t, z, y, 0::2]
+                    data_evenodd[:, 1, t, z, y, :] = data_lexico[:, t, z, y, 1::2]
+                else:
+                    data_evenodd[:, 0, t, z, y, :] = data_lexico[:, t, z, y, 1::2]
+                    data_evenodd[:, 1, t, z, y, :] = data_lexico[:, t, z, y, 0::2]
+    return data_evenodd.reshape(*shape[: axes[0]], 2, Lt, Lz, Ly, Lx // 2, *shape[axes[-1] + 1 :])
+
+
+def cb2(data: NDArray, axes: List[int], dtype=None):
     getLogger().warning("cb2 is deprecated, use evenodd instead", DeprecationWarning)
     return evenodd(data, axes, dtype)
 

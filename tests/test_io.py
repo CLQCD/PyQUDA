@@ -1,6 +1,6 @@
 from check_pyquda import weak_field
 
-from pyquda_utils import core, io, convert
+from pyquda_utils import core, io, convert, checksum
 
 xi_0, nu = 2.464, 0.95
 kappa = 0.115
@@ -16,7 +16,8 @@ dslash.loadGauge(gauge)
 propagator = core.invert(dslash, "point", [0, 0, 0, 0])
 dslash.destroy()
 
-print([(f"{i:08x}", f"{j:08x}") for i, j in gauge.checksum()])
+hash = [checksum.checksumSciDAC(gauge[i]) for i in range(4)]
+print([(f"{i:08x}", f"{j:08x}") for i, j in hash])
 gauge.save("weak_field.h5")
 propagator.save("pt_prop_1.h5", 0)
 convert.propagatorToMultiFermion(propagator).append("pt_prop_1.h5", range(12))
@@ -29,6 +30,7 @@ propagator_h5 = core.LatticePropagator.load("pt_prop_1.h5", 0)
 multifermion_h5 = convert.multiFermionToPropagator(core.MultiLatticeFermion.load("pt_prop_1.h5", range(12)))
 fermion_h5 = core.LatticeFermion.load("pt_prop_1.h5", 5)
 propagator_chroma = io.readQIOPropagator("./tests/data/pt_prop_1")
+assert isinstance(propagator_chroma, core.LatticePropagator)
 gauge_npy = core.LatticeGauge.loadNPY("weak_field.npy")
 propagator_npy = core.LatticePropagator.loadNPY("pt_prop_1.npy")
 gauge_npy_old = io.readNPYGauge("weak_field.npy")

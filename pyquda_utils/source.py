@@ -1,4 +1,4 @@
-from typing import List, Literal, Union
+from typing import List, Literal, Union, overload
 
 from pyquda import getGridSize, getLogger
 from pyquda.field import (
@@ -14,6 +14,12 @@ from pyquda.field import (
     LatticeStaggeredPropagator,
 )
 from pyquda.enum_quda import QudaDslashType, QudaParity
+
+
+@overload
+def point(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, phase=None) -> LatticeFermion: ...
+@overload
+def point(latt_info: LatticeInfo, t_srce: List[int], spin: None, color: int, phase=None) -> LatticeStaggeredFermion: ...
 
 
 def point(latt_info: LatticeInfo, t_srce: List[int], spin: Union[int, None], color: int, phase=None):
@@ -40,6 +46,12 @@ def point(latt_info: LatticeInfo, t_srce: List[int], spin: Union[int, None], col
     return b
 
 
+@overload
+def wall(latt_info: LatticeInfo, t_srce: int, spin: int, color: int, phase=None) -> LatticeFermion: ...
+@overload
+def wall(latt_info: LatticeInfo, t_srce: int, spin: None, color: int, phase=None) -> LatticeStaggeredFermion: ...
+
+
 def wall(latt_info: LatticeInfo, t_srce: int, spin: Union[int, None], color: int, phase=None):
     Lt = latt_info.Lt
     gt = latt_info.gt
@@ -54,6 +66,12 @@ def wall(latt_info: LatticeInfo, t_srce: int, spin: Union[int, None], color: int
     return b
 
 
+@overload
+def volume(latt_info: LatticeInfo, spin: int, color: int, phase=None) -> LatticeFermion: ...
+@overload
+def volume(latt_info: LatticeInfo, spin: None, color: int, phase=None) -> LatticeStaggeredFermion: ...
+
+
 def volume(latt_info: LatticeInfo, spin: Union[int, None], color: int, phase=None):
     b = LatticeFermion(latt_info) if spin is not None else LatticeStaggeredFermion(latt_info)
     if spin is not None:
@@ -64,17 +82,41 @@ def volume(latt_info: LatticeInfo, spin: Union[int, None], color: int, phase=Non
     return b
 
 
+@overload
 def fermion(
     latt_info: LatticeInfo,
-    source_type: Literal["point", "wall", "volume", "momentum", "colorvector"],
+    source_type: Literal["point", "wall", "volume"],
+    t_srce: Union[List[int], int, None],
+    spin: int,
+    color: int,
+    source_phase=None,
+) -> LatticeFermion: ...
+
+
+@overload
+def fermion(
+    latt_info: LatticeInfo,
+    source_type: Literal["point", "wall", "volume"],
+    t_srce: Union[List[int], int, None],
+    spin: None,
+    color: int,
+    source_phase=None,
+) -> LatticeFermion: ...
+
+
+def fermion(
+    latt_info: LatticeInfo,
+    source_type: Literal["point", "wall", "volume"],
     t_srce: Union[List[int], int, None],
     spin: Union[int, None],
     color: int,
     source_phase=None,
 ):
     if source_type.lower() == "point":
+        assert isinstance(t_srce, list)
         return point(latt_info, t_srce, spin, color, source_phase)
     elif source_type.lower() == "wall":
+        assert isinstance(t_srce, int)
         return wall(latt_info, t_srce, spin, color, source_phase)
     elif source_type.lower() == "volume":
         return volume(latt_info, spin, color, source_phase)
@@ -135,7 +177,7 @@ def staggeredPropagator(
 def momentum(latt_info: LatticeInfo, t_srce: Union[int, None], spin: Union[int, None], color: int, phase):
     t = t_srce
     if t is not None:
-        b = wall(latt_info, t_srce, spin, color, phase)
+        b = wall(latt_info, t, spin, color, phase)
     else:
         b = volume(latt_info, spin, color, phase)
 
@@ -162,6 +204,28 @@ def colorvector(latt_info: LatticeInfo, t_srce: Union[int, None], spin: Union[in
     return b
 
 
+@overload
+def source(
+    latt_info: LatticeInfo,
+    source_type: Literal["point", "wall", "volume", "momentum", "colorvector"],
+    t_srce: Union[List[int], int, None],
+    spin: int,
+    color: int,
+    source_phase=None,
+) -> LatticeFermion: ...
+
+
+@overload
+def source(
+    latt_info: LatticeInfo,
+    source_type: Literal["point", "wall", "volume", "momentum", "colorvector"],
+    t_srce: Union[List[int], int, None],
+    spin: None,
+    color: int,
+    source_phase=None,
+) -> LatticeStaggeredFermion: ...
+
+
 def source(
     latt_info: Union[LatticeInfo, List[int]],
     source_type: Literal["point", "wall", "volume", "momentum", "colorvector"],
@@ -184,14 +248,18 @@ def source(
         latt_info = LatticeInfo([Lx, Ly, Lz, Lt])
 
     if source_type.lower() == "point":
+        assert isinstance(t_srce, list)
         return point(latt_info, t_srce, spin, color, source_phase)
     elif source_type.lower() == "wall":
+        assert isinstance(t_srce, int)
         return wall(latt_info, t_srce, spin, color, source_phase)
     elif source_type.lower() == "volume":
         return volume(latt_info, spin, color, source_phase)
     elif source_type.lower() == "momentum":
+        assert isinstance(t_srce, int) or t_srce is None
         return momentum(latt_info, t_srce, spin, color, source_phase)
     elif source_type.lower() == "colorvector":
+        assert isinstance(t_srce, int) or t_srce is None
         return colorvector(latt_info, t_srce, spin, source_phase)
     else:
         getLogger().critical(f"{source_type} source is not implemented yet", NotImplementedError)
@@ -218,7 +286,7 @@ def source12(
     b12 = LatticePropagator(latt_info)
     data = b12.data.reshape(volume, Ns, Ns, Nc, Nc)
     if source_type.lower() in ["colorvector"]:
-        b = source(latt_info, source_type, t_srce, None, None, source_phase)
+        b = source(latt_info, source_type, t_srce, None, 0, source_phase)
         for color in range(Nc):
             for spin in range(Ns):
                 data[:, spin, spin, :, color] = b.data.reshape(volume, Nc)
@@ -275,15 +343,15 @@ def gaussianSmear(
     alpha = 1 / (4 * n_steps / rho**2 - 6)
     gauge.gauge_dirac.loadGauge(gauge)
     if isinstance(x, LatticeFermion) or isinstance(x, LatticeStaggeredFermion):
-        b = gauge.gauge_dirac.wuppertalSmear(x, alpha)
+        b = gauge.gauge_dirac.wuppertalSmear(x, n_steps, alpha)
     elif isinstance(x, MultiLatticeFermion):
         b = MultiLatticeFermion(x.latt_info, x.L5)
         for index in range(x.L5):
-            b[index] = gauge.gauge_dirac.wuppertalSmear(x[index], alpha)
+            b[index] = gauge.gauge_dirac.wuppertalSmear(x[index], n_steps, alpha)
     elif isinstance(x, MultiLatticeStaggeredFermion):
         b = MultiLatticeStaggeredFermion(x.latt_info, x.L5)
         for index in range(x.L5):
-            b[index] = gauge.gauge_dirac.wuppertalSmear(x[index], alpha)
+            b[index] = gauge.gauge_dirac.wuppertalSmear(x[index], n_steps, alpha)
     elif isinstance(x, LatticePropagator):
         b = LatticePropagator(x.latt_info)
         for spin in range(Ns):
@@ -327,7 +395,7 @@ def gaussian3(x3: LatticeStaggeredPropagator, gauge: LatticeGauge, rho: float, n
 
 def _gaussian3(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, n_steps: int):
     from pyquda import pyquda as quda
-    from .. import core
+    from . import core
 
     _b = point(latt_info, t_srce, None, color)
     dslash = core.getDslash(latt_info.size, 0, 0, 0, anti_periodic_t=False)
@@ -346,7 +414,7 @@ def _gaussian3(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int,
 
 def _gaussian2(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, n_steps: int, xi: float):
     from pyquda import pyquda as quda
-    from .. import core
+    from . import core
 
     def _Laplacian(src, aux, sigma, invert_param):
         # aux = -kappa * Laplace * src + src
@@ -377,7 +445,7 @@ def _gaussian2(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int,
 
 def _gaussian1(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int, rho: float, n_steps: int, xi: float):
     from pyquda import pyquda as quda
-    from .. import core
+    from . import core
 
     def _Laplacian(src, aux, sigma, xi, invert_param):
         aux.data[:] = 0
@@ -419,6 +487,12 @@ def _gaussian1(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int,
     return b
 
 
+@overload
+def sequential(x: LatticeFermion, t_srce: int) -> LatticeFermion: ...
+@overload
+def sequential(x: LatticeStaggeredFermion, t_srce: int) -> LatticeStaggeredFermion: ...
+
+
 def sequential(x: Union[LatticeFermion, LatticeStaggeredFermion], t_srce: int):
     Lt = x.latt_info.Lt
     gt = x.latt_info.gt
@@ -445,6 +519,6 @@ def sequential12(x12: LatticePropagator, t_srce: int):
 def sequential3(x3: LatticeStaggeredPropagator, t_srce: int):
     b3 = LatticeStaggeredPropagator(x3.latt_info)
     for color in range(Nc):
-        b3.setFermion(sequential(x3.getFermion(color), t_srce))
+        b3.setFermion(sequential(x3.getFermion(color), t_srce), color)
 
     return b3
