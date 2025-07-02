@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import List, Literal, NamedTuple, Union
+from typing import List, Literal, NamedTuple, Optional, Union
 
 from pyquda_comm import getCUDABackend
 from pyquda_comm.array import arrayRandom
 from ..field import (
     LatticeInfo,
+    LatticeMom,
     LatticeFermion,
     LatticeStaggeredFermion,
     MultiLatticeFermion,
@@ -85,15 +86,11 @@ class FermionAction(Action):
         self.eta.data[:] = _normal(self.eta.shape)
 
     @abstractmethod
-    def sample(self, new_gauge: bool):
+    def sample(self):
         pass
 
     @abstractmethod
-    def action(self, new_gauge: bool) -> float:
-        pass
-
-    @abstractmethod
-    def force(self, dt: float, new_gauge: bool):
+    def force(self, dt: float, mom: Optional[LatticeMom] = None):
         pass
 
     def _invertMultiShiftParam(self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]):
@@ -197,18 +194,6 @@ class StaggeredFermionAction(FermionAction):
     def __init__(self, latt_info: LatticeInfo, dirac: StaggeredFermionDirac) -> None:
         super().__init__(latt_info, dirac)
         self.is_staggered = True
-
-    @abstractmethod
-    def sample(self, new_gauge: bool):
-        pass
-
-    @abstractmethod
-    def action(self, new_gauge: bool) -> float:
-        pass
-
-    @abstractmethod
-    def force(self, dt: float, new_gauge: bool):
-        pass
 
     def invertMultiShift(
         self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]

@@ -1,7 +1,8 @@
+from typing import Optional
 import numpy
 
 from pyquda_comm import getLogger
-from ..field import LatticeInfo, LatticeFermion, MultiLatticeFermion
+from ..field import LatticeInfo, LatticeMom, LatticeFermion, MultiLatticeFermion
 from ..pyquda import computeCloverForceQuda, loadCloverQuda, loadGaugeQuda
 from ..enum_quda import (
     QudaDagType,
@@ -64,19 +65,18 @@ class CloverWilsonAction(FermionAction):
         )
         self.rational_param = rational_param
 
-    def updateClover(self, new_gauge: bool):
-        if new_gauge:
-            loadGaugeQuda(nullptr, self.gauge_param)
-            loadCloverQuda(nullptr_clover, nullptr_clover, self.invert_param)
+    def updateClover(self):
+        loadGaugeQuda(nullptr, self.gauge_param)
+        loadCloverQuda(nullptr_clover, nullptr_clover, self.invert_param)
 
-    def sample(self, new_gauge: bool):
+    def sample(self):
         self.sampleEta()
-        self.updateClover(new_gauge)
+        self.updateClover()
         self.invertMultiShift("pseudo_fermion")
 
-    def action(self, new_gauge: bool) -> float:
+    def action(self) -> float:
         self.invert_param.compute_clover_trlog = 1
-        self.updateClover(new_gauge)
+        self.updateClover()
         self.invert_param.compute_clover_trlog = 0
         self.invert_param.compute_action = 1
         self.invertMultiShift("molecular_dynamics")
@@ -87,13 +87,17 @@ class CloverWilsonAction(FermionAction):
             - self.multiplicity * self.invert_param.trlogA[1]
         )
 
-    def force(self, dt, new_gauge: bool):
-        self.updateClover(new_gauge)
+    def force(self, dt, mom: Optional[LatticeMom] = None):
+        self.updateClover()
         self.invertMultiShift("molecular_dynamics")
         # Some conventions force the dagger to be YES here
         self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
+        if mom is not None:
+            self.gauge_param.use_resident_mom = 0
+            self.gauge_param.make_resident_gauge = 0
+            self.gauge_param.return_result_mom = 1
         computeCloverForceQuda(
-            nullptr,
+            nullptr if mom is None else mom.data_ptrs,
             dt,
             self.quark.even_ptrs,
             self.coeff,
@@ -104,4 +108,8 @@ class CloverWilsonAction(FermionAction):
             self.gauge_param,
             self.invert_param,
         )
+        if mom is not None:
+            self.gauge_param.use_resident_mom = 1
+            self.gauge_param.make_resident_gauge = 1
+            self.gauge_param.return_result_mom = 0
         self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
