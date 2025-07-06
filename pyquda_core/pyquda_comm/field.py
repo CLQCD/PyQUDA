@@ -922,14 +922,32 @@ _FULL_FILED_LIST = (LexicoField, FullField)
 
 
 class LatticeInt(FullField, ParityField):
+    @property
+    def __field_class__(self):
+        return LatticeInt
+
+
+class MultiLatticeInt(MultiField, LatticeInt):
     pass
 
 
 class LatticeReal(FullField, ParityField):
+    @property
+    def __field_class__(self):
+        return LatticeReal
+
+
+class MultiLatticeReal(MultiField, LatticeReal):
     pass
 
 
 class LatticeComplex(FullField, ParityField):
+    @property
+    def __field_class__(self):
+        return LatticeComplex
+
+
+class MultiLatticeComplex(MultiField, LatticeComplex):
     pass
 
 

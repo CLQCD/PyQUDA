@@ -44,7 +44,7 @@ for n, mu in zip([1, 1], [-X, T]):
     s = perf_counter()
     for spin in range(4):
         for color in range(3):
-            multi_fermion_shift[spin * 3 + color] = multi_fermion[spin * 3 + color].shift(abs(n), mu)
+            multi_fermion_shift[spin * 3 + color] = multi_fermion[spin * 3 + color].shift(n, mu)
     cp.cuda.runtime.deviceSynchronize()
     e = perf_counter()
     print(f"Time for MultiLatticeFermion.shift on n={n}, mu={mu}:", e - s)
@@ -52,7 +52,7 @@ for n, mu in zip([1, 1], [-X, T]):
 
     cp.cuda.runtime.deviceSynchronize()
     s = perf_counter()
-    propagator_shift = propagator.shift(abs(n), mu)
+    propagator_shift = propagator.shift(n, mu)
     cp.cuda.runtime.deviceSynchronize()
     e = perf_counter()
     print(f"Time for LatticePropagator.shift on n={n}, mu={mu}:", e - s)

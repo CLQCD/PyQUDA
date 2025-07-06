@@ -150,6 +150,8 @@ def parseHeader(plugins_root, header, include):
                 return evaluate(node.left) - evaluate(node.right)
         elif type(node) is c_ast.Constant:
             return int(node.value, 0)
+        elif type(node) is c_ast.ID:
+            return node.name
         else:
             raise ValueError(f"Unknown node {node}")
 
