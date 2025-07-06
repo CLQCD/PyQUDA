@@ -15,6 +15,7 @@ def mesonTwoPoint(
     gamma_dc: Gamma,
 ):
     latt_info = propag_a.latt_info
+    assert latt_info.Nd == 4 and latt_info.Ns == 4 and latt_info.Nc == 3
     correl = LatticeComplex(latt_info)
     contract.meson_two_point(
         correl.data_ptr,
@@ -34,6 +35,7 @@ def mesonAllSinkTwoPoint(
     gamma_dc: Gamma,
 ):
     latt_info = propag_a.latt_info
+    assert latt_info.Nd == 4 and latt_info.Ns == 4 and latt_info.Nc == 3
     correl = MultiLatticeComplex(latt_info, 16)
     contract.meson_all_sink_two_point(
         correl.data_ptrs,
@@ -52,6 +54,7 @@ def mesonAllSourceTwoPoint(
     gamma_ab: Gamma,
 ):
     latt_info = propag_a.latt_info
+    assert latt_info.Nd == 4 and latt_info.Ns == 4 and latt_info.Nc == 3
     correl = MultiLatticeComplex(latt_info, 16)
     contract.meson_all_source_two_point(
         correl.data_ptrs,
@@ -65,39 +68,6 @@ def mesonAllSourceTwoPoint(
 
 
 def baryonTwoPoint(
-    propag_i: LatticePropagator,
-    propag_j: LatticePropagator,
-    propag_m: LatticePropagator,
-    contract_type: BaryonContractType,
-    gamma_ij: Gamma,
-    gamma_kl: Gamma,
-    gamma_mn: Union[Gamma, Polarize],
-) -> LatticeComplex:
-    latt_info = propag_i.latt_info
-    if isinstance(gamma_mn, Gamma):
-        correl = LatticeComplex(latt_info)
-        contract.baryon_two_point_v2(
-            correl.data_ptr,
-            propag_i.data_ptr,
-            propag_j.data_ptr,
-            propag_m.data_ptr,
-            contract_type,
-            latt_info.volume,
-            gamma_ij.index,
-            gamma_kl.index,
-            gamma_mn.index,
-        )
-        correl.data *= gamma_ij.factor * gamma_kl.factor * gamma_mn.factor
-        return correl
-    elif isinstance(gamma_mn, Polarize):
-        correl_left = baryonTwoPoint(propag_i, propag_j, propag_m, contract_type, gamma_ij, gamma_kl, gamma_mn.left)
-        correl_right = baryonTwoPoint(propag_i, propag_j, propag_m, contract_type, gamma_ij, gamma_kl, gamma_mn.right)
-        return correl_left + correl_right
-    else:
-        raise getLogger().critical("gamma_mn should be Gamma or Polarize", ValueError)
-
-
-def baryonTwoPoint_v2(
     propag_a: LatticePropagator,
     propag_b: LatticePropagator,
     propag_c: LatticePropagator,
@@ -106,8 +76,9 @@ def baryonTwoPoint_v2(
     gamma_de: Gamma,
     gamma_fc: Union[Gamma, Polarize],
 ) -> LatticeComplex:
-    latt_info = propag_a.latt_info
     if isinstance(gamma_fc, Gamma):
+        latt_info = propag_a.latt_info
+        assert latt_info.Nd == 4 and latt_info.Ns == 4 and latt_info.Nc == 3
         correl = LatticeComplex(latt_info)
         contract.baryon_two_point(
             correl.data_ptr,
@@ -123,9 +94,43 @@ def baryonTwoPoint_v2(
         correl *= gamma_ab.factor * gamma_de.factor * gamma_fc.factor
         return correl
     elif isinstance(gamma_fc, Polarize):
-        correl_left = baryonTwoPoint_v2(propag_a, propag_b, propag_c, contract_type, gamma_ab, gamma_de, gamma_fc.left)
+        correl_left = baryonTwoPoint(propag_a, propag_b, propag_c, contract_type, gamma_ab, gamma_de, gamma_fc.left)
+        correl_right = baryonTwoPoint(propag_a, propag_b, propag_c, contract_type, gamma_ab, gamma_de, gamma_fc.right)
+        return correl_left + correl_right
+    else:
+        raise getLogger().critical("gamma_mn should be Gamma or Polarize", ValueError)
+
+
+def baryonTwoPoint_v2(
+    propag_i: LatticePropagator,
+    propag_j: LatticePropagator,
+    propag_m: LatticePropagator,
+    contract_type: BaryonContractType,
+    gamma_ij: Gamma,
+    gamma_kl: Gamma,
+    gamma_mn: Union[Gamma, Polarize],
+) -> LatticeComplex:
+    if isinstance(gamma_mn, Gamma):
+        latt_info = propag_i.latt_info
+        assert latt_info.Nd == 4 and latt_info.Ns == 4 and latt_info.Nc == 3
+        correl = LatticeComplex(latt_info)
+        contract.baryon_two_point_v2(
+            correl.data_ptr,
+            propag_i.data_ptr,
+            propag_j.data_ptr,
+            propag_m.data_ptr,
+            contract_type,
+            latt_info.volume,
+            gamma_ij.index,
+            gamma_kl.index,
+            gamma_mn.index,
+        )
+        correl.data *= gamma_ij.factor * gamma_kl.factor * gamma_mn.factor
+        return correl
+    elif isinstance(gamma_mn, Polarize):
+        correl_left = baryonTwoPoint_v2(propag_i, propag_j, propag_m, contract_type, gamma_ij, gamma_kl, gamma_mn.left)
         correl_right = baryonTwoPoint_v2(
-            propag_a, propag_b, propag_c, contract_type, gamma_ab, gamma_de, gamma_fc.right
+            propag_i, propag_j, propag_m, contract_type, gamma_ij, gamma_kl, gamma_mn.right
         )
         return correl_left + correl_right
     else:

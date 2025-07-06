@@ -40,65 +40,7 @@ def mesonTwoPoint(
     )
 
 
-def mesonTwoPoint_v2(
-    propag_fw: core.LatticePropagator,
-    propag_bw: core.LatticePropagator,
-    gamma_snk: gamma.Gamma,
-    gamma_src: gamma.Gamma,
-):
-    latt_info = propag_fw.latt_info
-    subscripts = "ij,wtzyxjkab,kl,wtzyxliab->wtzyx"
-    return core.LatticeComplex(
-        latt_info,
-        contract(
-            subscripts,
-            (gamma_src @ gamma_5).matrix,
-            propag_bw.data.conj(),
-            (gamma_5 @ gamma_snk).matrix,
-            propag_fw.data,
-        ),
-    )
-
-
 def baryonTwoPoint(
-    propag_i: core.LatticePropagator,
-    propag_j: core.LatticePropagator,
-    propag_m: core.LatticePropagator,
-    contract_type,
-    gamma_ij: gamma.Gamma,
-    gamma_kl: gamma.Gamma,
-    gamma_mn: Union[gamma.Gamma, gamma.Polarize],
-):
-    latt_info = propag_i.latt_info
-    if contract_type == pycontract.BaryonContractType.IK_JL_MN:
-        subscripts = "abc,def,ij,kl,mn,wtzyxikad,wtzyxjlbe,wtzyxmncf->wtzyx"
-    elif contract_type == pycontract.BaryonContractType.IK_JN_ML:
-        subscripts = "abc,def,ij,kl,mn,wtzyxikad,wtzyxjnbe,wtzyxmlcf->wtzyx"
-    elif contract_type == pycontract.BaryonContractType.IL_JK_MN:
-        subscripts = "abc,def,ij,kl,mn,wtzyxilad,wtzyxjkbe,wtzyxmncf->wtzyx"
-    elif contract_type == pycontract.BaryonContractType.IL_JN_MK:
-        subscripts = "abc,def,ij,kl,mn,wtzyxilad,wtzyxjnbe,wtzyxmkcf->wtzyx"
-    elif contract_type == pycontract.BaryonContractType.IN_JK_ML:
-        subscripts = "abc,def,ij,kl,mn,wtzyxinad,wtzyxjkbe,wtzyxmlcf->wtzyx"
-    elif contract_type == pycontract.BaryonContractType.IN_JL_MK:
-        subscripts = "abc,def,ij,kl,mn,wtzyxinad,wtzyxjlbe,wtzyxmkcf->wtzyx"
-    return core.LatticeComplex(
-        latt_info,
-        contract(
-            subscripts,
-            epsilon,
-            epsilon,
-            gamma_ij.matrix,
-            gamma_kl.matrix,
-            gamma_mn.matrix,
-            propag_i.data,
-            propag_j.data,
-            propag_m.data,
-        ),
-    )
-
-
-def baryonTwoPoint_v2(
     propag_a: core.LatticePropagator,
     propag_b: core.LatticePropagator,
     propag_c: core.LatticePropagator,
@@ -132,6 +74,64 @@ def baryonTwoPoint_v2(
             propag_a.data,
             propag_b.data,
             propag_c.data,
+        ),
+    )
+
+
+def mesonTwoPoint_v2(
+    propag_fw: core.LatticePropagator,
+    propag_bw: core.LatticePropagator,
+    gamma_snk: gamma.Gamma,
+    gamma_src: gamma.Gamma,
+):
+    latt_info = propag_fw.latt_info
+    subscripts = "ij,wtzyxjkab,kl,wtzyxliab->wtzyx"
+    return core.LatticeComplex(
+        latt_info,
+        contract(
+            subscripts,
+            (gamma_src @ gamma_5).matrix,
+            propag_bw.data.conj(),
+            (gamma_5 @ gamma_snk).matrix,
+            propag_fw.data,
+        ),
+    )
+
+
+def baryonTwoPoint_v2(
+    propag_i: core.LatticePropagator,
+    propag_j: core.LatticePropagator,
+    propag_m: core.LatticePropagator,
+    contract_type,
+    gamma_ij: gamma.Gamma,
+    gamma_kl: gamma.Gamma,
+    gamma_mn: Union[gamma.Gamma, gamma.Polarize],
+):
+    latt_info = propag_i.latt_info
+    if contract_type == pycontract.BaryonContractType.IK_JL_MN:
+        subscripts = "abc,def,ij,kl,mn,wtzyxikad,wtzyxjlbe,wtzyxmncf->wtzyx"
+    elif contract_type == pycontract.BaryonContractType.IK_JN_ML:
+        subscripts = "abc,def,ij,kl,mn,wtzyxikad,wtzyxjnbe,wtzyxmlcf->wtzyx"
+    elif contract_type == pycontract.BaryonContractType.IL_JK_MN:
+        subscripts = "abc,def,ij,kl,mn,wtzyxilad,wtzyxjkbe,wtzyxmncf->wtzyx"
+    elif contract_type == pycontract.BaryonContractType.IL_JN_MK:
+        subscripts = "abc,def,ij,kl,mn,wtzyxilad,wtzyxjnbe,wtzyxmkcf->wtzyx"
+    elif contract_type == pycontract.BaryonContractType.IN_JK_ML:
+        subscripts = "abc,def,ij,kl,mn,wtzyxinad,wtzyxjkbe,wtzyxmlcf->wtzyx"
+    elif contract_type == pycontract.BaryonContractType.IN_JL_MK:
+        subscripts = "abc,def,ij,kl,mn,wtzyxinad,wtzyxjlbe,wtzyxmkcf->wtzyx"
+    return core.LatticeComplex(
+        latt_info,
+        contract(
+            subscripts,
+            epsilon,
+            epsilon,
+            gamma_ij.matrix,
+            gamma_kl.matrix,
+            gamma_mn.matrix,
+            propag_i.data,
+            propag_j.data,
+            propag_m.data,
         ),
     )
 
@@ -181,6 +181,7 @@ core.getLogger().info(
 )
 core.getLogger().info(twopt.data[0, 0, 0, 0, 0])
 core.getLogger().info(twopt_.data[0, 0, 0, 0, 0])
+core.getLogger().info(twopts_[CG_A.index].data[0, 0, 0, 0, 0])
 
 
 for contract_type in [
