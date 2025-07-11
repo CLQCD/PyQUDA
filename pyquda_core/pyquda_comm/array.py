@@ -1,9 +1,9 @@
 from typing import Any, Callable, Dict, Literal, Sequence
 
-BackendType = Literal["numpy", "cupy", "torch"]
-
 import numpy
 from numpy.typing import NDArray, DTypeLike
+
+BackendType = Literal["numpy", "cupy", "torch"]
 
 
 def cudaDeviceAPI(backend: BackendType):

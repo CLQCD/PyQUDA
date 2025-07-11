@@ -5,9 +5,6 @@ import numpy
 
 from pyquda_comm import getCoordFromRank, getRankFromCoord
 from pyquda import (
-    initGrid,
-    initDevice,
-    initQUDA,
     init,
     getMPIComm,
     getMPISize,

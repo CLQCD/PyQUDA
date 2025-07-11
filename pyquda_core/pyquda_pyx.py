@@ -174,11 +174,7 @@ def build_pyquda_pyx(pyquda_root, quda_path):
         os.path.join(quda_include, "quda.h"),
         use_cpp=True,
         cpp_path="cc",
-        cpp_args=[
-            "-E",
-            Rf"-I{fake_libc_include}",
-            Rf"-I{quda_include}",
-        ],
+        cpp_args=["-E", Rf"-I{fake_libc_include}", Rf"-I{quda_include}"],
     )
     for node in ast:
         if node.name.startswith("Quda") and type(node.type.type) is c_ast.Enum:

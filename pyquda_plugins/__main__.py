@@ -1,11 +1,11 @@
 from argparse import ArgumentParser
 from distutils import log
-from distutils.core import Distribution
 import logging
 import os
 import shutil
 from setuptools import Extension
 from setuptools.command.build_ext import build_ext
+from setuptools.dist import Distribution
 import sys
 import tempfile
 

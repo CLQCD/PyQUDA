@@ -3,6 +3,8 @@ from typing import List, Literal, Optional, Union
 
 from ._version import __version__  # noqa: F401
 from pyquda_comm import (  # noqa: F401
+    GridMapType,
+    BackendType,
     initGrid,
     initDevice,
     isGridInitialized,
@@ -15,13 +17,11 @@ from pyquda_comm import (  # noqa: F401
     getGridSize,
     getGridCoord,
     getGridMap,
-    setGridMap,
     getCUDABackend,
     isHIP,
     getCUDADevice,
     getCUDAComputeCapability,
 )
-from pyquda_comm.array import BackendType
 from pyquda_comm.field import LatticeInfo
 
 _DEFAULT_LATTICE: Union[LatticeInfo, None] = None
@@ -85,7 +85,8 @@ def init(
     latt_size: Optional[List[int]] = None,
     t_boundary: Optional[Literal[1, -1]] = None,
     anisotropy: Optional[float] = None,
-    backend: Optional[BackendType] = None,
+    grid_map: GridMapType = "default",
+    backend: BackendType = "cupy",
     init_quda: bool = True,
     *,
     resource_path: str = "",
@@ -123,7 +124,7 @@ def init(
     """
     global _DEFAULT_LATTICE
     if not isGridInitialized() or not isDeviceInitialized():
-        initGrid(grid_size, latt_size)
+        initGrid(grid_map, grid_size, latt_size)
         initDevice(backend, -1, enable_mps)
 
         use_default_grid = grid_size is None and latt_size is not None

@@ -1,13 +1,14 @@
 from typing import List, Optional
 import numpy
 
-from .core import getGridSize, LatticeGauge, LatticeInfo, LatticePropagator
+from .core import getGridSize, getGridCoord, LatticeGauge, LatticeInfo, LatticePropagator
 
 import gpt as g
 
 
 def LatticeInfoGPT(grid: g.grid, gen_simd_width: int):
     assert getGridSize() == grid.mpi
+    assert getGridCoord() == grid.processor_coor
     GLx, GLy, GLz, GLt = grid.fdimensions
     Gx, Gy, Gz, Gt = grid.mpi
     Lx, Ly, Lz, Lt = GLx // Gx, GLy // Gy, GLz // Gz, GLt // Gt

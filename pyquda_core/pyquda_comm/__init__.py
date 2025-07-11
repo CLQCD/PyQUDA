@@ -1,5 +1,4 @@
 import logging
-from math import prod
 from os import environ
 from sys import stdout
 from typing import Generator, List, Literal, NamedTuple, Optional, Sequence, Tuple, Type, Union, get_args
@@ -9,6 +8,7 @@ from numpy.typing import NDArray, DTypeLike
 from mpi4py import MPI
 from mpi4py.util import dtlib
 
+GridMapType = Literal["default", "lexico", "cartcomm"]
 from .array import BackendType, cudaDeviceAPI
 
 
@@ -58,9 +58,10 @@ _MPI_LOGGER: _MPILogger = _MPILogger()
 _MPI_COMM: MPI.Intracomm = MPI.COMM_WORLD
 _MPI_SIZE: int = _MPI_COMM.Get_size()
 _MPI_RANK: int = _MPI_COMM.Get_rank()
+_GRID_MAP: GridMapType = "default"
+_GRID_COMM: Optional[MPI.Cartcomm] = None
 _GRID_SIZE: Optional[Tuple[int, ...]] = None
 _GRID_COORD: Optional[Tuple[int, ...]] = None
-_GRID_MAP: Literal["XYZT_FASTEST", "TZYX_FASTEST"] = "XYZT_FASTEST"
 """For MPI, the default node mapping is lexicographical with t varying fastest."""
 _CUDA_BACKEND: BackendType = "cupy"
 _CUDA_IS_HIP: bool = False
@@ -69,42 +70,44 @@ _CUDA_COMPUTE_CAPABILITY: _ComputeCapability = _ComputeCapability(0, 0)
 
 
 def getRankFromCoord(grid_coord: List[int]) -> int:
-    def _map(xyzt: List[int]):
-        if _GRID_MAP == "XYZT_FASTEST":
-            return xyzt
-        elif _GRID_MAP == "TZYX_FASTEST":
-            return xyzt[::-1]
-        else:
-            _MPI_LOGGER.critical(f"Unsupported grid mapping {_GRID_MAP}", ValueError)
-
-    grid_size = _map(getGridSize())
-    grid_coord = _map(grid_coord)
+    grid_size = getGridSize()
     if len(grid_coord) != len(grid_size):
         _MPI_LOGGER.critical(
             f"Grid coordinate {grid_coord} and grid size {grid_size} must have the same dimension",
             ValueError,
         )
-    mpi_rank = 0
-    for g, G in zip(grid_coord, grid_size):
-        mpi_rank = mpi_rank * G + g
+
+    mpi_rank: int = 0
+    if _GRID_MAP == "default":
+        for g, G in zip(grid_coord, grid_size):
+            mpi_rank = mpi_rank * G + g
+    elif _GRID_MAP == "lexico":
+        for g, G in zip(grid_coord[::-1], grid_size[::-1]):
+            mpi_rank = mpi_rank * G + g
+    elif _GRID_MAP == "cartcomm":
+        mpi_rank = getGridComm().Get_cart_rank(grid_coord)
+    else:
+        _MPI_LOGGER.critical(f"Unsupported grid mapping {_GRID_MAP}", ValueError)
     return mpi_rank
 
 
 def getCoordFromRank(mpi_rank: int) -> List[int]:
-    def _map(xyzt: List[int]):
-        if _GRID_MAP == "XYZT_FASTEST":
-            return xyzt[::-1]
-        elif _GRID_MAP == "TZYX_FASTEST":
-            return xyzt
-        else:
-            _MPI_LOGGER.critical(f"Unsupported grid mapping {_GRID_MAP}", ValueError)
+    grid_size = getGridSize()
 
-    grid_size = _map(getGridSize())
-    grid_coord = []
-    for G in grid_size:
-        grid_coord.append(mpi_rank % G)
-        mpi_rank //= G
-    grid_coord = _map(grid_coord)
+    grid_coord: List[int] = []
+    if _GRID_MAP == "default":
+        for G in grid_size[::-1]:
+            grid_coord.append(mpi_rank % G)
+            mpi_rank //= G
+        grid_coord = grid_coord[::-1]
+    elif _GRID_MAP == "lexico":
+        for G in grid_size:
+            grid_coord.append(mpi_rank % G)
+            mpi_rank //= G
+    elif _GRID_MAP == "cartcomm":
+        grid_coord = getGridComm().Get_coords(mpi_rank)
+    else:
+        _MPI_LOGGER.critical(f"Unsupported grid mapping {_GRID_MAP}", ValueError)
     return grid_coord
 
 
@@ -221,16 +224,24 @@ def getDefaultGrid(mpi_size: int, latt_size: Sequence[int], evenodd: bool = True
     return min(min_grid)
 
 
-def initGrid(grid_size: Optional[Sequence[int]], latt_size: Optional[Sequence[int]] = None, evenodd: bool = True):
-    global _GRID_SIZE, _GRID_COORD
-    if _GRID_SIZE is None:
+def initGrid(
+    grid_map: GridMapType = "default",
+    grid_size: Optional[Sequence[int]] = None,
+    latt_size: Optional[Sequence[int]] = None,
+    evenodd: bool = True,
+):
+    global _GRID_MAP, _GRID_COMM, _GRID_SIZE, _GRID_COORD
+    if _GRID_COMM is None:
+        if grid_map not in get_args(GridMapType):
+            _MPI_LOGGER.critical(f"Unsupported grid mapping {grid_map}", ValueError)
+        _GRID_MAP = grid_map
+
         if grid_size is None and latt_size is not None:
             grid_size = getDefaultGrid(_MPI_SIZE, latt_size, evenodd)
         if grid_size is None:
             grid_size = [1, 1, 1, 1]
 
-        if _MPI_SIZE != prod(grid_size):
-            _MPI_LOGGER.critical(f"The MPI size {_MPI_SIZE} does not match the grid size {grid_size}", ValueError)
+        _GRID_COMM = _MPI_COMM.Create_cart(grid_size, [True] * len(grid_size), False)
         _GRID_SIZE = tuple(grid_size)
         _GRID_COORD = tuple(getCoordFromRank(_MPI_RANK))
         _MPI_LOGGER.info(f"Using the grid size {_GRID_SIZE}")
@@ -238,14 +249,11 @@ def initGrid(grid_size: Optional[Sequence[int]], latt_size: Optional[Sequence[in
         _MPI_LOGGER.warning("Grid is already initialized", RuntimeWarning)
 
 
-def initDevice(backend: Optional[BackendType] = None, device: int = -1, enable_mps: bool = False):
+def initDevice(backend: BackendType = "cupy", device: int = -1, enable_mps: bool = False):
     global _CUDA_BACKEND, _CUDA_IS_HIP, _CUDA_DEVICE, _CUDA_COMPUTE_CAPABILITY
     if _CUDA_DEVICE < 0:
         from platform import node as gethostname
 
-        if backend is None:
-            backend = environ["PYQUDA_BACKEND"] if "PYQUDA_BACKEND" in environ else "cupy"
-        assert backend is not None
         if backend not in get_args(BackendType):
             _MPI_LOGGER.critical(f"Unsupported CUDA backend {backend}", ValueError)
         _CUDA_BACKEND = backend
@@ -269,7 +277,7 @@ def initDevice(backend: Optional[BackendType] = None, device: int = -1, enable_m
                     device += 1
 
             if device >= device_count:
-                if enable_mps:
+                if enable_mps or environ.get("QUDA_ENABLE_MPS") == "1":
                     device %= device_count
                     print(f"MPS enabled, rank={_MPI_RANK:3d} -> gpu={device}")
                 else:
@@ -288,7 +296,7 @@ def initDevice(backend: Optional[BackendType] = None, device: int = -1, enable_m
 
 
 def isGridInitialized():
-    return _GRID_SIZE is not None
+    return _GRID_COMM is not None
 
 
 def isDeviceInitialized():
@@ -315,6 +323,16 @@ def getMPIRank():
     return _MPI_RANK
 
 
+def getGridMap():
+    return _GRID_MAP
+
+
+def getGridComm():
+    if _GRID_COMM is None:
+        _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
+    return _GRID_COMM
+
+
 def getGridSize():
     if _GRID_SIZE is None:
         _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
@@ -325,15 +343,6 @@ def getGridCoord():
     if _GRID_COORD is None:
         _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
     return list(_GRID_COORD)
-
-
-def getGridMap():
-    return _GRID_MAP
-
-
-def setGridMap(grid_map: Literal["XYZT_FASTEST", "TZYX_FASTEST"]):
-    global _GRID_MAP
-    _GRID_MAP = grid_map
 
 
 def getCUDABackend():

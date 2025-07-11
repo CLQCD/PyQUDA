@@ -3,6 +3,8 @@ import sys
 import io
 from contextlib import contextmanager
 
+from mpi4py import MPI
+
 from cython.operator cimport dereference
 from libc.stdio cimport stdout
 from libc.stdlib cimport malloc, free
@@ -162,25 +164,37 @@ ctypedef struct MapData:
     int ndim
     int dims[6]
 
-cdef int tzyxCommsMap(const int *coords, void *fdata) noexcept:
+cdef MapData map_data
+
+cartcomm: MPI.Cartcomm = None
+
+cdef int lexicoMap(const int *coords, void *fdata) noexcept:
     cdef MapData *md = <MapData *>fdata
     cdef int rank = coords[md.ndim - 1]
     for i in range(md.ndim - 2, -1, -1):
         rank = md.dims[i] * rank + coords[i]
+    return rank
 
+cdef int cartcommMap(const int *coords, void *fdata) noexcept:
+    global cartcomm
+    cdef MapData *md = <MapData *>fdata
+    if cartcomm is None:
+        cartcomm = MPI.COMM_WORLD.Create_cart([md.dims[i] for i in range(md.ndim)], [True] * md.ndim, False)
+    cdef int rank = cartcomm.Get_cart_rank([coords[i] for i in range(md.ndim)])
     return rank
 
 def initCommsGridQuda(int nDim, list dims, const char grid_map[]):
     cdef int _dims[4]
     _dims = dims
-    cdef MapData map_data
     map_data.ndim = nDim
     for i in range(nDim):
         map_data.dims[i] = _dims[i]
-    if strcmp(grid_map, "XYZT_FASTEST") == 0:
+    if strcmp(grid_map, "default") == 0:
         quda.initCommsGridQuda(nDim, _dims, NULL, NULL)
-    elif strcmp(grid_map, "TZYX_FASTEST") == 0:
-        quda.initCommsGridQuda(nDim, _dims, tzyxCommsMap, <void *>(&map_data))
+    elif strcmp(grid_map, "lexico") == 0:
+        quda.initCommsGridQuda(nDim, _dims, lexicoMap, <void *>(&map_data))
+    elif strcmp(grid_map, "cartcomm") == 0:
+        quda.initCommsGridQuda(nDim, _dims, cartcommMap, <void *>(&map_data))
 
 def initQudaDevice(int device):
     quda.initQudaDevice(device)

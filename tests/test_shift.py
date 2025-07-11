@@ -19,9 +19,7 @@ for n, mu in zip([1, 1], [-X, T]):
     s = perf_counter()
     for spin in range(4):
         for color in range(3):
-            propagator_covdev.setFermion(
-                unit.gauge_dirac.covDev(propagator.getFermion(spin, color), mu), spin, color
-            )
+            propagator_covdev.setFermion(unit.gauge_dirac.covDev(propagator.getFermion(spin, color), mu), spin, color)
     cp.cuda.runtime.deviceSynchronize()
     e = perf_counter()
     print(f"Time for GaugeField.covDev(LatticePropagator) on n={n}, mu={mu}:", e - s)
@@ -31,9 +29,7 @@ for n, mu in zip([1, 1], [-X, T]):
     s = perf_counter()
     for spin in range(4):
         for color in range(3):
-            multi_fermion_covdev[spin * 3 + color] = unit.gauge_dirac.covDev(
-                multi_fermion[spin * 3 + color], mu
-            )
+            multi_fermion_covdev[spin * 3 + color] = unit.gauge_dirac.covDev(multi_fermion[spin * 3 + color], mu)
     cp.cuda.runtime.deviceSynchronize()
     e = perf_counter()
     print(f"Time for GaugeField.covDev(MultiLatticeFermion) on n={n}, mu={mu}:", e - s)

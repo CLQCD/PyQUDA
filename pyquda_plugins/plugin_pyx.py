@@ -13,6 +13,7 @@ _C_TO_PYTHON: Dict[str, str] = {
     "unsigned long": "int",
     "long long": "int",
     "unsigned long long": "int",
+    "size_t": "int",
     "float": "float",
     "double": "float",
     "long double": "float",
@@ -159,11 +160,7 @@ def parseHeader(plugins_root, header, include):
         os.path.join(include, header),
         use_cpp=True,
         cpp_path="cc",
-        cpp_args=[
-            "-E",
-            Rf"-I{fake_libc_include}",
-            Rf"-I{include}",
-        ],
+        cpp_args=["-E", Rf"-I{fake_libc_include}", Rf"-I{include}"],
     )
     funcs: List[FunctionMeta] = []
     enums: Dict[str, List[Tuple[str, int]]] = {}

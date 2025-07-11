@@ -4,17 +4,15 @@ from typing import Sequence
 
 import numpy as np
 
-from pyquda_comm import initGrid, initDevice, getLogger, setGridMap, readMPIFile, readMPIFileInChunks
-from pyquda_comm.field import evenodd, LatticeInfo, LatticeGauge, LatticeFermion, MultiLatticeFermion
+from pyquda_comm import initGrid, initDevice, getLogger, readMPIFile, readMPIFileInChunks
+from pyquda_comm.field import LatticeInfo, LatticeGauge, LatticeFermion, MultiLatticeFermion
 from . import _pygwu as gwu
-
-setGridMap("TZYX_FASTEST")
 
 
 def init(latt_size: Sequence[int]):
     import atexit
 
-    initGrid(None, latt_size)
+    initGrid("lexico", None, latt_size)
     initDevice("numpy")
     gwu.gwu_init_machine(np.asarray(latt_size, "<i4"))
     atexit.register(gwu.gwu_shutdown_machine)
@@ -194,7 +192,7 @@ class Overlap:
         gauge_in = gauge.copy()
         if self.latt_info.t_boundary == -1:
             gauge_in.setAntiPeriodicT()
-        gwu.gwu_build_hw(gauge_in[0].data_ptr, kappa)
+        gwu.gwu_build_hw(gauge_in.data_ptrs, kappa)
 
     def loadHWilsonEigen(self, eignum: int, eigprec: float, file: str, use_fp32: bool, chunk: bool = False):
         if chunk:

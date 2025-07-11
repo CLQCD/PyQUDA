@@ -2,9 +2,10 @@ from abc import abstractmethod
 from math import prod
 from os import path
 from time import perf_counter
-from typing import Any, List, Literal, Optional, Sequence, Tuple, Type, TypeVar, Union
+from typing import Any, Generic, List, Literal, Optional, Sequence, Tuple, Type, TypeVar, Union
 
 Self = TypeVar("Self", bound="BaseField")
+Field = TypeVar("Field", bound="BaseField")
 
 import numpy
 from numpy.lib.format import dtype_to_descr, read_magic, read_array_header_1_0, write_array_header_1_0
@@ -86,8 +87,8 @@ class LatticeInfo(BaseInfo):
         if hasattr(self, "even") and hasattr(self, "odd"):
             return
         eo = numpy.sum(numpy.indices(self.size[::-1], "<i4"), axis=0).reshape(-1) % 2
-        self.even = eo == 0
-        self.odd = eo == 1
+        self._even = eo == 0
+        self._odd = eo == 1
 
     def lexico(self, data: NDArray, multi: bool, backend: BackendType = "numpy"):
         self._setEvenOdd()
@@ -106,8 +107,8 @@ class LatticeInfo(BaseInfo):
         assert sublatt_size == self.size
         data_evenodd = data.reshape(L5, 2, self.volume // 2, prod(field_shape))
         data_lexico = arrayZeros((L5, self.volume, prod(field_shape)), data.dtype, backend)
-        data_lexico[:, self.even] = data_evenodd[:, 0]
-        data_lexico[:, self.odd] = data_evenodd[:, 1]
+        data_lexico[:, self._even] = data_evenodd[:, 0]
+        data_lexico[:, self._odd] = data_evenodd[:, 1]
         if multi:
             return data_lexico.reshape(L5, *sublatt_size[::-1], *field_shape)
         else:
@@ -128,8 +129,8 @@ class LatticeInfo(BaseInfo):
         sublatt_size[0] //= 2
         data_lexico = data.reshape(L5, self.volume, prod(field_shape))
         data_evenodd = arrayZeros((L5, 2, self.volume // 2, prod(field_shape)), data.dtype, backend)
-        data_evenodd[:, 0] = data_lexico[:, self.even]
-        data_evenodd[:, 1] = data_lexico[:, self.odd]
+        data_evenodd[:, 0] = data_lexico[:, self._even]
+        data_evenodd[:, 1] = data_lexico[:, self._odd]
         if multi:
             return data_evenodd.reshape(L5, 2, *sublatt_size[::-1], *field_shape)
         else:
@@ -237,8 +238,8 @@ class BaseField:
             return self.backend
 
     @abstractmethod
-    def _shape(self):
-        getLogger().critical(f"{self.__class__.__name__}._shape() not implemented", NotImplementedError)
+    def _latticeShape(self) -> List[int]:
+        getLogger().critical(f"{self.__class__.__name__}._latticeShape() not implemented", NotImplementedError)
 
     @classmethod
     def _groupName(cls):
@@ -283,7 +284,12 @@ class BaseField:
         self.field_shape = field_shape
         self.field_size = prod(field_shape)
         self.field_dtype = field_dtype
-        self.shape = self._shape()
+        self.lattice_shape = self._latticeShape()
+        self.shape: Tuple[int, ...] = (
+            (*self.lattice_shape, *self.field_shape)
+            if self.L5 == 0
+            else (self.L5, *self.lattice_shape, *self.field_shape)
+        )
         self.dtype = arrayDType(field_dtype, self.backend)
 
     def _initData(self, value: Union[NDArray, BackendType, None]):
@@ -296,7 +302,7 @@ class BaseField:
             self.data = value.reshape(self.shape)
 
     def lexico(self, force_numpy: bool = True):
-        if not isinstance(self, _FULL_FILED_LIST):
+        if not isinstance(self, _FULL_FILED_TUPLE):
             getLogger().critical(f"{self.__class__.__name__}.lexico(force_numpy) not implemented", NotImplementedError)
         if force_numpy:
             return self.latt_info.lexico(self.getHost(), self.L5 > 0)
@@ -305,7 +311,7 @@ class BaseField:
 
     @classmethod
     def loadNPY(cls: Type[Self], filename: str) -> Self:
-        if not issubclass(cls, _FULL_FILED_LIST):
+        if not issubclass(cls, _FULL_FILED_TUPLE):
             getLogger().critical(f"{cls.__name__}.loadNPY(filename) not implemented", NotImplementedError)
         s = perf_counter()
         gbytes = 0
@@ -345,7 +351,7 @@ class BaseField:
         return retval
 
     def saveNPY(self, filename: str, *, use_fp32: bool = False):
-        if not isinstance(self, _FULL_FILED_LIST):
+        if not isinstance(self, _FULL_FILED_TUPLE):
             getLogger().critical(f"{self.__class__.__name__}.loadNPY(filename) not implemented", NotImplementedError)
         s = perf_counter()
         gbytes = 0
@@ -377,7 +383,7 @@ class BaseField:
     ) -> Self:
         from .hdf5 import File
 
-        if not issubclass(cls, _FULL_FILED_LIST):
+        if not issubclass(cls, _FULL_FILED_TUPLE):
             getLogger().critical(f"{cls.__name__}.load(filename, label, **kwargs) not implemented", NotImplementedError)
         s = perf_counter()
         gbytes = 0
@@ -413,7 +419,7 @@ class BaseField:
     ):
         from .hdf5 import File
 
-        if not isinstance(self, _FULL_FILED_LIST):
+        if not isinstance(self, _FULL_FILED_TUPLE):
             getLogger().critical(
                 f"{self.__class__.__name__}.save(filename, label, **kwargs) not implemented", NotImplementedError
             )
@@ -445,7 +451,7 @@ class BaseField:
     ):
         from .hdf5 import File
 
-        if not isinstance(self, _FULL_FILED_LIST):
+        if not isinstance(self, _FULL_FILED_TUPLE):
             getLogger().critical(
                 f"{self.__class__.__name__}.append(filename, label, **kwargs) not implemented", NotImplementedError
             )
@@ -474,7 +480,7 @@ class BaseField:
     ):
         from .hdf5 import File
 
-        if not isinstance(self, _FULL_FILED_LIST):
+        if not isinstance(self, _FULL_FILED_TUPLE):
             getLogger().critical(
                 f"{self.__class__.__name__}.update(filename, label, **kwargs) not implemented", NotImplementedError
             )
@@ -587,12 +593,8 @@ class LexicoField(BaseField):
         if init_data:
             self._initData(value)
 
-    def _shape(self):
-        self.lattice_shape = self.latt_info.size[::-1]
-        if self.L5 == 0:
-            return (*self.lattice_shape, *self.field_shape)
-        else:
-            return (self.L5, *self.lattice_shape, *self.field_shape)
+    def _latticeShape(self):
+        return [L for L in self.latt_info.size[::-1]]
 
     def shift(self, n: int, mu: int):
         assert n >= 0
@@ -654,16 +656,11 @@ class ParityField(BaseField):
         if init_data:
             self._initData(value)
 
-    def _shape(self):
-        latt_size = self.latt_info.size
-        self.lattice_shape = [*latt_size[1:][::-1], latt_size[0] // 2]
-        if self.L5 == 0:
-            return (*self.lattice_shape, *self.field_shape)
-        else:
-            return (self.L5, *self.lattice_shape, *self.field_shape)
+    def _latticeShape(self):
+        return [L // 2 if d == self.latt_info.Nd - 1 else L for d, L in enumerate(self.latt_info.size[::-1])]
 
 
-class FullField(BaseField):
+class FullField(BaseField, Generic[Field]):
     latt_info: LatticeInfo
 
     def __init__(self, latt_info: LatticeInfo, value: Any = None, init_data: bool = True) -> None:
@@ -675,23 +672,18 @@ class FullField(BaseField):
         if init_data:
             self._initData(value)
 
-    def _shape(self):
-        latt_size = self.latt_info.size
-        self.lattice_shape = [2, *latt_size[1:][::-1], latt_size[0] // 2]
-        if self.L5 == 0:
-            return (*self.lattice_shape, *self.field_shape)
-        else:
-            return (self.L5, *self.lattice_shape, *self.field_shape)
+    def _latticeShape(self):
+        return [2] + [L // 2 if d == self.latt_info.Nd - 1 else L for d, L in enumerate(self.latt_info.size[::-1])]
 
     @property
-    def even(self):
+    def even(self) -> Field:
         if self.L5 == 0:
             return super(FullField, self).__field_class__(self.latt_info, self.data[0])
         else:
             getLogger().critical(f"{self.__class__.__name__}.even not implemented", NotImplementedError)
 
     @even.setter
-    def even(self, value: ParityField):
+    def even(self, value: Field):
         if self.L5 == 0:
             self.data[0] = value.data
         else:
@@ -712,14 +704,14 @@ class FullField(BaseField):
             return self.data.reshape(self.L5, 2, -1)[:, 0]
 
     @property
-    def odd(self):
+    def odd(self) -> Field:
         if self.L5 == 0:
             return super(FullField, self).__field_class__(self.latt_info, self.data[1])
         else:
             getLogger().critical(f"{self.__class__.__name__}.odd not implemented", NotImplementedError)
 
     @odd.setter
-    def odd(self, value: ParityField):
+    def odd(self, value: Field):
         if self.L5 == 0:
             self.data[1] = value.data
         else:
@@ -826,11 +818,10 @@ class FullField(BaseField):
                     left_flat[0, even.reshape(2, -1)[0], 0] = right_tmp[1]
 
                 n -= 1
-                left, right = right, left
             else:
                 left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
                 right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
-                sendbuf = right[(slice(0, 2),) + tuple(right_slice[::-1])]
+                sendbuf = right[(slice(None, None),) + tuple(right_slice[::-1])]
                 if rank == source and rank == dest:
                     pass
                 else:
@@ -866,12 +857,12 @@ class FullField(BaseField):
                     n -= 2
                 else:
                     n -= 1
-                left, right = right, left
+            left, right = right, left
 
         return self.__class__(self.latt_info, right)
 
 
-class MultiField(BaseField):
+class MultiField(BaseField, Generic[Field]):
     def __init__(self, latt_info: BaseInfo, L5: int, value: Any = None, init_data: bool = True) -> None:
         s = super(MultiField, self)
         if hasattr(s, "__field_class__"):
@@ -898,7 +889,7 @@ class MultiField(BaseField):
         else:
             self._data = arrayContiguous(value, location)
 
-    def __getitem__(self, key: Union[int, list, tuple, slice]):
+    def __getitem__(self, key: Union[int, list, tuple, slice]) -> Field:
         if isinstance(key, int):
             return super(MultiField, self).__field_class__(self.latt_info, self.data[key])
         elif isinstance(key, list):
@@ -908,17 +899,17 @@ class MultiField(BaseField):
         elif isinstance(key, slice):
             return self.__class__(self.latt_info, len(range(*key.indices(self.L5))), self.data[key])
 
-    def __setitem__(self, key: Union[int, list, tuple, slice], value):
+    def __setitem__(self, key: Union[int, list, tuple, slice], value: Field):
         self.data[key] = value.data
 
-    def shift(self, n: Sequence[int], mu: Sequence[int]):
+    def shift(self: Self, n: Sequence[int], mu: Sequence[int]) -> Self:
         ret = self.copy()
         for i in range(self.L5):
             ret[i] = self[i].shift(n[i], mu[i])
         return ret
 
 
-_FULL_FILED_LIST = (LexicoField, FullField)
+_FULL_FILED_TUPLE = (LexicoField, FullField)
 
 
 class LatticeInt(FullField, ParityField):
@@ -927,7 +918,7 @@ class LatticeInt(FullField, ParityField):
         return LatticeInt
 
 
-class MultiLatticeInt(MultiField, LatticeInt):
+class MultiLatticeInt(MultiField[LatticeInt], LatticeInt):
     pass
 
 
@@ -937,7 +928,7 @@ class LatticeReal(FullField, ParityField):
         return LatticeReal
 
 
-class MultiLatticeReal(MultiField, LatticeReal):
+class MultiLatticeReal(MultiField[LatticeReal], LatticeReal):
     pass
 
 
@@ -947,53 +938,11 @@ class LatticeComplex(FullField, ParityField):
         return LatticeComplex
 
 
-class MultiLatticeComplex(MultiField, LatticeComplex):
+class MultiLatticeComplex(MultiField[LatticeComplex], LatticeComplex):
     pass
 
 
-class HalfLatticeSpinColorVector(ParityField):
-    @property
-    def __field_class__(self):
-        return HalfLatticeSpinColorVector
-
-
-class LatticeSpinColorVector(FullField, HalfLatticeSpinColorVector):
-    @property
-    def __field_class__(self):
-        return LatticeSpinColorVector
-
-
-class LatticeSpinColorMatrix(FullField, ParityField):
-    @property
-    def __field_class__(self):
-        return LatticeColorMatrix
-
-
-class HalfLatticeColorVector(ParityField):
-    @property
-    def __field_class__(self):
-        return HalfLatticeColorVector
-
-
-class LatticeColorVector(FullField, HalfLatticeColorVector):
-    @property
-    def __field_class__(self):
-        return LatticeColorVector
-
-
-class LatticeColorMatrix(FullField, ParityField):
-    @property
-    def __field_class__(self):
-        return LatticeColorMatrix
-
-
-class LatticeSpinMatrix(FullField, ParityField):
-    @property
-    def __field_class__(self):
-        return LatticeSpinMatrix
-
-
-class LatticeLink(LatticeColorMatrix):
+class LatticeLink(FullField, ParityField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info, value)
         if value is None:
@@ -1004,14 +953,14 @@ class LatticeLink(LatticeColorMatrix):
         return LatticeLink
 
 
-class LatticeRotation(MultiField, LatticeLink):
+class LatticeRotation(MultiField[LatticeLink], LatticeLink):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info, 1, value)
         if value is None:
             self.data[:] = arrayIdentity(latt_info.Nc, self.location)
 
 
-class LatticeGauge(MultiField, LatticeLink):
+class LatticeGauge(MultiField[LatticeLink], LatticeLink):
     def __init__(self, latt_info: LatticeInfo, L5: int, value=None) -> None:
         super().__init__(latt_info, L5, value)
         if value is None:
@@ -1033,27 +982,27 @@ class LatticeClover(FullField, ParityField):
     pass
 
 
-class HalfLatticeFermion(HalfLatticeSpinColorVector):
+class HalfLatticeFermion(ParityField):
     @property
     def __field_class__(self):
         return HalfLatticeFermion
 
 
-class MultiHalfLatticeFermion(MultiField, HalfLatticeFermion):
+class MultiHalfLatticeFermion(MultiField[HalfLatticeFermion], HalfLatticeFermion):
     pass
 
 
-class LatticeFermion(LatticeSpinColorVector):
+class LatticeFermion(FullField[HalfLatticeFermion], HalfLatticeFermion):
     @property
     def __field_class__(self):
         return LatticeFermion
 
 
-class MultiLatticeFermion(MultiField, LatticeFermion):
+class MultiLatticeFermion(MultiField[LatticeFermion], LatticeFermion):
     pass
 
 
-class LatticePropagator(LatticeSpinColorMatrix):
+class LatticePropagator(FullField, ParityField):
     def setFermion(self, fermion: LatticeFermion, spin: int, color: int):
         self.data[:, :, :, :, :, :, spin, :, color] = fermion.data
 
@@ -1061,27 +1010,27 @@ class LatticePropagator(LatticeSpinColorMatrix):
         return LatticeFermion(self.latt_info, self.data[:, :, :, :, :, :, spin, :, color])
 
 
-class HalfLatticeStaggeredFermion(HalfLatticeColorVector):
+class HalfLatticeStaggeredFermion(ParityField):
     @property
     def __field_class__(self):
         return HalfLatticeStaggeredFermion
 
 
-class MultiHalfLatticeStaggeredFermion(MultiField, HalfLatticeStaggeredFermion):
+class MultiHalfLatticeStaggeredFermion(MultiField[HalfLatticeStaggeredFermion], HalfLatticeStaggeredFermion):
     pass
 
 
-class LatticeStaggeredFermion(LatticeColorVector):
+class LatticeStaggeredFermion(FullField[HalfLatticeStaggeredFermion], HalfLatticeStaggeredFermion):
     @property
     def __field_class__(self):
         return LatticeStaggeredFermion
 
 
-class MultiLatticeStaggeredFermion(MultiField, LatticeStaggeredFermion):
+class MultiLatticeStaggeredFermion(MultiField[LatticeStaggeredFermion], LatticeStaggeredFermion):
     pass
 
 
-class LatticeStaggeredPropagator(LatticeColorMatrix):
+class LatticeStaggeredPropagator(FullField, ParityField):
     def setFermion(self, fermion: LatticeStaggeredFermion, color: int):
         self.data[:, :, :, :, :, :, color] = fermion.data
 

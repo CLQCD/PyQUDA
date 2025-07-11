@@ -133,7 +133,7 @@ class FermionAction(Action):
         x: Union[LatticeFermion, LatticeStaggeredFermion],
         b: Union[LatticeFermion, LatticeStaggeredFermion],
         residue: List[float],
-        norm: float,
+        norm: Optional[float],
     ):
         num_offset = len(residue)
         if (
@@ -175,9 +175,7 @@ class FermionAction(Action):
                     MatQuda(x.odd_ptr, b.odd_ptr, self.invert_param)
                     self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
 
-    def invertMultiShift(
-        self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]
-    ) -> Union[LatticeFermion, MultiLatticeFermion]:
+    def invertMultiShift(self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]):
         residue, norm = self._invertMultiShiftParam(mode)
         if mode == "pseudo_fermion":
             self._invertMultiShift(self.quark, self.phi, self.eta, residue, norm)
@@ -195,9 +193,7 @@ class StaggeredFermionAction(FermionAction):
         super().__init__(latt_info, dirac)
         self.is_staggered = True
 
-    def invertMultiShift(
-        self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]
-    ) -> Union[LatticeStaggeredFermion, MultiLatticeStaggeredFermion]:
+    def invertMultiShift(self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]):
         residue, norm = self._invertMultiShiftParam(mode)
         if mode == "pseudo_fermion":
             self._invertMultiShift(self.quark, self.phi, self.eta, residue, norm)

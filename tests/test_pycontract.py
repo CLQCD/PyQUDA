@@ -5,13 +5,13 @@ import cupy as cp
 from cupy.cuda.runtime import deviceSynchronize
 from opt_einsum import contract
 
-from check_pyquda import weak_field
+from check_pyquda import data
 
 from pyquda_utils import core, io, gamma
 from pyquda_plugins import pycontract
 
-core.init([1, 1, 1, 4], [24, 24, 24, 72], -1, 1.0, resource_path=".cache")
-latt_info = core.getDefaultLattice()
+core.init(resource_path=".cache")
+latt_info = core.LatticeInfo([4, 4, 4, 8])
 
 epsilon = cp.zeros((3, 3, 3), "<i4")
 for i in range(3):
@@ -21,21 +21,21 @@ for i in range(3):
 
 
 def mesonTwoPoint(
-    propag_i: core.LatticePropagator,
-    propag_j: core.LatticePropagator,
+    propag_a: core.LatticePropagator,
+    propag_b: core.LatticePropagator,
     gamma_ab: gamma.Gamma,
-    gamma_dc: gamma.Gamma,
+    gamma_de: gamma.Gamma,
 ):
-    latt_info = propag_i.latt_info
-    subscripts = "AB,DC,wtzyxADab,wtzyxCBab->wtzyx"
+    latt_info = propag_a.latt_info
+    subscripts = "AB,DE,wtzyxADab,wtzyxBEab->wtzyx"
     return core.LatticeComplex(
         latt_info,
         contract(
             subscripts,
             (gamma_ab.T @ gamma_5).matrix,
-            (gamma_dc @ gamma_5).matrix,
-            propag_i.data,
-            propag_j.data.conj(),
+            (gamma_de @ gamma_5).matrix,
+            propag_a.data,
+            propag_b.data.conj(),
         ),
     )
 
@@ -85,7 +85,7 @@ def mesonTwoPoint_v2(
     gamma_src: gamma.Gamma,
 ):
     latt_info = propag_fw.latt_info
-    subscripts = "ij,wtzyxjkab,kl,wtzyxliab->wtzyx"
+    subscripts = "ij,wtzyxkjba,kl,wtzyxliba->wtzyx"
     return core.LatticeComplex(
         latt_info,
         contract(
@@ -136,7 +136,7 @@ def baryonTwoPoint_v2(
     )
 
 
-propag: core.LatticePropagator = io.readNPYPropagator("~/PyQUDA/C24P29.npy")
+propag: core.LatticePropagator = io.readChromaQIOPropagator(data("pt_prop_0"))
 propag.toDevice()
 
 propag_i = propag.copy()
@@ -159,7 +159,7 @@ Pp = (gamma_0 - gamma_3) / 2
 
 deviceSynchronize()
 s = perf_counter()
-twopt = mesonTwoPoint(propag_i, propag_j, CG_A, CG_B)
+twopt = mesonTwoPoint_v2(propag_i, propag_j, CG_A, CG_B)
 deviceSynchronize()
 core.getLogger().info(f"Time for mesonTwoPoint: {perf_counter() - s:.3f} sec")
 

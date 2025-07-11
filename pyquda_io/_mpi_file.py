@@ -1,8 +1,6 @@
 from typing import Sequence
 
 from pyquda_comm import (  # noqa: F401
-    initGrid,
-    isGridInitialized,
     getCoordFromRank,
     getRankFromCoord,
     getSublatticeSize,

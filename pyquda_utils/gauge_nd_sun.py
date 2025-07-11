@@ -6,7 +6,7 @@ from pyquda_comm import initGrid, initDevice, getMPIComm, getMPIRank, getGridSiz
 
 
 def init(grid_size: Sequence[int], latt_size: Sequence[int] = None, backend: Literal["cupy", "numpy"] = "numpy"):
-    initGrid(grid_size, latt_size)
+    initGrid("default", grid_size, latt_size)
     initDevice(backend)
 
 
