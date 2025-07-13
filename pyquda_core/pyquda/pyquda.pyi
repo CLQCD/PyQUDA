@@ -85,7 +85,6 @@ from .enum_quda import (  # noqa: F401
     QudaExtLibType,
 )
 
-
 class QudaGaugeParam:
     """
     Parameters having to do with the gauge field or the
@@ -1057,13 +1056,13 @@ class QudaGaugeObservableParam:
     """Real and imaginary part of temporal Polyakov loop"""
     compute_gauge_loop_trace: QudaBoolean
     """Whether to compute gauge loop traces"""
-    traces: Pointer[double_complex]
+    traces: Pointer[complex128]
     """Individual complex traces of each loop"""
-    input_path_buff: Pointers[int]
+    input_path_buff: Pointers[int32]
     """Array of paths"""
-    path_length: Pointer[int]
+    path_length: Pointer[int32]
     """Length of each path"""
-    loop_coeff: Pointer[double]
+    loop_coeff: Pointer[float64]
     """Multiplicative factor for each loop"""
     num_paths: int
     """Total number of paths"""

@@ -7,12 +7,12 @@ from numpy.typing import NDArray
 from pyquda_comm import getLogger
 from pyquda_comm.field import (  # noqa: F401
     LatticeInfo,
-    ParityField,
-    FullField,
-    MultiField,
     LatticeInt,
+    MultiLatticeInt,
     LatticeReal,
+    MultiLatticeReal,
     LatticeComplex,
+    MultiLatticeComplex,
     LatticeLink,
     LatticeRotation as _LatticeRotation,
     LatticeGauge as _LatticeGauge,

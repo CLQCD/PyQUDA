@@ -12,7 +12,7 @@ from . import _pygwu as gwu
 def init(latt_size: Sequence[int]):
     import atexit
 
-    initGrid("lexico", None, latt_size)
+    initGrid("reversed", None, latt_size)
     initDevice("numpy")
     gwu.gwu_init_machine(np.asarray(latt_size, "<i4"))
     atexit.register(gwu.gwu_shutdown_machine)

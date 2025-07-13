@@ -8,7 +8,7 @@ from numpy.typing import NDArray, DTypeLike
 from mpi4py import MPI
 from mpi4py.util import dtlib
 
-GridMapType = Literal["default", "lexico", "cartcomm"]
+GridMapType = Literal["default", "reversed", "shared"]
 from .array import BackendType, cudaDeviceAPI
 
 
@@ -59,14 +59,29 @@ _MPI_COMM: MPI.Intracomm = MPI.COMM_WORLD
 _MPI_SIZE: int = _MPI_COMM.Get_size()
 _MPI_RANK: int = _MPI_COMM.Get_rank()
 _GRID_MAP: GridMapType = "default"
-_GRID_COMM: Optional[MPI.Cartcomm] = None
+"""For MPI, the default node mapping is lexicographical with t varying fastest."""
 _GRID_SIZE: Optional[Tuple[int, ...]] = None
 _GRID_COORD: Optional[Tuple[int, ...]] = None
-"""For MPI, the default node mapping is lexicographical with t varying fastest."""
+_SHARED_RANK_LIST: Optional[List[int]] = None
 _CUDA_BACKEND: BackendType = "cupy"
 _CUDA_IS_HIP: bool = False
 _CUDA_DEVICE: int = -1
 _CUDA_COMPUTE_CAPABILITY: _ComputeCapability = _ComputeCapability(0, 0)
+
+
+def _defaultRankFromCoord(coords: Sequence[int], dims: Sequence[int]) -> int:
+    rank = 0
+    for coord, dim in zip(coords, dims):
+        rank = rank * dim + coord
+    return rank
+
+
+def _defaultCoordFromRank(rank: int, dims: Sequence[int]) -> List[int]:
+    coords = []
+    for dim in dims[::-1]:
+        coords.append(rank % dim)
+        rank = rank // dim
+    return coords[::-1]
 
 
 def getRankFromCoord(grid_coord: List[int]) -> int:
@@ -77,15 +92,13 @@ def getRankFromCoord(grid_coord: List[int]) -> int:
             ValueError,
         )
 
-    mpi_rank: int = 0
     if _GRID_MAP == "default":
-        for g, G in zip(grid_coord, grid_size):
-            mpi_rank = mpi_rank * G + g
-    elif _GRID_MAP == "lexico":
-        for g, G in zip(grid_coord[::-1], grid_size[::-1]):
-            mpi_rank = mpi_rank * G + g
-    elif _GRID_MAP == "cartcomm":
-        mpi_rank = getGridComm().Get_cart_rank(grid_coord)
+        mpi_rank = _defaultRankFromCoord(grid_coord, grid_size)
+    elif _GRID_MAP == "reversed":
+        mpi_rank = _defaultRankFromCoord(grid_coord[::-1], grid_size[::-1])
+    elif _GRID_MAP == "shared":
+        assert _SHARED_RANK_LIST is not None
+        mpi_rank = _SHARED_RANK_LIST.index(_defaultRankFromCoord(grid_coord, grid_size))
     else:
         _MPI_LOGGER.critical(f"Unsupported grid mapping {_GRID_MAP}", ValueError)
     return mpi_rank
@@ -94,18 +107,13 @@ def getRankFromCoord(grid_coord: List[int]) -> int:
 def getCoordFromRank(mpi_rank: int) -> List[int]:
     grid_size = getGridSize()
 
-    grid_coord: List[int] = []
     if _GRID_MAP == "default":
-        for G in grid_size[::-1]:
-            grid_coord.append(mpi_rank % G)
-            mpi_rank //= G
-        grid_coord = grid_coord[::-1]
-    elif _GRID_MAP == "lexico":
-        for G in grid_size:
-            grid_coord.append(mpi_rank % G)
-            mpi_rank //= G
-    elif _GRID_MAP == "cartcomm":
-        grid_coord = getGridComm().Get_coords(mpi_rank)
+        grid_coord = _defaultCoordFromRank(mpi_rank, grid_size)
+    elif _GRID_MAP == "reversed":
+        grid_coord = _defaultCoordFromRank(mpi_rank, grid_size[::-1])[::-1]
+    elif _GRID_MAP == "shared":
+        assert _SHARED_RANK_LIST is not None
+        grid_coord = _defaultCoordFromRank(_SHARED_RANK_LIST[mpi_rank], grid_size)
     else:
         _MPI_LOGGER.critical(f"Unsupported grid mapping {_GRID_MAP}", ValueError)
     return grid_coord
@@ -224,14 +232,48 @@ def getDefaultGrid(mpi_size: int, latt_size: Sequence[int], evenodd: bool = True
     return min(min_grid)
 
 
+def setSharedRankList(grid_size: Sequence[int]):
+    global _SHARED_RANK_LIST
+    shared_comm = _MPI_COMM.Split_type(MPI.COMM_TYPE_SHARED)
+    shared_size = shared_comm.Get_size()
+    shared_rank = shared_comm.Get_rank()
+    shared_root = shared_comm.bcast(_MPI_RANK)
+    node_rank = _MPI_COMM.allgather(shared_root).index(shared_root)
+    assert _MPI_SIZE % shared_size == 0
+    node_grid_size = [G for G in grid_size]
+    shared_grid_size = [1 for _ in grid_size]
+    dim, last_dim = 0, len(grid_size) - 1
+    while shared_size > 1:
+        for prime in [2, 3, 5]:
+            if node_grid_size[dim] % prime == 0 and shared_size % prime == 0:
+                node_grid_size[dim] //= prime
+                shared_grid_size[dim] *= prime
+                shared_size //= prime
+                last_dim = dim
+                break
+        else:
+            if last_dim == dim:
+                _MPI_LOGGER.critical("GlobalSharedMemory::GetShmDims failed", ValueError)
+        dim = (dim + 1) % len(grid_size)
+    grid_coord = [
+        n * S + s
+        for n, S, s in zip(
+            _defaultCoordFromRank(node_rank, node_grid_size),
+            shared_grid_size,
+            _defaultCoordFromRank(shared_rank, shared_grid_size),
+        )
+    ]
+    _SHARED_RANK_LIST = _MPI_COMM.allgather(_defaultRankFromCoord(grid_coord, grid_size))
+
+
 def initGrid(
     grid_map: GridMapType = "default",
     grid_size: Optional[Sequence[int]] = None,
     latt_size: Optional[Sequence[int]] = None,
     evenodd: bool = True,
 ):
-    global _GRID_MAP, _GRID_COMM, _GRID_SIZE, _GRID_COORD
-    if _GRID_COMM is None:
+    global _GRID_MAP, _GRID_SIZE, _GRID_COORD
+    if _GRID_SIZE is None:
         if grid_map not in get_args(GridMapType):
             _MPI_LOGGER.critical(f"Unsupported grid mapping {grid_map}", ValueError)
         _GRID_MAP = grid_map
@@ -241,7 +283,9 @@ def initGrid(
         if grid_size is None:
             grid_size = [1, 1, 1, 1]
 
-        _GRID_COMM = _MPI_COMM.Create_cart(grid_size, [True] * len(grid_size), False)
+        if grid_map == "shared":
+            setSharedRankList(grid_size)
+
         _GRID_SIZE = tuple(grid_size)
         _GRID_COORD = tuple(getCoordFromRank(_MPI_RANK))
         _MPI_LOGGER.info(f"Using the grid size {_GRID_SIZE}")
@@ -296,7 +340,7 @@ def initDevice(backend: BackendType = "cupy", device: int = -1, enable_mps: bool
 
 
 def isGridInitialized():
-    return _GRID_COMM is not None
+    return _GRID_SIZE is not None
 
 
 def isDeviceInitialized():
@@ -325,12 +369,6 @@ def getMPIRank():
 
 def getGridMap():
     return _GRID_MAP
-
-
-def getGridComm():
-    if _GRID_COMM is None:
-        _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
-    return _GRID_COMM
 
 
 def getGridSize():

@@ -101,7 +101,7 @@ def fermion(
     spin: None,
     color: int,
     source_phase=None,
-) -> LatticeFermion: ...
+) -> LatticeStaggeredFermion: ...
 
 
 def fermion(

@@ -2,7 +2,7 @@ from typing import List, Literal, Union, overload
 
 import numpy
 
-from ..field import (
+from pyquda_comm.field import (
     LatticeInfo,
     LatticeGauge,
     LatticeMom,
