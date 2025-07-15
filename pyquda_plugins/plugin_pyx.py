@@ -159,12 +159,14 @@ def parseHeader(plugins_root, header, include):
     ast = parse_file(
         os.path.join(include, header),
         use_cpp=True,
-        cpp_path="cc",
+        cpp_path=os.environ["CC"] if "CC" in os.environ else "cc",
         cpp_args=["-E", Rf"-I{fake_libc_include}", Rf"-I{include}"],
     )
     funcs: List[FunctionMeta] = []
     enums: Dict[str, List[Tuple[str, int]]] = {}
     for node in ast:
+        if not hasattr(node, "name") or node.name is None:
+            continue
         if isinstance(node.type, c_ast.FuncDecl):
             a = []
             if node.type.args is not None:

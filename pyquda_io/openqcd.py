@@ -4,8 +4,8 @@ from typing import List
 
 import numpy
 
-from ._mpi_file import getMPIComm, getMPIRank, getSublatticeSize, readMPIFile, writeMPIFile
-from ._field_utils import gaugeEvenOdd, gaugeLexico, gaugePlaquette, gaugeOddShiftForward, gaugeEvenShiftBackward
+from pyquda_comm import getMPIComm, getMPIRank, getSublatticeSize, readMPIFile, writeMPIFile
+from .io_utils import gaugeEvenOdd, gaugeLexico, gaugePlaquette, gaugeOddShiftForward, gaugeEvenShiftBackward
 
 Nd, Ns, Nc = 4, 4, 3
 

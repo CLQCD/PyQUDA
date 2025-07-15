@@ -1,12 +1,56 @@
 from math import prod
 from typing import List
+import zlib
 
 from mpi4py import MPI
 import numpy
+from numpy.typing import NDArray
 
-from ._mpi_file import getMPIComm, getMPIRank, getSublatticeSize, getNeighbourRank
+from pyquda_comm import getMPIComm, getMPISize, getMPIRank, getGridCoord, getNeighbourRank, getSublatticeSize
 
 Nd, Ns, Nc = 4, 4, 3
+
+
+def checksumQIO(latt_size: List[int], data: NDArray):
+    gx, gy, gz, gt = getGridCoord()
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
+    gLx, gLy, gLz, gLt = gx * Lx, gy * Ly, gz * Lz, gt * Lt
+    GLx, GLy, GLz, GLt = latt_size
+
+    work = numpy.empty((Lt * Lz * Ly * Lx), "<u4")
+    for i in range(Lt * Lz * Ly * Lx):
+        work[i] = zlib.crc32(data[i])
+    rank = (
+        numpy.arange(GLt * GLz * GLy * GLx, dtype="<u8")
+        .reshape(GLt, GLz, GLy, GLx)[gLt : gLt + Lt, gLz : gLz + Lz, gLy : gLy + Ly, gLx : gLx + Lx]
+        .reshape(-1)
+    )
+
+    rank29 = (rank % 29).astype("<u4")
+    rank31 = (rank % 31).astype("<u4")
+    sum29 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)), MPI.BXOR)
+    sum31 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)), MPI.BXOR)
+    return sum29, sum31
+
+
+def checksumMILC(latt_size: List[int], data: NDArray):
+    gx, gy, gz, gt = getGridCoord()
+    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
+    gLx, gLy, gLz, gLt = gx * Lx, gy * Ly, gz * Lz, gt * Lt
+    GLx, GLy, GLz, GLt = latt_size
+
+    work = data.view("<u4")
+    rank = (
+        numpy.arange(getMPISize() * work.size, dtype="<u8")
+        .reshape(GLt, GLz, GLy, GLx, -1)[gLt : gLt + Lt, gLz : gLz + Lz, gLy : gLy + Ly, gLx : gLx + Lx]
+        .reshape(-1)
+    )
+
+    rank29 = (rank % 29).astype("<u4")
+    rank31 = (rank % 31).astype("<u4")
+    sum29 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)), MPI.BXOR)
+    sum31 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)), MPI.BXOR)
+    return sum29, sum31
 
 
 def gaugeEvenOdd(sublatt_size: List[int], gauge: numpy.ndarray):
@@ -170,10 +214,6 @@ def gaugeEvenShiftBackward(latt_size: List[int], gauge: numpy.ndarray):
     return gauge_shift
 
 
-def gaugeProject(gauge: numpy.ndarray):
-    pass
-
-
 def gaugeReunitarize(gauge: numpy.ndarray, reunitarize_sigma: float):
     gauge = numpy.ascontiguousarray(gauge.transpose(5, 6, 0, 1, 2, 3, 4))
     row0_abs = numpy.linalg.norm(gauge[0], axis=0)
@@ -247,20 +287,6 @@ _TO_DIRAC_PAULI = numpy.array(
     ],
     "<i4",
 )
-
-
-def propagatorFromDiracPauli2(propagator: numpy.ndarray):
-    P = _FROM_DIRAC_PAULI
-    Pinv = _TO_DIRAC_PAULI / 2
-
-    return numpy.ascontiguousarray(numpy.einsum("ij,tzyxjkab,kl->tzyxilab", P, propagator.data, Pinv, optimize=True))
-
-
-def propagatorToDiracPauli2(propagator: numpy.ndarray):
-    P = _TO_DIRAC_PAULI
-    Pinv = _FROM_DIRAC_PAULI / 2
-
-    return numpy.ascontiguousarray(numpy.einsum("ij,tzyxjkab,kl->tzyxilab", P, propagator.data, Pinv, optimize=True))
 
 
 def propagatorFromDiracPauli(dirac_pauli: numpy.ndarray):

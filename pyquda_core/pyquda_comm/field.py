@@ -597,28 +597,30 @@ class LexicoField(BaseField):
         return [L for L in self.latt_info.size[::-1]]
 
     def shift(self, n: int, mu: int):
-        assert n >= 0
         assert 0 <= mu < 2 * self.latt_info.Nd
         Nd = self.latt_info.Nd
-        direction = 1 if mu < Nd else -1
+        dir = 1 if mu < Nd else -1
+        dir *= 1 if n >= 0 else -1
         mu = mu % Nd
+        n = abs(n)
         location = self.location
-        left_slice = [slice(None, None) for nu in range(Nd)]
-        right_slice = [slice(None, None) for nu in range(Nd)]
+        left_slice = [slice(None, None) for _ in range(Nd)]
+        right_slice = [slice(None, None) for _ in range(Nd)]
         left = arrayCopy(self.data, location)
         right = arrayCopy(self.data, location) if n > 1 else self.data
         rank = getMPIRank()
-        coord = [g for g in getGridCoord()]
-        coord[mu] = (getGridCoord()[mu] - direction) % getGridSize()[mu]
-        dest = getRankFromCoord(coord)
-        coord[mu] = (getGridCoord()[mu] + direction) % getGridSize()[mu]
-        source = getRankFromCoord(coord)
+        coords = getGridCoord()
+        g, G = coords[mu], getGridSize()[mu]
+        coords[mu] = (g - dir) % G
+        dest = getRankFromCoord(coords)
+        coords[mu] = (g + dir) % G
+        source = getRankFromCoord(coords)
 
         if n == 0:
             left, right = right, left
         while n > 0:
-            left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
-            right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
+            left_slice[mu] = slice(-1, None) if dir == 1 else slice(None, 1)
+            right_slice[mu] = slice(None, 1) if dir == 1 else slice(-1, None)
             sendbuf = right[tuple(right_slice[::-1])]
             if rank == source and rank == dest:
                 pass
@@ -626,12 +628,12 @@ class LexicoField(BaseField):
                 sendbuf_host = arrayHostCopy(sendbuf, location)
                 request = getMPIComm().Isend(sendbuf_host, dest)
 
-            left_slice[mu] = slice(None, -1) if direction == 1 else slice(1, None)
-            right_slice[mu] = slice(1, None) if direction == 1 else slice(None, -1)
+            left_slice[mu] = slice(None, -1) if dir == 1 else slice(1, None)
+            right_slice[mu] = slice(1, None) if dir == 1 else slice(None, -1)
             left[tuple(left_slice[::-1])] = right[tuple(right_slice[::-1])]
 
-            left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
-            right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
+            left_slice[mu] = slice(-1, None) if dir == 1 else slice(None, 1)
+            right_slice[mu] = slice(None, 1) if dir == 1 else slice(-1, None)
             if rank == source and rank == dest:
                 recvbuf = sendbuf
             else:
@@ -732,22 +734,24 @@ class FullField(BaseField, Generic[Field]):
             return self.data.reshape(self.L5, 2, -1)[:, 1]
 
     def shift(self, n: int, mu: int):
-        assert n >= 0
         assert 0 <= mu < 2 * self.latt_info.Nd
         Nd = self.latt_info.Nd
-        direction = 1 if mu < Nd else -1
+        dir = 1 if mu < Nd else -1
+        dir *= 1 if n >= 0 else -1
         mu = mu % Nd
+        n = abs(n)
         location = self.location
-        left_slice = [slice(None, None) for nu in range(Nd)]
-        right_slice = [slice(None, None) for nu in range(Nd)]
+        left_slice = [slice(None, None) for _ in range(Nd)]
+        right_slice = [slice(None, None) for _ in range(Nd)]
         left = arrayCopy(self.data, location)
         right = arrayCopy(self.data, location) if n > 1 else self.data
         rank = getMPIRank()
-        coord = [g for g in getGridCoord()]
-        coord[mu] = (getGridCoord()[mu] - direction) % getGridSize()[mu]
-        dest = getRankFromCoord(coord)
-        coord[mu] = (getGridCoord()[mu] + direction) % getGridSize()[mu]
-        source = getRankFromCoord(coord)
+        coords = getGridCoord()
+        g, G = coords[mu], getGridSize()[mu]
+        coords[mu] = (g - dir) % G
+        dest = getRankFromCoord(coords)
+        coords[mu] = (g + dir) % G
+        source = getRankFromCoord(coords)
 
         if n == 0:
             left, right = right, left
@@ -758,7 +762,7 @@ class FullField(BaseField, Generic[Field]):
                 eo = numpy.sum(numpy.indices((2, *self.latt_info.size[1:][::-1])), axis=0).reshape(-1) % 2
                 even = eo == 0
                 odd = eo == 1
-                if direction == 1:
+                if dir == 1:
                     sendbuf = right_flat[even, 0]
                     if rank == source and rank == dest:
                         pass
@@ -819,8 +823,8 @@ class FullField(BaseField, Generic[Field]):
 
                 n -= 1
             else:
-                left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
-                right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
+                left_slice[mu] = slice(-1, None) if dir == 1 else slice(None, 1)
+                right_slice[mu] = slice(None, 1) if dir == 1 else slice(-1, None)
                 sendbuf = right[(slice(None, None),) + tuple(right_slice[::-1])]
                 if rank == source and rank == dest:
                     pass
@@ -828,8 +832,8 @@ class FullField(BaseField, Generic[Field]):
                     sendbuf_host = arrayHostCopy(sendbuf, location)
                     request = getMPIComm().Isend(sendbuf_host, dest)
 
-                left_slice[mu] = slice(None, -1) if direction == 1 else slice(1, None)
-                right_slice[mu] = slice(1, None) if direction == 1 else slice(None, -1)
+                left_slice[mu] = slice(None, -1) if dir == 1 else slice(1, None)
+                right_slice[mu] = slice(1, None) if dir == 1 else slice(None, -1)
                 if mu == 0:
                     left[(0,) + tuple(left_slice[::-1])] = right[(0,) + tuple(right_slice[::-1])]
                     left[(1,) + tuple(left_slice[::-1])] = right[(1,) + tuple(right_slice[::-1])]
@@ -837,8 +841,8 @@ class FullField(BaseField, Generic[Field]):
                     left[(0,) + tuple(left_slice[::-1])] = right[(1,) + tuple(right_slice[::-1])]
                     left[(1,) + tuple(left_slice[::-1])] = right[(0,) + tuple(right_slice[::-1])]
 
-                left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
-                right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
+                left_slice[mu] = slice(-1, None) if dir == 1 else slice(None, 1)
+                right_slice[mu] = slice(None, 1) if dir == 1 else slice(-1, None)
                 if rank == source and rank == dest:
                     recvbuf = sendbuf
                 else:

@@ -5,8 +5,8 @@ from typing import Dict, List
 import numpy
 from mpi4py import MPI
 
-from ._mpi_file import getMPIComm, getMPISize, getMPIRank, getSublatticeSize, readMPIFile, writeMPIFile
-from ._field_utils import gaugePlaquette, gaugeReunitarize, gaugeReunitarizeReconstruct12, gaugeReconstruct12
+from pyquda_comm import getMPIComm, getMPISize, getMPIRank, getSublatticeSize, readMPIFile, writeMPIFile
+from .io_utils import gaugePlaquette, gaugeReunitarize, gaugeReunitarizeReconstruct12, gaugeReconstruct12
 
 Nd, Ns, Nc = 4, 4, 3
 
@@ -68,7 +68,7 @@ def readGauge(
             assert checksum_nersc(gauge.reshape(-1)) == int(header["CHECKSUM"], 16), f"Bad checksum for {filename}"
         gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
         if float_nbytes == 4:
-            gauge = gaugeReunitarizeReconstruct12(gauge, reunitarize_sigma)  # 5e-7: Nc * 2 **0.5 * 1.1920929e-07
+            gauge = gaugeReunitarizeReconstruct12(gauge, reunitarize_sigma)  # 5e-7: Nc * 2**0.5 * 1.1920929e-07
         elif float_nbytes == 8:
             gauge = gaugeReconstruct12(gauge)
     else:

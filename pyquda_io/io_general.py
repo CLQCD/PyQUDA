@@ -194,7 +194,7 @@ class IOGeneral:
         self.filename = path.expanduser(path.expandvars(filename))
         with open(self.filename, "rb") as f:
             self.head = _FileType.from_buffer_copy(f.read(sizeof(_FileType)))
-        self.data = None
+        self.data: NDArray = numpy.empty((0, 0), "<f8")
 
     def read(self):
         with open(self.filename, "rb") as f:

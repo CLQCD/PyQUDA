@@ -119,6 +119,22 @@ def getCoordFromRank(mpi_rank: int) -> List[int]:
     return grid_coord
 
 
+def getNeighbourRank():
+    grid_size = getGridSize()
+    grid_coord = getGridCoord()
+
+    neighbour_forward = []
+    neighbour_backward = []
+    for d in range(len(grid_size)):
+        g, G = grid_coord[d], grid_size[d]
+        grid_coord[d] = (g + 1) % G
+        neighbour_forward.append(getRankFromCoord(grid_coord))
+        grid_coord[d] = (g - 1) % G
+        neighbour_backward.append(getRankFromCoord(grid_coord))
+        grid_coord[d] = g
+    return neighbour_forward + neighbour_backward
+
+
 def getSublatticeSize(latt_size: Sequence[int], force_even: bool = True):
     grid_size = getGridSize()
     if len(latt_size) != len(grid_size):

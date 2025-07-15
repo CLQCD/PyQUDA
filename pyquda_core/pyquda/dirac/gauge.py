@@ -190,7 +190,9 @@ class GaugeDirac(Dirac):
         return input_path_buf, len(path)
 
     def path(self, gauge: LatticeGauge, paths: List[List[int]]):
-        gauge_path = LatticeGauge(gauge.latt_info)
+        from ..field import LatticeGauge as LatticeGauge_
+
+        gauge_path = LatticeGauge_(gauge.latt_info)
         num_paths = 1
         input_path_buf_x, path_length = GaugeDirac._getPath(paths[0])
         input_path_buf = numpy.zeros((4, 1, path_length + 1), "<i4")
@@ -247,7 +249,9 @@ class GaugeDirac(Dirac):
         return input_path_buf, path_length, num_paths, max_length
 
     def loop(self, gauge: LatticeGauge, loops: List[List[List[int]]], coeff: List[float]):
-        gauge_loop = LatticeGauge(gauge.latt_info)
+        from ..field import LatticeGauge as LatticeGauge_
+
+        gauge_loop = LatticeGauge_(gauge.latt_info)
         input_path_buf_x, path_length, num_paths, max_length = GaugeDirac._getLoops(loops[0])
         input_path_buf = numpy.zeros((4, num_paths, max_length + 1), "<i4")
         input_path_buf[0, :, 0] = 7
