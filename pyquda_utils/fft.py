@@ -1,6 +1,6 @@
 from math import prod
 from time import perf_counter
-from typing import List, Sequence, Union
+from typing import List, Sequence, TypeVar, Union
 
 import numpy
 from numpy.typing import NDArray
@@ -9,7 +9,9 @@ from mpi4py.util import dtlib
 
 from pyquda_comm import getMPIComm, getMPISize, getMPIRank, getGridSize, getGridCoord, getCoordFromRank
 from pyquda_comm.array import BackendType, arrayHostCopy, arrayDevice
-from pyquda_comm.field import LatticeInfo, LatticePropagator
+from pyquda_comm.field import LatticeInfo, LatticeComplex, LatticeLink, LatticeFermion, LatticePropagator
+
+Field = TypeVar("Field", LatticeComplex, LatticeLink, LatticeFermion, LatticePropagator)
 
 
 def arrayFFTN(data, axes: Union[int, Sequence[int]], backend: BackendType) -> NDArray:
@@ -269,7 +271,7 @@ def redistribute_reverse(latt_info: LatticeInfo, field_shape: List[int], dim: in
     return recvbuf
 
 
-def fft(field: LatticePropagator, fft3d: bool):
+def fft(field: Field, fft3d: bool) -> Field:
     backend = field.location
     latt_info = field.latt_info
     field_shape = field.field_shape
@@ -285,10 +287,10 @@ def fft(field: LatticePropagator, fft3d: bool):
         buf = transform(latt_info, field_shape, Nd - 2, Nd - 1, buf)
         buf = arrayHostCopy(arrayFFTN(arrayDevice(buf, backend), 0, backend), backend)
         buf = redistribute_reverse(latt_info, field_shape, Nd - 2, buf)
-    return LatticePropagator(latt_info, arrayDevice(latt_info.evenodd(buf, False), backend))
+    return field.__class__(latt_info, arrayDevice(latt_info.evenodd(buf, False), backend))
 
 
-def ifft(field: LatticePropagator, fft3d: bool):
+def ifft(field: Field, fft3d: bool) -> Field:
     backend = field.location
     latt_info = field.latt_info
     field_shape = field.field_shape
@@ -304,7 +306,7 @@ def ifft(field: LatticePropagator, fft3d: bool):
         buf = transform(latt_info, field_shape, Nd - 2, Nd - 1, buf)
         buf = arrayHostCopy(arrayIFFTN(arrayDevice(buf, backend), 0, backend), backend)
         buf = redistribute_reverse(latt_info, field_shape, Nd - 2, buf)
-    return LatticePropagator(latt_info, arrayDevice(latt_info.evenodd(buf, False), backend))
+    return field.__class__(latt_info, arrayDevice(latt_info.evenodd(buf, False), backend))
 
 
 def fft4(field: LatticePropagator):
