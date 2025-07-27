@@ -1,12 +1,37 @@
-from typing import Literal, Sequence
-
-BackendType = Literal["numpy", "cupy", "torch"]
+from typing import Any, Callable, Dict, Literal, Sequence
 
 import numpy
 from numpy.typing import NDArray, DTypeLike
 
+BackendType = Literal["numpy", "cupy", "torch"]
 
-def arrayDType(dtype: DTypeLike, backend: BackendType):
+
+def cudaDeviceAPI(backend: BackendType):
+    if backend == "numpy":
+        cudaGetDeviceCount: Callable[[], int] = lambda: 0x7FFFFFFF
+        cudaGetDeviceProperties: Callable[[int], Dict[str, Any]] = lambda device: {"major": 0, "minor": 0}
+        cudaSetDevice: Callable[[int], None] = lambda device: None
+        cudaIsHIP: bool = False
+    elif backend == "cupy":
+        import cupy
+        from cupy.cuda.runtime import getDeviceCount as cudaGetDeviceCount
+        from cupy.cuda.runtime import getDeviceProperties as cudaGetDeviceProperties
+        from cupy.cuda.runtime import is_hip as cudaIsHIP
+
+        cudaSetDevice: Callable[[int], None] = lambda device: cupy.cuda.Device(device).use()
+    elif backend == "torch":
+        import torch
+        from torch.cuda import device_count as cudaGetDeviceCount
+        from torch.cuda import get_device_properties as cudaGetDeviceProperties
+        from torch.version import hip
+
+        cudaSetDevice: Callable[[int], None] = lambda device: torch.set_default_device(f"cuda:{device}")
+        cudaIsHIP: bool = hip is not None
+
+    return cudaGetDeviceCount, cudaGetDeviceProperties, cudaSetDevice, cudaIsHIP
+
+
+def arrayDType(dtype: DTypeLike, backend: BackendType) -> DTypeLike:
     if backend == "numpy":
         return numpy.dtype(dtype).type
     elif backend == "cupy":
@@ -38,7 +63,7 @@ def arrayDType(dtype: DTypeLike, backend: BackendType):
 
 def arrayHost(data, backend: BackendType) -> NDArray:
     if backend == "numpy":
-        return numpy.ascontiguousarray(data)
+        return numpy.asarray(data)
     elif backend == "cupy":
         return data.get()
     elif backend == "torch":
@@ -56,7 +81,7 @@ def arrayHostCopy(data, backend: BackendType) -> NDArray:
 
 def arrayDevice(data, backend: BackendType) -> NDArray:
     if backend == "numpy":
-        return data
+        return numpy.asarray(data)
     elif backend == "cupy":
         import cupy
 
@@ -110,7 +135,6 @@ def arrayNorm2(data, backend: BackendType) -> float:
 
 
 def arrayZeros(shape: Sequence[int], dtype: DTypeLike, backend: BackendType) -> NDArray:
-    dtype = arrayDType(dtype, backend)
     if backend == "numpy":
         return numpy.zeros(shape, dtype)
     elif backend == "cupy":
@@ -155,7 +179,7 @@ def arrayRandom(shape: Sequence[int], backend: BackendType) -> NDArray:
     elif backend == "cupy":
         import cupy
 
-        return cupy.random.random(shape, dtype=cupy.float64)
+        return cupy.random.random(shape, dtype=numpy.float64)
     elif backend == "torch":
         import torch
 

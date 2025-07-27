@@ -2,6 +2,7 @@ import io
 from os import path
 import struct
 from typing import List, NamedTuple
+from xml.etree import ElementTree as ET
 
 
 class LimeRecord(NamedTuple):
@@ -31,11 +32,11 @@ class Lime:
         return [record for record in self._records if record.name == key]
 
     def record(self, key: str, index: int = 0):
-        return [record for record in self._records if record.name == key][index]
+        return self.records(key)[index]
 
-    def read(self, key: str, index: int = 0):
+    def loadXML(self, key: str, index: int = 0):
         record = self.record(key, index)
         with open(self.filename, "rb") as f:
             f.seek(record.offset)
             buffer = f.read(record.length)
-        return buffer
+        return ET.ElementTree(ET.fromstring(buffer.strip(b"\x00").decode("utf-8")))

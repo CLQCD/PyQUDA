@@ -5,9 +5,6 @@ import numpy
 
 from pyquda_comm import getCoordFromRank, getRankFromCoord
 from pyquda import (
-    initGrid,
-    initDevice,
-    initQUDA,
     init,
     getMPIComm,
     getMPISize,
@@ -195,7 +192,7 @@ def gatherLattice2(
 
         data_all = numpy.zeros((*prefix, *recv_latt[::-1], *suffix), data.dtype)
         for rank in range(getMPISize()):
-            grid_coord = numpy.array(getCoordFromRank(rank, getGridSize()))[gather_axis]
+            grid_coord = numpy.array(getCoordFromRank(rank))[gather_axis]
             recv_slice = [slice(g * L, (g + 1) * L) for g, L in zip(grid_coord, send_latt)]
             all_slice = (*prefix_slice, *recv_slice[::-1], *suffix_slice)
             data_all[all_slice] = recvobj[rank].reshape(*prefix, *send_latt[::-1], *suffix)
@@ -235,7 +232,7 @@ def scatterLattice(data: numpy.ndarray, tzyx: List[int], root: int = 0):
 
         sendobj = []
         for rank in range(getMPISize()):
-            grid_coord = numpy.array(getCoordFromRank(rank, getGridSize()))[scatter_axis]
+            grid_coord = numpy.array(getCoordFromRank(rank))[scatter_axis]
             send_slice = [slice(g * L, (g + 1) * L) for g, L in zip(grid_coord, recv_latt)]
             all_slice = (*prefix_slice, *send_slice[::-1], *suffix_slice)
             sendobj.append(numpy.ascontiguousarray(data[all_slice]))
@@ -302,7 +299,7 @@ def gatherLattice(data: numpy.ndarray, axes: List[int], reduce_op: Literal["sum"
 
         data = numpy.zeros_like(recvbuf).reshape(prefix_size, Gt * Lt, Gz * Lz, Gy * Ly, Gx * Lx, suffix_size)
         for rank in range(getMPISize()):
-            gx, gy, gz, gt = getCoordFromRank(rank, getGridSize())
+            gx, gy, gz, gt = getCoordFromRank(rank)
             data[
                 :,
                 gt * Lt : (gt + 1) * Lt,

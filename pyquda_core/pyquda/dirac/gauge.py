@@ -1,8 +1,8 @@
-from typing import List, Literal, Union
+from typing import List, Literal, Union, overload
 
 import numpy
 
-from ..field import (
+from pyquda_comm.field import (
     LatticeInfo,
     LatticeGauge,
     LatticeMom,
@@ -147,6 +147,11 @@ class GaugeDirac(Dirac):
         MatQuda(b.data_ptr, x.data_ptr, self.invert_param)
         return b
 
+    @overload
+    def wuppertalSmear(self, x: LatticeFermion, n_steps: int, alpha: float) -> LatticeFermion: ...
+    @overload
+    def wuppertalSmear(self, x: LatticeStaggeredFermion, n_steps: int, alpha: float) -> LatticeStaggeredFermion: ...
+
     def wuppertalSmear(self, x: Union[LatticeFermion, LatticeStaggeredFermion], n_steps: int, alpha: float):
         if isinstance(x, LatticeStaggeredFermion):
             b = LatticeStaggeredFermion(x.latt_info)
@@ -189,12 +194,10 @@ class GaugeDirac(Dirac):
                 raise ValueError(f"path should be list of int from 0 to 7, but get {path}")
         return input_path_buf, len(path)
 
-    def path(
-        self,
-        gauge: LatticeGauge,
-        paths: List[List[int]],
-    ):
-        gauge_path = LatticeGauge(gauge.latt_info)
+    def path(self, gauge: LatticeGauge, paths: List[List[int]]):
+        from ..field import LatticeGauge as LatticeGauge_
+
+        gauge_path = LatticeGauge_(gauge.latt_info)
         num_paths = 1
         input_path_buf_x, path_length = GaugeDirac._getPath(paths[0])
         input_path_buf = numpy.zeros((4, 1, path_length + 1), "<i4")
@@ -250,13 +253,10 @@ class GaugeDirac(Dirac):
                 raise ValueError(f"path {loops[i]} is not a loop")
         return input_path_buf, path_length, num_paths, max_length
 
-    def loop(
-        self,
-        gauge: LatticeGauge,
-        loops: List[List[List[int]]],
-        coeff: List[float],
-    ):
-        gauge_loop = LatticeGauge(gauge.latt_info)
+    def loop(self, gauge: LatticeGauge, loops: List[List[List[int]]], coeff: List[float]):
+        from ..field import LatticeGauge as LatticeGauge_
+
+        gauge_loop = LatticeGauge_(gauge.latt_info)
         input_path_buf_x, path_length, num_paths, max_length = GaugeDirac._getLoops(loops[0])
         input_path_buf = numpy.zeros((4, num_paths, max_length + 1), "<i4")
         input_path_buf[0, :, 0] = 7

@@ -2,9 +2,9 @@ from typing import Union
 
 import numpy
 
-from pyquda import getCUDABackend
+from pyquda_comm import getCUDABackend
 from pyquda_comm.array import arrayDevice
-from pyquda_comm.field import LatticePropagator
+from pyquda_comm.field import LatticeFermion, LatticePropagator
 
 
 class GammaMatrix:
@@ -117,15 +117,16 @@ class Gamma:
     popcnt = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4]
     popsign = [1, -1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1, -1, -1, 1]
 
-    def __init__(self, index: int, factor: float = 1) -> None:
+    def __init__(self, index: int, factor: Union[int, float, complex] = 1) -> None:
         assert isinstance(index, int) and 0b0000 <= index <= 0b1111, "index should be int from 0 to 15"
         self.index = index
         self.factor = factor
 
     def __repr__(self) -> str:
+        factor = "-" if self.factor == -1 else "" if self.factor == 1 else f"{self.factor} * "
         return (
-            f"{'-' if self.factor == -1 else '' if self.factor == 1 else self.factor}"
-            f"{'γ₀' if not self.index else ''}"
+            f"{factor}"
+            f"{'γ₀' if self.index == 0 else ''}"
             f"{'γ₁' if self.index & 0b0001 else ''}"
             f"{'γ₂' if self.index & 0b0010 else ''}"
             f"{'γ₃' if self.index & 0b0100 else ''}"
@@ -218,24 +219,24 @@ class Polarize:
     def __repr__(self) -> str:
         return (
             f"{self.left} + {self.right}"
-            if self.right.factor > 0
+            if not isinstance(self.right.factor, complex) and self.right.factor > 0
             else f"{self.left} - {Gamma(self.right.index, -self.right.factor)}"
         )
 
     def __neg__(self) -> "Polarize":
         return Polarize(-self.left, -self.right)
 
-    def __mul__(self, rhs: Union[int, float, complex]) -> "Gamma":
+    def __mul__(self, rhs: Union[int, float, complex]):
         if not isinstance(rhs, (int, float, complex)):
             return NotImplemented
         return Polarize(self.left * rhs, self.right * rhs)
 
-    def __rmul__(self, lhs: Union[int, float, complex]) -> "Gamma":
+    def __rmul__(self, lhs: Union[int, float, complex]):
         if not isinstance(lhs, (int, float, complex)):
             return NotImplemented
         return Polarize(lhs * self.left, lhs * self.right)
 
-    def __truediv__(self, rhs: Union[int, float, complex]) -> "Gamma":
+    def __truediv__(self, rhs: Union[int, float, complex]):
         if not isinstance(rhs, (int, float, complex)):
             return NotImplemented
         return Polarize(self.left / rhs, self.right / rhs)
@@ -253,6 +254,18 @@ class Polarize:
     @property
     def matrix(self):
         return self.left.matrix + self.right.matrix
+
+
+def gamma_mul_fermion(lhs: Gamma, propag: LatticeFermion):
+    if not isinstance(lhs, Gamma):
+        return NotImplemented
+    assert propag.latt_info.Ns == 4, "Ns should be 4"
+    result = LatticeFermion(propag.latt_info)
+    for i in range(4):
+        k = lhs.sparse_indices[i]
+        gamma_ik = lhs.factor * lhs.sparse_data[i]
+        result.data[:, :, :, :, :, i] = gamma_ik * propag.data[:, :, :, :, :, k]
+    return result
 
 
 def propagator_mul_gamma(propag: LatticePropagator, rhs: Gamma):
@@ -281,30 +294,25 @@ def gamma_mul_propagator(lhs: Gamma, propag: LatticePropagator):
 
 
 def gamma_mul_propagator_mul_gamma(lhs: Gamma, propag: LatticePropagator, rhs: Gamma):
-    assert lhs is not None or rhs is not None, "lhs or rhs should not be None"
-    if lhs is not None or rhs is not None:
-        assert isinstance(lhs, Gamma) and isinstance(rhs, Gamma), "lhs and rhs should be Gamma"
-        assert propag.latt_info.Ns == 4, "Ns should be 4"
-        rhs = rhs.T  # S @ gamma = (gamma.T @ S.T).T
-        result = LatticePropagator(propag.latt_info)
-        for i in range(4):
-            for j in range(4):
-                k = lhs.sparse_indices[i]
-                gamma_ik = lhs.factor * lhs.sparse_data[i]
-                l = rhs.sparse_indices[j]  # noqa: E741
-                gamma_lj = rhs.factor * rhs.sparse_data[j]
-                result.data[:, :, :, :, :, i, j] = gamma_ik * gamma_lj * propag.data[:, :, :, :, :, k, l]
-        return result
-    elif lhs is None:
-        return propagator_mul_gamma(propag, rhs)
-    elif rhs is None:
-        return gamma_mul_propagator(lhs, propag)
+    assert isinstance(lhs, Gamma) and isinstance(rhs, Gamma), "lhs and rhs should be Gamma"
+    assert propag.latt_info.Ns == 4, "Ns should be 4"
+    rhs = rhs.T  # S @ gamma = (gamma.T @ S.T).T
+    result = LatticePropagator(propag.latt_info)
+    for i in range(4):
+        for j in range(4):
+            k = lhs.sparse_indices[i]
+            gamma_ik = lhs.factor * lhs.sparse_data[i]
+            l = rhs.sparse_indices[j]  # noqa: E741
+            gamma_lj = rhs.factor * rhs.sparse_data[j]
+            result.data[:, :, :, :, :, i, j] = gamma_ik * gamma_lj * propag.data[:, :, :, :, :, k, l]
+    return result
 
 
 # Monkey patching for LatticePropagator
+LatticeFermion.__rmatmul__ = lambda self, lhs: gamma_mul_fermion(self, lhs)
 LatticePropagator.__matmul__ = lambda self, rhs: propagator_mul_gamma(self, rhs)
 LatticePropagator.__rmatmul__ = lambda self, lhs: gamma_mul_propagator(lhs, self)
-LatticePropagator.matmul = lambda self, lhs=None, rhs=None: gamma_mul_propagator_mul_gamma(lhs, self, rhs)
+LatticePropagator.matmul = lambda self, lhs, rhs: gamma_mul_propagator_mul_gamma(lhs, self, rhs)
 
 
 def gamma(n: int):

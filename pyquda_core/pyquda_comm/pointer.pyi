@@ -1,14 +1,16 @@
 from typing import Generic, TypeVar
 
-_DataType = TypeVar("_DataType")
+from numpy.typing import NDArray
 
-class Pointer(Generic[_DataType]):
+T = TypeVar("T")
+
+class Pointer(Generic[T]):
     def __init__(self, dtype: str): ...
 
-class Pointers(Pointer[_DataType]):
+class Pointers(Pointer[T]):
     def __init__(self, dtype: str, n1: int): ...
 
-class Pointerss(Pointer[_DataType]):
+class Pointerss(Pointer[T]):
     def __init__(self, dtype: str, n1: int, n2: int): ...
 
-def ndarrayPointer(ndarray, as_void: bool = False) -> Pointer: ...
+def ndarrayPointer(ndarray: NDArray, as_void: bool = False) -> Pointer: ...

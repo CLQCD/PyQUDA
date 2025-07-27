@@ -13,6 +13,7 @@ _C_TO_PYTHON: Dict[str, str] = {
     "unsigned long": "int",
     "long long": "int",
     "unsigned long long": "int",
+    "size_t": "int",
     "float": "float",
     "double": "float",
     "long double": "float",
@@ -150,22 +151,22 @@ def parseHeader(plugins_root, header, include):
                 return evaluate(node.left) - evaluate(node.right)
         elif type(node) is c_ast.Constant:
             return int(node.value, 0)
+        elif type(node) is c_ast.ID:
+            return node.name
         else:
             raise ValueError(f"Unknown node {node}")
 
     ast = parse_file(
         os.path.join(include, header),
         use_cpp=True,
-        cpp_path="cc",
-        cpp_args=[
-            "-E",
-            Rf"-I{fake_libc_include}",
-            Rf"-I{include}",
-        ],
+        cpp_path=os.environ["CC"] if "CC" in os.environ else "cc",
+        cpp_args=["-E", Rf"-I{fake_libc_include}", Rf"-I{include}"],
     )
     funcs: List[FunctionMeta] = []
     enums: Dict[str, List[Tuple[str, int]]] = {}
     for node in ast:
+        if not hasattr(node, "name") or node.name is None:
+            continue
         if isinstance(node.type, c_ast.FuncDecl):
             a = []
             if node.type.args is not None:

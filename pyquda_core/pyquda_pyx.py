@@ -173,14 +173,12 @@ def build_pyquda_pyx(pyquda_root, quda_path):
     ast = parse_file(
         os.path.join(quda_include, "quda.h"),
         use_cpp=True,
-        cpp_path="cc",
-        cpp_args=[
-            "-E",
-            Rf"-I{fake_libc_include}",
-            Rf"-I{quda_include}",
-        ],
+        cpp_path=os.environ["CC"] if "CC" in os.environ else "cc",
+        cpp_args=["-E", Rf"-I{fake_libc_include}", Rf"-I{quda_include}"],
     )
     for node in ast:
+        if not hasattr(node, "name") or node.name is None:
+            continue
         if node.name.startswith("Quda") and type(node.type.type) is c_ast.Enum:
             quda_enum_meta[node.name] = []
             current_value = -1

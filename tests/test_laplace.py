@@ -21,7 +21,7 @@ Lx, Ly, Lz, Lt = gauge.latt_info.size
 latt_info = LatticeInfo([Lx, Ly, Lz, 1])
 gauge_tmp_lexico = cp.array(gauge.lexico()[:, t])
 gauge_tmp_lexico_dagger = gauge_tmp_lexico.transpose(0, 1, 2, 3, 5, 4).conj().copy()
-gauge_tmp = LatticeGauge(latt_info, core.evenodd(gauge.lexico()[:, t : t + 1], [1, 2, 3, 4]))
+gauge_tmp = LatticeGauge(latt_info, latt_info.evenodd(gauge.lexico()[:, t : t + 1], True))
 
 n_ev = 20
 n_kr = min(max(2 * n_ev, n_ev + 32), Lz * Ly * Lx * Nc - 1)

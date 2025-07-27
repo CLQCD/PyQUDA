@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import List, Literal, NamedTuple, Union
+from typing import List, Literal, NamedTuple, Optional, Union
 
 from pyquda_comm import getCUDABackend
 from pyquda_comm.array import arrayRandom
 from ..field import (
     LatticeInfo,
+    LatticeMom,
     LatticeFermion,
     LatticeStaggeredFermion,
     MultiLatticeFermion,
@@ -85,15 +86,11 @@ class FermionAction(Action):
         self.eta.data[:] = _normal(self.eta.shape)
 
     @abstractmethod
-    def sample(self, new_gauge: bool):
+    def sample(self):
         pass
 
     @abstractmethod
-    def action(self, new_gauge: bool) -> float:
-        pass
-
-    @abstractmethod
-    def force(self, dt: float, new_gauge: bool):
+    def force(self, dt: float, mom: Optional[LatticeMom] = None):
         pass
 
     def _invertMultiShiftParam(self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]):
@@ -136,7 +133,7 @@ class FermionAction(Action):
         x: Union[LatticeFermion, LatticeStaggeredFermion],
         b: Union[LatticeFermion, LatticeStaggeredFermion],
         residue: List[float],
-        norm: float,
+        norm: Optional[float],
     ):
         num_offset = len(residue)
         if (
@@ -178,9 +175,7 @@ class FermionAction(Action):
                     MatQuda(x.odd_ptr, b.odd_ptr, self.invert_param)
                     self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
 
-    def invertMultiShift(
-        self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]
-    ) -> Union[LatticeFermion, MultiLatticeFermion]:
+    def invertMultiShift(self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]):
         residue, norm = self._invertMultiShiftParam(mode)
         if mode == "pseudo_fermion":
             self._invertMultiShift(self.quark, self.phi, self.eta, residue, norm)
@@ -198,21 +193,7 @@ class StaggeredFermionAction(FermionAction):
         super().__init__(latt_info, dirac)
         self.is_staggered = True
 
-    @abstractmethod
-    def sample(self, new_gauge: bool):
-        pass
-
-    @abstractmethod
-    def action(self, new_gauge: bool) -> float:
-        pass
-
-    @abstractmethod
-    def force(self, dt: float, new_gauge: bool):
-        pass
-
-    def invertMultiShift(
-        self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]
-    ) -> Union[LatticeStaggeredFermion, MultiLatticeStaggeredFermion]:
+    def invertMultiShift(self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]):
         residue, norm = self._invertMultiShiftParam(mode)
         if mode == "pseudo_fermion":
             self._invertMultiShift(self.quark, self.phi, self.eta, residue, norm)

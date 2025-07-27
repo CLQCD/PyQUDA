@@ -17,7 +17,7 @@ def covdev(U: LatticeGauge, x: LatticeFermion, mu: int):
         x_ = np.einsum("tzyxab,tzyxib->tzyxia", U_[mu], np.roll(x_, -1, 3 - mu))
     elif 4 <= mu <= 7:
         x_ = np.roll(np.einsum("tzyxba,tzyxib->tzyxia", U_[mu - 4].conj(), x_), 1, 7 - mu)
-    x.data = core.evenodd(x_, [0, 1, 2, 3])
+    x.data = U.latt_info.evenodd(x_, False)
     x.toDevice()
 
 
@@ -37,7 +37,7 @@ def shift(U: LatticeGauge, dim: int, mu: int):
         U_ = np.roll(U_, -1, 3 - mu)
     elif 4 <= mu <= 7:
         U_ = np.roll(U_, 1, 7 - mu)
-    U.data[dim] = cp.asarray(core.evenodd(U_, [0, 1, 2, 3]))
+    U.data[dim] = cp.asarray(U.latt_info.evenodd(U_, False))
 
 
 unit = LatticeGauge(latt_info)
@@ -48,7 +48,7 @@ gauge.gauge_dirac.loadGauge(unit)
 x = LatticeFermion(latt_info)
 for dim in range(Nd):
     for covdev_mu in range(8):
-        gauge3_dim = gauge2[dim].shift(1 - 2 * (covdev_mu // 4), covdev_mu % 4)
+        gauge3_dim = gauge2[dim].shift(1, covdev_mu)
 
         x.data[:, :, :, :, :, :Nc, :] = gauge2.data[dim]
         gauge2.data[dim] = unit.gauge_dirac.covDev(x, covdev_mu).data[:, :, :, :, :, :Nc, :]

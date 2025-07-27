@@ -3,8 +3,8 @@ from typing import List
 
 import numpy
 
-from ._mpi_file import getSublatticeSize, readMPIFile, writeMPIFile
-from ._field_utils import propagatorFromDiracPauli, propagatorToDiracPauli
+from pyquda_comm import getSublatticeSize, readMPIFile, writeMPIFile
+from .io_utils import propagatorFromDiracPauli, propagatorToDiracPauli
 
 Nd, Ns, Nc = 4, 4, 3
 

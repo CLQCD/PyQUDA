@@ -2,57 +2,14 @@ from datetime import datetime
 from os import path
 import struct
 from typing import List
-from xml.etree import ElementTree as ET
 
 import numpy
-from mpi4py import MPI
 
-from ._mpi_file import getMPIComm, getMPISize, getMPIRank, getGridCoord, getSublatticeSize, readMPIFile, writeMPIFile
-from ._field_utils import gaugeReunitarize
+from pyquda_comm import getMPIComm, getMPIRank, getSublatticeSize, readMPIFile, writeMPIFile
+from .io_utils import checksumMILC, gaugeReunitarize
 
 Nd, Ns, Nc = 4, 4, 3
 _precision_map = {"D": 8, "F": 4, "S": 4}
-
-
-def checksum_milc(latt_size: List[int], data):
-    gx, gy, gz, gt = getGridCoord()
-    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
-    gLx, gLy, gLz, gLt = gx * Lx, gy * Ly, gz * Lz, gt * Lt
-    GLx, GLy, GLz, GLt = latt_size
-
-    work = data.view("<u4")
-    rank = (
-        numpy.arange(getMPISize() * work.size, dtype="<u8")
-        .reshape(GLt, GLz, GLy, GLx, -1)[gLt : gLt + Lt, gLz : gLz + Lz, gLy : gLy + Ly, gLx : gLx + Lx]
-        .reshape(-1)
-    )
-    rank29 = (rank % 29).astype("<u4")
-    rank31 = (rank % 31).astype("<u4")
-    sum29 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)), MPI.BXOR)
-    sum31 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)), MPI.BXOR)
-    return sum29, sum31
-
-
-def checksum_qio(latt_size: List[int], data):
-    import zlib
-
-    gx, gy, gz, gt = getGridCoord()
-    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
-    gLx, gLy, gLz, gLt = gx * Lx, gy * Ly, gz * Lz, gt * Lt
-    GLx, GLy, GLz, GLt = latt_size
-    work = numpy.empty((Lt * Lz * Ly * Lx), "<u4")
-    for i in range(Lt * Lz * Ly * Lx):
-        work[i] = zlib.crc32(data[i])
-    rank = (
-        numpy.arange(GLt * GLz * GLy * GLx, dtype="<u4")
-        .reshape(GLt, GLz, GLy, GLx)[gLt : gLt + Lt, gLz : gLz + Lz, gLy : gLy + Ly, gLx : gLx + Lx]
-        .reshape(-1)
-    )
-    rank29 = rank % 29
-    rank31 = rank % 31
-    sum29 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank29 | work >> (32 - rank29)), MPI.BXOR)
-    sum31 = getMPIComm().allreduce(numpy.bitwise_xor.reduce(work << rank31 | work >> (32 - rank31)), MPI.BXOR)
-    return sum29, sum31
 
 
 def readGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 5e-7):
@@ -64,7 +21,7 @@ def readGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 5
                 break
         else:
             raise ValueError(f"Broken magic {magic} in MILC gauge")
-        latt_size = struct.unpack(f"{endian}iiii", f.read(16))
+        latt_size = list(struct.unpack(f"{endian}iiii", f.read(16)))
         timestamp = f.read(64).decode()  # noqa: F841
         assert struct.unpack(f"{endian}i", f.read(4))[0] == 0  # order
         sum29, sum31 = struct.unpack(f"{endian}II", f.read(8))
@@ -74,7 +31,7 @@ def readGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 5
 
     gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
     if checksum:
-        assert checksum_milc(latt_size, gauge.astype("<c8").reshape(-1)) == (
+        assert checksumMILC(latt_size, gauge.astype("<c8").reshape(-1)) == (
             sum29,
             sum31,
         ), f"Bad checksum for {filename}"
@@ -89,7 +46,7 @@ def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray):
     dtype, offset = "<c8", None
 
     gauge = numpy.ascontiguousarray(gauge.transpose(1, 2, 3, 4, 0, 5, 6).astype(dtype))
-    sum29, sum31 = checksum_milc(latt_size, gauge.reshape(-1))
+    sum29, sum31 = checksumMILC(latt_size, gauge.reshape(-1))
     if getMPIRank() == 0:
         with open(filename, "wb") as f:
             f.write(struct.pack("<i", 20103))
@@ -108,12 +65,8 @@ def readQIOPropagator(filename: str):
 
     filename = path.expanduser(path.expandvars(filename))
     lime = Lime(filename)
-    scidac_private_file_xml = ET.ElementTree(
-        ET.fromstring(lime.read("scidac-private-file-xml", 0).strip(b"\x00").decode("utf-8"))
-    )
-    scidac_private_record_xml = ET.ElementTree(
-        ET.fromstring(lime.read("scidac-private-record-xml", 1).strip(b"\x00").decode("utf-8"))
-    )
+    scidac_private_file_xml = lime.loadXML("scidac-private-file-xml", 0)
+    scidac_private_record_xml = lime.loadXML("scidac-private-record-xml", 1)
     offset = [record.offset for record in lime.records("scidac-binary-data")[1::2]]
 
     precision = _precision_map[scidac_private_record_xml.find("precision").text]

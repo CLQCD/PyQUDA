@@ -34,79 +34,39 @@ _DR_TO_DP = numpy.array(
 )
 
 
-def rotateToDiracPauli(propagator: LatticePropagator):
-    from opt_einsum import contract
-
-    if propagator.location == "numpy":
-        P = numpy.asarray(_DR_TO_DP)
-        Pinv = numpy.asarray(_DP_TO_DR) / 2
-    elif propagator.location == "cupy":
-        import cupy
-
-        P = cupy.asarray(_DR_TO_DP)
-        Pinv = cupy.asarray(_DP_TO_DR) / 2
-    elif propagator.location == "torch":
-        import torch
-
-        P = torch.as_tensor(_DR_TO_DP)
-        Pinv = torch.as_tensor(_DP_TO_DR) / 2
-
-    return LatticePropagator(
-        propagator.latt_info, contract("ij,wtzyxjkab,kl->wtzyxilab", P, propagator.data, Pinv, optimize=True)
-    )
-
-
-def rotateToDeGrandRossi(propagator: LatticePropagator):
-    from opt_einsum import contract
-
-    if propagator.location == "numpy":
-        P = numpy.asarray(_DP_TO_DR)
-        Pinv = numpy.asarray(_DR_TO_DP) / 2
-    elif propagator.location == "cupy":
-        import cupy
-
-        P = cupy.asarray(_DP_TO_DR)
-        Pinv = cupy.asarray(_DR_TO_DP) / 2
-    elif propagator.location == "torch":
-        import torch
-
-        P = torch.as_tensor(_DP_TO_DR)
-        Pinv = torch.as_tensor(_DR_TO_DP) / 2
-
-    return LatticePropagator(
-        propagator.latt_info, contract("ij,wtzyxjkab,kl->wtzyxilab", P, propagator.data, Pinv, optimize=True)
-    )
-
-
 def readChromaQIOGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 5e-7):
     from pyquda_io.chroma import readQIOGauge as read
 
     latt_size, gauge_raw = read(filename, checksum, reunitarize_sigma)
-    return LatticeGauge(LatticeInfo(latt_size), evenodd(gauge_raw, [1, 2, 3, 4]))
+    latt_info = LatticeInfo(latt_size)
+    return LatticeGauge(latt_info, latt_info.evenodd(gauge_raw, True))
 
 
 def readILDGBinGauge(filename: str, dtype: str, latt_size: List[int]):
     from pyquda_io.chroma import readILDGBinGauge as read
 
     gauge_raw = read(filename, dtype, latt_size)
-    return LatticeGauge(LatticeInfo(latt_size), evenodd(gauge_raw, [1, 2, 3, 4]))
+    latt_info = LatticeInfo(latt_size)
+    return LatticeGauge(latt_info, latt_info.evenodd(gauge_raw, True))
 
 
 def readChromaQIOPropagator(filename: str, checksum: bool = True):
     from pyquda_io.chroma import readQIOPropagator as read
 
     latt_size, staggered, propagator_raw = read(filename, checksum)
+    latt_info = LatticeInfo(latt_size)
     if not staggered:
-        return LatticePropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
+        return LatticePropagator(latt_info, latt_info.evenodd(propagator_raw, False))
     else:
-        return LatticeStaggeredPropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
+        return LatticeStaggeredPropagator(latt_info, latt_info.evenodd(propagator_raw, False))
 
 
 def readMILCGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 5e-7):
     from pyquda_io.milc import readGauge as read
 
     latt_size, gauge_raw = read(filename, checksum, reunitarize_sigma)
-    return LatticeGauge(LatticeInfo(latt_size), evenodd(gauge_raw, [1, 2, 3, 4]))
+    latt_info = LatticeInfo(latt_size)
+    return LatticeGauge(latt_info, latt_info.evenodd(gauge_raw, True))
 
 
 def writeMILCGauge(filename: str, gauge: LatticeGauge):
@@ -119,17 +79,19 @@ def readMILCQIOPropagator(filename: str):
     from pyquda_io.milc import readQIOPropagator as read
 
     latt_size, staggered, propagator_raw = read(filename)
+    latt_info = LatticeInfo(latt_size)
     if not staggered:
-        return LatticePropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
+        return LatticePropagator(latt_info, latt_info.evenodd(propagator_raw, False))
     else:
-        return LatticeStaggeredPropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
+        return LatticeStaggeredPropagator(latt_info, latt_info.evenodd(propagator_raw, False))
 
 
 def readKYUGauge(filename: str, latt_size: List[int]):
     from pyquda_io.kyu import readGauge as read
 
     gauge_raw = read(filename, latt_size)
-    return LatticeGauge(LatticeInfo(latt_size), evenodd(gauge_raw, [1, 2, 3, 4]))
+    latt_info = LatticeInfo(latt_size)
+    return LatticeGauge(latt_info, latt_info.evenodd(gauge_raw, True))
 
 
 def writeKYUGauge(filename: str, gauge: LatticeGauge):
@@ -142,7 +104,8 @@ def readKYUPropagator(filename: str, latt_size: List[int]):
     from pyquda_io.kyu import readPropagator as read
 
     propagator_raw = read(filename, latt_size)
-    return LatticePropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
+    latt_info = LatticeInfo(latt_size)
+    return LatticePropagator(latt_info, latt_info.evenodd(propagator_raw, False))
 
 
 def writeKYUPropagator(filename: str, propagator: LatticePropagator):
@@ -155,10 +118,11 @@ def readXQCDPropagator(filename: str, latt_size: List[int], staggered: bool):
     from pyquda_io.xqcd import readPropagator as read
 
     propagator_raw = read(filename, latt_size, staggered)
+    latt_info = LatticeInfo(latt_size)
     if not staggered:
-        return LatticePropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
+        return LatticePropagator(latt_info, latt_info.evenodd(propagator_raw, False))
     else:
-        return LatticeStaggeredPropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
+        return LatticeStaggeredPropagator(latt_info, latt_info.evenodd(propagator_raw, False))
 
 
 def writeXQCDPropagator(filename: str, propagator: Union[LatticePropagator, LatticeStaggeredPropagator]):
@@ -168,39 +132,13 @@ def writeXQCDPropagator(filename: str, propagator: Union[LatticePropagator, Latt
     write(filename, propagator.latt_info.global_size, propagator.lexico(), staggered)
 
 
-def readXQCDPropagatorFast(filename: str, latt_size: List[int]):
-    from pyquda_io.xqcd import readPropagatorFast as read
-
-    latt_info = LatticeInfo(latt_size)
-    Lx, Ly, Lz, Lt = latt_info.size
-    propagator_raw = read(filename, latt_size)
-    propagator = LatticePropagator(latt_info, evenodd(propagator_raw, [2, 3, 4, 5]))
-    propagator.data = propagator.data.reshape(Ns, Nc, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
-    propagator.toDevice()
-    propagator.data = propagator.data.transpose(2, 3, 4, 5, 6, 7, 0, 8, 1).astype("<c16")
-
-    return rotateToDeGrandRossi(propagator)
-
-
-def writeXQCDPropagatorFast(filename: str, propagator: LatticePropagator):
-    from pyquda_io.xqcd import writePropagatorFast as write
-
-    latt_info = propagator.latt_info
-    Lx, Ly, Lz, Lt = latt_info.size
-    propagator = rotateToDiracPauli(propagator)
-    propagator.data = propagator.data.astype("<c8").transpose(6, 8, 0, 1, 2, 3, 4, 5, 7)
-    propagator.toHost()
-    propagator.data = propagator.data.reshape(Ns, Nc, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
-    propagator_raw = lexico(propagator.data, [2, 3, 4, 5, 6])
-    write(filename, latt_info.global_size, propagator_raw)
-
-
 def readNPYGauge(filename: str):
     from pyquda_io.npy import readGauge as read
 
     filename = filename if filename.endswith(".npy") else filename + ".npy"
     latt_size, gauge_raw = read(filename)
-    return LatticeGauge(LatticeInfo(latt_size), evenodd(gauge_raw, [1, 2, 3, 4]))
+    latt_info = LatticeInfo(latt_size)
+    return LatticeGauge(latt_info, latt_info.evenodd(gauge_raw, True))
 
 
 def writeNPYGauge(filename: str, gauge: LatticeGauge):
@@ -214,7 +152,8 @@ def readNPYPropagator(filename: str):
     from pyquda_io.npy import readPropagator as read
 
     latt_size, propagator_raw = read(filename)
-    return LatticePropagator(LatticeInfo(latt_size), evenodd(propagator_raw, [0, 1, 2, 3]))
+    latt_info = LatticeInfo(latt_size)
+    return LatticePropagator(latt_info, latt_info.evenodd(propagator_raw, False))
 
 
 def writeNPYPropagator(filename: str, propagator: LatticePropagator):
@@ -227,10 +166,11 @@ def readOpenQCDGauge(filename: str, plaquette: bool = True):
     from pyquda_io.openqcd import readGauge as read
 
     latt_size, gauge = read(filename, plaquette, False)
-    return LatticeGauge(LatticeInfo(latt_size), gauge)
+    latt_info = LatticeInfo(latt_size)
+    return LatticeGauge(latt_info, gauge)
 
 
-def writeOpenQCDGauge(filename: str, gauge: LatticeGauge, plaquette: float = None):
+def writeOpenQCDGauge(filename: str, gauge: LatticeGauge, plaquette: float = 0.0):
     from pyquda_io.openqcd import writeGauge as write
 
     write(filename, gauge.latt_info.global_size, gauge.getHost(), plaquette, False)
@@ -246,10 +186,11 @@ def readNERSCGauge(
     from pyquda_io.nersc import readGauge as read
 
     latt_size, gauge_raw = read(filename, checksum, plaquette, link_trace, reunitarize_sigma)
-    return LatticeGauge(LatticeInfo(latt_size), evenodd(gauge_raw, [1, 2, 3, 4]))
+    latt_info = LatticeInfo(latt_size)
+    return LatticeGauge(latt_info, latt_info.evenodd(gauge_raw, True))
 
 
-def writeNERSCGauge(filename: str, gauge: LatticeGauge, plaquette: float = None, use_fp32: bool = False):
+def writeNERSCGauge(filename: str, gauge: LatticeGauge, plaquette: float = 0.0, use_fp32: bool = False):
     from pyquda_io.nersc import writeGauge as write
 
     write(filename, gauge.latt_info.global_size, gauge.lexico(), plaquette, use_fp32)
@@ -277,6 +218,60 @@ def readXQCDStaggeredPropagator(filename: str, latt_size: List[int]):
 
 def writeXQCDStaggeredPropagator(filename: str, propagator: LatticeStaggeredPropagator):
     writeXQCDPropagator(filename, propagator)
+
+
+from pyquda_comm.array import arrayDevice
+
+
+def rotateToDiracPauli(propagator: LatticePropagator):
+    from opt_einsum import contract
+
+    location = propagator.location
+    P = arrayDevice(_DR_TO_DP, location)
+    Pinv = arrayDevice(_DP_TO_DR, location) / 2
+
+    return LatticePropagator(
+        propagator.latt_info, contract("ij,wtzyxjkab,kl->wtzyxilab", P, propagator.data, Pinv, optimize=True)
+    )
+
+
+def rotateToDeGrandRossi(propagator: LatticePropagator):
+    from opt_einsum import contract
+
+    location = propagator.location
+    P = arrayDevice(_DP_TO_DR, location)
+    Pinv = arrayDevice(_DR_TO_DP, location) / 2
+
+    return LatticePropagator(
+        propagator.latt_info, contract("ij,wtzyxjkab,kl->wtzyxilab", P, propagator.data, Pinv, optimize=True)
+    )
+
+
+def readXQCDPropagatorFast(filename: str, latt_size: List[int]):
+    from pyquda_io.xqcd import readPropagatorFast as read
+
+    latt_info = LatticeInfo(latt_size)
+    Lx, Ly, Lz, Lt = latt_info.size
+    propagator_raw = read(filename, latt_size)
+    propagator = LatticePropagator(latt_info, evenodd(propagator_raw, [2, 3, 4, 5]))
+    propagator.data = propagator.data.reshape(Ns, Nc, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
+    propagator.toDevice()
+    propagator.data = propagator.data.transpose(2, 3, 4, 5, 6, 7, 0, 8, 1).astype("<c16")
+
+    return rotateToDeGrandRossi(propagator)
+
+
+def writeXQCDPropagatorFast(filename: str, propagator: LatticePropagator):
+    from pyquda_io.xqcd import writePropagatorFast as write
+
+    latt_info = propagator.latt_info
+    Lx, Ly, Lz, Lt = latt_info.size
+    propagator = rotateToDiracPauli(propagator)
+    propagator.data = propagator.data.astype("<c8").transpose(6, 8, 0, 1, 2, 3, 4, 5, 7)
+    propagator.toHost()
+    propagator.data = propagator.data.reshape(Ns, Nc, 2, Lt, Lz, Ly, Lx // 2, Ns, Nc)
+    propagator_raw = lexico(propagator.data, [2, 3, 4, 5, 6])
+    write(filename, latt_info.global_size, propagator_raw)
 
 
 def readKYUPropagatorFFast(filename: str, latt_size: List[int]):

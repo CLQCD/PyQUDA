@@ -154,8 +154,9 @@ def symanzikOneLoopGaugeLoopParam(
 
 def _loadCache():
     cache = {}
-    if "QUDA_RESOURCE_PATH" in environ and environ["QUDA_RESOURCE_PATH"] is not None:
-        cache_file = path.join(path.realpath(environ["QUDA_RESOURCE_PATH"]), "hmc_param.json")
+    if environ.get("QUDA_RESOURCE_PATH") is not None:
+        resource_path = path.expanduser(path.expandvars(environ["QUDA_RESOURCE_PATH"]))
+        cache_file = path.join(path.realpath(resource_path), "hmc_param.json")
         if path.exists(cache_file):
             with open(cache_file, "r") as fp:
                 for key, val in json.load(fp).items():
@@ -164,8 +165,9 @@ def _loadCache():
 
 
 def _dumpCache(cache):
-    if "QUDA_RESOURCE_PATH" in environ and environ["QUDA_RESOURCE_PATH"] is not None:
-        cache_file = path.join(path.realpath(environ["QUDA_RESOURCE_PATH"]), "hmc_param.json")
+    if environ.get("QUDA_RESOURCE_PATH") is not None:
+        resource_path = path.expanduser(path.expandvars(environ["QUDA_RESOURCE_PATH"]))
+        cache_file = path.join(path.realpath(resource_path), "hmc_param.json")
         with open(cache_file, "w") as fp:
             json.dump(cache, fp)
 

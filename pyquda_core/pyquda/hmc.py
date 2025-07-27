@@ -208,8 +208,8 @@ class HMC:
         hmc_inner: "HMC" = None,
     ) -> None:
         self.latt_info = latt_info
-        self._gauge_monomials = [monomial for monomial in monomials if not monomial.is_fermion]
-        self._fermion_monomials = [monomial for monomial in monomials if monomial.is_fermion]
+        self._gauge_monomials: List[Action] = [monomial for monomial in monomials if not monomial.is_fermion]
+        self._fermion_monomials: List[FermionAction] = [monomial for monomial in monomials if monomial.is_fermion]
         self._integrator = integrator
         self._hmc_inner = hmc_inner
         self.is_staggered = None
@@ -229,6 +229,16 @@ class HMC:
         self.obs_param = QudaGaugeObservableParam()
         self.obs_param.remove_staggered_phase = QudaBoolean(not not self.is_staggered)
         self.fuseFermionAction()
+        if False:
+            self.gauge = LatticeGauge(latt_info)
+            self.smeared = LatticeGauge(latt_info)
+            self.mom = LatticeMom(latt_info)
+            self.force = LatticeMom(latt_info)
+        else:
+            self.gauge = None
+            self.smeared = None
+            self.mom = None
+            self.force = None
 
     def fuseFermionAction(self):
         if self.is_staggered:
@@ -259,6 +269,54 @@ class HMC:
         else:
             self.loadMom(mom)
 
+    def _stoutSmear(self):
+        return
+        f(self.smeared)
+        self.smeared.stoutSmear(1, 0.125, 4)
+
+    def _stoutSmearReverse(self):
+        return
+        df(self.force, self.gauge)
+
+    def loadGaugeMomSmeared(self):
+        if self.force is not None:
+            saveGaugeQuda(self.gauge.data_ptrs, self.gauge_param)
+            if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
+                self.gauge.setAntiPeriodicT()
+            if self.is_staggered:
+                self.gauge.staggeredPhase(True)
+            self.gauge_param.make_resident_mom = 0
+            self.gauge_param.return_result_mom = 1
+            momResidentQuda(self.mom.data_ptrs, self.gauge_param)
+            self.gauge_param.make_resident_mom = 1
+            self.gauge_param.return_result_mom = 0
+
+            self.smeared.data[:] = self.gauge.data
+            self._stoutSmear()
+            if self.is_staggered:
+                self.smeared.staggeredPhase(False)
+            if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
+                self.smeared.setAntiPeriodicT()
+            self.gauge_param.use_resident_gauge = 0
+            loadGaugeQuda(self.smeared.data_ptrs, self.gauge_param)
+            self.gauge_param.use_resident_gauge = 1
+            self.force.data[:] = 0
+
+    def loadGaugeMom(self):
+        if self.force is not None:
+            self._stoutSmearReverse()
+            self.mom += self.force
+
+            self.smeared.data[:] = self.gauge.data
+            if self.is_staggered:
+                self.smeared.staggeredPhase(False)
+            if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
+                self.smeared.setAntiPeriodicT()
+            self.gauge_param.use_resident_gauge = 0
+            loadGaugeQuda(self.smeared.data_ptrs, self.gauge_param)
+            self.gauge_param.use_resident_gauge = 1
+            momResidentQuda(self.mom.data_ptrs, self.gauge_param)
+
     def seed(self, state):
         seed = self.random.randrange(2**32)
         backend = getCUDABackend()
@@ -277,10 +335,12 @@ class HMC:
         """
         state = self.seed(None)
 
+        self.loadGaugeMomSmeared()
         for monomial in self._fermion_monomials:
-            monomial.sample(True)
+            monomial.sample()
         if self._hmc_inner is not None:
             self._hmc_inner.samplePhi()
+        self.loadGaugeMom()
 
         self.seed(state)
 
@@ -300,10 +360,12 @@ class HMC:
         use_action_param: use rational parameters for fermion action istead of molecular dynamics.
         """
         action = 0
+        self.loadGaugeMomSmeared()
         for monomial in self._fermion_monomials:
-            action += monomial.action(True) if not use_action_param else monomial.actionFA(True)
+            action += monomial.action() if not use_action_param else monomial.actionFA()
         if self._hmc_inner is not None:
             action += self._hmc_inner.fermionAction()
+        self.loadGaugeMom()
         return action
 
     def gaugeForce(self, dt: float):
@@ -311,8 +373,10 @@ class HMC:
             monomial.force(dt)
 
     def fermionForce(self, dt: float):
+        self.loadGaugeMomSmeared()
         for monomial in self._fermion_monomials:
-            monomial.force(dt, True)
+            monomial.force(dt, self.force)
+        self.loadGaugeMom()
 
     def updateGauge(self, dt: float):
         updateGaugeFieldQuda(nullptr, nullptr, dt, False, True, self.gauge_param)

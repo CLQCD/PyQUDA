@@ -1,9 +1,9 @@
-from typing import List
+from typing import List, Optional
 
 import numpy
 
 from pyquda_comm import getLogger
-from ..field import LatticeInfo, LatticeGauge, LatticeStaggeredFermion, MultiLatticeStaggeredFermion
+from ..field import LatticeInfo, LatticeGauge, LatticeMom, LatticeStaggeredFermion, MultiLatticeStaggeredFermion
 from ..pyquda import computeHISQForceQuda, dslashQuda, saveGaugeQuda
 from ..enum_quda import (
     QudaInverterType,
@@ -85,32 +85,37 @@ class HISQAction(StaggeredFermionAction):
 
         return u_link, v_link, w_link
 
-    def sample(self, new_gauge: bool):
+    def sample(self):
         if self.quark is None:
             self.quark = MultiLatticeStaggeredFermion(self.latt_info, self.max_num_offset)
         self.sampleEta()
         self.updateFatLong(False)
         self.invertMultiShift("pseudo_fermion")
 
-    def action(self, new_gauge: bool) -> float:
+    def action(self) -> float:
         self.updateFatLong(False)
         self.invert_param.compute_action = 1
         self.invertMultiShift("molecular_dynamics")
         self.invert_param.compute_action = 0
         return self.invert_param.action[0]
 
-    def actionFA(self, new_gauge: bool) -> float:
+    def actionFA(self) -> float:
         self.updateFatLong(False)
         self.invertMultiShift("fermion_action")
         return self.eta.even.norm2()  # - norm_molecular_dynamics * self.phi.even.norm2()
 
-    def force(self, dt, new_gauge: bool):
+    def force(self, dt, mom: Optional[LatticeMom] = None):
         u_link, v_link, w_link = self.updateFatLong(True)
         self.invertMultiShift("molecular_dynamics")
         for i in range(self.num):
             dslashQuda(self.quark[i].odd_ptr, self.quark[i].even_ptr, self.invert_param, QudaParity.QUDA_ODD_PARITY)
+        if mom is not None:
+            tmp = LatticeMom(mom.latt_info)
+            self.gauge_param.use_resident_mom = 0
+            self.gauge_param.make_resident_mom = 0
+            self.gauge_param.return_result_mom = 1
         computeHISQForceQuda(
-            nullptr,
+            nullptr if mom is None else tmp.data_ptrs,
             dt,
             self.dirac.path_coeff_2,
             self.dirac.path_coeff_1,
@@ -123,6 +128,11 @@ class HISQAction(StaggeredFermionAction):
             self.coeff,
             self.gauge_param,
         )
+        if mom is not None:
+            self.gauge_param.use_resident_mom = 1
+            self.gauge_param.make_resident_mom = 1
+            self.gauge_param.return_result_mom = 0
+            mom += tmp
 
 
 class MultiHISQAction(StaggeredFermionAction):
@@ -171,7 +181,7 @@ class MultiHISQAction(StaggeredFermionAction):
         fatlink, longlink = pseudo_fermion.dirac.computeXLinkEpsilon(self.fatlink, self.longlink, self.w_link)
         pseudo_fermion.dirac.loadFatLongGauge(fatlink, longlink)
 
-    def sample(self, new_gauge: bool):
+    def sample(self):
         self.prepareFatLong(False)
         for pseudo_fermion in self.pseudo_fermions:
             pseudo_fermion.sampleEta()
@@ -179,7 +189,7 @@ class MultiHISQAction(StaggeredFermionAction):
             pseudo_fermion.quark = self.quark
             pseudo_fermion.invertMultiShift("pseudo_fermion")
 
-    def action(self, new_gauge: bool) -> float:
+    def action(self) -> float:
         action = 0
         self.prepareFatLong(False)
         for pseudo_fermion in self.pseudo_fermions:
@@ -191,7 +201,7 @@ class MultiHISQAction(StaggeredFermionAction):
             action += pseudo_fermion.invert_param.action[0]
         return action
 
-    def actionFA(self, new_gauge: bool) -> float:
+    def actionFA(self) -> float:
         action = 0
         self.prepareFatLong(False)
         for pseudo_fermion in self.pseudo_fermions:
@@ -201,7 +211,7 @@ class MultiHISQAction(StaggeredFermionAction):
             action += pseudo_fermion.eta.even.norm2()
         return action
 
-    def force(self, dt, new_gauge: bool):
+    def force(self, dt, mom: Optional[LatticeMom] = None):
         u_link, v_link, w_link = self.prepareFatLong(True)
         num_current = 0
         for pseudo_fermion in self.pseudo_fermions:
@@ -216,8 +226,13 @@ class MultiHISQAction(StaggeredFermionAction):
                     QudaParity.QUDA_ODD_PARITY,
                 )
             num_current += pseudo_fermion.num
+        if mom is not None:
+            tmp = LatticeMom(mom.latt_info)
+            self.gauge_param.use_resident_mom = 0
+            self.gauge_param.make_resident_mom = 0
+            self.gauge_param.return_result_mom = 1
         computeHISQForceQuda(
-            nullptr,
+            nullptr if mom is None else tmp.data_ptrs,
             dt,
             self.dirac.path_coeff_2,
             self.dirac.path_coeff_1,
@@ -230,3 +245,8 @@ class MultiHISQAction(StaggeredFermionAction):
             self.coeff,
             self.gauge_param,
         )
+        if mom is not None:
+            self.gauge_param.use_resident_mom = 1
+            self.gauge_param.make_resident_mom = 1
+            self.gauge_param.return_result_mom = 0
+            mom += tmp
