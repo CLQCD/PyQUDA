@@ -5,9 +5,9 @@ from pyquda_utils.core import X, Y, Z, T
 import cupy as cp
 from time import perf_counter
 
-core.init(None, [32, 32, 32, 64], resource_path=".cache")
+core.init(None, [4, 4, 4, 8], resource_path=".cache")
 
-latt_info = core.LatticeInfo([32, 32, 32, 64])
+latt_info = core.LatticeInfo([4, 4, 4, 8])
 unit = core.LatticeGauge(latt_info)
 unit.gauge_dirac.loadGauge(unit)
 propagator = core.LatticePropagator(latt_info, cp.random.random((latt_info.volume, 4, 4, 3, 3 * 2), "<f8").view("<c16"))

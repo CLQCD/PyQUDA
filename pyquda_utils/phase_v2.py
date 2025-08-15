@@ -11,7 +11,7 @@ from .core import getCUDABackend, LatticeInfo
 class LocationPhase:
     def __init__(self, latt_info: LatticeInfo) -> None:
         self.latt_info = latt_info
-        self.x = latt_info.evenodd(numpy.indices(latt_info.size[::-1], "<i4"), True)
+        self.x = latt_info.evenodd(numpy.indices(latt_info.size[::-1], "<i4")[::-1], True)
         for i in range(latt_info.Nd):
             self.x[i] += latt_info.grid_coord[i] * latt_info.size[i]
 

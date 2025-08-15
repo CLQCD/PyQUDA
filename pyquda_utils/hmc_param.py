@@ -198,7 +198,7 @@ class _WilsonFA:
         return ret
 
 
-def wilsonFermionRationalParam(
+def fermionRationalParam(
     num_flavor: int,
     molecular_dynamics_degree: int,
     fermion_action_degree: int,
