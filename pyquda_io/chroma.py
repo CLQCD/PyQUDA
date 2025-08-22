@@ -43,16 +43,6 @@ def readQIOGauge(filename: str, checksum: bool = True, reunitarize_sigma: float 
     return latt_size, gauge
 
 
-def readILDGBinGauge(filename: str, dtype: str, latt_size: List[int]):
-    filename = path.expanduser(path.expandvars(filename))
-    Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
-    offset = 0
-
-    gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
-    gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
-    return gauge
-
-
 def readQIOPropagator(filename: str, checksum: bool = True):
     from .lime import Lime
 
