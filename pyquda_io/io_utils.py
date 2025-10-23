@@ -6,25 +6,25 @@ from mpi4py import MPI
 import numpy
 from numpy.typing import NDArray
 
-from pyquda_comm import getMPIComm, getMPISize, getMPIRank, getGridCoord, getNeighbourRank, getSublatticeSize
+from pyquda_comm import getMPIComm, getMPIRank, getGridCoord, getNeighbourRank, getSublatticeSize
 
 Nd, Ns, Nc = 4, 4, 3
 
 
-def checksumQIO(latt_size: List[int], data: NDArray):
+def checksumSciDAC(latt_size: List[int], data: NDArray):
     gx, gy, gz, gt = getGridCoord()
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
-    gLx, gLy, gLz, gLt = gx * Lx, gy * Ly, gz * Lz, gt * Lt
     GLx, GLy, GLz, GLt = latt_size
 
     work = numpy.empty((Lt * Lz * Ly * Lx), "<u4")
     for i in range(Lt * Lz * Ly * Lx):
         work[i] = zlib.crc32(data[i])
-    rank = (
-        numpy.arange(GLt * GLz * GLy * GLx, dtype="<u8")
-        .reshape(GLt, GLz, GLy, GLx)[gLt : gLt + Lt, gLz : gLz + Lz, gLy : gLy + Ly, gLx : gLx + Lx]
-        .reshape(-1)
-    )
+    t, z, y, x = numpy.indices((Lt, Lz, Ly, Lx), "<u8")
+    t += gt * Lt
+    z += gz * Lz
+    y += gy * Ly
+    x += gx * Lx
+    rank = ((((t * GLz + z) * GLy + y) * GLx) + x).reshape(-1)
 
     rank29 = (rank % 29).astype("<u4")
     rank31 = (rank % 31).astype("<u4")
@@ -36,15 +36,15 @@ def checksumQIO(latt_size: List[int], data: NDArray):
 def checksumMILC(latt_size: List[int], data: NDArray):
     gx, gy, gz, gt = getGridCoord()
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
-    gLx, gLy, gLz, gLt = gx * Lx, gy * Ly, gz * Lz, gt * Lt
     GLx, GLy, GLz, GLt = latt_size
 
     work = data.view("<u4")
-    rank = (
-        numpy.arange(getMPISize() * work.size, dtype="<u8")
-        .reshape(GLt, GLz, GLy, GLx, -1)[gLt : gLt + Lt, gLz : gLz + Lz, gLy : gLy + Ly, gLx : gLx + Lx]
-        .reshape(-1)
-    )
+    t, z, y, x, i = numpy.indices((Lt, Lz, Ly, Lx, 72), "<u8")
+    t += gt * Lt
+    z += gz * Lz
+    y += gy * Ly
+    x += gx * Lx
+    rank = (((((t * GLz + z) * GLy + y) * GLx) + x) * 72 + i).reshape(-1)
 
     rank29 = (rank % 29).astype("<u4")
     rank31 = (rank % 31).astype("<u4")

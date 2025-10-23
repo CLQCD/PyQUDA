@@ -100,17 +100,17 @@ def cb2(data: NDArray, axes: List[int], dtype=None):
 
 class LatticeRotation(_LatticeRotation):
     @classmethod
-    def load(cls, filename: str, *, check: bool = True) -> "LatticeRotation":
-        return super().load(filename, ["R"], check=check)
+    def loadH5(cls, filename: str, *, check: bool = True) -> "LatticeRotation":
+        return super().loadH5(filename, ["R"], check=check)
 
-    def save(self, filename: str, *, annotation: str = "", check: bool = True):
-        super().save(filename, ["R"], annotation=annotation, check=check)
+    def saveH5(self, filename: str, *, annotation: str = "", check: bool = True):
+        super().saveH5(filename, ["R"], annotation=annotation, check=check)
 
-    def append(self, filename: str, *, annotation: str = "", check: bool = True, use_fp32: bool = False):
-        super().append(filename, ["R"], annotation=annotation, check=check, use_fp32=use_fp32)
+    def appendH5(self, filename: str, *, annotation: str = "", check: bool = True, use_fp32: bool = False):
+        super().appendH5(filename, ["R"], annotation=annotation, check=check, use_fp32=use_fp32)
 
-    def update(self, filename: str, *, annotation: str = "", check: bool = True):
-        super().update(filename, ["R"], annotation=annotation, check=check)
+    def updateH5(self, filename: str, *, annotation: str = "", check: bool = True):
+        super().updateH5(filename, ["R"], annotation=annotation, check=check)
 
     @property
     def gauge_dirac(self):
@@ -138,17 +138,17 @@ class LatticeGauge(_LatticeGauge):
         super().__init__(latt_info, L5, value)
 
     @classmethod
-    def load(cls, filename: str, *, check: bool = True) -> "LatticeGauge":
-        return super().load(filename, ["X", "Y", "Z", "T"], check=check)
+    def loadH5(cls, filename: str, *, check: bool = True) -> "LatticeGauge":
+        return super().loadH5(filename, ["X", "Y", "Z", "T"], check=check)
 
-    def save(self, filename: str, *, annotation: str = "", check: bool = True, use_fp32: bool = False):
-        super().save(filename, ["X", "Y", "Z", "T"], annotation=annotation, check=check, use_fp32=use_fp32)
+    def saveH5(self, filename: str, *, annotation: str = "", check: bool = True, use_fp32: bool = False):
+        super().saveH5(filename, ["X", "Y", "Z", "T"], annotation=annotation, check=check, use_fp32=use_fp32)
 
-    def append(self, filename: str, *, annotation: str = "", check: bool = True, use_fp32: bool = False):
-        super().append(filename, ["X", "Y", "Z", "T"], annotation=annotation, check=check, use_fp32=use_fp32)
+    def appendH5(self, filename: str, *, annotation: str = "", check: bool = True, use_fp32: bool = False):
+        super().appendH5(filename, ["X", "Y", "Z", "T"], annotation=annotation, check=check, use_fp32=use_fp32)
 
-    def update(self, filename: str, *, annotation: str = "", check: bool = True):
-        super().update(filename, ["X", "Y", "Z", "T"], annotation=annotation, check=check)
+    def updateH5(self, filename: str, *, annotation: str = "", check: bool = True):
+        super().updateH5(filename, ["X", "Y", "Z", "T"], annotation=annotation, check=check)
 
     @property
     def gauge_dirac(self):
@@ -528,17 +528,17 @@ class LatticeMom(_LatticeMom):
         super().__init__(latt_info, L5, value)
 
     @classmethod
-    def load(cls, filename: str, *, check: bool = True) -> "LatticeMom":
-        return super().load(filename, ["X", "Y", "Z", "T"], check=check)
+    def loadH5(cls, filename: str, *, check: bool = True) -> "LatticeMom":
+        return super().loadH5(filename, ["X", "Y", "Z", "T"], check=check)
 
-    def save(self, filename: str, *, annotation: str = "", check: bool = True, use_fp32: bool = False):
-        super().save(filename, ["X", "Y", "Z", "T"], annotation=annotation, check=check, use_fp32=use_fp32)
+    def saveH5(self, filename: str, *, annotation: str = "", check: bool = True, use_fp32: bool = False):
+        super().saveH5(filename, ["X", "Y", "Z", "T"], annotation=annotation, check=check, use_fp32=use_fp32)
 
-    def append(self, filename: str, *, annotation: str = "", check: bool = True, use_fp32: bool = False):
-        super().append(filename, ["X", "Y", "Z", "T"], annotation=annotation, check=check, use_fp32=use_fp32)
+    def appendH5(self, filename: str, *, annotation: str = "", check: bool = True, use_fp32: bool = False):
+        super().appendH5(filename, ["X", "Y", "Z", "T"], annotation=annotation, check=check, use_fp32=use_fp32)
 
-    def update(self, filename: str, *, annotation: str = "", check: bool = True):
-        super().update(filename, ["X", "Y", "Z", "T"], annotation=annotation, check=check)
+    def updateH5(self, filename: str, *, annotation: str = "", check: bool = True):
+        super().updateH5(filename, ["X", "Y", "Z", "T"], annotation=annotation, check=check)
 
     @property
     def gauge_dirac(self):

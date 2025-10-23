@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import List, Literal, NamedTuple, Optional, Union
+from typing import List, Literal, NamedTuple, Optional, Union, overload
 
 from pyquda_comm import getCUDABackend
-from pyquda_comm.array import arrayRandom
+from pyquda_comm.array import arrayNormal
 from ..field import (
     LatticeInfo,
     LatticeMom,
@@ -31,15 +31,13 @@ class Action(ABC):
         self.latt_info = latt_info
         self.dirac = dirac
         self.gauge_param = self.dirac.gauge_param
-        self.is_fermion = False
-        self.is_staggered = False
 
     @abstractmethod
     def action(self) -> float:
         pass
 
     @abstractmethod
-    def force(self, dt: float):
+    def force(self, dt: float, mom: Optional[LatticeMom] = None):
         pass
 
 
@@ -66,32 +64,15 @@ class FermionAction(Action):
     def __init__(self, latt_info: LatticeInfo, dirac: FermionDirac) -> None:
         super().__init__(latt_info, dirac)
         self.invert_param = self.dirac.invert_param
-        self.is_fermion = True
-
-    def sampleEta(self):
-        backend = getCUDABackend()
-        if backend == "numpy":
-            import numpy as backend_
-        elif backend == "cupy":
-            import cupy as backend_
-        elif backend == "torch":
-            import torch as backend_
-
-        def _normal(shape):
-            theta = 2 * backend_.pi * arrayRandom(shape, backend)
-            r = backend_.sqrt(-backend_.log(arrayRandom(shape, backend)))
-            z = r * (backend_.cos(theta) + 1j * backend_.sin(theta))
-            return z
-
-        self.eta.data[:] = _normal(self.eta.shape)
 
     @abstractmethod
     def sample(self):
         pass
 
-    @abstractmethod
-    def force(self, dt: float, mom: Optional[LatticeMom] = None):
-        pass
+    def sampleEta(self):
+        backend = getCUDABackend()
+        shape = self.eta.shape[:-1] + (2 * self.eta.shape[-1],)
+        self.eta.data[:] = arrayNormal(0.0, 2.0**-0.5, shape, backend).view("<c16")
 
     def _invertMultiShiftParam(self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]):
         if mode == "pseudo_fermion":
@@ -127,6 +108,26 @@ class FermionAction(Action):
             assert offset == [0.0] and residue == [1.0] and (norm is None or norm == 0.0)
         return residue, norm
 
+    @overload
+    def _invertMultiShift(
+        self,
+        xx: MultiLatticeFermion,
+        x: LatticeFermion,
+        b: LatticeFermion,
+        residue: List[float],
+        norm: Optional[float],
+    ): ...
+
+    @overload
+    def _invertMultiShift(
+        self,
+        xx: MultiLatticeStaggeredFermion,
+        x: LatticeStaggeredFermion,
+        b: LatticeStaggeredFermion,
+        residue: List[float],
+        norm: Optional[float],
+    ): ...
+
     def _invertMultiShift(
         self,
         xx: Union[MultiLatticeFermion, MultiLatticeStaggeredFermion],
@@ -144,9 +145,9 @@ class FermionAction(Action):
                 invertMultiShiftQuda(xx.even_ptrs, b.even_ptr, self.invert_param)
                 self.dirac.performance()
                 if norm is not None:
-                    x.even = norm * b.even
+                    x.data[0] = norm * b.data[0]  # x.even = norm * b.even
                     for i in range(num_offset):
-                        x.even += residue[i] * xx[i].even
+                        x.data[0] += residue[i] * xx[i].data[0]  # x.even += residue[i] * xx[i].even
             else:
                 if norm is None:
                     invertQuda(xx[0].even_ptr, b.even_ptr, self.invert_param)
@@ -163,9 +164,9 @@ class FermionAction(Action):
                 invertMultiShiftQuda(xx.odd_ptrs, b.odd_ptr, self.invert_param)
                 self.dirac.performance()
                 if norm is not None:
-                    x.odd = norm * b.odd
+                    x.data[1] = norm * b.data[1]  # x.odd = norm * b.odd
                     for i in range(num_offset):
-                        x.odd += residue[i] * xx[i].odd
+                        x.data[1] += residue[i] * xx[i].data[1]  # x.odd += residue[i] * xx[i].odd
             else:
                 if norm is None:
                     invertQuda(xx[0].odd_ptr, b.odd_ptr, self.invert_param)
@@ -185,17 +186,9 @@ class FermionAction(Action):
 
 class StaggeredFermionAction(FermionAction):
     dirac: StaggeredFermionDirac
-    quark: MultiLatticeStaggeredFermion
+    quark: Optional[MultiLatticeStaggeredFermion]
     phi: LatticeStaggeredFermion
     eta: LatticeStaggeredFermion
 
     def __init__(self, latt_info: LatticeInfo, dirac: StaggeredFermionDirac) -> None:
         super().__init__(latt_info, dirac)
-        self.is_staggered = True
-
-    def invertMultiShift(self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]):
-        residue, norm = self._invertMultiShiftParam(mode)
-        if mode == "pseudo_fermion":
-            self._invertMultiShift(self.quark, self.phi, self.eta, residue, norm)
-        else:
-            self._invertMultiShift(self.quark, self.eta, self.phi, residue, norm)

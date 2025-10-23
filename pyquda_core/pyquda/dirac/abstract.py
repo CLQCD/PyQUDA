@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Optional
 
 from pyquda_comm import getLogger
 from pyquda_comm.pointer import Pointer
@@ -59,16 +60,16 @@ class Dirac(ABC):
 
     def __init__(self, latt_info: LatticeInfo) -> None:
         self.latt_info = latt_info
-        self.precision = getGlobalPrecision()
-        self.reconstruct = getGlobalReconstruct()
+        self.precision = getGlobalPrecision("none")
+        self.reconstruct = getGlobalReconstruct("none")
 
     def setPrecision(
         self,
         *,
-        cuda: QudaPrecision = None,
-        sloppy: QudaPrecision = None,
-        precondition: QudaPrecision = None,
-        eigensolver: QudaPrecision = None,
+        cuda: Optional[QudaPrecision] = None,
+        sloppy: Optional[QudaPrecision] = None,
+        precondition: Optional[QudaPrecision] = None,
+        eigensolver: Optional[QudaPrecision] = None,
     ):
         if cuda is not None or sloppy is not None or precondition is not None or eigensolver is not None:
             self.precision = Precision(
@@ -83,10 +84,10 @@ class Dirac(ABC):
     def setReconstruct(
         self,
         *,
-        cuda: QudaReconstructType = None,
-        sloppy: QudaReconstructType = None,
-        precondition: QudaReconstructType = None,
-        eigensolver: QudaReconstructType = None,
+        cuda: Optional[QudaReconstructType] = None,
+        sloppy: Optional[QudaReconstructType] = None,
+        precondition: Optional[QudaReconstructType] = None,
+        eigensolver: Optional[QudaReconstructType] = None,
     ):
         if cuda is not None or sloppy is not None or precondition is not None or eigensolver is not None:
             self.reconstruct = Reconstruct(
@@ -103,11 +104,11 @@ class Dirac(ABC):
 
 
 class Multigrid:
-    param: QudaMultigridParam
-    inv_param: QudaInvertParam
-    instance: Pointer
+    param: Optional[QudaMultigridParam]
+    inv_param: Optional[QudaInvertParam]
+    instance: Optional[Pointer]
 
-    def __init__(self, param: QudaMultigridParam, inv_param: QudaInvertParam) -> None:
+    def __init__(self, param: Optional[QudaMultigridParam], inv_param: Optional[QudaInvertParam]) -> None:
         self.param = param
         self.inv_param = inv_param
         self.instance = None
@@ -124,6 +125,7 @@ class Multigrid:
         smoother_nu_post: int = 8,
         smoother_omega: float = 1.0,
     ):
+        assert self.param is not None
         self.param.coarse_solver_tol = [coarse_tol] * QUDA_MAX_MG_LEVEL
         self.param.coarse_solver_maxiter = [coarse_maxiter] * QUDA_MAX_MG_LEVEL
         self.param.setup_tol = [setup_tol] * QUDA_MAX_MG_LEVEL
@@ -135,18 +137,17 @@ class Multigrid:
         self.param.omega = [smoother_omega] * QUDA_MAX_MG_LEVEL
 
     def new(self):
+        assert self.param is not None
         if self.instance is not None:
             destroyMultigridQuda(self.instance)
         self.instance = newMultigridQuda(self.param)
 
     def update(self, thin_update_only: bool):
+        assert self.param is not None
         if self.instance is not None:
-            if thin_update_only:
-                self.param.thin_update_only = QudaBoolean.QUDA_BOOLEAN_TRUE
-                updateMultigridQuda(self.instance, self.param)
-                self.param.thin_update_only = QudaBoolean.QUDA_BOOLEAN_FALSE
-            else:
-                updateMultigridQuda(self.instance, self.param)
+            self.param.thin_update_only = QudaBoolean(thin_update_only)
+            updateMultigridQuda(self.instance, self.param)
+            self.param.thin_update_only = QudaBoolean.QUDA_BOOLEAN_FALSE
 
     def destroy(self):
         if self.instance is not None:
@@ -159,31 +160,35 @@ class FermionDirac(Dirac):
 
     def __init__(self, latt_info: LatticeInfo) -> None:
         super().__init__(latt_info)
+        self.reconstruct = getGlobalReconstruct("wilson")
 
     def setPrecision(
         self,
         *,
-        cuda: QudaPrecision = None,
-        sloppy: QudaPrecision = None,
-        precondition: QudaPrecision = None,
-        eigensolver: QudaPrecision = None,
+        cuda: Optional[QudaPrecision] = None,
+        sloppy: Optional[QudaPrecision] = None,
+        precondition: Optional[QudaPrecision] = None,
+        eigensolver: Optional[QudaPrecision] = None,
     ):
+        if self.multigrid.param is not None and self.multigrid.inv_param is not None:
+            self.precision = getGlobalPrecision("multigrid")
+        else:
+            self.precision = getGlobalPrecision("invert")
         super().setPrecision(cuda=cuda, sloppy=sloppy, precondition=precondition, eigensolver=eigensolver)
         setPrecisionParam(self.precision, None, None, self.multigrid.param, self.multigrid.inv_param)
 
     def setVerbosity(self, verbosity: QudaVerbosity):
         super().setVerbosity(verbosity)
-        if self.multigrid.param is not None:
-            self.multigrid.inv_param.verbosity = verbosity
+        if self.multigrid.param is not None and self.multigrid.inv_param is not None:
             self.multigrid.param.verbosity = [verbosity] * QUDA_MAX_MG_LEVEL
+            self.multigrid.inv_param.verbosity = verbosity
 
     @abstractmethod
     def loadGauge(self, gauge: LatticeGauge):
         pass
 
-    @abstractmethod
     def destroy(self):
-        pass
+        self.multigrid.destroy()
 
     def performance(self):
         gflops, secs = self.invert_param.gflops, self.invert_param.secs
@@ -255,19 +260,21 @@ class FermionDirac(Dirac):
     def newMultigrid(self):
         if self.multigrid.param is not None:
             self.multigrid.new()
+            assert self.multigrid.instance is not None
             self.invert_param.preconditioner = self.multigrid.instance
 
     def updateMultigrid(self, thin_update_only: bool):
         if self.multigrid.param is not None:
             self.multigrid.update(thin_update_only)
+            assert self.multigrid.instance is not None
             self.invert_param.preconditioner = self.multigrid.instance
-
-    def destroyMultigrid(self):
-        if self.multigrid.param is not None:
-            self.multigrid.destroy()
 
 
 class StaggeredFermionDirac(FermionDirac):
+    def __init__(self, latt_info: LatticeInfo) -> None:
+        super().__init__(latt_info)
+        self.reconstruct = getGlobalReconstruct("none")
+
     def invert(self, b: LatticeStaggeredFermion):
         x = LatticeStaggeredFermion(b.latt_info)
         invertQuda(x.data_ptr, b.data_ptr, self.invert_param)

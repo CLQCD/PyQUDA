@@ -160,30 +160,43 @@ def arrayExp(data, backend: BackendType) -> NDArray:
         return torch.exp(data)
 
 
-def arrayIdentity(n: int, backend: BackendType) -> NDArray:
+def arrayIdentity(n: int, dtype: DTypeLike, backend: BackendType) -> NDArray:
     if backend == "numpy":
-        return numpy.identity(n)
+        return numpy.identity(n, dtype)
     elif backend == "cupy":
         import cupy
 
-        return cupy.identity(n)
+        return cupy.identity(n, dtype)
     elif backend == "torch":
         import torch
 
-        return torch.eye(n)
+        return torch.eye(n, dtype=dtype)
 
 
-def arrayRandom(shape: Sequence[int], backend: BackendType) -> NDArray:
+def arrayRandom(size: Sequence[int], backend: BackendType) -> NDArray:
     if backend == "numpy":
-        return numpy.random.random(shape)
+        return numpy.random.random(size)
     elif backend == "cupy":
         import cupy
 
-        return cupy.random.random(shape, dtype=numpy.float64)
+        return cupy.random.random(size, cupy.float64)
     elif backend == "torch":
         import torch
 
-        return torch.rand(shape, dtype=torch.float64)
+        return torch.rand(size, dtype=torch.float64)
+
+
+def arrayNormal(loc: float, scale: float, size: Sequence[int], backend: BackendType) -> NDArray:
+    if backend == "numpy":
+        return numpy.random.normal(loc, scale, size)
+    elif backend == "cupy":
+        import cupy
+
+        return cupy.random.normal(loc, scale, size, cupy.float64)
+    elif backend == "torch":
+        import torch
+
+        return torch.normal(loc, scale, size, dtype=torch.float64)
 
 
 def arrayRandomGetState(backend: BackendType):

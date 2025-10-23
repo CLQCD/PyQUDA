@@ -2,7 +2,7 @@ from os import path
 from typing import List
 
 from pyquda_comm import getSublatticeSize, readMPIFile
-from .io_utils import checksumQIO, gaugeReunitarize
+from .io_utils import checksumSciDAC, gaugeReunitarize
 
 Nd, Ns, Nc = 4, 4, 3
 ildg_xmlns = "http://www.lqcd.org/ildg"
@@ -30,7 +30,7 @@ def readGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 5
 
     gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
     if checksum:
-        assert checksumQIO(latt_size, gauge.reshape(Lt * Lz * Ly * Lx, Nd * Nc * Nc)) == (
+        assert checksumSciDAC(latt_size, gauge.reshape(Lt * Lz * Ly * Lx, Nd * Nc * Nc)) == (
             int(scidac_checksum_xml.find("suma").text, 16),
             int(scidac_checksum_xml.find("sumb").text, 16),
         ), f"Bad checksum for {filename}"

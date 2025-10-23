@@ -1,4 +1,4 @@
-from typing import List, NamedTuple, Optional
+from typing import List, Literal, NamedTuple, Optional
 
 import numpy
 from numpy.typing import NDArray
@@ -78,30 +78,57 @@ class Reconstruct(NamedTuple):
     eigensolver: QudaReconstructType
 
 
-_precision = Precision(
-    QudaPrecision.QUDA_DOUBLE_PRECISION,
-    QudaPrecision.QUDA_DOUBLE_PRECISION,
-    QudaPrecision.QUDA_HALF_PRECISION,
-    QudaPrecision.QUDA_HALF_PRECISION,
-    QudaPrecision.QUDA_DOUBLE_PRECISION,
-)
-_reconstruct = Reconstruct(
-    QudaReconstructType.QUDA_RECONSTRUCT_12,
-    QudaReconstructType.QUDA_RECONSTRUCT_12,
-    QudaReconstructType.QUDA_RECONSTRUCT_12,
-    QudaReconstructType.QUDA_RECONSTRUCT_12,
-)
+_precision = {
+    "none": Precision(
+        QudaPrecision.QUDA_DOUBLE_PRECISION,
+        QudaPrecision.QUDA_DOUBLE_PRECISION,
+        QudaPrecision.QUDA_DOUBLE_PRECISION,
+        QudaPrecision.QUDA_DOUBLE_PRECISION,
+        QudaPrecision.QUDA_DOUBLE_PRECISION,
+    ),
+    "invert": Precision(
+        QudaPrecision.QUDA_DOUBLE_PRECISION,
+        QudaPrecision.QUDA_DOUBLE_PRECISION,
+        QudaPrecision.QUDA_HALF_PRECISION,
+        QudaPrecision.QUDA_HALF_PRECISION,
+        QudaPrecision.QUDA_DOUBLE_PRECISION,
+    ),
+    "multigrid": Precision(
+        QudaPrecision.QUDA_DOUBLE_PRECISION,
+        QudaPrecision.QUDA_DOUBLE_PRECISION,
+        QudaPrecision.QUDA_SINGLE_PRECISION,
+        QudaPrecision.QUDA_HALF_PRECISION,
+        QudaPrecision.QUDA_DOUBLE_PRECISION,
+    ),
+}
+_reconstruct = {
+    "none": Reconstruct(
+        QudaReconstructType.QUDA_RECONSTRUCT_NO,
+        QudaReconstructType.QUDA_RECONSTRUCT_NO,
+        QudaReconstructType.QUDA_RECONSTRUCT_NO,
+        QudaReconstructType.QUDA_RECONSTRUCT_NO,
+    ),
+    "wilson": Reconstruct(
+        QudaReconstructType.QUDA_RECONSTRUCT_12,
+        QudaReconstructType.QUDA_RECONSTRUCT_8,
+        QudaReconstructType.QUDA_RECONSTRUCT_8,
+        QudaReconstructType.QUDA_RECONSTRUCT_12,
+    ),
+    "staggered": Reconstruct(
+        QudaReconstructType.QUDA_RECONSTRUCT_13,
+        QudaReconstructType.QUDA_RECONSTRUCT_9,
+        QudaReconstructType.QUDA_RECONSTRUCT_9,
+        QudaReconstructType.QUDA_RECONSTRUCT_13,
+    ),
+}
 
 
-def getGlobalPrecision():
-    return _precision
-
-
-def getGlobalReconstruct():
-    return _reconstruct
+def getGlobalPrecision(key: Literal["none", "invert", "multigrid"]):
+    return _precision[key]
 
 
 def setGlobalPrecision(
+    key: Literal["none", "invert", "multigrid"],
     *,
     cuda: Optional[QudaPrecision] = None,
     sloppy: Optional[QudaPrecision] = None,
@@ -109,16 +136,22 @@ def setGlobalPrecision(
     eigensolver: Optional[QudaPrecision] = None,
 ):
     global _precision
-    _precision = Precision(
-        _precision.cpu,
-        cuda if cuda is not None else _precision.cuda,
-        sloppy if sloppy is not None else _precision.sloppy,
-        precondition if precondition is not None else _precision.precondition,
-        eigensolver if eigensolver is not None else _precision.eigensolver,
+    precision = _precision[key]
+    _precision[key] = Precision(
+        precision.cpu,
+        cuda if cuda is not None else precision.cuda,
+        sloppy if sloppy is not None else precision.sloppy,
+        precondition if precondition is not None else precision.precondition,
+        eigensolver if eigensolver is not None else precision.eigensolver,
     )
 
 
+def getGlobalReconstruct(key: Literal["none", "wilson", "staggered"]):
+    return _reconstruct[key]
+
+
 def setGlobalReconstruct(
+    key: Literal["none", "wilson", "staggered"],
     *,
     cuda: Optional[QudaReconstructType] = None,
     sloppy: Optional[QudaReconstructType] = None,
@@ -126,11 +159,12 @@ def setGlobalReconstruct(
     eigensolver: Optional[QudaReconstructType] = None,
 ):
     global _reconstruct
-    _reconstruct = Reconstruct(
-        cuda if cuda is not None else _reconstruct.cuda,
-        sloppy if sloppy is not None else _reconstruct.sloppy,
-        precondition if precondition is not None else _reconstruct.precondition,
-        eigensolver if eigensolver is not None else _reconstruct.eigensolver,
+    reconstruct = _reconstruct[key]
+    _reconstruct[key] = Reconstruct(
+        cuda if cuda is not None else reconstruct.cuda,
+        sloppy if sloppy is not None else reconstruct.sloppy,
+        precondition if precondition is not None else reconstruct.precondition,
+        eigensolver if eigensolver is not None else reconstruct.eigensolver,
     )
 
 
@@ -202,18 +236,14 @@ def setReconstructParam(reconstruct: Reconstruct, gauge_param: Optional[QudaGaug
         gauge_param.reconstruct_eigensolver = reconstruct.eigensolver
 
 
-def newQudaGaugeParam(
-    lattice: LatticeInfo,
-    tadpole_coeff: float,
-    naik_epsilon: float,
-):
+def newQudaGaugeParam(lattice: LatticeInfo):
     gauge_param = QudaGaugeParam()
 
     gauge_param.X = lattice.size
 
     gauge_param.anisotropy = lattice.anisotropy
-    gauge_param.tadpole_coeff = tadpole_coeff
-    gauge_param.scale = -(1 + naik_epsilon) / (24 * tadpole_coeff * tadpole_coeff)
+    gauge_param.tadpole_coeff = 1.0  # tadpole_coeff
+    gauge_param.scale = 1.0  # -(1 + naik_epsilon) / (24 * tadpole_coeff * tadpole_coeff)
     gauge_param.type = QudaLinkType.QUDA_WILSON_LINKS
     gauge_param.gauge_order = QudaGaugeFieldOrder.QUDA_QDP_GAUGE_ORDER
     gauge_param.t_boundary = QudaTboundary(lattice.t_boundary)
@@ -236,12 +266,7 @@ def newQudaGaugeParam(
     return gauge_param
 
 
-def newQudaMultigridParam(
-    mass: float,
-    kappa: float,
-    geo_block_size: List[List[int]],
-    staggered: bool,
-):
+def newQudaMultigridParam(mass: float, kappa: float, geo_block_size: List[List[int]], staggered: bool):
     mg_param = QudaMultigridParam()
     mg_inv_param = QudaInvertParam()
 
@@ -364,7 +389,7 @@ def newQudaInvertParam(
     maxiter: int,
     clover_coeff: float,
     clover_anisotropy: float,
-    mg_param: QudaMultigridParam,
+    mg_param: Optional[QudaMultigridParam],
 ):
     invert_param = QudaInvertParam()
 
@@ -431,13 +456,14 @@ def newQudaInvertParam(
 
 
 def loadClover(
-    clover: LatticeClover,
-    clover_inv: LatticeClover,
-    gauge: LatticeGauge,
+    clover: Optional[LatticeClover],
+    clover_inv: Optional[LatticeClover],
+    gauge: Optional[LatticeGauge],
     gauge_param: QudaGaugeParam,
     invert_param: QudaInvertParam,
 ):
     if clover is None or clover_inv is None:
+        assert gauge is not None
         clover_anisotropy = invert_param.clover_csw
         t_boundary = gauge_param.t_boundary
         anisotropy = gauge_param.anisotropy
@@ -564,14 +590,25 @@ def computeULink(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     return u_link
 
 
-def computeWLink(
-    u_link: LatticeGauge, return_v_link: bool, path_coeff: NDArray[numpy.float64], gauge_param: QudaGaugeParam
-):
-    v_link = LatticeGauge(u_link.latt_info) if return_v_link else None
+def computeWLink(u_link: LatticeGauge, path_coeff: NDArray[numpy.float64], gauge_param: QudaGaugeParam):
     w_link = LatticeGauge(u_link.latt_info)
-
     computeKSLinkQuda(
-        v_link.data_ptrs if return_v_link else nullptrs,
+        nullptrs,
+        nullptrs,
+        w_link.data_ptrs,
+        u_link.data_ptrs,
+        path_coeff,
+        gauge_param,
+    )
+
+    return w_link
+
+
+def computeVWLink(u_link: LatticeGauge, path_coeff: NDArray[numpy.float64], gauge_param: QudaGaugeParam):
+    v_link = LatticeGauge(u_link.latt_info)
+    w_link = LatticeGauge(u_link.latt_info)
+    computeKSLinkQuda(
+        v_link.data_ptrs,
         nullptrs,
         w_link.data_ptrs,
         u_link.data_ptrs,
@@ -589,7 +626,6 @@ def computeXLink(
 ):
     fatlink = LatticeGauge(w_link.latt_info)
     longlink = LatticeGauge(w_link.latt_info)
-
     computeKSLinkQuda(
         fatlink.data_ptrs,
         longlink.data_ptrs,
@@ -610,10 +646,9 @@ def computeXLinkEpsilon(
     naik_epsilon: float,
     gauge_param: QudaGaugeParam,
 ):
-    fatlink_epsilon = LatticeGauge(w_link.latt_info) if naik_epsilon != 0 else None
-    longlink_epsilon = LatticeGauge(w_link.latt_info) if naik_epsilon != 0 else None
-
     if naik_epsilon != 0:
+        fatlink_epsilon = LatticeGauge(w_link.latt_info)
+        longlink_epsilon = LatticeGauge(w_link.latt_info)
         computeKSLinkQuda(
             fatlink_epsilon.data_ptrs,
             longlink_epsilon.data_ptrs,
@@ -626,6 +661,7 @@ def computeXLinkEpsilon(
         longlink_epsilon *= naik_epsilon
         fatlink_epsilon += fatlink
         longlink_epsilon += longlink
+
         return fatlink_epsilon, longlink_epsilon
     else:
         return fatlink, longlink
@@ -641,20 +677,29 @@ def loadStaggeredGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
 def loadFatLongGauge(
     fatlink: LatticeGauge,
     longlink: LatticeGauge,
+    tadpole_coeff: float,
+    naik_epsilon: float,
     gauge_param: QudaGaugeParam,
 ):
+    ga_pad = gauge_param.ga_pad
     staggered_phase_type = gauge_param.staggered_phase_type
 
     gauge_param.use_resident_gauge = 0
     gauge_param.type = QudaLinkType.QUDA_ASQTAD_FAT_LINKS
     loadGaugeQuda(fatlink.data_ptrs, gauge_param)
     gauge_param.type = QudaLinkType.QUDA_ASQTAD_LONG_LINKS
-    gauge_param.ga_pad = gauge_param.ga_pad * 3
+    setReconstructParam(_reconstruct["staggered"], gauge_param)
+    gauge_param.ga_pad = ga_pad * 3
     gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE_NO
+    gauge_param.tadpole_coeff = tadpole_coeff
+    gauge_param.scale = -(1 + naik_epsilon) / (24 * tadpole_coeff * tadpole_coeff)
     loadGaugeQuda(longlink.data_ptrs, gauge_param)
     gauge_param.type = QudaLinkType.QUDA_WILSON_LINKS
-    gauge_param.ga_pad = gauge_param.ga_pad // 3
+    setReconstructParam(_reconstruct["none"], gauge_param)
+    gauge_param.ga_pad = ga_pad
     gauge_param.staggered_phase_type = staggered_phase_type
+    gauge_param.tadpole_coeff = 1.0
+    gauge_param.scale = 1.0
     gauge_param.use_resident_gauge = 1
 
 

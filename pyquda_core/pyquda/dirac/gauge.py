@@ -38,8 +38,6 @@ from ..enum_quda import (
     QudaGaugeSmearType,
     QudaLinkType,
     QudaMassNormalization,
-    QudaPrecision,
-    QudaReconstructType,
     QudaSolveType,
 )
 
@@ -55,22 +53,11 @@ class GaugeDirac(Dirac):
         self.newQudaEigParam()
         self.newQudaGaugeSmearParam()
         self.newQudaGaugeObservableParam()
-        self.setPrecision(
-            cuda=QudaPrecision.QUDA_DOUBLE_PRECISION,
-            sloppy=QudaPrecision.QUDA_DOUBLE_PRECISION,
-            precondition=QudaPrecision.QUDA_DOUBLE_PRECISION,
-            eigensolver=QudaPrecision.QUDA_DOUBLE_PRECISION,
-        )
-        # Use QUDA_RECONSTRUCT_NO to ensure slight deviations from SU(3) can be preserved
-        self.setReconstruct(
-            cuda=QudaReconstructType.QUDA_RECONSTRUCT_NO,
-            sloppy=QudaReconstructType.QUDA_RECONSTRUCT_NO,
-            precondition=QudaReconstructType.QUDA_RECONSTRUCT_NO,
-            eigensolver=QudaReconstructType.QUDA_RECONSTRUCT_NO,
-        )
+        self.setPrecision()
+        self.setReconstruct()
 
     def newQudaGaugeParam(self):
-        gauge_param = general.newQudaGaugeParam(self.latt_info, 1.0, 0.0)
+        gauge_param = general.newQudaGaugeParam(self.latt_info)
         self.gauge_param = gauge_param
 
     def newQudaInvertParam(self):
@@ -425,7 +412,7 @@ class GaugeDirac(Dirac):
 
     def qchargeDensity(self):
         qcharge_density = LatticeReal(self.latt_info)
-        self.obs_param.qcharge_density = qcharge_density.data_ptr
+        self.obs_param.qcharge_density = qcharge_density.data_void_ptr
         self.obs_param.compute_qcharge_density = QudaBoolean.QUDA_BOOLEAN_TRUE
         gaugeObservablesQuda(self.obs_param)
         self.obs_param.compute_qcharge_density = QudaBoolean.QUDA_BOOLEAN_TRUE
