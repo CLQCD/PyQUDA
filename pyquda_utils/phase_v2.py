@@ -5,7 +5,7 @@ import numpy
 
 from pyquda_comm.array import arrayDevice, arrayExp
 from pyquda_comm.field import LatticeInt, MultiLatticeInt, LatticeComplex, MultiLatticeComplex
-from .core import getCUDABackend, LatticeInfo
+from .core import getArrayBackend, LatticeInfo
 
 
 class LocationPhase:
@@ -16,7 +16,7 @@ class LocationPhase:
             self.x[i] += latt_info.grid_coord[i] * latt_info.size[i]
 
     def getPhase(self):
-        return MultiLatticeInt(self.latt_info, self.latt_info.Nd, arrayDevice(self.x, getCUDABackend()))
+        return MultiLatticeInt(self.latt_info, self.latt_info.Nd, arrayDevice(self.x, getArrayBackend()))
 
 
 class DistancePhase:
@@ -28,7 +28,7 @@ class DistancePhase:
         phase = MultiLatticeInt(self.latt_info, self.latt_info.Nd)
         for i in range(self.latt_info.Nd):
             GL = self.latt_info.global_size[i]
-            phase[i].data[:] = arrayDevice((self.x[i] - x0[i] + GL // 2) % GL - GL // 2, getCUDABackend())
+            phase[i].data[:] = arrayDevice((self.x[i] - x0[i] + GL // 2) % GL - GL // 2, getArrayBackend())
         return phase
 
 
@@ -43,7 +43,7 @@ class MomentumPhase:
             ip = 2j * pi * mom[i] / self.latt_info.global_size[i]
             ipx += ip * self.x[i]
             ipx0 += ip * x0[i]
-        return LatticeComplex(self.latt_info, arrayExp(ipx - ipx0, getCUDABackend()))
+        return LatticeComplex(self.latt_info, arrayExp(ipx - ipx0, getArrayBackend()))
 
     def getPhases(self, mom_mode_list: Sequence[Sequence[int]], x0: Sequence[int] = [0, 0, 0, 0]):
         phases = MultiLatticeComplex(self.latt_info, len(mom_mode_list))

@@ -21,7 +21,7 @@ from . import (
     getMPIRank,
     getGridSize,
     getGridCoord,
-    getCUDABackend,
+    getArrayBackend,
     readMPIFile,
     writeMPIFile,
 )
@@ -229,7 +229,7 @@ class BaseField:
     def __init__(self, latt_info: BaseInfo, *args, **kwargs) -> None:
         self.latt_info = latt_info
         self._data: NDArray = numpy.empty((0, 0), "<c16")
-        self.backend: BackendType = getCUDABackend()
+        self.backend: BackendType = getArrayBackend()
         self.L5: int = 0
 
     @property

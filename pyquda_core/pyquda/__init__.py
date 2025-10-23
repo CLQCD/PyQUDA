@@ -5,6 +5,7 @@ from ._version import __version__  # noqa: F401
 from pyquda_comm import (  # noqa: F401
     GridMapType,
     BackendType,
+    TorchBackendType,
     initGrid,
     initDevice,
     isGridInitialized,
@@ -17,10 +18,8 @@ from pyquda_comm import (  # noqa: F401
     getGridMap,
     getGridSize,
     getGridCoord,
-    getCUDABackend,
-    isHIP,
-    getCUDADevice,
-    getCUDAComputeCapability,
+    getArrayBackend,
+    getArrayDevice,
 )
 from pyquda_comm.field import LatticeInfo
 
@@ -66,7 +65,7 @@ def initQUDA(grid_size: List[int], device: int, use_quda_allocator: bool = False
         getLogger().critical("initGrid and initDevice should be called before initQUDA", RuntimeError)
 
     if use_quda_allocator:
-        if getCUDABackend() == "cupy":
+        if getArrayBackend() == "cupy":
             import cupy
 
             allocator = cupy.cuda.PythonFunctionAllocator(
@@ -87,6 +86,7 @@ def init(
     anisotropy: Optional[float] = None,
     grid_map: GridMapType = "default",
     backend: BackendType = "cupy",
+    torch_backend: TorchBackendType = "cuda",
     init_quda: bool = True,
     *,
     resource_path: str = "",
@@ -125,7 +125,7 @@ def init(
     global _DEFAULT_LATTICE
     if not isGridInitialized() or not isDeviceInitialized():
         initGrid(grid_map, grid_size, latt_size)
-        initDevice(backend, -1, enable_mps)
+        initDevice(backend, -1, enable_mps, torch_backend)
 
         use_default_grid = grid_size is None and latt_size is not None
         use_default_latt = latt_size is not None and t_boundary is not None and anisotropy is not None
@@ -179,7 +179,7 @@ def init(
                 device_reset="1" if device_reset else None,
                 max_multi_rhs=str(max_multi_rhs) if max_multi_rhs > 0 else None,
             )
-            initQUDA(getGridSize(), getCUDADevice())
+            initQUDA(getGridSize(), getArrayDevice())
         else:
             getLogger().warning("PyQUDA is already initialized", RuntimeWarning)
 

@@ -3,7 +3,7 @@ from typing import List, Literal, NamedTuple, Optional
 import numpy
 from numpy.typing import NDArray
 
-from pyquda_comm import getLogger, getCUDABackend, isHIP, getCUDAComputeCapability
+from pyquda_comm import getLogger, getArrayBackend, isArrayDeviceMMAAvailable
 from ..field import (
     LatticeInfo,
     LatticeGauge,
@@ -168,17 +168,6 @@ def setGlobalReconstruct(
     )
 
 
-def _fieldLocation():
-    if getCUDABackend() == "numpy":
-        return QudaFieldLocation.QUDA_CPU_FIELD_LOCATION
-    else:
-        return QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
-
-
-def _useMMA():
-    return QudaBoolean(not isHIP() and getCUDAComputeCapability().major >= 7)
-
-
 def setPrecisionParam(
     precision: Precision,
     gauge_param: Optional[QudaGaugeParam] = None,
@@ -236,6 +225,20 @@ def setReconstructParam(reconstruct: Reconstruct, gauge_param: Optional[QudaGaug
         gauge_param.reconstruct_eigensolver = reconstruct.eigensolver
 
 
+def fieldLocation() -> QudaFieldLocation:
+    if getArrayBackend() == "numpy":
+        return QudaFieldLocation.QUDA_CPU_FIELD_LOCATION
+    else:
+        return QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
+
+
+def useMMA() -> QudaBoolean:
+    if isArrayDeviceMMAAvailable():
+        return QudaBoolean.QUDA_BOOLEAN_TRUE
+    else:
+        return QudaBoolean.QUDA_BOOLEAN_FALSE
+
+
 def newQudaGaugeParam(lattice: LatticeInfo):
     gauge_param = QudaGaugeParam()
 
@@ -291,7 +294,7 @@ def newQudaMultigridParam(mass: float, kappa: float, geo_block_size: List[List[i
     mg_inv_param.gcrNkrylov = 8
     mg_inv_param.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
 
-    location: QudaFieldLocation = _fieldLocation()
+    location = fieldLocation()
     mg_inv_param.input_location = location
     mg_inv_param.output_location = location
     mg_inv_param.dirac_order = QudaDiracFieldOrder.QUDA_DIRAC_ORDER
@@ -324,7 +327,7 @@ def newQudaMultigridParam(mass: float, kappa: float, geo_block_size: List[List[i
         mg_param.n_block_ortho = [1] * QUDA_MAX_MG_LEVEL
 
     mg_param.verbosity = [QudaVerbosity.QUDA_SILENT] * QUDA_MAX_MG_LEVEL
-    use_mma: QudaBoolean = _useMMA()
+    use_mma = useMMA()
     mg_param.setup_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
     mg_param.dslash_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
 
@@ -424,7 +427,7 @@ def newQudaInvertParam(
     invert_param.gcrNkrylov = 8
     invert_param.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
 
-    location: QudaFieldLocation = _fieldLocation()
+    location = fieldLocation()
     invert_param.input_location = location
     invert_param.output_location = location
     invert_param.dirac_order = QudaDiracFieldOrder.QUDA_DIRAC_ORDER

@@ -2,7 +2,7 @@ from typing import Union
 
 import numpy
 
-from pyquda_comm import getCUDABackend
+from pyquda_comm import getArrayBackend
 from pyquda_comm.array import arrayDevice
 from pyquda_comm.field import LatticeFermion, LatticePropagator
 
@@ -62,7 +62,7 @@ class GammaMatrix:
             @ (cls.gamma_3 if index & 0b0100 else cls.gamma_0)
             @ (cls.gamma_4 if index & 0b1000 else cls.gamma_0)
         )
-        backend = getCUDABackend()
+        backend = getArrayBackend()
         return arrayDevice(gamma, backend)
 
 

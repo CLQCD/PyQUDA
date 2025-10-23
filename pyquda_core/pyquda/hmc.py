@@ -5,7 +5,7 @@ from typing import List, Optional, Union
 
 import numpy
 
-from pyquda_comm import getLogger, getCUDABackend
+from pyquda_comm import getLogger, getArrayBackend
 from pyquda_comm.array import arrayRandomGetState, arrayRandomSetState, arrayRandomSeed
 from .field import LatticeInfo, LatticeGauge, LatticeMom, LatticeReal
 from .pyquda import (
@@ -308,7 +308,7 @@ class HMC:
 
     def seed(self, state):
         seed = self.random.randrange(2**32)
-        backend = getCUDABackend()
+        backend = getArrayBackend()
         if state is None:
             state = arrayRandomGetState(backend)
             arrayRandomSeed(seed, backend)

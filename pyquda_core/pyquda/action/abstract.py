@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Literal, NamedTuple, Optional, Union, overload
 
-from pyquda_comm import getCUDABackend
+from pyquda_comm import getArrayBackend
 from pyquda_comm.array import arrayNormal
 from ..field import (
     LatticeInfo,
@@ -70,7 +70,7 @@ class FermionAction(Action):
         pass
 
     def sampleEta(self):
-        backend = getCUDABackend()
+        backend = getArrayBackend()
         shape = self.eta.shape[:-1] + (2 * self.eta.shape[-1],)
         self.eta.data[:] = arrayNormal(0.0, 2.0**-0.5, shape, backend).view("<c16")
 

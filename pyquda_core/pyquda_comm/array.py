@@ -1,34 +1,43 @@
-from typing import Any, Callable, Dict, Literal, Sequence
+from typing import Any, Callable, Dict, Literal, Optional, Sequence
 
 import numpy
 from numpy.typing import NDArray, DTypeLike
 
 BackendType = Literal["numpy", "cupy", "torch"]
+TorchBackendType = Literal["cuda", "xpu"]
 
 
-def cudaDeviceAPI(backend: BackendType):
+def arrayDeviceAPI(backend: BackendType, torch_backend: Optional[TorchBackendType] = None):
     if backend == "numpy":
-        cudaGetDeviceCount: Callable[[], int] = lambda: 0x7FFFFFFF
-        cudaGetDeviceProperties: Callable[[int], Dict[str, Any]] = lambda device: {"major": 0, "minor": 0}
-        cudaSetDevice: Callable[[int], None] = lambda device: None
-        cudaIsHIP: bool = False
+        getDeviceCount: Callable[[], int] = lambda: 0x7FFFFFFF
+        getDeviceProperties: Callable[[int], Dict[str, Any]] = lambda device: {"major": 0, "minor": 0}
+        setDevice: Callable[[int], None] = lambda device: None
+        isCUDA: bool = False
     elif backend == "cupy":
         import cupy
-        from cupy.cuda.runtime import getDeviceCount as cudaGetDeviceCount
-        from cupy.cuda.runtime import getDeviceProperties as cudaGetDeviceProperties
-        from cupy.cuda.runtime import is_hip as cudaIsHIP
+        from cupy.cuda.runtime import getDeviceCount
+        from cupy.cuda.runtime import getDeviceProperties
+        from cupy.cuda.runtime import is_hip
 
-        cudaSetDevice: Callable[[int], None] = lambda device: cupy.cuda.Device(device).use()
+        setDevice: Callable[[int], None] = lambda device: cupy.cuda.Device(device).use()
+        isCUDA: bool = not is_hip
     elif backend == "torch":
         import torch
-        from torch.cuda import device_count as cudaGetDeviceCount
-        from torch.cuda import get_device_properties as cudaGetDeviceProperties
-        from torch.version import hip
+        if torch_backend == "cuda":
+            from torch.cuda import device_count as getDeviceCount
+            from torch.cuda import get_device_properties as getDeviceProperties
+            from torch.version import hip
 
-        cudaSetDevice: Callable[[int], None] = lambda device: torch.set_default_device(f"cuda:{device}")
-        cudaIsHIP: bool = hip is not None
+            setDevice: Callable[[int], None] = lambda device: torch.set_default_device(f"cuda:{device}")
+            isCUDA: bool = hip is None
+        elif torch_backend == "xpu":
+            from torch.xpu import device_count as getDeviceCount
+            from torch.xpu import get_device_properties as getDeviceProperties
 
-    return cudaGetDeviceCount, cudaGetDeviceProperties, cudaSetDevice, cudaIsHIP
+            setDevice: Callable[[int], None] = lambda device: torch.set_default_device(f"xpu:{device}")
+            isCUDA: bool = False
+
+    return getDeviceCount, getDeviceProperties, setDevice, isCUDA
 
 
 def arrayDType(dtype: DTypeLike, backend: BackendType) -> DTypeLike:

@@ -9,7 +9,7 @@ from mpi4py import MPI
 from mpi4py.util import dtlib
 
 GridMapType = Literal["default", "reversed", "shared"]
-from .array import BackendType, cudaDeviceAPI
+from .array import BackendType, TorchBackendType, arrayDeviceAPI
 
 
 class _MPILogger:
@@ -63,10 +63,10 @@ _GRID_MAP: GridMapType = "default"
 _GRID_SIZE: Optional[Tuple[int, ...]] = None
 _GRID_COORD: Optional[Tuple[int, ...]] = None
 _SHARED_RANK_LIST: Optional[List[int]] = None
-_CUDA_BACKEND: BackendType = "cupy"
-_CUDA_IS_HIP: bool = False
-_CUDA_DEVICE: int = -1
-_CUDA_COMPUTE_CAPABILITY: _ComputeCapability = _ComputeCapability(0, 0)
+_ARRAY_BACKEND: BackendType = "cupy"
+_ARRAY_DEVICE: int = -1
+_ARRAY_DEVICE_MMA_AVAILABLE: bool = False
+_TORCH_BACKEND: TorchBackendType = "cuda"
 
 
 def _defaultRankFromCoord(coords: Sequence[int], dims: Sequence[int]) -> int:
@@ -309,15 +309,17 @@ def initGrid(
         _MPI_LOGGER.warning("Grid is already initialized", RuntimeWarning)
 
 
-def initDevice(backend: BackendType = "cupy", device: int = -1, enable_mps: bool = False):
-    global _CUDA_BACKEND, _CUDA_IS_HIP, _CUDA_DEVICE, _CUDA_COMPUTE_CAPABILITY
-    if _CUDA_DEVICE < 0:
+def initDevice(
+    backend: BackendType = "cupy", device: int = -1, enable_mps: bool = False, torch_backend: TorchBackendType = "cuda"
+):
+    global _ARRAY_BACKEND, _ARRAY_DEVICE, _ARRAY_DEVICE_MMA_AVAILABLE
+    if _ARRAY_DEVICE < 0:
         from platform import node as gethostname
 
         if backend not in get_args(BackendType):
             _MPI_LOGGER.critical(f"Unsupported CUDA backend {backend}", ValueError)
-        _CUDA_BACKEND = backend
-        cudaGetDeviceCount, cudaGetDeviceProperties, cudaSetDevice, _CUDA_IS_HIP = cudaDeviceAPI(backend)
+        _ARRAY_BACKEND = backend
+        getDeviceCount, getDeviceProperties, setDevice, isCUDA = arrayDeviceAPI(backend, torch_backend)
         _MPI_LOGGER.info(f"Using CUDA backend {backend}")
 
         # quda/include/communicator_quda.h
@@ -326,7 +328,7 @@ def initDevice(backend: BackendType = "cupy", device: int = -1, enable_mps: bool
         hostname_recv_buf = _MPI_COMM.allgather(hostname)
 
         if device < 0:
-            device_count = cudaGetDeviceCount()
+            device_count = getDeviceCount()
             if device_count == 0:
                 _MPI_LOGGER.critical("No devices found", RuntimeError)
 
@@ -342,15 +344,16 @@ def initDevice(backend: BackendType = "cupy", device: int = -1, enable_mps: bool
                     print(f"MPS enabled, rank={_MPI_RANK:3d} -> gpu={device}")
                 else:
                     _MPI_LOGGER.critical(f"Too few GPUs available on {hostname}", RuntimeError)
-        _CUDA_DEVICE = device
+        _ARRAY_DEVICE = device
 
-        props = cudaGetDeviceProperties(device)
-        if hasattr(props, "major") and hasattr(props, "minor"):
-            _CUDA_COMPUTE_CAPABILITY = _ComputeCapability(int(props.major), int(props.minor))
-        else:
-            _CUDA_COMPUTE_CAPABILITY = _ComputeCapability(int(props["major"]), int(props["minor"]))
+        if isCUDA:
+            props = getDeviceProperties(device)
+            if hasattr(props, "major"):
+                _ARRAY_DEVICE_MMA_AVAILABLE = getattr(props, "major") >= 7
+            else:
+                _ARRAY_DEVICE_MMA_AVAILABLE = props["major"] >= 7
 
-        cudaSetDevice(device)
+        setDevice(device)
     else:
         _MPI_LOGGER.warning("Device is already initialized", RuntimeWarning)
 
@@ -360,7 +363,7 @@ def isGridInitialized():
 
 
 def isDeviceInitialized():
-    return _CUDA_DEVICE >= 0
+    return _ARRAY_DEVICE >= 0
 
 
 def getLogger():
@@ -399,20 +402,16 @@ def getGridCoord():
     return list(_GRID_COORD)
 
 
-def getCUDABackend():
-    return _CUDA_BACKEND
+def getArrayBackend():
+    return _ARRAY_BACKEND
 
 
-def isHIP():
-    return _CUDA_IS_HIP
+def getArrayDevice():
+    return _ARRAY_DEVICE
 
 
-def getCUDADevice():
-    return _CUDA_DEVICE
-
-
-def getCUDAComputeCapability():
-    return _CUDA_COMPUTE_CAPABILITY
+def isArrayDeviceMMAAvailable():
+    return _ARRAY_DEVICE_MMA_AVAILABLE
 
 
 def getSubarray(dtype: DTypeLike, shape: Sequence[int], axes: Sequence[int]):
