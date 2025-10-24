@@ -130,13 +130,11 @@ def init(
         use_default_grid = grid_size is None and latt_size is not None
         use_default_latt = latt_size is not None and t_boundary is not None and anisotropy is not None
         if use_default_grid and not use_default_latt:
-            getLogger().info(
-                f"Using the lattice size {latt_size} only for getting the default grid size {getGridSize()}"
-            )
+            getLogger().info(f"Using lattice size {latt_size} only for getting the default grid size {getGridSize()}")
         if use_default_latt:
             assert latt_size is not None and t_boundary is not None and anisotropy is not None
             _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
-            getLogger().info(f"Using the default lattice LatticeInfo({latt_size}, {t_boundary}, {anisotropy})")
+            getLogger().info(f"Using LatticeInfo({latt_size}, {t_boundary}, {anisotropy}) as the default lattice")
 
     if init_quda:
         if not _QUDA_INITIALIZED:

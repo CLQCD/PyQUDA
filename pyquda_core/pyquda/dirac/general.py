@@ -3,7 +3,7 @@ from typing import List, Literal, NamedTuple, Optional
 import numpy
 from numpy.typing import NDArray
 
-from pyquda_comm import getLogger, getArrayBackend, isArrayDeviceMMAAvailable
+from pyquda_comm import getLogger, getArrayBackendTarget, isArrayDeviceMMAAvailable
 from ..field import (
     LatticeInfo,
     LatticeGauge,
@@ -226,7 +226,7 @@ def setReconstructParam(reconstruct: Reconstruct, gauge_param: Optional[QudaGaug
 
 
 def fieldLocation() -> QudaFieldLocation:
-    if getArrayBackend() == "numpy":
+    if getArrayBackendTarget() == "cpu":
         return QudaFieldLocation.QUDA_CPU_FIELD_LOCATION
     else:
         return QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION

@@ -142,7 +142,7 @@ def getSublatticeSize(latt_size: Sequence[int], force_even: bool = True):
             _MPI_LOGGER.critical(
                 f"lattice size {latt_size} must be divisible by gird size {grid_size}, "
                 "and sublattice size must be even in all directions for consistant even-odd preconditioning, "
-                "otherwise the lattice size and grid size for this direction must be 1",
+                "otherwise lattice size and grid size for this direction must be 1",
                 ValueError,
             )
     else:
@@ -238,7 +238,7 @@ def getDefaultGrid(mpi_size: int, latt_size: Sequence[int], evenodd: bool = True
             min_grid.append(grid_size)
     if min_grid == []:
         _MPI_LOGGER.critical(
-            f"Cannot get the proper grid for lattice size {latt_size} with {mpi_size} MPI processes", ValueError
+            f"Cannot get proper grid for lattice size {latt_size} with {mpi_size} MPI processes", ValueError
         )
     return min(min_grid)
 
@@ -299,7 +299,7 @@ def initGrid(
 
         _GRID_SIZE = tuple(grid_size)
         _GRID_COORD = tuple(getCoordFromRank(_MPI_RANK))
-        _MPI_LOGGER.info(f"Using the grid size {_GRID_SIZE}")
+        _MPI_LOGGER.info(f"Using grid size {_GRID_SIZE}")
     else:
         _MPI_LOGGER.warning("Grid is already initialized", RuntimeWarning)
 
@@ -315,10 +315,10 @@ def initDevice(
         from platform import node as gethostname
 
         if backend not in get_args(BackendType):
-            _MPI_LOGGER.critical(f"Unsupported CUDA backend {backend}", ValueError)
+            _MPI_LOGGER.critical(f"Unsupported Array API backend {backend}", ValueError)
         _ARRAY_BACKEND = backend
         _ARRAY_BACKEND_TARGET, getDeviceCount, setDevice = backendDeviceAPI(backend, backend_target)
-        _MPI_LOGGER.info(f"Using CUDA backend {backend}")
+        _MPI_LOGGER.info(f"Using Array API backend {backend}")
 
         # quda/include/communicator_quda.h
         # determine which GPU this rank will use
@@ -396,6 +396,10 @@ def getGridCoord():
 
 def getArrayBackend():
     return _ARRAY_BACKEND
+
+
+def getArrayBackendTarget():
+    return _ARRAY_BACKEND_TARGET
 
 
 def getArrayDevice():

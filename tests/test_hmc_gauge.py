@@ -57,4 +57,4 @@ for i in range(start, stop):
     )
 
     if (i + 1) % save == 0:
-        gauge.saveNPY(f"./DATA/cfg/cfg_{i + 1}.npy")
+        gauge.save(f"./DATA/cfg/cfg_{i + 1}.npy")

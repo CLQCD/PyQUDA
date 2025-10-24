@@ -62,12 +62,13 @@ def _data_ptr(_data, _backend):
     elif _backend == "cupy":
         assert _data.flags["C_CONTIGUOUS"]
         return _data.data.ptr
+    elif _backend == "dpnp":
+        assert _data.flags["C_CONTIGUOUS"]
+        # return _data.data.ptr  # 0.19.0
+        return _data._array_obj._pointer
     elif _backend == "torch":
         assert _data.is_contiguous()
         return _data.data_ptr()
-    elif _backend == "dpnp":
-        assert _data.flags["C_CONTIGUOUS"]
-        return _data.data.ptr
 
 cdef class _NDArray:
     def __cinit__(self, ndarray, int ndim = 0):
@@ -78,12 +79,12 @@ cdef class _NDArray:
         elif ndarray_type == "cupy.ndarray":
             backend = "cupy"
             dtype = ndarray.dtype.str
-        elif ndarray_type == "torch.Tensor":
-            backend = "torch"
-            dtype = f"<{'c' if ndarray.dtype.is_complex else 'f' if ndarray.dtype.is_floating_point else 'i' if ndarray.dtype.is_signed else 'u'}{ndarray.dtype.itemsize}"
         elif ndarray_type == "dpnp.dpnp_array.dpnp_array":
             backend = "dpnp"
             dtype = ndarray.dtype.str
+        elif ndarray_type == "torch.Tensor":
+            backend = "torch"
+            dtype = f"<{'c' if ndarray.dtype.is_complex else 'f' if ndarray.dtype.is_floating_point else 'i' if ndarray.dtype.is_signed else 'u'}{ndarray.dtype.itemsize}"
         else:
             raise TypeError(f"_NDArray: ndarray has unsupported type={type(ndarray)}")
 
@@ -151,10 +152,10 @@ def ndarrayPointer(ndarray, as_void=False):
         dtype = ndarray.dtype.str
     elif ndarray_type == "cupy.ndarray":
         dtype = ndarray.dtype.str
-    elif ndarray_type == "torch.Tensor":
-        dtype = f"<{'c' if ndarray.dtype.is_complex else 'f' if ndarray.dtype.is_floating_point else 'i' if ndarray.dtype.is_signed else 'u'}{ndarray.dtype.itemsize}"
     elif ndarray_type == "dpnp.dpnp_array.dpnp_array":
         dtype = ndarray.dtype.str
+    elif ndarray_type == "torch.Tensor":
+        dtype = f"<{'c' if ndarray.dtype.is_complex else 'f' if ndarray.dtype.is_floating_point else 'i' if ndarray.dtype.is_signed else 'u'}{ndarray.dtype.itemsize}"
 
     if not as_void:
         if dtype == "<i4":
