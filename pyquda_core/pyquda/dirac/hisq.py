@@ -28,7 +28,7 @@ class HISQDirac(StaggeredFermionDirac):
         self.setReconstruct()
 
     def newPathCoeff(self):
-        self.path_coeff_1, self.path_coeff_2, self.path_coeff_3 = general.newPathCoeff(1.0)
+        self.path_coeff_1, self.path_coeff_2, self.path_coeff_3 = general.newHISQPathCoeff(1.0)
 
     def newQudaGaugeParam(self):
         gauge_param = general.newQudaGaugeParam(self.latt_info)

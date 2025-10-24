@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Literal, NamedTuple, Optional, Union, overload
 
 from pyquda_comm import getArrayBackend
-from pyquda_comm.array import arrayNormal
+from pyquda_comm.array import arrayRandomNormal
 from ..field import (
     LatticeInfo,
     LatticeMom,
@@ -70,9 +70,8 @@ class FermionAction(Action):
         pass
 
     def sampleEta(self):
-        backend = getArrayBackend()
         shape = self.eta.shape[:-1] + (2 * self.eta.shape[-1],)
-        self.eta.data[:] = arrayNormal(0.0, 2.0**-0.5, shape, backend).view("<c16")
+        self.eta.data[:] = arrayRandomNormal(0.0, 2.0**-0.5, shape, getArrayBackend()).view("<c16")
 
     def _invertMultiShiftParam(self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]):
         if mode == "pseudo_fermion":

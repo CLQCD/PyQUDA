@@ -62,8 +62,7 @@ class GammaMatrix:
             @ (cls.gamma_3 if index & 0b0100 else cls.gamma_0)
             @ (cls.gamma_4 if index & 0b1000 else cls.gamma_0)
         )
-        backend = getArrayBackend()
-        return arrayDevice(gamma, backend)
+        return arrayDevice(gamma, getArrayBackend())
 
 
 class GammaSparse:

@@ -1,7 +1,7 @@
 import logging
 from os import environ
 from sys import stdout
-from typing import Generator, List, Literal, NamedTuple, Optional, Sequence, Tuple, Type, Union, get_args
+from typing import Generator, List, Literal, Optional, Sequence, Tuple, Type, Union, get_args
 
 import numpy
 from numpy.typing import NDArray, DTypeLike
@@ -9,7 +9,7 @@ from mpi4py import MPI
 from mpi4py.util import dtlib
 
 GridMapType = Literal["default", "reversed", "shared"]
-from .array import BackendType, TorchBackendType, arrayDeviceAPI
+from .array import BackendType, BackendTargetType, backendDeviceAPI, backendDeviceMMAAvailable
 
 
 class _MPILogger:
@@ -49,11 +49,6 @@ class _MPILogger:
         raise category(msg)
 
 
-class _ComputeCapability(NamedTuple):
-    major: int
-    minor: int
-
-
 _MPI_LOGGER: _MPILogger = _MPILogger()
 _MPI_COMM: MPI.Intracomm = MPI.COMM_WORLD
 _MPI_SIZE: int = _MPI_COMM.Get_size()
@@ -64,9 +59,9 @@ _GRID_SIZE: Optional[Tuple[int, ...]] = None
 _GRID_COORD: Optional[Tuple[int, ...]] = None
 _SHARED_RANK_LIST: Optional[List[int]] = None
 _ARRAY_BACKEND: BackendType = "cupy"
+_ARRAY_BACKEND_TARGET: BackendTargetType = "cuda"
 _ARRAY_DEVICE: int = -1
 _ARRAY_DEVICE_MMA_AVAILABLE: bool = False
-_TORCH_BACKEND: TorchBackendType = "cuda"
 
 
 def _defaultRankFromCoord(coords: Sequence[int], dims: Sequence[int]) -> int:
@@ -310,16 +305,19 @@ def initGrid(
 
 
 def initDevice(
-    backend: BackendType = "cupy", device: int = -1, enable_mps: bool = False, torch_backend: TorchBackendType = "cuda"
+    backend: BackendType = "cupy",
+    backend_target: BackendTargetType = "cuda",
+    device: int = -1,
+    enable_mps: bool = False,
 ):
-    global _ARRAY_BACKEND, _ARRAY_DEVICE, _ARRAY_DEVICE_MMA_AVAILABLE
+    global _ARRAY_BACKEND, _ARRAY_BACKEND_TARGET, _ARRAY_DEVICE, _ARRAY_DEVICE_MMA_AVAILABLE
     if _ARRAY_DEVICE < 0:
         from platform import node as gethostname
 
         if backend not in get_args(BackendType):
             _MPI_LOGGER.critical(f"Unsupported CUDA backend {backend}", ValueError)
         _ARRAY_BACKEND = backend
-        getDeviceCount, getDeviceProperties, setDevice, isCUDA = arrayDeviceAPI(backend, torch_backend)
+        _ARRAY_BACKEND_TARGET, getDeviceCount, setDevice = backendDeviceAPI(backend, backend_target)
         _MPI_LOGGER.info(f"Using CUDA backend {backend}")
 
         # quda/include/communicator_quda.h
@@ -345,13 +343,7 @@ def initDevice(
                 else:
                     _MPI_LOGGER.critical(f"Too few GPUs available on {hostname}", RuntimeError)
         _ARRAY_DEVICE = device
-
-        if isCUDA:
-            props = getDeviceProperties(device)
-            if hasattr(props, "major"):
-                _ARRAY_DEVICE_MMA_AVAILABLE = getattr(props, "major") >= 7
-            else:
-                _ARRAY_DEVICE_MMA_AVAILABLE = props["major"] >= 7
+        _ARRAY_DEVICE_MMA_AVAILABLE = backendDeviceMMAAvailable(backend, backend_target, device)
 
         setDevice(device)
     else:

@@ -537,7 +537,26 @@ def loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     gauge_param.use_resident_gauge = 1
 
 
-def newPathCoeff(tadpole_coeff: float):
+def newAsqtadPathCoeff(tadpole_coeff: float):
+    u1 = 1.0 / tadpole_coeff
+    u2 = u1 * u1
+    u4 = u2 * u2
+    u6 = u4 * u2
+
+    path_coeff_1 = [
+        ((1.0 / 8.0) + (6.0 / 16.0) + (1.0 / 8.0)),  # one link
+        # One link is 1/8 as in fat7 +3/8 for Lepage + 1/8 for Naik
+        u2 * (-1.0 / 24.0),  # Naik
+        u2 * (-1.0 / 8.0) * 0.5,  # simple staple
+        u4 * (1.0 / 8.0) * 0.25 * 0.5,  # displace link in two directions
+        u6 * (-1.0 / 8.0) * 0.125 * (1.0 / 6.0),  # displace link in three directions
+        u4 * (-1.0 / 16.0),  # Correct O(a^2) errors
+    ]
+
+    return numpy.array(path_coeff_1, "<f8")
+
+
+def newHISQPathCoeff(tadpole_coeff: float):
     u1 = 1.0 / tadpole_coeff
     u2 = u1 * u1
     u4 = u2 * u2

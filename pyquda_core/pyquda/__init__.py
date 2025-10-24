@@ -5,7 +5,7 @@ from ._version import __version__  # noqa: F401
 from pyquda_comm import (  # noqa: F401
     GridMapType,
     BackendType,
-    TorchBackendType,
+    BackendTargetType,
     initGrid,
     initDevice,
     isGridInitialized,
@@ -86,7 +86,7 @@ def init(
     anisotropy: Optional[float] = None,
     grid_map: GridMapType = "default",
     backend: BackendType = "cupy",
-    torch_backend: TorchBackendType = "cuda",
+    backend_target: BackendTargetType = "cuda",
     init_quda: bool = True,
     *,
     resource_path: str = "",
@@ -125,7 +125,7 @@ def init(
     global _DEFAULT_LATTICE
     if not isGridInitialized() or not isDeviceInitialized():
         initGrid(grid_map, grid_size, latt_size)
-        initDevice(backend, -1, enable_mps, torch_backend)
+        initDevice(backend, backend_target, -1, enable_mps)
 
         use_default_grid = grid_size is None and latt_size is not None
         use_default_latt = latt_size is not None and t_boundary is not None and anisotropy is not None

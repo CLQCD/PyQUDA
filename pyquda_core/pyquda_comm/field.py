@@ -33,8 +33,8 @@ from .array import (
     arrayDevice,
     arrayCopy,
     arrayIsContiguous,
-    arrayContiguous,
-    arrayNorm2,
+    arrayAsContiguous,
+    arrayLinalgNorm,
     arrayIdentity,
     arrayZeros,
 )
@@ -263,7 +263,7 @@ class BaseField:
     @data.setter
     def data(self, value):
         location = "numpy" if isinstance(value, numpy.ndarray) else self.backend
-        self._data = arrayContiguous(value, location)
+        self._data = arrayAsContiguous(value, location)
 
     @property
     def data_ptr(self) -> NDArray:
@@ -481,7 +481,7 @@ class BaseField:
         return arrayHostCopy(self.data, self.location)
 
     def norm2(self, all_reduce=True) -> float:
-        norm2 = arrayNorm2(self.data, self.location)
+        norm2 = arrayLinalgNorm(self.data, self.location) ** 2
         if all_reduce:
             return getMPIComm().allreduce(norm2)
         else:
@@ -862,7 +862,7 @@ class MultiField(BaseField, Generic[Field]):
         if contiguous:
             self._data = value
         else:
-            self._data = arrayContiguous(value, location)
+            self._data = arrayAsContiguous(value, location)
 
     @overload
     def __getitem__(self, key: int) -> Field: ...
