@@ -61,7 +61,6 @@ _SHARED_RANK_LIST: Optional[List[int]] = None
 _ARRAY_BACKEND: BackendType = "cupy"
 _ARRAY_BACKEND_TARGET: BackendTargetType = "cuda"
 _ARRAY_DEVICE: int = -1
-_ARRAY_DEVICE_MMA_AVAILABLE: bool = False
 
 
 def _defaultRankFromCoord(coords: Sequence[int], dims: Sequence[int]) -> int:
@@ -310,15 +309,18 @@ def initDevice(
     device: int = -1,
     enable_mps: bool = False,
 ):
-    global _ARRAY_BACKEND, _ARRAY_BACKEND_TARGET, _ARRAY_DEVICE, _ARRAY_DEVICE_MMA_AVAILABLE
+    global _ARRAY_BACKEND, _ARRAY_BACKEND_TARGET, _ARRAY_DEVICE
     if _ARRAY_DEVICE < 0:
         from platform import node as gethostname
 
         if backend not in get_args(BackendType):
             _MPI_LOGGER.critical(f"Unsupported Array API backend {backend}", ValueError)
+        if backend == "numpy":
+            backend_target = "cpu"
+        getDeviceCount, setDevice = backendDeviceAPI(backend, backend_target)
+        _MPI_LOGGER.info(f"Using Array API backend {backend} with target {backend_target}")
         _ARRAY_BACKEND = backend
-        _ARRAY_BACKEND_TARGET, getDeviceCount, setDevice = backendDeviceAPI(backend, backend_target)
-        _MPI_LOGGER.info(f"Using Array API backend {backend}")
+        _ARRAY_BACKEND_TARGET = backend_target
 
         # quda/include/communicator_quda.h
         # determine which GPU this rank will use
@@ -343,7 +345,6 @@ def initDevice(
                 else:
                     _MPI_LOGGER.critical(f"Too few GPUs available on {hostname}", RuntimeError)
         _ARRAY_DEVICE = device
-        _ARRAY_DEVICE_MMA_AVAILABLE = backendDeviceMMAAvailable(backend, backend_target, device)
 
         setDevice(device)
     else:
@@ -404,10 +405,6 @@ def getArrayBackendTarget():
 
 def getArrayDevice():
     return _ARRAY_DEVICE
-
-
-def isArrayDeviceMMAAvailable():
-    return _ARRAY_DEVICE_MMA_AVAILABLE
 
 
 def getSubarray(dtype: DTypeLike, shape: Sequence[int], axes: Sequence[int]):

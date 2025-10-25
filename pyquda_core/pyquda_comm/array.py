@@ -20,18 +20,24 @@ def setDPNPDevice(device: str):
 
 def backendDeviceAPI(backend: BackendType, backend_target: BackendTargetType):
     if backend == "numpy":
-        backend_target = "cpu"
-        getDeviceCount: Callable[[], int] = lambda: 0x7FFFFFFF
-        setDevice: Callable[[int], None] = lambda device: None
+        if backend_target == "cpu":
+            getDeviceCount: Callable[[], int] = lambda: 0x7FFFFFFF
+            setDevice: Callable[[int], None] = lambda device: None
+        else:
+            raise ValueError(f"Array API backend {backend} does not support target {backend_target}")
     elif backend == "cupy":
         import cupy
 
-        if backend_target == "cuda" or backend_target == "hip":
-            backend_target = "cuda" if not cupy.cuda.runtime.is_hip else "hip"
+        if backend_target == "cuda":
+            assert not cupy.cuda.runtime.is_hip
+            getDeviceCount: Callable[[], int] = lambda: cupy.cuda.runtime.getDeviceCount()
+            setDevice: Callable[[int], None] = lambda device: cupy.cuda.Device(device).use()
+        elif backend_target == "hip":
+            assert cupy.cuda.runtime.is_hip
             getDeviceCount: Callable[[], int] = lambda: cupy.cuda.runtime.getDeviceCount()
             setDevice: Callable[[int], None] = lambda device: cupy.cuda.Device(device).use()
         else:
-            raise ValueError(f"{backend} does not support {backend_target}")
+            raise ValueError(f"Array API backend {backend} does not support target {backend_target}")
     elif backend == "dpnp":
         import dpctl
 
@@ -47,23 +53,30 @@ def backendDeviceAPI(backend: BackendType, backend_target: BackendTargetType):
         elif backend_target == "sycl":
             getDeviceCount: Callable[[], int] = lambda: dpctl.get_num_devices("level_zero", "gpu")
             setDevice: Callable[[int], None] = lambda device: setDPNPDevice(f"level_zero:gpu:{device}")
+        else:
+            raise ValueError(f"Array API backend {backend} does not support target {backend_target}")
     elif backend == "torch":
         import torch
 
         if backend_target == "cpu":
             getDeviceCount: Callable[[], int] = lambda: 0x7FFFFFFF
             setDevice: Callable[[int], None] = lambda device: torch.set_default_device("cpu")
-        if backend_target == "cuda" or backend_target == "hip":
-            backend_target = "cuda" if torch.version.cuda is not None else "hip"
+        elif backend_target == "cuda":
+            assert torch.version.cuda is not None
+            getDeviceCount: Callable[[], int] = lambda: torch.cuda.device_count()
+            setDevice: Callable[[int], None] = lambda device: torch.set_default_device(f"cuda:{device}")
+        elif backend_target == "hip":
+            assert torch.version.hip is not None
             getDeviceCount: Callable[[], int] = lambda: torch.cuda.device_count()
             setDevice: Callable[[int], None] = lambda device: torch.set_default_device(f"cuda:{device}")
         elif backend_target == "sycl":
+            assert torch.version.xpu is not None
             getDeviceCount: Callable[[], int] = lambda: torch.xpu.device_count()
             setDevice: Callable[[int], None] = lambda device: torch.set_default_device(f"xpu:{device}")
         else:
-            raise ValueError(f"{backend} does not support {backend_target}")
+            raise ValueError(f"Array API backend {backend} does not support target {backend_target}")
 
-    return backend_target, getDeviceCount, setDevice
+    return getDeviceCount, setDevice
 
 
 def backendDeviceMMAAvailable(backend: BackendType, backend_target: BackendTargetType, device: int):
@@ -284,7 +297,7 @@ def arrayRandomRandomComplex(size: Sequence[int], backend: BackendType) -> NDArr
         import dpnp.random
 
         # size = tuple(size[:-1]) + (2 * size[-1],)
-        # return dpnp.random.random(loc, scale, size, device=dpnp_device).view(dpnp.complex128)  # TODO: 0.19.0
+        # return dpnp.random.random(size, device=dpnp_device).view(dpnp.complex128)  # TODO: 0.19.0
         return dpnp.random.random(size, device=dpnp_device) + 1j * dpnp.random.random(size, device=dpnp_device)
     elif backend == "torch":
         import torch

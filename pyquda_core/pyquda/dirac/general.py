@@ -3,7 +3,7 @@ from typing import List, Literal, NamedTuple, Optional
 import numpy
 from numpy.typing import NDArray
 
-from pyquda_comm import getLogger, getArrayBackendTarget, isArrayDeviceMMAAvailable
+from pyquda_comm import getLogger, getArrayBackendTarget
 from ..field import (
     LatticeInfo,
     LatticeGauge,
@@ -58,6 +58,7 @@ from ..enum_quda import (
     QudaBoolean,
     QudaStaggeredPhase,
 )
+from ..quda_define import mmaAvailable
 
 nullptr = numpy.empty((0), "<c16")
 nullptrs = numpy.empty((0, 0), "<c16")
@@ -232,13 +233,6 @@ def fieldLocation() -> QudaFieldLocation:
         return QudaFieldLocation.QUDA_CUDA_FIELD_LOCATION
 
 
-def useMMA() -> QudaBoolean:
-    if isArrayDeviceMMAAvailable():
-        return QudaBoolean.QUDA_BOOLEAN_TRUE
-    else:
-        return QudaBoolean.QUDA_BOOLEAN_FALSE
-
-
 def newQudaGaugeParam(lattice: LatticeInfo):
     gauge_param = QudaGaugeParam()
 
@@ -327,7 +321,7 @@ def newQudaMultigridParam(mass: float, kappa: float, geo_block_size: List[List[i
         mg_param.n_block_ortho = [1] * QUDA_MAX_MG_LEVEL
 
     mg_param.verbosity = [QudaVerbosity.QUDA_SILENT] * QUDA_MAX_MG_LEVEL
-    use_mma = useMMA()
+    use_mma = QudaBoolean(mmaAvailable())
     mg_param.setup_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
     mg_param.dslash_use_mma = [use_mma] * QUDA_MAX_MG_LEVEL
 

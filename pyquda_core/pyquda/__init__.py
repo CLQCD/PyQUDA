@@ -22,6 +22,7 @@ from pyquda_comm import (  # noqa: F401
     getArrayDevice,
 )
 from pyquda_comm.field import LatticeInfo
+from . import quda_define
 
 _DEFAULT_LATTICE: Union[LatticeInfo, None] = None
 _QUDA_INITIALIZED: bool = False
@@ -86,7 +87,7 @@ def init(
     anisotropy: Optional[float] = None,
     grid_map: GridMapType = "default",
     backend: BackendType = "cupy",
-    backend_target: BackendTargetType = "cuda",
+    backend_target: BackendTargetType = quda_define.target(),
     init_quda: bool = True,
     *,
     resource_path: str = "",
