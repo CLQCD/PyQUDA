@@ -2,7 +2,7 @@
 
 Python wrapper for [QUDA](https://github.com/lattice/quda) written in Cython.
 
-This project aims to benefit from the optimized linear algebra library [CuPy](https://cupy.dev/) in Python based on CUDA. CuPy and QUDA will allow us to perform most lattice QCD research operations with high performance. [PyTorch](https://pytorch.org/) is an alternative option.
+This project aims to benefit from the optimized linear algebra library [CuPy](https://cupy.dev/) in Python based on CUDA. CuPy and QUDA will allow us to perform most lattice QCD research operations with high performance. [PyTorch](https://pytorch.org/) is an alternative option. [DPNP](https://intelpython.github.io/dpnp/) is the recommendation for Intel GPU.
 
 This project is based on the latest QUDA `develop` branch. PyQUDA should be compatible with any commit of QUDA after https://github.com/lattice/quda/pull/1489, but leave some features disabled.
 
@@ -15,7 +15,10 @@ This project is based on the latest QUDA `develop` branch. PyQUDA should be comp
   - Read gauge and propagator in MILC format (with checksum)
   - Read/write gauge and propagator in KYU format
   - Read/write gauge and propagator in XQCD format
-  - Read/write gauge and propagator in NPY format (numpy)
+  - Read/write gauge in NERSC format
+  - Read/write gauge in OpenQCD format
+  - Read/write lattice field in NPY format (numpy)
+  - Read/write lattice field in HDF5 format (h5py)
 - Quark propagator
   - Isotropic/anisotropic Wilson fermion action with multigrid support
   - Isotropic/anisotropic Clover fermion action with multigrid support
@@ -34,12 +37,13 @@ This project is based on the latest QUDA `develop` branch. PyQUDA should be comp
 - Fermion smearing
   - Gaussian smearing
 - Gradient flow
-  - Wilson flow
-  - Symanzik flow
+  - Wilson/Symanzik flow
+  - Wilson/Symanzik flow with fermion
+  - Adjoint Wilson/Symanzik flow with fermion
 
 ## Installation
 
-### Install from PyPI
+### Install from PyPI (Recommend)
 
 Assuming the QUDA installation path is `/path/to/quda/build/usqcd`
 
@@ -50,7 +54,14 @@ python3 -m pip install pyquda pyquda-utils
 
 ### Install from source
 
-Refer to https://github.com/CLQCD/PyQUDA/wiki/Installation for detailed instructions to install PyQUDA from the source.
+```bash
+export QUDA_PATH=/path/to/quda/build/usqcd
+git clone --recursive https://github.com/CLQCD/PyQUDA.git
+cd PyQUDA/pyquda_core
+python3 -m pip install .
+cd ..
+python3 -m pip install .
+```
 
 ## Benchmark
 
@@ -72,14 +83,14 @@ Here are plugins developed by PyQUDA developers:
 We recommend building PyQUDA using in-place mode instead of installing PyQUDA for development.
 
 ```bash
-git clone --recursive https://github.com/CLQCD/PyQUDA.git
-cd PyQUDA
-ln -s pyquda_core/pyquda_comm ./
-ln -s pyquda_core/pyquda ./
-cd pyquda_core
 export QUDA_PATH=/path/to/quda/build/usqcd
+git clone --recursive https://github.com/CLQCD/PyQUDA.git
+cd PyQUDA/pyquda_core
 python3 setup.py build_ext --inplace
 cd ..
+python3 setup.py egg_info
+ln -s pyquda_core/pyquda_comm ./
+ln -s pyquda_core/pyquda ./
 ```
 
 Now you can modify Python files in the project and immediately get the new result by running scripts. Adding the root directory to `sys.path` is needed if you are running scripts from other directories.
