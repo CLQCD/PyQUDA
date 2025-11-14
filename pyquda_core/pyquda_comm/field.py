@@ -318,7 +318,7 @@ class BaseField:
     @classmethod
     def load(cls: Type[Self], filename: str) -> Self:
         if not issubclass(cls, _FULL_FILED_TUPLE):
-            getLogger().critical(f"{cls.__name__}.loadNPY(filename) not implemented", NotImplementedError)
+            getLogger().critical(f"{cls.__name__}.load(filename) not implemented", NotImplementedError)
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
@@ -346,7 +346,7 @@ class BaseField:
 
     def save(self, filename: str, *, use_fp32: bool = False):
         if not isinstance(self, _FULL_FILED_TUPLE):
-            getLogger().critical(f"{self.__class__.__name__}.loadNPY(filename) not implemented", NotImplementedError)
+            getLogger().critical(f"{self.__class__.__name__}.load(filename) not implemented", NotImplementedError)
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
@@ -892,7 +892,7 @@ class MultiField(BaseField, Generic[Field]):
     @classmethod
     def load(cls: Type[SelfMulti], filename: str) -> SelfMulti:
         if not issubclass(cls, _FULL_FILED_TUPLE):
-            getLogger().critical(f"{cls.__name__}.loadNPY(filename) not implemented", NotImplementedError)
+            getLogger().critical(f"{cls.__name__}.load(filename) not implemented", NotImplementedError)
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
