@@ -108,3 +108,9 @@ class QudaExtLibType(IntEnum):
     """Allows to choose an appropriate external library"""
 
     pass
+
+
+class QudaUpdateSplitGauge(IntEnum):
+    """Used by update_split_gauge"""
+
+    pass
