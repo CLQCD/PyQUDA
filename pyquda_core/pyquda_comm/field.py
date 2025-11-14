@@ -2,9 +2,10 @@ from abc import abstractmethod
 from math import prod
 from os import path
 from time import perf_counter
-from typing import Any, Generic, List, Literal, Optional, Sequence, Tuple, Type, TypeVar, Union
+from typing import Any, Generic, List, Literal, Optional, Sequence, Tuple, Type, TypeVar, Union, overload
 
 Self = TypeVar("Self", bound="BaseField")
+SelfMulti = TypeVar("SelfMulti", bound="MultiField")
 Field = TypeVar("Field", bound="BaseField")
 
 import numpy
@@ -20,7 +21,7 @@ from . import (
     getMPIRank,
     getGridSize,
     getGridCoord,
-    getCUDABackend,
+    getArrayBackend,
     readMPIFile,
     writeMPIFile,
 )
@@ -32,11 +33,12 @@ from .array import (
     arrayDevice,
     arrayCopy,
     arrayIsContiguous,
-    arrayContiguous,
-    arrayNorm2,
+    arrayAsContiguous,
+    arrayLinalgNorm,
     arrayIdentity,
     arrayZeros,
 )
+from .pointer import Pointer, ndarrayPointer
 
 
 class BaseInfo:
@@ -227,7 +229,7 @@ class BaseField:
     def __init__(self, latt_info: BaseInfo, *args, **kwargs) -> None:
         self.latt_info = latt_info
         self._data: NDArray = numpy.empty((0, 0), "<c16")
-        self.backend: BackendType = getCUDABackend()
+        self.backend: BackendType = getArrayBackend()
         self.L5: int = 0
 
     @property
@@ -261,7 +263,7 @@ class BaseField:
     @data.setter
     def data(self, value):
         location = "numpy" if isinstance(value, numpy.ndarray) else self.backend
-        self._data = arrayContiguous(value, location)
+        self._data = arrayAsContiguous(value, location)
 
     @property
     def data_ptr(self) -> NDArray:
@@ -273,6 +275,10 @@ class BaseField:
             getLogger().critical(f"{self.__class__.__name__}.data_ptrs not implemented", NotImplementedError)
         else:
             return self.data.reshape(self.L5, -1)
+
+    @property
+    def data_void_ptr(self) -> Pointer:
+        return ndarrayPointer(self.data.reshape(-1), True)
 
     @classmethod
     def _field(cls) -> str:
@@ -310,25 +316,19 @@ class BaseField:
             return self.latt_info.lexico(self.data, self.L5 > 0, self.location)
 
     @classmethod
-    def loadNPY(cls: Type[Self], filename: str) -> Self:
+    def load(cls: Type[Self], filename: str) -> Self:
         if not issubclass(cls, _FULL_FILED_TUPLE):
-            getLogger().critical(f"{cls.__name__}.loadNPY(filename) not implemented", NotImplementedError)
+            getLogger().critical(f"{cls.__name__}.load(filename) not implemented", NotImplementedError)
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
         grid_size = getGridSize()
         Nd = len(grid_size)
         shape, dtype, offset = read_array_header(filename)
-        if not issubclass(cls, MultiField):
-            L5 = 1
-            latt_size = list(shape[:Nd][::-1])
-            field_shape = list(shape[Nd:])
-        else:
-            L5 = shape[0]
-            latt_size = list(shape[1 : Nd + 1][::-1])
-            field_shape = list(shape[Nd + 1 :])
+        latt_size = list(shape[:Nd][::-1])
+        field_shape = list(shape[Nd:])
         sublatt_size = getSublatticeSize(latt_size, False)
-        value = readMPIFile(filename, dtype, offset, [L5, *sublatt_size[::-1], *field_shape], list(range(Nd, 0, -1)))
+        value = readMPIFile(filename, dtype, offset, [*sublatt_size[::-1], *field_shape], list(range(Nd - 1, -1, -1)))
         gbytes += value.nbytes / 1024**3
         Ns, Nc, dtype = _field_spin_color_dtype(cls._field(), field_shape, False)
         value = value.astype(dtype)
@@ -336,23 +336,17 @@ class BaseField:
         Nc = 3 if Nc is None else Nc
         if issubclass(cls, LexicoField):
             latt_info = LexicoInfo(latt_size, Ns=Ns, Nc=Nc)
-            if not issubclass(cls, MultiField):
-                retval = cls(latt_info, value)
-            else:
-                retval = cls(latt_info, L5, value)
+            retval = cls(latt_info, value)
         elif issubclass(cls, FullField):
             latt_info = LatticeInfo(latt_size, Ns=Ns, Nc=Nc)
-            if not issubclass(cls, MultiField):
-                retval = cls(latt_info, latt_info.evenodd(value, True))  # Special case as L5 == 1
-            else:
-                retval = cls(latt_info, L5, latt_info.evenodd(value, True))
+            retval = cls(latt_info, latt_info.evenodd(value, False))
         secs = perf_counter() - s
         getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
         return retval
 
-    def saveNPY(self, filename: str, *, use_fp32: bool = False):
+    def save(self, filename: str, *, use_fp32: bool = False):
         if not isinstance(self, _FULL_FILED_TUPLE):
-            getLogger().critical(f"{self.__class__.__name__}.loadNPY(filename) not implemented", NotImplementedError)
+            getLogger().critical(f"{self.__class__.__name__}.load(filename) not implemented", NotImplementedError)
         s = perf_counter()
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
@@ -378,9 +372,7 @@ class BaseField:
         getLogger().debug(f"Saved {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
 
     @classmethod
-    def load(
-        cls: Type[Self], filename: str, label: Union[int, str, Sequence[int], Sequence[str]], *, check: bool = True
-    ) -> Self:
+    def loadH5(cls: Type[Self], filename: str, label: Union[int, str], *, check: bool = True) -> Self:
         from .hdf5 import File
 
         if not issubclass(cls, _FULL_FILED_TUPLE):
@@ -394,21 +386,15 @@ class BaseField:
         Nc = 3 if Nc is None else Nc
         if issubclass(cls, LexicoField):
             latt_info = LexicoInfo(latt_size, Ns=Ns, Nc=Nc)
-            if not issubclass(cls, MultiField):
-                retval = cls(latt_info, value)
-            else:
-                retval = cls(latt_info, len(label), value)
+            retval = cls(latt_info, value)
         elif issubclass(cls, FullField):
             latt_info = LatticeInfo(latt_size, Ns=Ns, Nc=Nc)
-            if not issubclass(cls, MultiField):
-                retval = cls(latt_info, latt_info.evenodd(value, False))
-            else:
-                retval = cls(latt_info, len(label), latt_info.evenodd(value, True))
+            retval = cls(latt_info, latt_info.evenodd(value, False))
         secs = perf_counter() - s
         getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
         return retval
 
-    def save(
+    def saveH5(
         self,
         filename: str,
         label: Union[int, str, Sequence[int], Sequence[str]],
@@ -429,18 +415,11 @@ class BaseField:
         if not filename.endswith(".h5") and not filename.endswith(".hdf5"):
             filename += ".h5"
         with File(filename, "w") as f:
-            f.save(
-                self._groupName(),
-                label,
-                self.lexico(),
-                annotation=annotation,
-                check=check,
-                use_fp32=use_fp32,
-            )
+            f.save(self._groupName(), label, self.lexico(), annotation=annotation, check=check, use_fp32=use_fp32)
         secs = perf_counter() - s
         getLogger().debug(f"Saved {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
 
-    def append(
+    def appendH5(
         self,
         filename: str,
         label: Union[int, str, Sequence[int], Sequence[str]],
@@ -459,24 +438,18 @@ class BaseField:
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
         with File(filename, "r+") as f:
-            f.append(
-                self._groupName(),
-                label,
-                self.lexico(),
-                annotation=annotation,
-                check=check,
-                use_fp32=use_fp32,
-            )
+            f.append(self._groupName(), label, self.lexico(), annotation=annotation, check=check, use_fp32=use_fp32)
         secs = perf_counter() - s
         getLogger().debug(f"Appended {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
 
-    def update(
+    def updateH5(
         self,
         filename: str,
         label: Union[int, str, Sequence[int], Sequence[str]],
         *,
         annotation: str = "",
         check: bool = True,
+        use_fp32: bool = False,
     ):
         from .hdf5 import File
 
@@ -488,13 +461,7 @@ class BaseField:
         gbytes = 0
         filename = path.expanduser(path.expandvars(filename))
         with File(filename, "r+") as f:
-            f.update(
-                self._groupName(),
-                label,
-                self.lexico(),
-                annotation=annotation,
-                check=check,
-            )
+            f.update(self._groupName(), label, self.lexico(), annotation=annotation, check=check, use_fp32=use_fp32)
         secs = perf_counter() - s
         getLogger().debug(f"Updated {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
 
@@ -514,7 +481,7 @@ class BaseField:
         return arrayHostCopy(self.data, self.location)
 
     def norm2(self, all_reduce=True) -> float:
-        norm2 = arrayNorm2(self.data, self.location)
+        norm2 = arrayLinalgNorm(self.data, self.location) ** 2
         if all_reduce:
             return getMPIComm().allreduce(norm2)
         else:
@@ -668,7 +635,8 @@ class FullField(BaseField, Generic[Field]):
     def __init__(self, latt_info: LatticeInfo, value: Any = None, init_data: bool = True) -> None:
         s = super(FullField, self)
         if hasattr(s, "__field_class__"):
-            s.__field_class__.__base__.__init__(self, latt_info, value, False)
+            getattr(s, "__field_class__").__base__.__init__(self, latt_info, value, False)
+            # s.__field_class__.__base__.__init__(self, latt_info, value, False)
         else:
             s.__init__(latt_info, value, False)
         if init_data:
@@ -680,7 +648,8 @@ class FullField(BaseField, Generic[Field]):
     @property
     def even(self) -> Field:
         if self.L5 == 0:
-            return super(FullField, self).__field_class__(self.latt_info, self.data[0])
+            return getattr(super(FullField, self), "__field_class__")(self.latt_info, self.data[0])
+            # return super(FullField, self).__field_class__(self.latt_info, self.data[0])
         else:
             getLogger().critical(f"{self.__class__.__name__}.even not implemented", NotImplementedError)
 
@@ -708,7 +677,8 @@ class FullField(BaseField, Generic[Field]):
     @property
     def odd(self) -> Field:
         if self.L5 == 0:
-            return super(FullField, self).__field_class__(self.latt_info, self.data[1])
+            return getattr(super(FullField, self), "__field_class__")(self.latt_info, self.data[1])
+            # return super(FullField, self).__field_class__(self.latt_info, self.data[1])
         else:
             getLogger().critical(f"{self.__class__.__name__}.odd not implemented", NotImplementedError)
 
@@ -870,7 +840,8 @@ class MultiField(BaseField, Generic[Field]):
     def __init__(self, latt_info: BaseInfo, L5: int, value: Any = None, init_data: bool = True) -> None:
         s = super(MultiField, self)
         if hasattr(s, "__field_class__"):
-            s.__field_class__.__base__.__init__(self, latt_info, value, False)
+            getattr(s, "__field_class__").__base__.__init__(self, latt_info, value, False)
+            # s.__field_class__.__base__.__init__(self, latt_info, value, False)
         else:
             s.__init__(latt_info, value, False)
         assert L5 > 0
@@ -891,11 +862,17 @@ class MultiField(BaseField, Generic[Field]):
         if contiguous:
             self._data = value
         else:
-            self._data = arrayContiguous(value, location)
+            self._data = arrayAsContiguous(value, location)
 
-    def __getitem__(self, key: Union[int, list, tuple, slice]) -> Field:
+    @overload
+    def __getitem__(self, key: int) -> Field: ...
+    @overload
+    def __getitem__(self: SelfMulti, key: Union[list, tuple, slice]) -> SelfMulti: ...
+
+    def __getitem__(self: SelfMulti, key: Union[int, list, tuple, slice]) -> Union[Field, SelfMulti]:
         if isinstance(key, int):
-            return super(MultiField, self).__field_class__(self.latt_info, self.data[key])
+            return getattr(super(MultiField, self), "__field_class__")(self.latt_info, self.data[key])
+            # return super(MultiField, self).__field_class__(self.latt_info, self.data[key])
         elif isinstance(key, list):
             return self.__class__(self.latt_info, len(key), self.data[key])
         elif isinstance(key, tuple):
@@ -906,11 +883,66 @@ class MultiField(BaseField, Generic[Field]):
     def __setitem__(self, key: Union[int, list, tuple, slice], value: Field):
         self.data[key] = value.data
 
-    def shift(self: Self, n: Sequence[int], mu: Sequence[int]) -> Self:
+    def shift(self: SelfMulti, n: Sequence[int], mu: Sequence[int]) -> SelfMulti:
         ret = self.copy()
         for i in range(self.L5):
             ret[i] = self[i].shift(n[i], mu[i])
         return ret
+
+    @classmethod
+    def load(cls: Type[SelfMulti], filename: str) -> SelfMulti:
+        if not issubclass(cls, _FULL_FILED_TUPLE):
+            getLogger().critical(f"{cls.__name__}.load(filename) not implemented", NotImplementedError)
+        s = perf_counter()
+        gbytes = 0
+        filename = path.expanduser(path.expandvars(filename))
+        grid_size = getGridSize()
+        Nd = len(grid_size)
+        shape, dtype, offset = read_array_header(filename)
+        L5 = shape[0]
+        latt_size = list(shape[1 : Nd + 1][::-1])
+        field_shape = list(shape[Nd + 1 :])
+        sublatt_size = getSublatticeSize(latt_size, False)
+        value = readMPIFile(filename, dtype, offset, [L5, *sublatt_size[::-1], *field_shape], list(range(Nd, 0, -1)))
+        gbytes += value.nbytes / 1024**3
+        Ns, Nc, dtype = _field_spin_color_dtype(cls._field(), field_shape, False)
+        value = value.astype(dtype)
+        Ns = 4 if Ns is None else Ns
+        Nc = 3 if Nc is None else Nc
+        if issubclass(cls, LexicoField):
+            latt_info = LexicoInfo(latt_size, Ns=Ns, Nc=Nc)
+            retval = cls(latt_info, L5, value)
+        elif issubclass(cls, FullField):
+            latt_info = LatticeInfo(latt_size, Ns=Ns, Nc=Nc)
+            retval = cls(latt_info, L5, latt_info.evenodd(value, True))
+        secs = perf_counter() - s
+        getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
+        return retval
+
+    @classmethod
+    def loadH5(
+        cls: Type[SelfMulti], filename: str, label: Union[Sequence[int], Sequence[str]], *, check: bool = True
+    ) -> SelfMulti:
+        from .hdf5 import File
+
+        if not issubclass(cls, _FULL_FILED_TUPLE):
+            getLogger().critical(f"{cls.__name__}.load(filename, label, **kwargs) not implemented", NotImplementedError)
+        s = perf_counter()
+        gbytes = 0
+        filename = path.expanduser(path.expandvars(filename))
+        with File(filename, "r") as f:
+            latt_size, Ns, Nc, value = f.load(cls._groupName(), label, check=check)
+        Ns = 4 if Ns is None else Ns
+        Nc = 3 if Nc is None else Nc
+        if issubclass(cls, LexicoField):
+            latt_info = LexicoInfo(latt_size, Ns=Ns, Nc=Nc)
+            retval = cls(latt_info, len(label), value)
+        elif issubclass(cls, FullField):
+            latt_info = LatticeInfo(latt_size, Ns=Ns, Nc=Nc)
+            retval = cls(latt_info, len(label), latt_info.evenodd(value, True))
+        secs = perf_counter() - s
+        getLogger().debug(f"Loaded {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
+        return retval
 
 
 _FULL_FILED_TUPLE = (LexicoField, FullField)
@@ -950,7 +982,7 @@ class LatticeLink(FullField, ParityField):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info, value)
         if value is None:
-            self.data[:] = arrayIdentity(latt_info.Nc, self.location)
+            self.data[:] = arrayIdentity(latt_info.Nc, self.dtype, self.location)
 
     @property
     def __field_class__(self):
@@ -961,14 +993,14 @@ class LatticeRotation(MultiField[LatticeLink], LatticeLink):
     def __init__(self, latt_info: LatticeInfo, value=None) -> None:
         super().__init__(latt_info, 1, value)
         if value is None:
-            self.data[:] = arrayIdentity(latt_info.Nc, self.location)
+            self.data[:] = arrayIdentity(latt_info.Nc, self.dtype, self.location)
 
 
 class LatticeGauge(MultiField[LatticeLink], LatticeLink):
     def __init__(self, latt_info: LatticeInfo, L5: int, value=None) -> None:
         super().__init__(latt_info, L5, value)
         if value is None:
-            self.data[:] = arrayIdentity(latt_info.Nc, self.location)
+            self.data[:] = arrayIdentity(latt_info.Nc, self.dtype, self.location)
 
     def setAntiPeriodicT(self):
         if self.latt_info.gt == self.latt_info.Gt - 1:

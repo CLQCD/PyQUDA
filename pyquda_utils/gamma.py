@@ -1,211 +1,29 @@
 from typing import Union
 
-import numpy
-
-from pyquda_comm import getCUDABackend
-from pyquda_comm.array import arrayDevice
 from pyquda_comm.field import LatticeFermion, LatticePropagator
+from pyquda.gamma import DeGrandRossiMatrix, Gamma
 
 
-class GammaMatrix:
-    gamma_0 = numpy.array(
-        [
-            [1, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 1, 0],
-            [0, 0, 0, 1],
-        ],
-        "<c16",
-    )
-    gamma_1 = numpy.array(
-        [
-            [0, 0, 0, 1j],
-            [0, 0, 1j, 0],
-            [0, -1j, 0, 0],
-            [-1j, 0, 0, 0],
-        ],
-        "<c16",
-    )
-    gamma_2 = numpy.array(
-        [
-            [0, 0, 0, -1],
-            [0, 0, 1, 0],
-            [0, 1, 0, 0],
-            [-1, 0, 0, 0],
-        ],
-        "<c16",
-    )
-    gamma_3 = numpy.array(
-        [
-            [0, 0, 1j, 0],
-            [0, 0, 0, -1j],
-            [-1j, 0, 0, 0],
-            [0, 1j, 0, 0],
-        ],
-        "<c16",
-    )
-    gamma_4 = numpy.array(
-        [
-            [0, 0, 1, 0],
-            [0, 0, 0, 1],
-            [1, 0, 0, 0],
-            [0, 1, 0, 0],
-        ],
-        "<c16",
-    )
-
-    @classmethod
-    def matrix(cls, index):
-        gamma = (
-            (cls.gamma_1 if index & 0b0001 else cls.gamma_0)
-            @ (cls.gamma_2 if index & 0b0010 else cls.gamma_0)
-            @ (cls.gamma_3 if index & 0b0100 else cls.gamma_0)
-            @ (cls.gamma_4 if index & 0b1000 else cls.gamma_0)
-        )
-        backend = getCUDABackend()
-        return arrayDevice(gamma, backend)
+def gamma_add_gamma(lhs: Gamma, rhs: Gamma) -> Union[Gamma, "Polarize"]:
+    if not isinstance(rhs, Gamma):
+        return NotImplemented
+    if lhs.index == rhs.index:
+        return Gamma(lhs.index, lhs.factor + rhs.factor)
+    else:
+        return Polarize(lhs, rhs)
 
 
-class GammaSparse:
-    gamma_indices = [
-        [0, 1, 2, 3],
-        [3, 2, 1, 0],
-        [3, 2, 1, 0],
-        [0, 1, 2, 3],
-        [2, 3, 0, 1],
-        [1, 0, 3, 2],
-        [1, 0, 3, 2],
-        [2, 3, 0, 1],
-        [2, 3, 0, 1],
-        [1, 0, 3, 2],
-        [1, 0, 3, 2],
-        [2, 3, 0, 1],
-        [0, 1, 2, 3],
-        [3, 2, 1, 0],
-        [3, 2, 1, 0],
-        [0, 1, 2, 3],
-    ]
-    gamma_data = [
-        [1, 1, 1, 1],
-        [1j, 1j, -1j, -1j],
-        [-1, 1, 1, -1],
-        [-1j, 1j, -1j, 1j],
-        [1j, -1j, -1j, 1j],
-        [-1, 1, -1, 1],
-        [-1j, -1j, -1j, -1j],
-        [1, 1, -1, -1],
-        [1, 1, 1, 1],
-        [1j, 1j, -1j, -1j],
-        [-1, 1, 1, -1],
-        [-1j, 1j, -1j, 1j],
-        [1j, -1j, -1j, 1j],
-        [-1, 1, -1, 1],
-        [-1j, -1j, -1j, -1j],
-        [1, 1, -1, -1],
-    ]
-
-    @classmethod
-    def indices(cls, index):
-        return cls.gamma_indices[index]
-
-    @classmethod
-    def data(cls, index):
-        return cls.gamma_data[index]
+def gamma_sub_gamma(lhs: Gamma, rhs: Gamma) -> Union[Gamma, "Polarize"]:
+    if not isinstance(rhs, Gamma):
+        return NotImplemented
+    if lhs.index == rhs.index:
+        return Gamma(lhs.index, lhs.factor - rhs.factor)
+    else:
+        return Polarize(lhs, -rhs)
 
 
-class Gamma:
-    popcnt = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4]
-    popsign = [1, -1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1, -1, -1, 1]
-
-    def __init__(self, index: int, factor: Union[int, float, complex] = 1) -> None:
-        assert isinstance(index, int) and 0b0000 <= index <= 0b1111, "index should be int from 0 to 15"
-        self.index = index
-        self.factor = factor
-
-    def __repr__(self) -> str:
-        factor = "-" if self.factor == -1 else "" if self.factor == 1 else f"{self.factor} * "
-        return (
-            f"{factor}"
-            f"{'γ₀' if self.index == 0 else ''}"
-            f"{'γ₁' if self.index & 0b0001 else ''}"
-            f"{'γ₂' if self.index & 0b0010 else ''}"
-            f"{'γ₃' if self.index & 0b0100 else ''}"
-            f"{'γ₄' if self.index & 0b1000 else ''}"
-        )
-
-    def __neg__(self) -> "Gamma":
-        return Gamma(self.index, -self.factor)
-
-    def __mul__(self, rhs: Union[int, float, complex]) -> "Gamma":
-        if not isinstance(rhs, (int, float, complex)):
-            return NotImplemented
-        return Gamma(self.index, self.factor * rhs)
-
-    def __rmul__(self, lhs: Union[int, float, complex]) -> "Gamma":
-        if not isinstance(lhs, (int, float, complex)):
-            return NotImplemented
-        return Gamma(self.index, lhs * self.factor)
-
-    def __truediv__(self, rhs: Union[int, float, complex]) -> "Gamma":
-        if not isinstance(rhs, (int, float, complex)):
-            return NotImplemented
-        return Gamma(self.index, self.factor / rhs)
-
-    def __add__(self, rhs: "Gamma") -> Union["Gamma", "Polarize"]:
-        if not isinstance(rhs, Gamma):
-            return NotImplemented
-        if self.index == rhs.index:
-            return Gamma(self.index, self.factor + rhs.factor)
-        else:
-            return Polarize(self, rhs)
-
-    def __sub__(self, rhs: "Gamma") -> Union["Gamma", "Polarize"]:
-        if not isinstance(rhs, Gamma):
-            return NotImplemented
-        if self.index == rhs.index:
-            return Gamma(self.index, self.factor - rhs.factor)
-        else:
-            return Polarize(self, -rhs)
-
-    def __matmul__(self, rhs: "Gamma") -> "Gamma":
-        if not isinstance(rhs, Gamma):
-            return NotImplemented
-        index = self.index ^ rhs.index
-        factor = self.factor * rhs.factor
-        if self.index & 0b1000:
-            factor *= Gamma.popsign[rhs.index & 0b0111]
-        if self.index & 0b0100:
-            factor *= Gamma.popsign[rhs.index & 0b0011]
-        if self.index & 0b0010:
-            factor *= Gamma.popsign[rhs.index & 0b0001]
-        # if self.index & 0b0001:
-        #     factor *= Gamma.popsign[rhs.index & 0b0000]
-        return Gamma(index, factor)
-
-    @property
-    def T(self) -> "Gamma":
-        factor = self.factor
-        factor *= -1 if Gamma.popcnt[self.index] & 0b10 else 1
-        factor *= Gamma.popsign[self.index & 0b0101]
-        return Gamma(self.index, factor)
-
-    @property
-    def H(self) -> "Gamma":
-        factor = self.factor.conjugate()
-        factor *= -1 if Gamma.popcnt[self.index] & 0b10 else 1
-        return Gamma(self.index, factor)
-
-    @property
-    def matrix(self):
-        return self.factor * GammaMatrix.matrix(self.index)
-
-    @property
-    def sparse_indices(self):
-        return GammaSparse.indices(self.index)
-
-    @property
-    def sparse_data(self):
-        return GammaSparse.data(self.index)
+Gamma.__add__ = lambda self, rhs: gamma_add_gamma(self, rhs)
+Gamma.__sub__ = lambda self, rhs: gamma_sub_gamma(self, rhs)
 
 
 class Polarize:
@@ -268,28 +86,28 @@ def gamma_mul_fermion(lhs: Gamma, propag: LatticeFermion):
     return result
 
 
-def propagator_mul_gamma(propag: LatticePropagator, rhs: Gamma):
+def propagator_mul_gamma(lhs: LatticePropagator, rhs: Gamma):
     if not isinstance(rhs, Gamma):
         return NotImplemented
-    assert propag.latt_info.Ns == 4, "Ns should be 4"
+    assert lhs.latt_info.Ns == 4, "Ns should be 4"
     rhs = rhs.T  # S @ gamma = (gamma.T @ S.T).T
-    result = LatticePropagator(propag.latt_info)
+    result = LatticePropagator(lhs.latt_info)
     for j in range(4):
         k = rhs.sparse_indices[j]
         gamma_kj = rhs.factor * rhs.sparse_data[j]
-        result.data[:, :, :, :, :, :, j] = propag.data[:, :, :, :, :, :, k] * gamma_kj
+        result.data[:, :, :, :, :, :, j] = lhs.data[:, :, :, :, :, :, k] * gamma_kj
     return result
 
 
-def gamma_mul_propagator(lhs: Gamma, propag: LatticePropagator):
+def gamma_mul_propagator(lhs: Gamma, rhs: LatticePropagator):
     if not isinstance(lhs, Gamma):
         return NotImplemented
-    assert propag.latt_info.Ns == 4, "Ns should be 4"
-    result = LatticePropagator(propag.latt_info)
+    assert rhs.latt_info.Ns == 4, "Ns should be 4"
+    result = LatticePropagator(rhs.latt_info)
     for i in range(4):
         k = lhs.sparse_indices[i]
         gamma_ik = lhs.factor * lhs.sparse_data[i]
-        result.data[:, :, :, :, :, i, :] = gamma_ik * propag.data[:, :, :, :, :, k, :]
+        result.data[:, :, :, :, :, i, :] = gamma_ik * rhs.data[:, :, :, :, :, k, :]
     return result
 
 
@@ -317,4 +135,4 @@ LatticePropagator.matmul = lambda self, lhs, rhs: gamma_mul_propagator_mul_gamma
 
 def gamma(n: int):
     assert isinstance(n, int) and 0 <= n <= 15, "n should be int from 0 to 15"
-    return GammaMatrix.matrix(n)
+    return DeGrandRossiMatrix.matrix(n)

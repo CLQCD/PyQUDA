@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 from typing import Dict, List, NamedTuple, Union
 
@@ -167,6 +168,17 @@ def build_pyquda_pyx(pyquda_root, quda_path):
             return node.name
         else:
             raise ValueError(f"Unknown node {node}")
+
+    subprocess.run(
+        [
+            "cpp",
+            Rf"-I{quda_include}",
+            "-o",
+            os.path.join(pyquda_root, 'pyquda', 'quda_define.py'),
+            os.path.join(pyquda_root, 'pyquda', 'quda_define.in.py'),
+        ],
+        check=True,
+    )
 
     quda_enum_meta: Dict[str, List[QudaParamsMeta]] = {}
     quda_params_meta: Dict[str, List[QudaParamsMeta]] = {}

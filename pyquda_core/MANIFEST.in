@@ -4,6 +4,7 @@ exclude pyquda/src/enum_quda.pxd
 exclude pyquda/src/quda.pxd
 exclude pyquda/src/pyquda.pyx
 exclude pyquda/enum_quda.py
+exclude pyquda/quda_define.py
 exclude pyquda/src/*.c
 exclude pyquda/src/*.cpp
 

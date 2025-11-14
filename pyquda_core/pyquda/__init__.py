@@ -5,6 +5,7 @@ from ._version import __version__  # noqa: F401
 from pyquda_comm import (  # noqa: F401
     GridMapType,
     BackendType,
+    BackendTargetType,
     initGrid,
     initDevice,
     isGridInitialized,
@@ -17,12 +18,11 @@ from pyquda_comm import (  # noqa: F401
     getGridMap,
     getGridSize,
     getGridCoord,
-    getCUDABackend,
-    isHIP,
-    getCUDADevice,
-    getCUDAComputeCapability,
+    getArrayBackend,
+    getArrayDevice,
 )
 from pyquda_comm.field import LatticeInfo
+from . import quda_define
 
 _DEFAULT_LATTICE: Union[LatticeInfo, None] = None
 _QUDA_INITIALIZED: bool = False
@@ -66,7 +66,7 @@ def initQUDA(grid_size: List[int], device: int, use_quda_allocator: bool = False
         getLogger().critical("initGrid and initDevice should be called before initQUDA", RuntimeError)
 
     if use_quda_allocator:
-        if getCUDABackend() == "cupy":
+        if getArrayBackend() == "cupy":
             import cupy
 
             allocator = cupy.cuda.PythonFunctionAllocator(
@@ -87,6 +87,7 @@ def init(
     anisotropy: Optional[float] = None,
     grid_map: GridMapType = "default",
     backend: BackendType = "cupy",
+    backend_target: BackendTargetType = quda_define.target(),
     init_quda: bool = True,
     *,
     resource_path: str = "",
@@ -125,18 +126,16 @@ def init(
     global _DEFAULT_LATTICE
     if not isGridInitialized() or not isDeviceInitialized():
         initGrid(grid_map, grid_size, latt_size)
-        initDevice(backend, -1, enable_mps)
+        initDevice(backend, backend_target, -1, enable_mps)
 
         use_default_grid = grid_size is None and latt_size is not None
         use_default_latt = latt_size is not None and t_boundary is not None and anisotropy is not None
         if use_default_grid and not use_default_latt:
-            getLogger().info(
-                f"Using the lattice size {latt_size} only for getting the default grid size {getGridSize()}"
-            )
+            getLogger().info(f"Using lattice size {latt_size} only for getting the default grid size {getGridSize()}")
         if use_default_latt:
             assert latt_size is not None and t_boundary is not None and anisotropy is not None
             _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
-            getLogger().info(f"Using the default lattice LatticeInfo({latt_size}, {t_boundary}, {anisotropy})")
+            getLogger().info(f"Using LatticeInfo({latt_size}, {t_boundary}, {anisotropy}) as the default lattice")
 
     if init_quda:
         if not _QUDA_INITIALIZED:
@@ -179,7 +178,7 @@ def init(
                 device_reset="1" if device_reset else None,
                 max_multi_rhs=str(max_multi_rhs) if max_multi_rhs > 0 else None,
             )
-            initQUDA(getGridSize(), getCUDADevice())
+            initQUDA(getGridSize(), getArrayDevice())
         else:
             getLogger().warning("PyQUDA is already initialized", RuntimeWarning)
 

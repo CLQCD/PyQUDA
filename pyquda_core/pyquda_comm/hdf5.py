@@ -280,10 +280,11 @@ class File(h5py.File):
         *,
         annotation: str = "",
         check: bool = True,
+        use_fp32: bool = False,
     ):
         s = perf_counter()
         gbytes = 0
-        keys, latt_size, Ns, Nc, field_shape, field_dtype = _field_info(group, label, field, False)
+        keys, latt_size, Ns, Nc, field_shape, field_dtype = _field_info(group, label, field, use_fp32)
         g = self[group]
         if annotation != "":
             g.attrs["Annotation"] = annotation

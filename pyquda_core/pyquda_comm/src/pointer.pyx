@@ -62,6 +62,10 @@ def _data_ptr(_data, _backend):
     elif _backend == "cupy":
         assert _data.flags["C_CONTIGUOUS"]
         return _data.data.ptr
+    elif _backend == "dpnp":
+        assert _data.flags["C_CONTIGUOUS"]
+        # return _data.data.ptr  # 0.19.0
+        return _data._array_obj._pointer
     elif _backend == "torch":
         assert _data.is_contiguous()
         return _data.data_ptr()
@@ -74,6 +78,9 @@ cdef class _NDArray:
             dtype = ndarray.dtype.str
         elif ndarray_type == "cupy.ndarray":
             backend = "cupy"
+            dtype = ndarray.dtype.str
+        elif ndarray_type == "dpnp.dpnp_array.dpnp_array":
+            backend = "dpnp"
             dtype = ndarray.dtype.str
         elif ndarray_type == "torch.Tensor":
             backend = "torch"
@@ -144,6 +151,8 @@ def ndarrayPointer(ndarray, as_void=False):
     if ndarray_type == "numpy.ndarray":
         dtype = ndarray.dtype.str
     elif ndarray_type == "cupy.ndarray":
+        dtype = ndarray.dtype.str
+    elif ndarray_type == "dpnp.dpnp_array.dpnp_array":
         dtype = ndarray.dtype.str
     elif ndarray_type == "torch.Tensor":
         dtype = f"<{'c' if ndarray.dtype.is_complex else 'f' if ndarray.dtype.is_floating_point else 'i' if ndarray.dtype.is_signed else 'u'}{ndarray.dtype.itemsize}"

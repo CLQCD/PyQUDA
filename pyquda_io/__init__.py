@@ -17,7 +17,10 @@ from .npy import (
 from .chroma import (
     readQIOGauge as readChromaQIOGauge,
     readQIOPropagator as readChromaQIOPropagator,
-    readILDGBinGauge,
+)
+from .ildg import (
+    readGauge as readILDGGauge,
+    readBinGauge as readILDGBinGauge,
 )
 from .milc import (
     readGauge as readMILCGauge,

@@ -23,6 +23,7 @@ pyquda_core/pyquda/src/*
 !pyquda_core/pyquda/src/pyquda.in.pyx
 !pyquda_core/pyquda/src/quda.in.pxd
 pyquda_core/pyquda/enum_quda.py
+pyquda_core/pyquda/quda_define.py
 pyquda_plugins/*/src/
 pyquda_plugins/*/*.pyi
 pyquda_utils/_version.py

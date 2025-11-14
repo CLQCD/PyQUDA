@@ -1,9 +1,9 @@
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Optional
 
 import numpy
 from numpy.typing import NDArray
 
-from ..field import LatticeInfo
+from ..field import LatticeInfo, LatticeMom
 from ..pyquda import computeGaugeLoopTraceQuda, computeGaugeForceQuda
 from ..dirac import GaugeDirac
 
@@ -109,9 +109,13 @@ class GaugeAction(Action):
         )
         return traces.real.sum()
 
-    def force(self, dt: float):
+    def force(self, dt: float, mom: Optional[LatticeMom] = None):
+        if mom is not None:
+            self.gauge_param.use_resident_mom = 0
+            self.gauge_param.make_resident_gauge = 0
+            self.gauge_param.return_result_mom = 1
         computeGaugeForceQuda(
-            nullptr,
+            nullptr if mom is None else mom.data_ptrs,
             nullptr,
             self.force_path.input_path_buf,
             self.force_path.path_length,
@@ -121,3 +125,7 @@ class GaugeAction(Action):
             dt,
             self.gauge_param,
         )
+        if mom is not None:
+            self.gauge_param.use_resident_mom = 1
+            self.gauge_param.make_resident_gauge = 1
+            self.gauge_param.return_result_mom = 0

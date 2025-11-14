@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
 from math import exp
 from random import Random
-from typing import List, Union
+from typing import List, Optional, Union
 
 import numpy
 
-from pyquda_comm import getLogger, getCUDABackend
+from pyquda_comm import getLogger, getArrayBackend
 from pyquda_comm.array import arrayRandomGetState, arrayRandomSetState, arrayRandomSeed
 from .field import LatticeInfo, LatticeGauge, LatticeMom, LatticeReal
 from .pyquda import (
@@ -205,40 +205,38 @@ class HMC:
         latt_info: LatticeInfo,
         monomials: List[Union[Action, FermionAction, StaggeredFermionAction]],
         integrator: Integrator,
-        hmc_inner: "HMC" = None,
+        hmc_inner: Optional["HMC"] = None,
     ) -> None:
         self.latt_info = latt_info
-        self._gauge_monomials: List[Action] = [monomial for monomial in monomials if not monomial.is_fermion]
-        self._fermion_monomials: List[FermionAction] = [monomial for monomial in monomials if monomial.is_fermion]
+        self._gauge_monomials: List[Action] = [
+            monomial for monomial in monomials if not isinstance(monomial, FermionAction)
+        ]
+        self._fermion_monomials: List[FermionAction] = [
+            monomial for monomial in monomials if isinstance(monomial, FermionAction)
+        ]
         self._integrator = integrator
         self._hmc_inner = hmc_inner
-        self.is_staggered = None
-        for monomial in self._fermion_monomials:
-            if self.is_staggered is None:
-                self.is_staggered = monomial.is_staggered
-                continue
-            if (not monomial.is_staggered and self.is_staggered) or (monomial.is_staggered and not self.is_staggered):
-                getLogger().critical(
-                    "FermionAction and StaggeredFermionAction cannot be used at the same time", ValueError
-                )
+        if len(self._fermion_monomials) == 0:
+            self.is_staggered = False
+        else:
+            self.is_staggered = isinstance(self._fermion_monomials[0], StaggeredFermionAction)
+            for monomial in self._fermion_monomials[1:]:
+                if self.is_staggered != isinstance(monomial, StaggeredFermionAction):
+                    getLogger().critical(
+                        "FermionAction and StaggeredFermionAction cannot be used at the same time", ValueError
+                    )
         if not self.is_staggered:
             self._dirac = WilsonDirac(latt_info, 0, 0, 0)
         else:
             self._dirac = StaggeredDirac(latt_info, 0, 0, 0)
         self.gauge_param = self._dirac.gauge_param
         self.obs_param = QudaGaugeObservableParam()
-        self.obs_param.remove_staggered_phase = QudaBoolean(not not self.is_staggered)
+        self.obs_param.remove_staggered_phase = QudaBoolean(self.is_staggered)
         self.fuseFermionAction()
-        if False:
-            self.gauge = LatticeGauge(latt_info)
-            self.smeared = LatticeGauge(latt_info)
-            self.mom = LatticeMom(latt_info)
-            self.force = LatticeMom(latt_info)
-        else:
-            self.gauge = None
-            self.smeared = None
-            self.mom = None
-            self.force = None
+        self.gauge = None  # LatticeGauge(latt_info)
+        self.smeared = None  # LatticeGauge(latt_info)
+        self.mom = None  # LatticeMom(latt_info)
+        self.force = None  # LatticeMom(latt_info)
 
     def fuseFermionAction(self):
         if self.is_staggered:
@@ -261,25 +259,16 @@ class HMC:
             )
         )
 
-    def initialize(self, seed: int, gauge: LatticeGauge, mom: LatticeMom = None):
+    def initialize(self, seed: int, gauge: LatticeGauge, mom: Optional[LatticeMom] = None):
         self.initializeRNG(seed)
         self.loadGauge(gauge)
         if mom is None:
-            self.loadMom(gauge)
+            self.loadMom(LatticeMom(gauge.latt_info))
         else:
             self.loadMom(mom)
 
-    def _stoutSmear(self):
-        return
-        f(self.smeared)
-        self.smeared.stoutSmear(1, 0.125, 4)
-
-    def _stoutSmearReverse(self):
-        return
-        df(self.force, self.gauge)
-
     def loadGaugeMomSmeared(self):
-        if self.force is not None:
+        if self.gauge is not None and self.smeared is not None and self.force is not None and self.mom is not None:
             saveGaugeQuda(self.gauge.data_ptrs, self.gauge_param)
             if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
                 self.gauge.setAntiPeriodicT()
@@ -292,7 +281,7 @@ class HMC:
             self.gauge_param.return_result_mom = 0
 
             self.smeared.data[:] = self.gauge.data
-            self._stoutSmear()
+            # self._stoutSmear()
             if self.is_staggered:
                 self.smeared.staggeredPhase(False)
             if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
@@ -303,8 +292,8 @@ class HMC:
             self.force.data[:] = 0
 
     def loadGaugeMom(self):
-        if self.force is not None:
-            self._stoutSmearReverse()
+        if self.gauge is not None and self.smeared is not None and self.force is not None and self.mom is not None:
+            # self._stoutSmearReverse()
             self.mom += self.force
 
             self.smeared.data[:] = self.gauge.data
@@ -319,7 +308,7 @@ class HMC:
 
     def seed(self, state):
         seed = self.random.randrange(2**32)
-        backend = getCUDABackend()
+        backend = getArrayBackend()
         if state is None:
             state = arrayRandomGetState(backend)
             arrayRandomSeed(seed, backend)
@@ -362,7 +351,7 @@ class HMC:
         action = 0
         self.loadGaugeMomSmeared()
         for monomial in self._fermion_monomials:
-            action += monomial.action() if not use_action_param else monomial.actionFA()
+            action += monomial.action()  # if not use_action_param else monomial.actionFA()
         if self._hmc_inner is not None:
             action += self._hmc_inner.fermionAction()
         self.loadGaugeMom()
@@ -370,7 +359,7 @@ class HMC:
 
     def gaugeForce(self, dt: float):
         for monomial in self._gauge_monomials:
-            monomial.force(dt)
+            monomial.force(dt, self.force)
 
     def fermionForce(self, dt: float):
         self.loadGaugeMomSmeared()
@@ -425,7 +414,7 @@ class HMC:
         gauge.projectSU3(tol)
         self.loadGauge(gauge)
 
-    def integrate(self, t: float, project_tol: float = None):
+    def integrate(self, t: float, project_tol: Optional[float] = None):
         self._integrator.integrate(
             self.updateGauge if self._hmc_inner is None else self._hmc_inner.integrate, self.updateMom, t
         )
@@ -461,7 +450,7 @@ class HMC:
 
     def qchargeDensity(self):
         qcharge_density = LatticeReal(self.latt_info)
-        self.obs_param.qcharge_density = qcharge_density.data_ptr
+        self.obs_param.qcharge_density = qcharge_density.data_void_ptr
         self.obs_param.compute_qcharge_density = QudaBoolean.QUDA_BOOLEAN_TRUE
         gaugeObservablesQuda(self.obs_param)
         self.obs_param.compute_qcharge_density = QudaBoolean.QUDA_BOOLEAN_TRUE

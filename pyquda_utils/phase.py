@@ -4,7 +4,7 @@ from typing import Sequence
 import numpy
 
 from pyquda_comm.array import arrayDevice, arrayZeros, arrayExp
-from .core import getLogger, getCUDABackend, LatticeInfo
+from .core import getLogger, getArrayBackend, LatticeInfo
 
 
 def getMomList(mom2_max, mom2_min=0):
@@ -47,7 +47,7 @@ class MomentumPhase:
         x[2] = numpy.arange(gz * Lz, (gz + 1) * Lz).reshape(1, 1, Lz, 1, 1)
         x[3] = numpy.arange(gt * Lt, (gt + 1) * Lt).reshape(1, Lt, 1, 1, 1)
 
-        backend = getCUDABackend()
+        backend = getArrayBackend()
         self.x = arrayDevice(x, backend)
 
     def getPhase(self, mom_mode: Sequence[int], x0: Sequence[int] = [0, 0, 0, 0]):
@@ -65,13 +65,13 @@ class MomentumPhase:
         else:
             getLogger().critical(f"mom should be a sequence of int with length 3 or 4, but get {mom_mode}", ValueError)
 
-        backend = getCUDABackend()
+        backend = getArrayBackend()
         return arrayExp(ipx - ipx0, backend)
 
     def getPhases(self, mom_mode_list: Sequence[Sequence[int]], x0: Sequence[int] = [0, 0, 0, 0]):
         Lx, Ly, Lz, Lt = self.latt_info.size
 
-        backend = getCUDABackend()
+        backend = getArrayBackend()
         phases = arrayZeros((len(mom_mode_list), 2, Lt, Lz, Ly, Lx // 2), "<c16", backend)
         for idx, mom in enumerate(mom_mode_list):
             phases[idx] = self.getPhase(mom, x0)
@@ -95,13 +95,13 @@ class GridPhase:
             phase[st::St, sz::Sz, sy::Sy, sx::Sx] = 1
         phase = self.latt_info.evenodd(phase, False)
 
-        backend = getCUDABackend()
+        backend = getArrayBackend()
         return arrayDevice(phase, backend)
 
     def getPhases(self, t_srce_list: Sequence[Sequence[int]]):
         Lx, Ly, Lz, Lt = self.latt_info.size
 
-        backend = getCUDABackend()
+        backend = getArrayBackend()
         phases = arrayZeros((len(t_srce_list), 2, Lt, Lz, Ly, Lx // 2), "<c16", backend)
         for idx, t_srce in enumerate(t_srce_list):
             phases[idx] = self.getPhase(t_srce)

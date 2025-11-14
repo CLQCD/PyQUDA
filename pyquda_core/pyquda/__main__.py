@@ -9,6 +9,7 @@ def main():
     parser.add_argument(
         "-g",
         "--grid",
+        "--geom",
         nargs=4,
         type=int,
         help="GPU grid size used to split the lattice",
@@ -17,7 +18,6 @@ def main():
     parser.add_argument(
         "-l",
         "--latt",
-        "--lattice",
         nargs=4,
         type=int,
         help="Lattice size used as the default",
@@ -38,11 +38,25 @@ def main():
         metavar="xi",
     )
     parser.add_argument(
+        "-m",
+        "--grid-map",
+        default="default",
+        choices=("default", "reversed", "shared"),
+        help="Grid mapping used for PyQUDA (default: default)",
+    )
+    parser.add_argument(
         "-b",
         "--backend",
         default="cupy",
-        choices=("numpy", "cupy", "torch"),
-        help="CUDA backend used for PyQUDA (default: cupy)",
+        choices=("numpy", "cupy", "torch", "dpnp"),
+        help="Array backend used for PyQUDA (default: cupy)",
+    )
+    parser.add_argument(
+        "-t",
+        "--backend-target",
+        default="cuda",
+        choices=("cpu", "cuda", "hip", "sycl"),
+        help="Array backend target used for PyQUDA (default: cuda)",
     )
     parser.add_argument(
         "--no-init-quda",
@@ -61,7 +75,9 @@ def main():
         args.latt,
         args.t_boundary,
         args.anisotropy,
+        args.grid_map,
         args.backend,
+        args.backend_target,
         not args.no_init_quda,
         resource_path=args.resource_path,
     )

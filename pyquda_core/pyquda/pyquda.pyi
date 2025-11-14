@@ -3,10 +3,14 @@ from typing import List
 size_t = int
 double = float
 double_complex = complex
+
 from numpy import int32, float64, complex128
 from numpy.typing import NDArray
 
-from pyquda_comm.pointer import Pointer, Pointers, Pointerss
+_field = complex128
+_fields = complex128
+
+from pyquda_comm.pointer import Pointer, Pointers
 from .enum_quda import (  # noqa: F401
     QUDA_INVALID_ENUM,
     QUDA_VERSION_MAJOR,
@@ -1287,7 +1291,7 @@ def endQuda() -> None:
     """
     ...
 
-def loadGaugeQuda(h_gauge: Pointers, param: QudaGaugeParam) -> None:
+def loadGaugeQuda(h_gauge: NDArray[_fields], param: QudaGaugeParam) -> None:
     """
     Load the gauge field from the host.
 
@@ -1319,7 +1323,7 @@ def freeGaugeSmearedQuda() -> None:
     """
     ...
 
-def saveGaugeQuda(h_gauge: Pointers, param: QudaGaugeParam) -> None:
+def saveGaugeQuda(h_gauge: NDArray[_fields], param: QudaGaugeParam) -> None:
     """
     Save the gauge field to the host.
 
@@ -1330,7 +1334,7 @@ def saveGaugeQuda(h_gauge: Pointers, param: QudaGaugeParam) -> None:
     """
     ...
 
-def loadCloverQuda(h_clover: Pointer, h_clovinv: Pointer, inv_param: QudaInvertParam) -> None:
+def loadCloverQuda(h_clover: NDArray[_field], h_clovinv: NDArray[_field], inv_param: QudaInvertParam) -> None:
     """
     Load the clover term and/or the clover inverse from the host.
     Either h_clover or h_clovinv may be set to NULL.
@@ -1350,7 +1354,7 @@ def freeCloverQuda() -> None:
     """
     ...
 
-def eigensolveQuda(h_evecs: Pointers, h_evals: NDArray[complex128], param: QudaEigParam):
+def eigensolveQuda(h_evecs: NDArray[_fields], h_evals: NDArray[complex128], param: QudaEigParam):
     """
     Perform the eigensolve. The problem matrix is defined by the invert param, the
     mode of solution is specified by the eig param. It is assumed that the gauge
@@ -1365,7 +1369,7 @@ def eigensolveQuda(h_evecs: Pointers, h_evals: NDArray[complex128], param: QudaE
     """
     ...
 
-def invertQuda(h_x: Pointer, h_b: Pointer, param: QudaInvertParam) -> None:
+def invertQuda(h_x: NDArray[_field], h_b: NDArray[_field], param: QudaInvertParam) -> None:
     """
     Perform the solve, according to the parameters set in param.  It
     is assumed that the gauge field has already been loaded via
@@ -1380,7 +1384,7 @@ def invertQuda(h_x: Pointer, h_b: Pointer, param: QudaInvertParam) -> None:
         storage and solver parameters
     """
 
-def invertMultiSrcQuda(_hp_x: Pointers, _hp_b: Pointers, param: QudaInvertParam) -> None:
+def invertMultiSrcQuda(_hp_x: NDArray[_fields], _hp_b: NDArray[_fields], param: QudaInvertParam) -> None:
     """
     Perform the solve like @invertQuda but for multiple rhs by spliting the comm grid into
     sub-partitions: each sub-partition invert one or more rhs'.
@@ -1400,7 +1404,7 @@ def invertMultiSrcQuda(_hp_x: Pointers, _hp_b: Pointers, param: QudaInvertParam)
     """
     ...
 
-def invertMultiShiftQuda(_hp_x: Pointers, _hp_b: Pointer, param: QudaInvertParam) -> None:
+def invertMultiShiftQuda(_hp_x: NDArray[_fields], _hp_b: NDArray[_field], param: QudaInvertParam) -> None:
     """
     Perform the solve like @invertQuda but for multiple rhs by spliting the comm grid into sub-partitions:
     each sub-partition invert one or more rhs'.
@@ -1474,7 +1478,7 @@ def dumpMultigridQuda(mg_instance: Pointer, param: QudaMultigridParam) -> None:
     """
     ...
 
-def dslashQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam, parity: QudaParity) -> None:
+def dslashQuda(h_out: NDArray[_field], h_in: NDArray[_field], inv_param: QudaInvertParam, parity: QudaParity) -> None:
     """
     Apply the Dslash operator (D_{eo} or D_{oe}).
 
@@ -1490,7 +1494,9 @@ def dslashQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam, parity
     """
     ...
 
-def dslashMultiSrcQuda(_hp_x: Pointers, _hp_b: Pointers, param: QudaInvertParam, parity: QudaParity) -> None:
+def dslashMultiSrcQuda(
+    _hp_x: NDArray[_fields], _hp_b: NDArray[_fields], param: QudaInvertParam, parity: QudaParity
+) -> None:
     """
     Perform the solve like @dslashQuda but for multiple rhs by spliting the comm grid into
     sub-partitions: each sub-partition does one or more rhs'.
@@ -1508,7 +1514,9 @@ def dslashMultiSrcQuda(_hp_x: Pointers, _hp_b: Pointers, param: QudaInvertParam,
         Parity to apply dslash on
     """
 
-def cloverQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam, parity: QudaParity, inverse: int) -> None:
+def cloverQuda(
+    h_out: NDArray[_field], h_in: NDArray[_field], inv_param: QudaInvertParam, parity: QudaParity, inverse: int
+) -> None:
     """
     Apply the clover operator or its inverse.
 
@@ -1526,7 +1534,7 @@ def cloverQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam, parity
     """
     ...
 
-def MatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> None:
+def MatQuda(h_out: NDArray[_field], h_in: NDArray[_field], inv_param: QudaInvertParam) -> None:
     """
     Apply the full Dslash matrix, possibly even/odd preconditioned.
 
@@ -1540,7 +1548,7 @@ def MatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> None:
     """
     ...
 
-def MatDagMatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> None:
+def MatDagMatQuda(h_out: NDArray[_field], h_in: NDArray[_field], inv_param: QudaInvertParam) -> None:
     R"""
     Apply M^{\dag}M, possibly even/odd preconditioned.
 
@@ -1555,17 +1563,17 @@ def MatDagMatQuda(h_out: Pointer, h_in: Pointer, inv_param: QudaInvertParam) -> 
     ...
 
 def computeKSLinkQuda(
-    fatlink: Pointers,
-    longlink: Pointers,
-    ulink: Pointers,
-    inlink: Pointers,
+    fatlink: NDArray[_fields],
+    longlink: NDArray[_fields],
+    ulink: NDArray[_fields],
+    inlink: NDArray[_fields],
     path_coeff: NDArray[float64],
     param: QudaGaugeParam,
 ) -> None:
     """ """
     ...
 
-def computeTwoLinkQuda(twolink: Pointers, inlink: Pointers, param: QudaGaugeParam) -> None:
+def computeTwoLinkQuda(twolink: NDArray[_fields], inlink: NDArray[_fields], param: QudaGaugeParam) -> None:
     """
     Compute two-link field
 
@@ -1579,7 +1587,7 @@ def computeTwoLinkQuda(twolink: Pointers, inlink: Pointers, param: QudaGaugePara
     """
     ...
 
-def momResidentQuda(mom: Pointer, param: QudaGaugeParam) -> None:
+def momResidentQuda(mom: NDArray[_field], param: QudaGaugeParam) -> None:
     """
     Either downloads and sets the resident momentum field, or uploads
     and returns the resident momentum field
@@ -1592,8 +1600,8 @@ def momResidentQuda(mom: Pointer, param: QudaGaugeParam) -> None:
     ...
 
 def computeGaugeForceQuda(
-    mom: Pointers,
-    sitelink: Pointers,
+    mom: NDArray[_fields],
+    sitelink: NDArray[_fields],
     input_path_buf: NDArray[int32],
     path_length: NDArray[int32],
     loop_coeff: NDArray[float64],
@@ -1627,8 +1635,8 @@ def computeGaugeForceQuda(
     ...
 
 def computeGaugePathQuda(
-    out: Pointers,
-    sitelink: Pointers,
+    out: NDArray[_fields],
+    sitelink: NDArray[_fields],
     input_path_buf: NDArray[int32],
     path_length: NDArray[int32],
     loop_coeff: NDArray[float64],
@@ -1691,7 +1699,7 @@ def computeGaugeLoopTraceQuda(
     ...
 
 def updateGaugeFieldQuda(
-    gauge: Pointers, momentum: Pointers, dt: double, conj_mom: int, exact: int, param: QudaGaugeParam
+    gauge: NDArray[_fields], momentum: NDArray[_fields], dt: double, conj_mom: int, exact: int, param: QudaGaugeParam
 ) -> None:
     """
     Evolve the gauge field by step size dt, using the momentum field
@@ -1712,7 +1720,7 @@ def updateGaugeFieldQuda(
     """
     ...
 
-def staggeredPhaseQuda(gauge_h: Pointers, param: QudaGaugeParam) -> None:
+def staggeredPhaseQuda(gauge_h: NDArray[_fields], param: QudaGaugeParam) -> None:
     """
     Apply the staggered phase factors to the gauge field.  If the
     imaginary chemical potential is non-zero then the phase factor
@@ -1726,7 +1734,7 @@ def staggeredPhaseQuda(gauge_h: Pointers, param: QudaGaugeParam) -> None:
     """
     ...
 
-def projectSU3Quda(gauge_h: Pointers, tol: double, param: QudaGaugeParam) -> None:
+def projectSU3Quda(gauge_h: NDArray[_fields], tol: double, param: QudaGaugeParam) -> None:
     """
     Project the input field on the SU(3) group.  If the target
     tolerance is not met, this routine will give a runtime error.
@@ -1740,7 +1748,7 @@ def projectSU3Quda(gauge_h: Pointers, tol: double, param: QudaGaugeParam) -> Non
     """
     ...
 
-def momActionQuda(momentum: Pointer, param: QudaGaugeParam) -> double:
+def momActionQuda(momentum: NDArray[_field], param: QudaGaugeParam) -> double:
     """
     Evaluate the momentum contribution to the Hybrid Monte Carlo
     action.
@@ -1764,9 +1772,9 @@ def createCloverQuda(param: QudaInvertParam) -> None:
     ...
 
 def computeCloverForceQuda(
-    mom: Pointers,
+    mom: NDArray[_fields],
     dt: double,
-    x: Pointers,
+    x: NDArray[_fields],
     coeff: NDArray[float64],
     kappa2: double,
     ck: double,
@@ -1804,14 +1812,14 @@ def computeCloverForceQuda(
     ...
 
 def computeHISQForceQuda(
-    momentum: Pointers,
+    momentum: NDArray[_fields],
     dt: double,
     level2_coeff: NDArray[float64],
     fat7_coeff: NDArray[float64],
-    w_link: Pointers,
-    v_link: Pointers,
-    u_link: Pointer,
-    quark: Pointers,
+    w_link: NDArray[_fields],
+    v_link: NDArray[_fields],
+    u_link: NDArray[_fields],
+    quark: NDArray[_fields],
     num: int,
     num_naik: int,
     coeff: NDArray[float64],
@@ -1899,7 +1907,9 @@ def polyakovLoopQuda(dir: int) -> List[double, 2]:
     """
     ...
 
-def performWuppertalnStep(h_out: Pointer, h_in: Pointer, param: QudaInvertParam, n_steps: int, alpha: double) -> None:
+def performWuppertalnStep(
+    h_out: NDArray[_field], h_in: NDArray[_field], param: QudaInvertParam, n_steps: int, alpha: double
+) -> None:
     """
     Performs Wuppertal smearing on a given spinor using the gauge field
     gaugeSmeared, if it exist, or gaugePrecise if no smeared field is present.
@@ -2027,7 +2037,12 @@ def gaugeObservablesQuda(param: QudaGaugeObservableParam) -> None:
     ...
 
 def contractQuda(
-    x: Pointer, y: Pointer, result: Pointer, cType: QudaContractType, param: QudaInvertParam, X: NDArray[int32]
+    x: NDArray[_field],
+    y: NDArray[_field],
+    result: NDArray[_field],
+    cType: QudaContractType,
+    param: QudaInvertParam,
+    X: NDArray[int32],
 ) -> None:
     """
     Public function to perform color contractions of the host spinors x and y.
@@ -2048,7 +2063,7 @@ def contractQuda(
     ...
 
 def computeGaugeFixingOVRQuda(
-    gauge: Pointers,
+    gauge: NDArray[_fields],
     gauge_dir: int,
     Nsteps: int,
     verbose_interval: int,
@@ -2084,7 +2099,7 @@ def computeGaugeFixingOVRQuda(
     ...
 
 def computeGaugeFixingFFTQuda(
-    gauge: Pointers,
+    gauge: NDArray[_fields],
     gauge_dir: int,
     Nsteps: int,
     verbose_interval: int,
@@ -2119,7 +2134,9 @@ def computeGaugeFixingFFTQuda(
     """
     ...
 
-def blasGEMMQuda(arrayA: Pointer, arrayB: Pointer, arrayC: Pointer, native: QudaBoolean, param: QudaBLASParam) -> None:
+def blasGEMMQuda(
+    arrayA: NDArray[_field], arrayB: NDArray[_field], arrayC: NDArray[_field], native: QudaBoolean, param: QudaBLASParam
+) -> None:
     """
     Strided Batched GEMM
 
@@ -2136,7 +2153,7 @@ def blasGEMMQuda(arrayA: Pointer, arrayB: Pointer, arrayC: Pointer, native: Quda
     """
     ...
 
-def blasLUInvQuda(Ainv: Pointer, A: Pointer, use_native: QudaBoolean, param: QudaBLASParam) -> None:
+def blasLUInvQuda(Ainv: NDArray[_field], A: NDArray[_field], use_native: QudaBoolean, param: QudaBLASParam) -> None:
     """
     Strided Batched in-place matrix inversion via LU
 
@@ -2218,7 +2235,7 @@ class QudaQuarkSmearParam:
     clock: double
     """The mean clock frequency of the device for the duration of the smearing operations"""
 
-def performTwoLinkGaussianSmearNStep(h_in: Pointer, smear_param: QudaQuarkSmearParam) -> None:
+def performTwoLinkGaussianSmearNStep(h_in: NDArray[_field], smear_param: QudaQuarkSmearParam) -> None:
     """
     Performs two-link Gaussian smearing on a given spinor (for staggered fermions).
 

@@ -8,9 +8,8 @@ from pyquda.action import GaugeAction, CloverWilsonAction
 from pyquda_utils import core
 from pyquda_utils.hmc_param import (
     symanzikTreeGaugeLoopParam as loopParam,
-    wilsonFermionRationalParam as rationalParam,
+    fermionRationalParam as rationalParam,
 )
-from pyquda_utils.io import writeNPYGauge
 
 beta, u_0 = 7.4, 0.890
 clover_csw = 1 / u_0**3
@@ -70,4 +69,4 @@ for i in range(start, stop):
     )
 
     if (i + 1) % save == 0:
-        writeNPYGauge(f"./DATA/cfg/cfg_{i + 1}.npy", gauge)
+        gauge.save(f"./DATA/cfg/cfg_{i + 1}.npy")

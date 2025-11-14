@@ -1,7 +1,7 @@
 from typing import List, Union
 
 from ..field import LatticeInfo, LatticeGauge
-from ..enum_quda import QudaDslashType, QudaInverterType, QudaReconstructType, QudaPrecision
+from ..enum_quda import QudaDslashType, QudaInverterType
 
 from . import general
 from .abstract import Multigrid, StaggeredFermionDirac
@@ -15,31 +15,23 @@ class StaggeredDirac(StaggeredFermionDirac):
         tol: float,
         maxiter: int,
         tadpole_coeff: float = 1.0,
-        multigrid: Union[List[List[int]], Multigrid] = None,
+        multigrid: Union[List[List[int]], Multigrid, None] = None,
     ) -> None:
         kappa = 1 / 2
+        self.tadpole_coeff = tadpole_coeff
         super().__init__(latt_info)
-        self.newQudaGaugeParam(tadpole_coeff)
+        self.newQudaGaugeParam()
         self.newQudaMultigridParam(multigrid, mass, kappa)
         self.newQudaInvertParam(mass, kappa, tol, maxiter)
-        # Using half with multigrid doesn't work
-        if multigrid is not None:
-            self.setPrecision(sloppy=max(self.precision.sloppy, QudaPrecision.QUDA_SINGLE_PRECISION))
-        else:
-            self.setPrecision()
-        self.setReconstruct(
-            cuda=QudaReconstructType.QUDA_RECONSTRUCT_NO,
-            sloppy=QudaReconstructType.QUDA_RECONSTRUCT_NO,
-            precondition=QudaReconstructType.QUDA_RECONSTRUCT_NO,
-            eigensolver=QudaReconstructType.QUDA_RECONSTRUCT_NO,
-        )
+        self.setPrecision()
+        self.setReconstruct()
 
-    def newQudaGaugeParam(self, tadpole_coeff: float):
-        gauge_param = general.newQudaGaugeParam(self.latt_info, tadpole_coeff, 0.0)
+    def newQudaGaugeParam(self):
+        gauge_param = general.newQudaGaugeParam(self.latt_info)
         gauge_param.staggered_phase_applied = 1
         self.gauge_param = gauge_param
 
-    def newQudaMultigridParam(self, multigrid: Union[List[List[int]], Multigrid], mass: float, kappa: float):
+    def newQudaMultigridParam(self, multigrid: Union[List[List[int]], Multigrid, None], mass: float, kappa: float):
         if isinstance(multigrid, Multigrid):
             self.multigrid = multigrid
         elif multigrid is not None:
@@ -63,6 +55,3 @@ class StaggeredDirac(StaggeredFermionDirac):
             self.newMultigrid()
         else:
             self.updateMultigrid(thin_update_only)
-
-    def destroy(self):
-        self.destroyMultigrid()

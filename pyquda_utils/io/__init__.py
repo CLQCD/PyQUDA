@@ -42,8 +42,16 @@ def readChromaQIOGauge(filename: str, checksum: bool = True, reunitarize_sigma: 
     return LatticeGauge(latt_info, latt_info.evenodd(gauge_raw, True))
 
 
+def readILDGGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 5e-7):
+    from pyquda_io.ildg import readGauge as read
+
+    latt_size, gauge_raw = read(filename, checksum, reunitarize_sigma)
+    latt_info = LatticeInfo(latt_size)
+    return LatticeGauge(latt_info, latt_info.evenodd(gauge_raw, True))
+
+
 def readILDGBinGauge(filename: str, dtype: str, latt_size: List[int]):
-    from pyquda_io.chroma import readILDGBinGauge as read
+    from pyquda_io.ildg import readBinGauge as read
 
     gauge_raw = read(filename, dtype, latt_size)
     latt_info = LatticeInfo(latt_size)

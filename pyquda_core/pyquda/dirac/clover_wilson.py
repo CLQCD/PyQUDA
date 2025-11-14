@@ -1,7 +1,7 @@
-from typing import List, Union
+from typing import List, Optional, Union
 
 from ..field import LatticeInfo, LatticeGauge, LatticeClover
-from ..enum_quda import QudaDslashType, QudaPrecision
+from ..enum_quda import QudaDslashType
 
 from . import general
 from .abstract import Multigrid, FermionDirac
@@ -16,27 +16,23 @@ class CloverWilsonDirac(FermionDirac):
         maxiter: int,
         clover_csw: float = 0.0,
         clover_xi: float = 1.0,
-        multigrid: Union[List[List[int]], Multigrid] = None,
+        multigrid: Union[List[List[int]], Multigrid, None] = None,
     ) -> None:
         kappa = 1 / (2 * (mass + 1 + (latt_info.Nd - 1) / latt_info.anisotropy))
         super().__init__(latt_info)
-        self.clover: LatticeClover = None
-        self.clover_inv: LatticeClover = None
+        self.clover: Optional[LatticeClover] = None
+        self.clover_inv: Optional[LatticeClover] = None
         self.newQudaGaugeParam()
         self.newQudaMultigridParam(multigrid, mass, kappa)
         self.newQudaInvertParam(mass, kappa, tol, maxiter, clover_csw, clover_xi)
-        # Using half with multigrid doesn't work
-        if multigrid is not None:
-            self.setPrecision(sloppy=max(self.precision.sloppy, QudaPrecision.QUDA_SINGLE_PRECISION))
-        else:
-            self.setPrecision()
+        self.setPrecision()
         self.setReconstruct()
 
     def newQudaGaugeParam(self):
-        gauge_param = general.newQudaGaugeParam(self.latt_info, 1.0, 0.0)
+        gauge_param = general.newQudaGaugeParam(self.latt_info)
         self.gauge_param = gauge_param
 
-    def newQudaMultigridParam(self, multigrid: Union[List[List[int]], Multigrid], mass: float, kappa: float):
+    def newQudaMultigridParam(self, multigrid: Union[List[List[int]], Multigrid, None], mass: float, kappa: float):
         if isinstance(multigrid, Multigrid):
             self.multigrid = multigrid
         elif multigrid is not None:
@@ -75,6 +71,3 @@ class CloverWilsonDirac(FermionDirac):
             self.newMultigrid()
         else:
             self.updateMultigrid(thin_update_only)
-
-    def destroy(self):
-        self.destroyMultigrid()

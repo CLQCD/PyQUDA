@@ -1,7 +1,7 @@
 import logging
 from os import environ
 from sys import stdout
-from typing import Generator, List, Literal, NamedTuple, Optional, Sequence, Tuple, Type, Union, get_args
+from typing import Generator, List, Literal, Optional, Sequence, Tuple, Type, Union, get_args
 
 import numpy
 from numpy.typing import NDArray, DTypeLike
@@ -9,7 +9,7 @@ from mpi4py import MPI
 from mpi4py.util import dtlib
 
 GridMapType = Literal["default", "reversed", "shared"]
-from .array import BackendType, cudaDeviceAPI
+from .array import BackendType, BackendTargetType, backendDeviceAPI, backendDeviceMMAAvailable
 
 
 class _MPILogger:
@@ -49,11 +49,6 @@ class _MPILogger:
         raise category(msg)
 
 
-class _ComputeCapability(NamedTuple):
-    major: int
-    minor: int
-
-
 _MPI_LOGGER: _MPILogger = _MPILogger()
 _MPI_COMM: MPI.Intracomm = MPI.COMM_WORLD
 _MPI_SIZE: int = _MPI_COMM.Get_size()
@@ -63,10 +58,9 @@ _GRID_MAP: GridMapType = "default"
 _GRID_SIZE: Optional[Tuple[int, ...]] = None
 _GRID_COORD: Optional[Tuple[int, ...]] = None
 _SHARED_RANK_LIST: Optional[List[int]] = None
-_CUDA_BACKEND: BackendType = "cupy"
-_CUDA_IS_HIP: bool = False
-_CUDA_DEVICE: int = -1
-_CUDA_COMPUTE_CAPABILITY: _ComputeCapability = _ComputeCapability(0, 0)
+_ARRAY_BACKEND: BackendType = "cupy"
+_ARRAY_BACKEND_TARGET: BackendTargetType = "cuda"
+_ARRAY_DEVICE: int = -1
 
 
 def _defaultRankFromCoord(coords: Sequence[int], dims: Sequence[int]) -> int:
@@ -147,7 +141,7 @@ def getSublatticeSize(latt_size: Sequence[int], force_even: bool = True):
             _MPI_LOGGER.critical(
                 f"lattice size {latt_size} must be divisible by gird size {grid_size}, "
                 "and sublattice size must be even in all directions for consistant even-odd preconditioning, "
-                "otherwise the lattice size and grid size for this direction must be 1",
+                "otherwise lattice size and grid size for this direction must be 1",
                 ValueError,
             )
     else:
@@ -243,7 +237,7 @@ def getDefaultGrid(mpi_size: int, latt_size: Sequence[int], evenodd: bool = True
             min_grid.append(grid_size)
     if min_grid == []:
         _MPI_LOGGER.critical(
-            f"Cannot get the proper grid for lattice size {latt_size} with {mpi_size} MPI processes", ValueError
+            f"Cannot get proper grid for lattice size {latt_size} with {mpi_size} MPI processes", ValueError
         )
     return min(min_grid)
 
@@ -304,21 +298,29 @@ def initGrid(
 
         _GRID_SIZE = tuple(grid_size)
         _GRID_COORD = tuple(getCoordFromRank(_MPI_RANK))
-        _MPI_LOGGER.info(f"Using the grid size {_GRID_SIZE}")
+        _MPI_LOGGER.info(f"Using grid size {_GRID_SIZE}")
     else:
         _MPI_LOGGER.warning("Grid is already initialized", RuntimeWarning)
 
 
-def initDevice(backend: BackendType = "cupy", device: int = -1, enable_mps: bool = False):
-    global _CUDA_BACKEND, _CUDA_IS_HIP, _CUDA_DEVICE, _CUDA_COMPUTE_CAPABILITY
-    if _CUDA_DEVICE < 0:
+def initDevice(
+    backend: BackendType = "cupy",
+    backend_target: BackendTargetType = "cuda",
+    device: int = -1,
+    enable_mps: bool = False,
+):
+    global _ARRAY_BACKEND, _ARRAY_BACKEND_TARGET, _ARRAY_DEVICE
+    if _ARRAY_DEVICE < 0:
         from platform import node as gethostname
 
         if backend not in get_args(BackendType):
-            _MPI_LOGGER.critical(f"Unsupported CUDA backend {backend}", ValueError)
-        _CUDA_BACKEND = backend
-        cudaGetDeviceCount, cudaGetDeviceProperties, cudaSetDevice, _CUDA_IS_HIP = cudaDeviceAPI(backend)
-        _MPI_LOGGER.info(f"Using CUDA backend {backend}")
+            _MPI_LOGGER.critical(f"Unsupported Array API backend {backend}", ValueError)
+        if backend == "numpy":
+            backend_target = "cpu"
+        getDeviceCount, setDevice = backendDeviceAPI(backend, backend_target)
+        _MPI_LOGGER.info(f"Using Array API backend {backend} with target {backend_target}")
+        _ARRAY_BACKEND = backend
+        _ARRAY_BACKEND_TARGET = backend_target
 
         # quda/include/communicator_quda.h
         # determine which GPU this rank will use
@@ -326,7 +328,7 @@ def initDevice(backend: BackendType = "cupy", device: int = -1, enable_mps: bool
         hostname_recv_buf = _MPI_COMM.allgather(hostname)
 
         if device < 0:
-            device_count = cudaGetDeviceCount()
+            device_count = getDeviceCount()
             if device_count == 0:
                 _MPI_LOGGER.critical("No devices found", RuntimeError)
 
@@ -342,15 +344,9 @@ def initDevice(backend: BackendType = "cupy", device: int = -1, enable_mps: bool
                     print(f"MPS enabled, rank={_MPI_RANK:3d} -> gpu={device}")
                 else:
                     _MPI_LOGGER.critical(f"Too few GPUs available on {hostname}", RuntimeError)
-        _CUDA_DEVICE = device
+        _ARRAY_DEVICE = device
 
-        props = cudaGetDeviceProperties(device)
-        if hasattr(props, "major") and hasattr(props, "minor"):
-            _CUDA_COMPUTE_CAPABILITY = _ComputeCapability(int(props.major), int(props.minor))
-        else:
-            _CUDA_COMPUTE_CAPABILITY = _ComputeCapability(int(props["major"]), int(props["minor"]))
-
-        cudaSetDevice(device)
+        setDevice(device)
     else:
         _MPI_LOGGER.warning("Device is already initialized", RuntimeWarning)
 
@@ -360,7 +356,7 @@ def isGridInitialized():
 
 
 def isDeviceInitialized():
-    return _CUDA_DEVICE >= 0
+    return _ARRAY_DEVICE >= 0
 
 
 def getLogger():
@@ -399,20 +395,16 @@ def getGridCoord():
     return list(_GRID_COORD)
 
 
-def getCUDABackend():
-    return _CUDA_BACKEND
+def getArrayBackend():
+    return _ARRAY_BACKEND
 
 
-def isHIP():
-    return _CUDA_IS_HIP
+def getArrayBackendTarget():
+    return _ARRAY_BACKEND_TARGET
 
 
-def getCUDADevice():
-    return _CUDA_DEVICE
-
-
-def getCUDAComputeCapability():
-    return _CUDA_COMPUTE_CAPABILITY
+def getArrayDevice():
+    return _ARRAY_DEVICE
 
 
 def getSubarray(dtype: DTypeLike, shape: Sequence[int], axes: Sequence[int]):

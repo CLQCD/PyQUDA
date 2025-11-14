@@ -7,7 +7,6 @@ from pyquda.hmc import HMC, O4Nf5Ng0V
 from pyquda.action import GaugeAction
 from pyquda_utils import core
 from pyquda_utils.hmc_param import symanzikTreeGaugeLoopParam as loopParam
-from pyquda_utils.io import writeNPYGauge
 
 beta, u_0 = 7.4, 0.890
 start, stop, warm, save = 0, 2000, 500, 5
@@ -58,4 +57,4 @@ for i in range(start, stop):
     )
 
     if (i + 1) % save == 0:
-        writeNPYGauge(f"./DATA/cfg/cfg_{i + 1}.npy", gauge)
+        gauge.save(f"./DATA/cfg/cfg_{i + 1}.npy")
