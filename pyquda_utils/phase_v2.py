@@ -40,8 +40,7 @@ class MomentumPhase:
     def getPhase(self, mom: Sequence[int], x0: Sequence[int] = [0, 0, 0, 0]):
         ipx = numpy.zeros(self.x[0].shape, "<c16")
         for i in range(len(mom)):
-            ip = 2j * pi * mom[i] / self.latt_info.global_size[i]
-            ipx += ip * (self.x[i] - x0[i])
+            ipx += 2j * pi * mom[i] / self.latt_info.global_size[i] * (self.x[i] - x0[i])
         return LatticeComplex(self.latt_info, arrayDevice(numpy.exp(ipx), getArrayBackend()))
 
     def getPhases(self, mom_mode_list: Sequence[Sequence[int]], x0: Sequence[int] = [0, 0, 0, 0]):

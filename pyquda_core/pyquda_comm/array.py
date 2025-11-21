@@ -129,7 +129,7 @@ def arrayHost(data, backend: BackendType) -> NDArray:
     elif backend == "cupy":
         return data.get()
     elif backend == "dpnp":
-        return data.asnumpy()
+        return numpy.ascontiguousarray(data.asnumpy())  # TODO: https://github.com/IntelPython/dpnp/issues/2568
     elif backend == "torch":
         return data.cpu().numpy()
 
@@ -140,7 +140,7 @@ def arrayHostCopy(data, backend: BackendType) -> NDArray:
     elif backend == "cupy":
         return data.get()
     elif backend == "dpnp":
-        return data.asnumpy()
+        return numpy.ascontiguousarray(data.asnumpy())  # TODO: https://github.com/IntelPython/dpnp/issues/2568
     elif backend == "torch":
         return data.cpu().numpy()
 
@@ -155,7 +155,7 @@ def arrayDevice(data, backend: BackendType) -> NDArray:
     elif backend == "dpnp":
         import dpnp
 
-        return dpnp.asarray(data, device=dpnp_device)
+        return dpnp.asarray(data, sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
         import torch
 
@@ -168,7 +168,7 @@ def arrayCopy(data, backend: BackendType) -> NDArray:
     elif backend == "cupy":
         return data.copy()
     elif backend == "dpnp":
-        return data.copy(device=dpnp_device)
+        return data.copy(sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
         return data.clone()
 
@@ -194,7 +194,7 @@ def arrayAsContiguous(data, backend: BackendType) -> NDArray:
     elif backend == "dpnp":
         import dpnp
 
-        return dpnp.ascontiguousarray(data, device=dpnp_device)
+        return dpnp.ascontiguousarray(data, sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
         return data.contiguous()
 
@@ -226,7 +226,7 @@ def arrayZeros(shape: Sequence[int], dtype: DTypeLike, backend: BackendType) -> 
     elif backend == "dpnp":
         import dpnp
 
-        return dpnp.zeros(shape, dtype=dtype, device=dpnp_device)
+        return dpnp.zeros(shape, dtype=dtype, sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
         import torch
 
@@ -260,7 +260,7 @@ def arrayIdentity(n: int, dtype: DTypeLike, backend: BackendType) -> NDArray:
     elif backend == "dpnp":
         import dpnp
 
-        return dpnp.identity(n, dtype, device=dpnp_device)
+        return dpnp.identity(n, dtype, sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
         import torch
 
@@ -277,7 +277,7 @@ def arrayRandomRandom(size: Sequence[int], backend: BackendType) -> NDArray:
     elif backend == "dpnp":
         import dpnp.random
 
-        return dpnp.random.random(size, device=dpnp_device)
+        return dpnp.random.random(size, sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
         import torch
 
@@ -296,9 +296,11 @@ def arrayRandomRandomComplex(size: Sequence[int], backend: BackendType) -> NDArr
     elif backend == "dpnp":
         import dpnp.random
 
-        # size = tuple(size[:-1]) + (2 * size[-1],)
-        # return dpnp.random.random(size, device=dpnp_device).view(dpnp.complex128)  # TODO: 0.19.0
-        return dpnp.random.random(size, device=dpnp_device) + 1j * dpnp.random.random(size, device=dpnp_device)
+        size = tuple(size[:-1]) + (2 * size[-1],)
+        return dpnp.random.random(size, sycl_queue=dpnp_sycl_queue).view(dpnp.complex128)
+        # return dpnp.random.random(size, sycl_queue=dpnp_sycl_queue) + 1j * dpnp.random.random(
+        #     size, sycl_queue=dpnp_sycl_queue
+        # )  # ? dpnp<0.19.0
     elif backend == "torch":
         import torch
 
@@ -316,7 +318,7 @@ def arrayRandomNormal(loc: float, scale: float, size: Sequence[int], backend: Ba
     elif backend == "dpnp":
         import dpnp.random
 
-        return dpnp.random.normal(loc, scale, size, device=dpnp_device)
+        return dpnp.random.normal(loc, scale, size, sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
         import torch
 
@@ -335,11 +337,11 @@ def arrayRandomNormalComplex(loc: float, scale: float, size: Sequence[int], back
     elif backend == "dpnp":
         import dpnp.random
 
-        # size = tuple(size[:-1]) + (2 * size[-1],)
-        # return dpnp.random.normal(loc, scale, size, device=dpnp_device).view(dpnp.complex128)  # TODO: 0.19.0
-        return dpnp.random.normal(loc, scale, size, device=dpnp_device) + 1j * dpnp.random.normal(
-            loc, scale, size, device=dpnp_device
-        )
+        size = tuple(size[:-1]) + (2 * size[-1],)
+        return dpnp.random.normal(loc, scale, size, sycl_queue=dpnp_sycl_queue).view(dpnp.complex128)
+        # return dpnp.random.normal(loc, scale, size, sycl_queue=dpnp_sycl_queue) + 1j * dpnp.random.normal(
+        #     loc, scale, size, sycl_queue=dpnp_sycl_queue
+        # )  # ? dpnp<0.19.0
     elif backend == "torch":
         import torch
 
@@ -357,7 +359,7 @@ def arrayRandomGetState(backend: BackendType):
     elif backend == "dpnp":
         import dpnp.random.dpnp_iface_random
 
-        return dpnp.random.dpnp_iface_random._get_random_state(device=dpnp_device)
+        return dpnp.random.dpnp_iface_random._get_random_state(sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
         import torch
 
@@ -375,7 +377,7 @@ def arrayRandomSetState(state, backend: BackendType):
         import dpnp
         import dpnp.random.dpnp_iface_random
 
-        sycl_queue = dpnp.get_normalized_queue_device(device=dpnp_device)
+        sycl_queue = dpnp.get_normalized_queue_device(sycl_queue=dpnp_sycl_queue)
         dpnp.random.dpnp_iface_random._dpnp_random_states[sycl_queue] = state
     elif backend == "torch":
         import torch
@@ -393,7 +395,7 @@ def arrayRandomSeed(seed: int, backend: BackendType):
     elif backend == "dpnp":
         import dpnp.random
 
-        dpnp.random.seed(seed, device=dpnp_device)
+        dpnp.random.seed(seed, sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
         import torch
 

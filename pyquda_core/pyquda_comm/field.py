@@ -89,8 +89,8 @@ class LatticeInfo(BaseInfo):
         if hasattr(self, "even") and hasattr(self, "odd"):
             return
         eo = numpy.sum(numpy.indices(self.size[::-1], "<i4"), axis=0).reshape(-1) % 2
-        self._even = eo == 0
-        self._odd = eo == 1
+        self._even = numpy.where(eo == 0)[0]
+        self._odd = numpy.where(eo == 1)[0]
 
     def lexico(self, data: NDArray, multi: bool, backend: BackendType = "numpy"):
         self._setEvenOdd()
@@ -117,7 +117,9 @@ class LatticeInfo(BaseInfo):
             return data_lexico.reshape(*sublatt_size[::-1], *field_shape)
 
     def evenodd(self, data: NDArray, multi: bool, backend: BackendType = "numpy"):
+        from time import perf_counter
         self._setEvenOdd()
+        s = perf_counter()
         shape = data.shape
         if multi:
             L5 = shape[0]
@@ -133,6 +135,8 @@ class LatticeInfo(BaseInfo):
         data_evenodd = arrayZeros((L5, 2, self.volume // 2, prod(field_shape)), data.dtype, backend)
         data_evenodd[:, 0] = data_lexico[:, self._even]
         data_evenodd[:, 1] = data_lexico[:, self._odd]
+        secs = perf_counter() - s
+        print(f"Even-odd reordering in {secs:.3f} secs")
         if multi:
             return data_evenodd.reshape(L5, 2, *sublatt_size[::-1], *field_shape)
         else:
@@ -730,8 +734,8 @@ class FullField(BaseField, Generic[Field]):
                 left_flat = left.reshape(2, prod(self.latt_info.size[1:]), self.latt_info.size[0] // 2, -1)
                 right_flat = right.reshape(2 * prod(self.latt_info.size[1:]), self.latt_info.size[0] // 2, -1)
                 eo = numpy.sum(numpy.indices((2, *self.latt_info.size[1:][::-1])), axis=0).reshape(-1) % 2
-                even = eo == 0
-                odd = eo == 1
+                even = numpy.where(eo == 0)[0]
+                odd = numpy.where(eo == 1)[0]
                 if dir == 1:
                     sendbuf = right_flat[even, 0]
                     if rank == source and rank == dest:
