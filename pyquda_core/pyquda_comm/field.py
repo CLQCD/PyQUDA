@@ -2,7 +2,7 @@ from abc import abstractmethod
 from math import prod
 from os import path
 from time import perf_counter
-from typing import Any, Generic, List, Literal, Optional, Sequence, Tuple, Type, TypeVar, Union, overload
+from typing import Any, Dict, Generic, List, Literal, Optional, Sequence, Tuple, Type, TypeVar, Union, overload
 
 Self = TypeVar("Self", bound="BaseField")
 SelfMulti = TypeVar("SelfMulti", bound="MultiField")
@@ -40,6 +40,12 @@ from .array import (
 )
 from .pointer import Pointer, ndarrayPointer
 
+_latt_even_odd: Dict[Tuple[int, ...], Tuple[NDArray[numpy.intp], NDArray[numpy.intp]]] = {}
+_latt_coord: Dict[Tuple[int, ...], NDArray[numpy.int32]] = {}
+_latt_sort_key: Dict[Tuple[int, ...], NDArray[numpy.int64]] = {}
+_latt_lexico_coord: Dict[Tuple[int, ...], NDArray[numpy.int32]] = {}
+_latt_lexico_sort_key: Dict[Tuple[int, ...], NDArray[numpy.int64]] = {}
+
 
 class BaseInfo:
     def __init__(self, latt_size: Sequence[int], force_even: bool, Ns: int = 4, Nc: int = 3) -> None:
@@ -73,8 +79,19 @@ class BaseInfo:
         self.volume = prod(sublatt_size)
         self.ga_pad = self.volume // min(sublatt_size) // 2
 
+    @abstractmethod
     def lexico(self, data: NDArray, multi: bool, backend: BackendType = "numpy") -> NDArray:
-        return arrayCopy(data, backend)
+        getLogger().critical(
+            f"{self.__class__.__name__}.lexico(data, multi, backend) not implemented", NotImplementedError
+        )
+
+    @abstractmethod
+    def coordinate(self, mu: Optional[int] = None) -> NDArray:
+        getLogger().critical(f"{self.__class__.__name__}.coordinate(mu) not implemented", NotImplementedError)
+
+    @abstractmethod
+    def sortSelect(self, select: NDArray[numpy.intp]) -> NDArray:
+        getLogger().critical(f"{self.__class__.__name__}.lexico_index() not implemented", NotImplementedError)
 
 
 class LatticeInfo(BaseInfo):
@@ -86,13 +103,14 @@ class LatticeInfo(BaseInfo):
         self.anisotropy = anisotropy
 
     def _setEvenOdd(self):
-        if hasattr(self, "even") and hasattr(self, "odd"):
-            return
-        eo = numpy.sum(numpy.indices(self.size[::-1], "<i4"), axis=0).reshape(-1) % 2
-        self._even = numpy.where(eo == 0)[0]
-        self._odd = numpy.where(eo == 1)[0]
+        global _latt_even_odd
+        key = tuple(self.global_size)
+        if key not in _latt_even_odd:
+            eo = numpy.sum(numpy.indices(self.size[::-1], "<i4"), axis=0).reshape(-1) % 2
+            _latt_even_odd[key] = (numpy.where(eo == 0)[0], numpy.where(eo == 1)[0])
+        self._even, self._odd = _latt_even_odd[key]
 
-    def lexico(self, data: NDArray, multi: bool, backend: BackendType = "numpy"):
+    def lexico(self, data: NDArray, multi: bool, backend: BackendType = "numpy") -> NDArray:
         self._setEvenOdd()
         shape = data.shape
         if multi:
@@ -116,10 +134,8 @@ class LatticeInfo(BaseInfo):
         else:
             return data_lexico.reshape(*sublatt_size[::-1], *field_shape)
 
-    def evenodd(self, data: NDArray, multi: bool, backend: BackendType = "numpy"):
-        from time import perf_counter
+    def evenodd(self, data: NDArray, multi: bool, backend: BackendType = "numpy") -> NDArray:
         self._setEvenOdd()
-        s = perf_counter()
         shape = data.shape
         if multi:
             L5 = shape[0]
@@ -135,17 +151,64 @@ class LatticeInfo(BaseInfo):
         data_evenodd = arrayZeros((L5, 2, self.volume // 2, prod(field_shape)), data.dtype, backend)
         data_evenodd[:, 0] = data_lexico[:, self._even]
         data_evenodd[:, 1] = data_lexico[:, self._odd]
-        secs = perf_counter() - s
-        print(f"Even-odd reordering in {secs:.3f} secs")
         if multi:
             return data_evenodd.reshape(L5, 2, *sublatt_size[::-1], *field_shape)
         else:
             return data_evenodd.reshape(2, *sublatt_size[::-1], *field_shape)
 
+    def coordinate(self, mu: Optional[int] = None):
+        global _latt_coord
+        key = tuple(self.global_size)
+        if key not in _latt_coord:
+            _latt_coord[key] = self.evenodd(numpy.indices(self.size[::-1], "<i4")[::-1], True)
+            for i in range(self.Nd):
+                _latt_coord[key][i] += self.grid_coord[i] * self.size[i]
+        if mu is None:
+            return _latt_coord[key]
+        else:
+            assert 0 <= mu < self.Nd
+            return _latt_coord[key][mu]
+
+    def sortSelect(self, select: NDArray[numpy.intp]) -> NDArray:
+        global _latt_sort_key
+        key = tuple(self.global_size)
+        if key not in _latt_sort_key:
+            _latt_sort_key[key] = numpy.array(self.coordinate(0), "<i8")
+            for mu in range(1, self.Nd):
+                _latt_sort_key[key] *= self.global_size[mu]
+                _latt_sort_key[key] += self.coordinate(mu)
+        return select[numpy.argsort(_latt_sort_key[key].reshape(-1)[select])]
+
 
 class LexicoInfo(BaseInfo):
     def __init__(self, latt_size: Sequence[int], Ns: int = 4, Nc: int = 3) -> None:
         super().__init__(latt_size, False, Ns, Nc)
+
+    def lexico(self, data: NDArray, multi: bool, backend: BackendType = "numpy") -> NDArray:
+        return arrayCopy(data, backend)
+
+    def coordinate(self, mu: Optional[int] = None):
+        global _latt_lexico_coord
+        key = tuple(self.global_size)
+        if key not in _latt_lexico_coord:
+            _latt_lexico_coord[key] = numpy.indices(self.size[::-1], "<i4")[::-1]
+            for i in range(self.Nd):
+                _latt_lexico_coord[key][i] += self.grid_coord[i] * self.size[i]
+        if mu is None:
+            return _latt_lexico_coord[key]
+        else:
+            assert 0 <= mu < self.Nd
+            return _latt_lexico_coord[key][mu]
+
+    def sortSelect(self, select: NDArray[numpy.intp]) -> NDArray:
+        global _latt_lexico_sort_key
+        key = tuple(self.global_size)
+        if key not in _latt_lexico_sort_key:
+            _latt_lexico_sort_key[key] = numpy.array(self.coordinate(0), "<i8")
+            for mu in range(1, self.Nd):
+                _latt_lexico_sort_key[key] *= self.global_size[mu]
+                _latt_lexico_sort_key[key] += self.coordinate(mu).reshape(-1)
+        return select[numpy.argsort(_latt_lexico_sort_key[key][select])]
 
 
 def read_array_header(filename: str) -> Tuple[Tuple[int, ...], str, int]:
@@ -292,7 +355,6 @@ class BaseField:
     def _setField(self):
         field_shape, field_dtype = _field_shape_dtype(self._field(), self.latt_info.Ns, self.latt_info.Nc)
         self.field_shape = field_shape
-        self.field_size = prod(field_shape)
         self.field_dtype = field_dtype
         self.lattice_shape = self._latticeShape()
         self.shape: Tuple[int, ...] = (
@@ -318,6 +380,124 @@ class BaseField:
             return self.latt_info.lexico(self.getHost(), self.L5 > 0)
         else:
             return self.latt_info.lexico(self.data, self.L5 > 0, self.location)
+
+    def _select_lattice(self, coord: Tuple[Union[int, list, tuple, slice], ...]):
+        select = numpy.full(self.lattice_shape, True)
+        shape = []
+        subshape = []
+        for i, index in enumerate(coord):
+            X = self.latt_info.coordinate(i)
+            GL = self.latt_info.global_size[i]
+            g = self.latt_info.grid_coord[i]
+            L = self.latt_info.size[i]
+            subshape.append(0)
+            if isinstance(index, int):
+                shape.append(1)
+                if g * L <= index % GL < (g + 1) * L:
+                    subshape[-1] += 1
+                select &= X == (index % GL)
+            elif isinstance(index, (list, tuple)):
+                shape.append(len(index))
+                for i in index:
+                    if g * L <= i % GL < (g + 1) * L:
+                        subshape[-1] += 1
+                subselect = X == (index[0] % GL)
+                for i in range(1, len(index)):
+                    subselect |= X == (index[i] % GL)
+                select &= subselect
+            elif isinstance(index, slice):
+                start, stop, step = index.indices(GL)
+                if start >= stop or step <= 0:
+                    getLogger().critical(
+                        f"{self.__class__.__name__}[...] only accepts a:b:c with a<b and c>0", ValueError
+                    )
+                shape.append((stop - start + step - 1) // step)
+                for i in range(start, stop, step):
+                    if g * L <= i < (g + 1) * L:
+                        subshape[-1] += 1
+                select &= (X >= start) & (X < stop)
+                if step > 1:
+                    select &= (X - start) % step == 0
+            else:
+                getLogger().critical(
+                    f"{self.__class__.__name__}[...] only accepts "
+                    f"int, list, tuple or slice as index, got {type(index)}",
+                    ValueError,
+                )
+        select = numpy.where(select.reshape(-1))[0]
+        return self.latt_info.sortSelect(select), shape, subshape
+
+    def _select_field(self, field_coord, field_shape):
+        if len(field_coord) == 0:
+            return field_shape
+        shape = []
+        for index, L in zip(field_coord, field_shape):
+            if isinstance(index, int):
+                pass
+            elif isinstance(index, (list, tuple)):
+                shape.append(len(index))
+            elif isinstance(index, slice):
+                start, stop, step = index.indices(L)
+                if start >= stop or step <= 0:
+                    getLogger().critical(
+                        f"{self.__class__.__name__}[...] only accepts a:b:c with a<b and c>0", ValueError
+                    )
+                shape.append((stop - start + step - 1) // step)
+            else:
+                getLogger().critical(
+                    f"{self.__class__.__name__}[...] only accepts "
+                    f"int, list, tuple or slice as index, got {type(index)}",
+                    ValueError,
+                )
+        return shape
+
+    def __setitem__(self, key: Tuple[Union[int, list, tuple, slice], ...], value: Union[int, float, complex, NDArray]):
+        Nd = self.latt_info.Nd
+        if not isinstance(key, tuple):
+            key = (key,)
+        if len(key) == Nd or len(key) == Nd + len(self.field_shape):
+            select, shape, subshape = self._select_lattice(key[:Nd])
+            field_shape = self._select_field(key[Nd:], self.field_shape)
+            key_ = (select, *key[Nd:])
+            if isinstance(value, (int, float, complex)):
+                self.data.reshape(-1, *self.field_shape)[key_] = value
+            elif isinstance(value, numpy.ndarray):
+                if tuple(field_shape) == numpy.broadcast_shapes(field_shape, value.shape):
+                    self.data.reshape(-1, *self.field_shape)[key_] = arrayDevice(value, self.location)
+                else:
+                    self.data.reshape(-1, *self.field_shape)[key_] = arrayDevice(value, self.location).reshape(
+                        *subshape, *field_shape
+                    )
+            else:
+                getLogger().critical(
+                    f"{self.__class__.__name__}[...] only accepts "
+                    f"int, float, complex or ndarray as value, got {type(value)}",
+                    ValueError,
+                )
+        else:
+            getLogger().critical(
+                f"{self.__class__.__name__}[...] only accepts "
+                f"{Nd} or {Nd + len(self.field_shape)} indices, got {len(key)}",
+                ValueError,
+            )
+
+    def __getitem__(self, key: Tuple[Union[int, list, tuple, slice], ...]) -> NDArray:
+        Nd = self.latt_info.Nd
+        if not isinstance(key, tuple):
+            key = (key,)
+        if len(key) == Nd or len(key) == Nd + len(self.field_shape):
+            select, shape, subshape = self._select_lattice(key[:Nd])
+            field_shape = self._select_field(key[Nd:], self.field_shape)
+            key_ = (select, *key[Nd:])
+            return arrayHostCopy(self.data.reshape(-1, *self.field_shape)[key_], self.location).reshape(
+                *subshape, *field_shape
+            )
+        else:
+            getLogger().critical(
+                f"{self.__class__.__name__}[...] only accepts "
+                f"{Nd} or {Nd + len(self.field_shape)} indices, got {len(key)}",
+                ValueError,
+            )
 
     @classmethod
     def load(cls: Type[Self], filename: str) -> Self:

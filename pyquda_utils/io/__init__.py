@@ -178,10 +178,10 @@ def readOpenQCDGauge(filename: str, plaquette: bool = True):
     return LatticeGauge(latt_info, gauge)
 
 
-def writeOpenQCDGauge(filename: str, gauge: LatticeGauge, plaquette: float = 0.0):
+def writeOpenQCDGauge(filename: str, gauge: LatticeGauge):
     from pyquda_io.openqcd import writeGauge as write
 
-    write(filename, gauge.latt_info.global_size, gauge.getHost(), plaquette, False)
+    write(filename, gauge.latt_info.global_size, gauge.getHost(), False)
 
 
 def readNERSCGauge(
@@ -198,10 +198,17 @@ def readNERSCGauge(
     return LatticeGauge(latt_info, latt_info.evenodd(gauge_raw, True))
 
 
-def writeNERSCGauge(filename: str, gauge: LatticeGauge, plaquette: float = 0.0, use_fp32: bool = False):
+def writeNERSCGauge(
+    filename: str,
+    gauge: LatticeGauge,
+    use_fp32: bool = False,
+    ensemble_id: str = "PyQUDA",
+    ensemble_label: str = "",
+    sequence_number: int = 0,
+):
     from pyquda_io.nersc import writeGauge as write
 
-    write(filename, gauge.latt_info.global_size, gauge.lexico(), plaquette, use_fp32)
+    write(filename, gauge.latt_info.global_size, gauge.lexico(), use_fp32, ensemble_id, ensemble_label, sequence_number)
 
 
 def readQIOGauge(filename: str):

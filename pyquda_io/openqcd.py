@@ -34,28 +34,26 @@ def readGauge(filename: str, plaquette: bool = True, lexico: bool = True):
     if lexico:
         gauge = gaugeLexico([Lx, Ly, Lz, Lt], gauge)
         if plaquette:
-            assert numpy.isclose(gaugePlaquette(latt_size, gauge)[0], plaquette_)
-    elif plaquette:
-        assert numpy.isclose(gaugePlaquette(latt_size, gaugeLexico([Lx, Ly, Lz, Lt], gauge))[0], plaquette_)
+            assert numpy.isclose(gaugePlaquette(latt_size, gauge), plaquette_)
+    else:
+        if plaquette:
+            assert numpy.isclose(gaugePlaquette(latt_size, gaugeLexico([Lx, Ly, Lz, Lt], gauge)), plaquette_)
     gauge = gauge.astype("<c16")
 
     return latt_size, gauge
 
 
-def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray, plaquette: float = 0.0, lexico: bool = True):
+def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray, lexico: bool = True):
     filename = path.expanduser(path.expandvars(filename))
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     dtype, offset = "<c16", None
 
     gauge = gauge.astype(dtype)
-    if plaquette is None:
-        plaquette = 0.0
     if lexico:
-        if plaquette == 0.0:
-            plaquette = gaugePlaquette(latt_size, gauge)[0]
+        plaquette = gaugePlaquette(latt_size, gauge)
         gauge = gaugeEvenOdd([Lx, Ly, Lz, Lt], gauge)
-    elif plaquette == 0.0:
-        plaquette = gaugePlaquette(latt_size, gaugeLexico([Lx, Ly, Lz, Lt], gauge))[0]
+    else:
+        plaquette = gaugePlaquette(latt_size, gaugeLexico([Lx, Ly, Lz, Lt], gauge))
     gauge = gaugeEvenShiftBackward(latt_size, gauge)
     gauge_reorder = numpy.zeros((Lt, Lx, Ly, Lz // 2, Nd, 2, Nc, Nc), dtype)
     for t in range(Lt):

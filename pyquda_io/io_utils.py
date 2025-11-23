@@ -53,6 +53,12 @@ def checksumMILC(latt_size: List[int], data: NDArray):
     return sum29, sum31
 
 
+def checksumNERSC(data: numpy.ndarray):
+    work = data.view("<u4")
+    sum32 = getMPIComm().allreduce(numpy.sum(work, dtype="<u4"), MPI.SUM)
+    return sum32
+
+
 def gaugeEvenOdd(sublatt_size: List[int], gauge: numpy.ndarray):
     Lx, Ly, Lz, Lt = sublatt_size
     gauge_eo = numpy.zeros_like(gauge).reshape(Nd, 2, Lt, Lz, Ly, Lx // 2, Nc, Nc)
@@ -85,7 +91,14 @@ def gaugeLexico(sublatt_size: List[int], gauge: numpy.ndarray):
     return gauge_lexico
 
 
-def gaugePlaquette(latt_size: List[int], gauge: numpy.ndarray):
+def gaugeLinkTrace(latt_size: List[int], gauge: numpy.ndarray) -> float:
+    link_trace = numpy.sum(numpy.trace(gauge, axis1=5, axis2=6)).real
+    link_trace /= Nd * prod(latt_size) * Nc
+    link_trace = getMPIComm().allreduce(link_trace, MPI.SUM)
+    return link_trace.item()
+
+
+def gaugePlaquette(latt_size: List[int], gauge: numpy.ndarray) -> float:
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     rank = getMPIRank()
     neighbour_rank = getNeighbourRank()
@@ -125,7 +138,7 @@ def gaugePlaquette(latt_size: List[int], gauge: numpy.ndarray):
     plaq[5] = numpy.vdot(gauge[2] @ extended[3, :-1, 1:, :-1, :-1], gauge[3] @ extended[2, 1:, :-1, :-1, :-1]).real
     plaq /= prod(latt_size) * Nc
     plaq = getMPIComm().allreduce(plaq, MPI.SUM)
-    return numpy.array([plaq.mean(), plaq[:3].mean(), plaq[3:].mean()])
+    return plaq.mean().item()
 
 
 def gaugeOddShiftForward(latt_size: List[int], gauge: numpy.ndarray):

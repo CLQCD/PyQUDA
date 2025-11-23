@@ -11,9 +11,7 @@ from .core import getArrayBackend, LatticeInfo
 class LocationPhase:
     def __init__(self, latt_info: LatticeInfo) -> None:
         self.latt_info = latt_info
-        self.x = latt_info.evenodd(numpy.indices(latt_info.size[::-1], "<i4")[::-1], True)
-        for i in range(latt_info.Nd):
-            self.x[i] += latt_info.grid_coord[i] * latt_info.size[i]
+        self.x = latt_info.coordinate()
 
     def getPhase(self):
         return MultiLatticeInt(self.latt_info, self.latt_info.Nd, arrayDevice(self.x, getArrayBackend()))
@@ -22,7 +20,7 @@ class LocationPhase:
 class DistancePhase:
     def __init__(self, latt_info: LatticeInfo) -> None:
         self.latt_info = latt_info
-        self.x = LocationPhase(latt_info).x
+        self.x = latt_info.coordinate()
 
     def getPhase(self, x0: Sequence[int]):
         phase = MultiLatticeInt(self.latt_info, self.latt_info.Nd)
@@ -35,7 +33,7 @@ class DistancePhase:
 class MomentumPhase:
     def __init__(self, latt_info: LatticeInfo) -> None:
         self.latt_info = latt_info
-        self.x = LocationPhase(latt_info).x
+        self.x = latt_info.coordinate()
 
     def getPhase(self, mom: Sequence[int], x0: Sequence[int] = [0, 0, 0, 0]):
         ipx = numpy.zeros(self.x[0].shape, "<c16")
@@ -54,13 +52,13 @@ class GridPhase:
     def __init__(self, latt_info: LatticeInfo, stride: Sequence[int]) -> None:
         self.latt_info = latt_info
         self.stride = stride
-        self.x = LocationPhase(latt_info).x
+        self.x = latt_info.coordinate()
 
     def getPhase(self, t_srce: Sequence[int]):
         # sx, sy, sz, st = (x + gx * Lx) % Sx, (y + gy * Ly) % Sy, (z + gz * Lz) % Sz, (t + gt * Lt) % St
         phase = numpy.ones(self.x[0].shape, "<i4")
         for i in range(self.latt_info.Nd):
-            phase &= self.x[i] >= t_srce[i] and (self.x[i] - t_srce[i]) % self.stride[i] == 0
+            phase &= (self.x[i] >= t_srce[i]) & ((self.x[i] - t_srce[i]) % self.stride[i] == 0)
         return LatticeInt(self.latt_info, arrayDevice(phase, getArrayBackend()))
 
     def getPhases(self, t_srce_list: Sequence[Sequence[int]]):

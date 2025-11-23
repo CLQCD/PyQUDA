@@ -51,7 +51,7 @@ def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray):
         with open(filename, "wb") as f:
             f.write(struct.pack("<i", 20103))
             f.write(struct.pack("<iiii", *latt_size))
-            f.write(datetime.now().strftime(R"%a %b %d %H:%M:%S %Y").encode().ljust(64, b"\x00"))
+            f.write(datetime.now().strftime("%c").encode().ljust(64, b"\x00"))
             f.write(struct.pack("<i", 0))  # order
             f.write(struct.pack("<II", sum29, sum31))
             offset = f.tell()
