@@ -750,8 +750,8 @@ class LexicoField(BaseField):
     def shift(self, n: int, mu: int):
         assert 0 <= mu < 2 * self.latt_info.Nd
         Nd = self.latt_info.Nd
-        dir = 1 if mu < Nd else -1
-        dir *= 1 if n >= 0 else -1
+        direction = 1 if mu < Nd else -1
+        direction *= 1 if n >= 0 else -1
         mu = mu % Nd
         n = abs(n)
         location = self.location
@@ -762,16 +762,16 @@ class LexicoField(BaseField):
         rank = getMPIRank()
         coords = getGridCoord()
         g, G = coords[mu], getGridSize()[mu]
-        coords[mu] = (g - dir) % G
+        coords[mu] = (g - direction) % G
         dest = getRankFromCoord(coords)
-        coords[mu] = (g + dir) % G
+        coords[mu] = (g + direction) % G
         source = getRankFromCoord(coords)
 
         if n == 0:
             left, right = right, left
         while n > 0:
-            left_slice[mu] = slice(-1, None) if dir == 1 else slice(None, 1)
-            right_slice[mu] = slice(None, 1) if dir == 1 else slice(-1, None)
+            left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
+            right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
             sendbuf = right[tuple(right_slice[::-1])]
             if rank == source and rank == dest:
                 pass
@@ -779,12 +779,12 @@ class LexicoField(BaseField):
                 sendbuf_host = arrayHostCopy(sendbuf, location)
                 request = getMPIComm().Isend(sendbuf_host, dest)
 
-            left_slice[mu] = slice(None, -1) if dir == 1 else slice(1, None)
-            right_slice[mu] = slice(1, None) if dir == 1 else slice(None, -1)
+            left_slice[mu] = slice(None, -1) if direction == 1 else slice(1, None)
+            right_slice[mu] = slice(1, None) if direction == 1 else slice(None, -1)
             left[tuple(left_slice[::-1])] = right[tuple(right_slice[::-1])]
 
-            left_slice[mu] = slice(-1, None) if dir == 1 else slice(None, 1)
-            right_slice[mu] = slice(None, 1) if dir == 1 else slice(-1, None)
+            left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
+            right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
             if rank == source and rank == dest:
                 recvbuf = sendbuf
             else:
@@ -890,8 +890,8 @@ class FullField(BaseField, Generic[Field]):
     def shift(self, n: int, mu: int):
         assert 0 <= mu < 2 * self.latt_info.Nd
         Nd = self.latt_info.Nd
-        dir = 1 if mu < Nd else -1
-        dir *= 1 if n >= 0 else -1
+        direction = 1 if mu < Nd else -1
+        direction *= 1 if n >= 0 else -1
         mu = mu % Nd
         n = abs(n)
         location = self.location
@@ -902,38 +902,34 @@ class FullField(BaseField, Generic[Field]):
         rank = getMPIRank()
         coords = getGridCoord()
         g, G = coords[mu], getGridSize()[mu]
-        coords[mu] = (g - dir) % G
+        coords[mu] = (g - direction) % G
         dest = getRankFromCoord(coords)
-        coords[mu] = (g + dir) % G
+        coords[mu] = (g + direction) % G
         source = getRankFromCoord(coords)
 
         if n == 0:
             left, right = right, left
         while n > 0:
             if mu == 0 and n == 1:
-                left_flat = left.reshape(2, prod(self.latt_info.size[1:]), self.latt_info.size[0] // 2, -1)
-                right_flat = right.reshape(2 * prod(self.latt_info.size[1:]), self.latt_info.size[0] // 2, -1)
+                Lx = self.latt_info.size[0]
+                Sx = prod(self.latt_info.size[1:])
+                left_flat = left.reshape(2, Sx, Lx // 2, -1)
+                right_flat = right.reshape(2, Sx, Lx // 2, -1)
                 eo = numpy.sum(numpy.indices((2, *self.latt_info.size[1:][::-1])), axis=0).reshape(-1) % 2
-                even = numpy.where(eo == 0)[0]
-                odd = numpy.where(eo == 1)[0]
-                if dir == 1:
-                    sendbuf = right_flat[even, 0]
+                even = numpy.where(eo == 0)[0].reshape(2, -1) % Sx
+                odd = numpy.where(eo == 1)[0].reshape(2, -1) % Sx
+                if direction == 1:
+                    sendbuf = arrayDevice([right_flat[0, even[0], 0], right_flat[1, even[1], 0]], location)
                     if rank == source and rank == dest:
                         pass
                     else:
                         sendbuf_host = arrayHostCopy(sendbuf, location)
                         request = getMPIComm().Isend(sendbuf_host, dest)
 
-                    right_tmp = right_flat[odd].reshape(
-                        2, prod(self.latt_info.size[1:]) // 2, self.latt_info.size[0] // 2, -1
-                    )
-                    left_flat[1, even.reshape(2, -1)[1]] = right_tmp[0]
-                    left_flat[0, even.reshape(2, -1)[0]] = right_tmp[1]
-                    right_tmp = right_flat[even, 1:].reshape(
-                        2, prod(self.latt_info.size[1:]) // 2, self.latt_info.size[0] // 2 - 1, -1
-                    )
-                    left_flat[1, odd.reshape(2, -1)[1], :-1] = right_tmp[0]
-                    left_flat[0, odd.reshape(2, -1)[0], :-1] = right_tmp[1]
+                    left_flat[1, even[1]] = right_flat[0, odd[0]]
+                    left_flat[0, even[0]] = right_flat[1, odd[1]]
+                    left_flat[1, odd[1], :-1] = right_flat[0, even[0], 1:]
+                    left_flat[0, odd[0], :-1] = right_flat[1, even[1], 1:]
 
                     if rank == source and rank == dest:
                         recvbuf = sendbuf
@@ -942,27 +938,20 @@ class FullField(BaseField, Generic[Field]):
                         getMPIComm().Recv(recvbuf_host, source)
                         request.Wait()
                         recvbuf = arrayDevice(recvbuf_host, location)
-                    right_tmp = recvbuf.reshape(2, prod(self.latt_info.size[1:]) // 2, -1)
-                    left_flat[1, odd.reshape(2, -1)[1], -1] = right_tmp[0]
-                    left_flat[0, odd.reshape(2, -1)[0], -1] = right_tmp[1]
+                    left_flat[1, odd[1], -1] = recvbuf[0]
+                    left_flat[0, odd[0], -1] = recvbuf[1]
                 else:
-                    sendbuf = right_flat[odd, -1]
+                    sendbuf = arrayDevice([right_flat[0, odd[0], -1], right_flat[1, odd[1], -1]], location)
                     if rank == source and rank == dest:
                         pass
                     else:
                         sendbuf_host = arrayHostCopy(sendbuf, location)
                         request = getMPIComm().Isend(sendbuf_host, dest)
 
-                    right_tmp = right_flat[even].reshape(
-                        2, prod(self.latt_info.size[1:]) // 2, self.latt_info.size[0] // 2, -1
-                    )
-                    left_flat[1, odd.reshape(2, -1)[1]] = right_tmp[0]
-                    left_flat[0, odd.reshape(2, -1)[0]] = right_tmp[1]
-                    right_tmp = right_flat[odd, :-1].reshape(
-                        2, prod(self.latt_info.size[1:]) // 2, self.latt_info.size[0] // 2 - 1, -1
-                    )
-                    left_flat[1, even.reshape(2, -1)[1], 1:] = right_tmp[0]
-                    left_flat[0, even.reshape(2, -1)[0], 1:] = right_tmp[1]
+                    left_flat[1, odd[1]] = right_flat[0, even[0]]
+                    left_flat[0, odd[0]] = right_flat[1, even[1]]
+                    left_flat[1, even[1], 1:] = right_flat[0, odd[0], :-1]
+                    left_flat[0, even[0], 1:] = right_flat[1, odd[1], :-1]
 
                     if rank == source and rank == dest:
                         recvbuf = sendbuf
@@ -971,14 +960,13 @@ class FullField(BaseField, Generic[Field]):
                         getMPIComm().Recv(recvbuf_host, source)
                         request.Wait()
                         recvbuf = arrayDevice(recvbuf_host, location)
-                    right_tmp = recvbuf.reshape(2, prod(self.latt_info.size[1:]) // 2, -1)
-                    left_flat[1, even.reshape(2, -1)[1], 0] = right_tmp[0]
-                    left_flat[0, even.reshape(2, -1)[0], 0] = right_tmp[1]
+                    left_flat[1, even[1], 0] = recvbuf[0]
+                    left_flat[0, even[0], 0] = recvbuf[1]
 
                 n -= 1
             else:
-                left_slice[mu] = slice(-1, None) if dir == 1 else slice(None, 1)
-                right_slice[mu] = slice(None, 1) if dir == 1 else slice(-1, None)
+                left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
+                right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
                 sendbuf = right[(slice(None, None),) + tuple(right_slice[::-1])]
                 if rank == source and rank == dest:
                     pass
@@ -986,8 +974,8 @@ class FullField(BaseField, Generic[Field]):
                     sendbuf_host = arrayHostCopy(sendbuf, location)
                     request = getMPIComm().Isend(sendbuf_host, dest)
 
-                left_slice[mu] = slice(None, -1) if dir == 1 else slice(1, None)
-                right_slice[mu] = slice(1, None) if dir == 1 else slice(None, -1)
+                left_slice[mu] = slice(None, -1) if direction == 1 else slice(1, None)
+                right_slice[mu] = slice(1, None) if direction == 1 else slice(None, -1)
                 if mu == 0:
                     left[(0,) + tuple(left_slice[::-1])] = right[(0,) + tuple(right_slice[::-1])]
                     left[(1,) + tuple(left_slice[::-1])] = right[(1,) + tuple(right_slice[::-1])]
@@ -995,8 +983,8 @@ class FullField(BaseField, Generic[Field]):
                     left[(0,) + tuple(left_slice[::-1])] = right[(1,) + tuple(right_slice[::-1])]
                     left[(1,) + tuple(left_slice[::-1])] = right[(0,) + tuple(right_slice[::-1])]
 
-                left_slice[mu] = slice(-1, None) if dir == 1 else slice(None, 1)
-                right_slice[mu] = slice(None, 1) if dir == 1 else slice(-1, None)
+                left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
+                right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
                 if rank == source and rank == dest:
                     recvbuf = sendbuf
                 else:
