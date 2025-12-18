@@ -78,8 +78,9 @@ class HISQDirac(StaggeredFermionDirac):
         w_link = self.computeWLink(u_link)
         fatlink, longlink = self.computeXLink(w_link)
         fatlink, longlink = self.computeXLinkEpsilon(fatlink, longlink, w_link)
-        self.loadFatLongGauge(fatlink, longlink)
-        if self.multigrid.instance is None:
-            self.newMultigrid()
-        else:
-            self.updateMultigrid(thin_update_only)
+        general.loadFatLongGauge(fatlink, longlink, 1.0, self.naik_epsilon, self.gauge_param)
+        general.loadMultigrid(self.multigrid, self.invert_param, thin_update_only)
+
+    def freeGauge(self):
+        general.freeFatLongGauge()
+        general.freeMultigrid(self.multigrid, self.invert_param)

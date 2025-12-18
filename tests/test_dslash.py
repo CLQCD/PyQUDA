@@ -3,32 +3,29 @@ import cupy as cp
 
 from check_pyquda import weak_field
 
-from pyquda import init, pyquda as quda
 from pyquda.field import Ns, Nc
-from pyquda.enum_quda import QudaParity
 from pyquda_utils import core
 
-init([1, 1, 1, 1], [16, 16, 16, 32], 1, 1.0, resource_path=".cache")
-latt_info = core.getDefaultLattice()
+core.init([1, 1, 1, 1], resource_path=".cache")
+latt_info = core.LatticeInfo([16, 16, 16, 32], 1, 1.0)
 Lx, Ly, Lz, Lt = latt_info.size
 
 
 def applyDslash(Mp, p, U_seed):
     # Set parameters in Dslash and use m=-3.5 to make kappa=1
-    dslash = core.getDefaultDirac(-3.5, 0, 0)
+    dirac = core.getWilson(latt_info, -3.5, 0, 0)
 
     # Generate gauge and then load it
     U = core.LatticeGauge(latt_info)
     U.gauss(U_seed, 1.0)
-    dslash.loadGauge(U)
 
     # Load a from p and allocate b
     a = core.LatticeFermion(latt_info, cp.asarray(latt_info.evenodd(p, False)))
     b = core.LatticeFermion(latt_info)
 
     # Dslash a = b
-    quda.dslashQuda(b.even_ptr, a.odd_ptr, dslash.invert_param, QudaParity.QUDA_EVEN_PARITY)
-    quda.dslashQuda(b.odd_ptr, a.even_ptr, dslash.invert_param, QudaParity.QUDA_ODD_PARITY)
+    with dirac.useGauge(U):
+        b = dirac.dslash(a)
 
     # Save b to Mp
     Mp[:] = b.lexico()

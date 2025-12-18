@@ -97,7 +97,7 @@ class GaugeAction(Action):
         self.force_path = forcePath(self.action_path)
 
     def action(self) -> float:
-        traces = numpy.zeros((self.action_path.num_paths), "<c16")
+        traces = numpy.zeros(self.action_path.num_paths, "<c16")
         computeGaugeLoopTraceQuda(
             traces,
             self.action_path.input_path_buf,
@@ -107,7 +107,7 @@ class GaugeAction(Action):
             self.action_path.max_length,
             1,
         )
-        return traces.real.sum()
+        return traces.sum().real.item()
 
     def force(self, dt: float, mom: Optional[LatticeMom] = None):
         if mom is not None:

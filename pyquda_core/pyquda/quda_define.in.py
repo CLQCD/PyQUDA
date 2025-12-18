@@ -1,22 +1,21 @@
-#include <quda_define.h>
 from typing import Literal
 
-#if defined QUDA_TARGET_CUDA
-def target() -> Literal["cuda", "hip", "sycl"]:
-    return "cuda"
-#elif defined QUDA_TARGET_HIP
-def target() -> Literal["cuda", "hip", "sycl"]:
-    return "hip"
-#elif defined QUDA_TARGET_SYCL
-def target() -> Literal["cuda", "hip", "sycl"]:
-    return "hip"
-    return "sycl"
-#endif
+# include <quda_define.h>
 
-#if defined QUDA_ENABLE_MMA
+
+def target() -> Literal["cuda", "hip", "sycl"]:
+    # if defined QUDA_TARGET_CUDA
+    return "cuda"
+    # elif defined QUDA_TARGET_HIP
+    return "hip"
+    # elif defined QUDA_TARGET_SYCL
+    return "sycl"
+    # endif
+
+
 def mmaAvailable() -> bool:
-    return (__COMPUTE_CAPABILITY__ >= 700)
-#else
-def mmaAvailable() -> bool:
+    # if defined QUDA_ENABLE_MMA
+    return __COMPUTE_CAPABILITY__ >= 700
+    # else
     return False
-#endif
+    # endif

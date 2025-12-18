@@ -11,13 +11,13 @@ latt_info = core.LatticeInfo([24, 24, 24, 72], -1, 1.0)
 dirac = core.getDirac(latt_info, -0.2770, 1e-12, 1000, 1.0, 1.160920226, 1.160920226, [[6, 6, 6, 4], [4, 4, 4, 9]])
 gauge = io.readChromaQIOGauge("/public/ensemble/C24P29/beta6.20_mu-0.2770_ms-0.2400_L24x72_cfg_48000.lime")
 gauge.stoutSmear(1, 0.125, 4)
-dirac.loadGauge(gauge)
 
 G5 = gamma.gamma(15)
 t_src_list = list(range(0, 72, 1))
 pion = cp.zeros((len(t_src_list), latt_info.Lt), "<f8")
 
 propag = core.LatticePropagator(latt_info)
+dirac.loadGauge(gauge)
 for t_idx, t_src in enumerate(t_src_list):
     for spin in range(latt_info.Ns):
         for color in range(latt_info.Nc):
@@ -25,7 +25,7 @@ for t_idx, t_src in enumerate(t_src_list):
             x = dirac.invert(b)
             propag.setFermion(x, spin, color)
     pion[t_idx] += contract("wtzyxjiba,wtzyxjiba->t", propag.data.conj(), propag.data).real
-dirac.destroy()
+dirac.freeGauge()
 
 tmp = core.gatherLattice(pion.get(), [1, -1, -1, -1])
 if latt_info.mpi_rank == 0:

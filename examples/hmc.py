@@ -30,7 +30,7 @@ def getLoopsCoeffs(loops: List[List[int]], coeffs: List[float]):
     for i in range(num_paths):
         path_length[i] = len(loops[i])
         loop_coeff[i] = coeffs[i]
-    max_length = int(numpy.max(path_length))
+    max_length: int = numpy.max(path_length).elem()
     input_path_buf = numpy.full((num_paths, max_length), -1, "<i4")
     for i in range(num_paths):
         dx = [0, 0, 0, 0]
@@ -81,7 +81,7 @@ class HMC:
             max_length,
             1,
         )
-        return traces.real.sum()
+        return traces.sum().real.item()
 
     def actionMom(self) -> float:
         return momActionQuda(nullptr, self.gauge_param)

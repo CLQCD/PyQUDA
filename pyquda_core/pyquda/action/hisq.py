@@ -179,6 +179,7 @@ class MultiHISQAction(StaggeredFermionAction):
         self.coeff = coeff_all
         self.max_num_offset = max([self.num] + [pseudo_fermion.max_num_offset for pseudo_fermion in pseudo_fermions])
         self.pseudo_fermions = pseudo_fermions
+        self.current_naik_epsilon = pseudo_fermions[0].dirac.naik_epsilon
 
     def prepareFatLong(self):
         u_link = LatticeGauge(self.latt_info)
@@ -197,8 +198,11 @@ class MultiHISQAction(StaggeredFermionAction):
         return u_link, v_link, w_link
 
     def updateFatLong(self, pseudo_fermion: HISQAction):
-        fatlink, longlink = pseudo_fermion.dirac.computeXLinkEpsilon(self.fatlink, self.longlink, self.w_link)
-        pseudo_fermion.dirac.loadFatLongGauge(fatlink, longlink)
+        dirac = pseudo_fermion.dirac
+        if self.current_naik_epsilon != dirac.naik_epsilon or self.dirac is dirac:
+            fatlink, longlink = dirac.computeXLinkEpsilon(self.fatlink, self.longlink, self.w_link)
+            dirac.loadFatLongGauge(fatlink, longlink)
+            self.current_naik_epsilon = dirac.naik_epsilon
 
     def sample(self):
         self.prepareFatLong()

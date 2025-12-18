@@ -7,14 +7,14 @@ kappa = 0.115
 mass = 1 / (2 * kappa) - 4
 coeff_r, coeff_t = 0.91, 1.07
 
-core.init(None, [4, 4, 4, 8], -1, xi_0 / nu, resource_path=".cache")
+core.init(None, [4, 4, 4, 8], resource_path=".cache")
 
 gauge = io.readQIOGauge(weak_field)
+latt_info = core.LatticeInfo([4, 4, 4, 8], -1, xi_0 / nu)
+dirac = core.getClover(latt_info, mass, 1e-12, 1000, xi_0, coeff_t, coeff_r, [[4, 4, 4, 4]])
 
-dslash = core.getDefaultDirac(mass, 1e-12, 1000, xi_0, coeff_t, coeff_r, [[4, 4, 4, 4]])
-dslash.loadGauge(gauge)
-propagator = core.invert(dslash, "point", [0, 0, 0, 0], mrhs=12)
-dslash.destroy()
+with dirac.useGauge(gauge) as d:
+    propagator = core.invert(d, "point", [0, 0, 0, 0], mrhs=12)
 
 propagator_chroma = io.readQIOPropagator(data("pt_prop_1"))
 propagator_chroma.toDevice()

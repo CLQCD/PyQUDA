@@ -208,19 +208,19 @@ class HMC:
         hmc_inner: Optional["HMC"] = None,
     ) -> None:
         self.latt_info = latt_info
-        self._gauge_monomials: List[Action] = [
+        self.gauge_monomials: List[Action] = [
             monomial for monomial in monomials if not isinstance(monomial, FermionAction)
         ]
-        self._fermion_monomials: List[FermionAction] = [
+        self.fermion_monomials: List[FermionAction] = [
             monomial for monomial in monomials if isinstance(monomial, FermionAction)
         ]
-        self._integrator = integrator
-        self._hmc_inner = hmc_inner
-        if len(self._fermion_monomials) == 0:
+        self.integrator = integrator
+        self.hmc_inner = hmc_inner
+        if len(self.fermion_monomials) == 0:
             self.is_staggered = False
         else:
-            self.is_staggered = isinstance(self._fermion_monomials[0], StaggeredFermionAction)
-            for monomial in self._fermion_monomials[1:]:
+            self.is_staggered = isinstance(self.fermion_monomials[0], StaggeredFermionAction)
+            for monomial in self.fermion_monomials[1:]:
                 if self.is_staggered != isinstance(monomial, StaggeredFermionAction):
                     getLogger().critical(
                         "FermionAction and StaggeredFermionAction cannot be used at the same time", ValueError
@@ -242,11 +242,11 @@ class HMC:
         if self.is_staggered:
             from .action.hisq import HISQAction, MultiHISQAction
 
-            hisq_monomials = [monomial for monomial in self._fermion_monomials if isinstance(monomial, HISQAction)]
+            hisq_monomials = [monomial for monomial in self.fermion_monomials if isinstance(monomial, HISQAction)]
             if hisq_monomials != []:
                 hisq_monomials = [MultiHISQAction(self.latt_info, hisq_monomials)]
-            self._fermion_monomials = hisq_monomials + [
-                monomial for monomial in self._fermion_monomials if not isinstance(monomial, HISQAction)
+            self.fermion_monomials = hisq_monomials + [
+                monomial for monomial in self.fermion_monomials if not isinstance(monomial, HISQAction)
             ]
 
     def initializeRNG(self, seed: int):
@@ -325,10 +325,10 @@ class HMC:
         state = self.seed(None)
 
         self.loadGaugeMomSmeared()
-        for monomial in self._fermion_monomials:
+        for monomial in self.fermion_monomials:
             monomial.sample()
-        if self._hmc_inner is not None:
-            self._hmc_inner.samplePhi()
+        if self.hmc_inner is not None:
+            self.hmc_inner.samplePhi()
         self.loadGaugeMom()
 
         self.seed(state)
@@ -338,10 +338,10 @@ class HMC:
 
     def gaugeAction(self) -> float:
         action = 0
-        for monomial in self._gauge_monomials:
+        for monomial in self.gauge_monomials:
             action += monomial.action()
-        if self._hmc_inner is not None:
-            action += self._hmc_inner.gaugeAction()
+        if self.hmc_inner is not None:
+            action += self.hmc_inner.gaugeAction()
         return action
 
     def fermionAction(self, use_action_param: bool = False) -> float:
@@ -350,26 +350,25 @@ class HMC:
         """
         action = 0
         self.loadGaugeMomSmeared()
-        for monomial in self._fermion_monomials:
+        for monomial in self.fermion_monomials:
             action += monomial.action()  # if not use_action_param else monomial.actionFA()
-        if self._hmc_inner is not None:
-            action += self._hmc_inner.fermionAction()
+        if self.hmc_inner is not None:
+            action += self.hmc_inner.fermionAction()
         self.loadGaugeMom()
         return action
 
     def gaugeForce(self, dt: float):
-        for monomial in self._gauge_monomials:
+        for monomial in self.gauge_monomials:
             monomial.force(dt, self.force)
 
     def fermionForce(self, dt: float):
         self.loadGaugeMomSmeared()
-        for monomial in self._fermion_monomials:
+        for monomial in self.fermion_monomials:
             monomial.force(dt, self.force)
         self.loadGaugeMom()
 
     def updateGauge(self, dt: float):
         updateGaugeFieldQuda(nullptr, nullptr, dt, False, True, self.gauge_param)
-        loadGaugeQuda(nullptr, self.gauge_param)
 
     def updateMom(self, dt: float, gauge: bool = True, fermion: bool = True):
         if gauge:
@@ -414,11 +413,11 @@ class HMC:
         gauge.projectSU3(tol)
         self.loadGauge(gauge)
 
-    def integrate(self, t: float, project_tol: Optional[float] = None):
-        self._integrator.integrate(
-            self.updateGauge if self._hmc_inner is None else self._hmc_inner.integrate, self.updateMom, t
+    def integrate(self, t: float, project_tol: float = 0.0):
+        self.integrator.integrate(
+            self.updateGauge if self.hmc_inner is None else self.hmc_inner.integrate, self.updateMom, t
         )
-        if project_tol is not None:
+        if project_tol > 0.0:
             self.projectSU3(project_tol)
 
     def accept(self, delta_s: float):

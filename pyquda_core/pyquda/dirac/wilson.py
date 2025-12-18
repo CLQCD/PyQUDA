@@ -46,7 +46,8 @@ class WilsonDirac(FermionDirac):
 
     def loadGauge(self, gauge: LatticeGauge, thin_update_only: bool = False):
         general.loadGauge(gauge, self.gauge_param)
-        if self.multigrid.instance is None:
-            self.newMultigrid()
-        else:
-            self.updateMultigrid(thin_update_only)
+        general.loadMultigrid(self.multigrid, self.invert_param, thin_update_only)
+
+    def freeGauge(self):
+        general.freeGauge()
+        general.freeMultigrid(self.multigrid, self.invert_param)

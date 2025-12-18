@@ -3,27 +3,29 @@ from typing import List, Literal, NamedTuple, Optional
 import numpy
 from numpy.typing import NDArray
 
-from pyquda_comm import getLogger, getArrayBackendTarget
+from pyquda_comm import getArrayBackendTarget
+from pyquda_comm.pointer import Pointer
 from ..field import (
     LatticeInfo,
     LatticeGauge,
     LatticeClover,
-    LatticeFermion,
-    LatticeStaggeredFermion,
 )
 from ..pyquda import (
     QudaGaugeParam,
     QudaInvertParam,
     QudaMultigridParam,
-    loadCloverQuda,
+    QudaEigParam,
     loadGaugeQuda,
-    invertQuda,
-    MatQuda,
-    MatDagMatQuda,
-    dslashQuda,
-    cloverQuda,
+    freeUniqueGaugeQuda,
+    loadCloverQuda,
+    freeCloverQuda,
     computeKSLinkQuda,
     staggeredPhaseQuda,
+    newMultigridQuda,
+    updateMultigridQuda,
+    destroyMultigridQuda,
+    newDeflationQuda,
+    destroyDeflationQuda,
 )
 from ..enum_quda import (
     QUDA_MAX_DIM,
@@ -48,7 +50,6 @@ from ..enum_quda import (
     QudaDiracFieldOrder,
     QudaCloverFieldOrder,
     QudaVerbosity,
-    QudaParity,
     QudaFieldLocation,
     QudaGammaBasis,
     QudaUseInitGuess,
@@ -452,6 +453,111 @@ def newQudaInvertParam(
     return invert_param
 
 
+class Multigrid:
+    param: Optional[QudaMultigridParam]
+    inv_param: Optional[QudaInvertParam]
+    instance: Optional[Pointer]
+
+    def __init__(self, param: Optional[QudaMultigridParam], inv_param: Optional[QudaInvertParam]) -> None:
+        self.param = param
+        self.inv_param = inv_param
+        self.instance = None
+
+    def setParam(
+        self,
+        *,
+        coarse_tol: float = 0.25,
+        coarse_maxiter: int = 16,
+        setup_tol: float = 1e-6,
+        setup_maxiter: int = 1000,
+        smoother_tol: float = 0.25,
+        smoother_nu_pre: int = 0,
+        smoother_nu_post: int = 8,
+        smoother_omega: float = 1.0,
+    ):
+        assert self.param is not None
+        self.param.coarse_solver_tol = [coarse_tol] * QUDA_MAX_MG_LEVEL
+        self.param.coarse_solver_maxiter = [coarse_maxiter] * QUDA_MAX_MG_LEVEL
+        self.param.setup_tol = [setup_tol] * QUDA_MAX_MG_LEVEL
+        self.param.setup_maxiter = [setup_maxiter] * QUDA_MAX_MG_LEVEL
+        self.param.setup_maxiter_refresh = [setup_maxiter // 10] * QUDA_MAX_MG_LEVEL
+        self.param.smoother_tol = [smoother_tol] * QUDA_MAX_MG_LEVEL
+        self.param.nu_pre = [smoother_nu_pre] * QUDA_MAX_MG_LEVEL
+        self.param.nu_post = [smoother_nu_post] * QUDA_MAX_MG_LEVEL
+        self.param.omega = [smoother_omega] * QUDA_MAX_MG_LEVEL
+
+    def new(self):
+        assert self.param is not None
+        if self.instance is not None:
+            destroyMultigridQuda(self.instance)
+        self.instance = newMultigridQuda(self.param)
+
+    def update(self, thin_update_only: bool):
+        assert self.param is not None
+        if self.instance is not None:
+            self.param.thin_update_only = QudaBoolean(thin_update_only)
+            updateMultigridQuda(self.instance, self.param)
+            self.param.thin_update_only = QudaBoolean.QUDA_BOOLEAN_FALSE
+
+    def destroy(self):
+        if self.instance is not None:
+            destroyMultigridQuda(self.instance)
+        self.instance = None
+
+
+def loadMultigrid(multigrid: Multigrid, invert_param: QudaInvertParam, thin_update_only: bool):
+    if multigrid.param is not None:
+        if multigrid.instance is None:
+            multigrid.new()
+            assert multigrid.instance is not None
+            invert_param.preconditioner = multigrid.instance
+        else:
+            multigrid.update(thin_update_only)
+
+
+def freeMultigrid(multigrid: Multigrid, invert_param: QudaInvertParam):
+    if multigrid.param is not None:
+        multigrid.destroy()
+        invert_param.preconditioner = Pointer("void")
+
+
+class Deflation:
+    param: Optional[QudaEigParam]
+    inv_param: Optional[QudaInvertParam]
+    instance: Optional[Pointer]
+
+    def __init__(self, param: Optional[QudaEigParam], inv_param: Optional[QudaInvertParam]) -> None:
+        self.param = param
+        self.inv_param = inv_param
+        self.instance = None
+
+    def new(self):
+        assert self.param is not None
+        if self.instance is not None:
+            destroyDeflationQuda(self.instance)
+        self.instance = newDeflationQuda(self.param)
+
+    def destroy(self):
+        if self.instance is not None:
+            destroyMultigridQuda(self.instance)
+        self.instance = None
+
+
+def loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
+    gauge_in = gauge.copy()
+    if gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
+        gauge_in.setAntiPeriodicT()
+    if gauge_param.anisotropy != 1.0:
+        gauge_in.setAnisotropy(gauge_param.anisotropy)
+    gauge_param.use_resident_gauge = 0
+    loadGaugeQuda(gauge_in.data_ptrs, gauge_param)
+    gauge_param.use_resident_gauge = 1
+
+
+def freeGauge():
+    freeUniqueGaugeQuda(QudaLinkType.QUDA_WILSON_LINKS)
+
+
 def loadClover(
     clover: Optional[LatticeClover],
     clover_inv: Optional[LatticeClover],
@@ -520,15 +626,8 @@ def saveClover(
     invert_param.return_clover_inverse = 0
 
 
-def loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
-    gauge_in = gauge.copy()
-    if gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
-        gauge_in.setAntiPeriodicT()
-    if gauge_param.anisotropy != 1.0:
-        gauge_in.setAnisotropy(gauge_param.anisotropy)
-    gauge_param.use_resident_gauge = 0
-    loadGaugeQuda(gauge_in.data_ptrs, gauge_param)
-    gauge_param.use_resident_gauge = 1
+def freeClover():
+    freeCloverQuda()
 
 
 def newAsqtadPathCoeff(tadpole_coeff: float):
@@ -690,6 +789,10 @@ def loadStaggeredGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     gauge_param.use_resident_gauge = 1
 
 
+def freeStaggeredGauge():
+    freeUniqueGaugeQuda(QudaLinkType.QUDA_WILSON_LINKS)
+
+
 def loadFatLongGauge(
     fatlink: LatticeGauge,
     longlink: LatticeGauge,
@@ -719,88 +822,6 @@ def loadFatLongGauge(
     gauge_param.use_resident_gauge = 1
 
 
-def performance(invert_param: QudaInvertParam):
-    gflops, secs = invert_param.gflops, invert_param.secs
-    getLogger().info(f"Time = {secs:.3f} secs, Performance = {gflops / secs:.3f} GFLOPS")
-
-
-def invert(b: LatticeFermion, invert_param: QudaInvertParam):
-    x = LatticeFermion(b.latt_info)
-    invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    performance(invert_param)
-    return x
-
-
-def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
-    x = LatticeStaggeredFermion(b.latt_info)
-    invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    performance(invert_param)
-    return x
-
-
-def mat(x: LatticeFermion, invert_param: QudaInvertParam):
-    b = LatticeFermion(x.latt_info)
-    MatQuda(b.data_ptr, x.data_ptr, invert_param)
-    return b
-
-
-def matStaggered(x: LatticeStaggeredFermion, invert_param: QudaInvertParam):
-    b = LatticeStaggeredFermion(x.latt_info)
-    MatQuda(b.data_ptr, x.data_ptr, invert_param)
-    return b
-
-
-def matDagMat(x: LatticeFermion, invert_param: QudaInvertParam):
-    b = LatticeFermion(x.latt_info)
-    MatDagMatQuda(b.data_ptr, x.data_ptr, invert_param)
-    return b
-
-
-def matDagMatStaggered(x: LatticeStaggeredFermion, invert_param: QudaInvertParam):
-    b = LatticeStaggeredFermion(x.latt_info)
-    MatDagMatQuda(b.data_ptr, x.data_ptr, invert_param)
-    return b
-
-
-def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
-    kappa = invert_param.kappa
-    invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
-    invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
-
-    latt_info = b.latt_info
-    x = LatticeFermion(latt_info)
-
-    dslashQuda(x.odd_ptr, b.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
-    x.even = b.odd + kappa * x.odd
-    # * QUDA_ASYMMETRIC_MASS_NORMALIZATION makes the even part 1 / (2 * kappa) instead of 1
-    invertQuda(x.odd_ptr, x.even_ptr, invert_param)
-    performance(invert_param)
-    dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
-    x.even = kappa * (2 * b.even + x.even)
-
-    return x
-
-
-def invertCloverPC(b: LatticeFermion, invert_param: QudaInvertParam):
-    tmp = LatticeFermion(b.latt_info)
-    cloverQuda(tmp.even_ptr, b.even_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY, 1)
-    cloverQuda(tmp.odd_ptr, b.odd_ptr, invert_param, QudaParity.QUDA_ODD_PARITY, 1)
-    return invertPC(tmp, invert_param)
-
-
-def invertStaggeredPC(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
-    mass = invert_param.mass
-    invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
-    invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
-
-    latt_info = b.latt_info
-    x = LatticeStaggeredFermion(latt_info)
-
-    dslashQuda(x.odd_ptr, b.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
-    x.even = (2 * mass) * b.odd + x.odd
-    invertQuda(x.odd_ptr, x.even_ptr, invert_param)
-    performance(invert_param)
-    dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
-    x.even = (0.5 / mass) * (b.even + x.even)
-
-    return x
+def freeFatLongGauge():
+    freeUniqueGaugeQuda(QudaLinkType.QUDA_ASQTAD_FAT_LINKS)
+    freeUniqueGaugeQuda(QudaLinkType.QUDA_ASQTAD_LONG_LINKS)

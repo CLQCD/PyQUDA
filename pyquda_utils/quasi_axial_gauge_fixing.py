@@ -62,9 +62,9 @@ def quasiAxialGaugeFixing(gauge: LatticeGauge, dir: int):
     rotate_ = LatticeFermion(latt_info)
     rotate.pack(0, rotate_)
     gauge.data = contract("wtzyxba,dwtzyxbc->dwtzyxac", rotate.data.conj(), gauge.data)
-    gauge.gauge_dirac.loadGauge(gauge)
-    gauge.unpack(X, gauge.gauge_dirac.covDev(rotate_, X))
-    gauge.unpack(Y, gauge.gauge_dirac.covDev(rotate_, Y))
-    gauge.unpack(Z, gauge.gauge_dirac.covDev(rotate_, Z))
-    gauge.unpack(T, gauge.gauge_dirac.covDev(rotate_, T))
+    with gauge.use() as dirac:
+        gauge.unpack(X, dirac.covDev(rotate_, X))
+        gauge.unpack(Y, dirac.covDev(rotate_, Y))
+        gauge.unpack(Z, dirac.covDev(rotate_, Z))
+        gauge.unpack(T, dirac.covDev(rotate_, T))
     return rotate

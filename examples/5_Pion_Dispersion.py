@@ -11,7 +11,6 @@ latt_info = core.LatticeInfo([24, 24, 24, 72], -1, 1.0)
 dirac = core.getDirac(latt_info, -0.2770, 1e-12, 1000, 1.0, 1.160920226, 1.160920226, [[6, 6, 6, 4], [4, 4, 4, 9]])
 gauge = io.readChromaQIOGauge("/public/ensemble/C24P29/beta6.20_mu-0.2770_ms-0.2400_L24x72_cfg_48000.lime")
 gauge.stoutSmear(1, 0.125, 4)
-dirac.loadGauge(gauge)
 
 G5 = gamma.gamma(15)
 momentum_list = [[0, 0, 0], [0, 0, 1], [0, 1, 1], [1, 1, 1], [0, 0, 2], [0, 1, 2], [1, 1, 2], [0, 2, 2], [1, 2, 2]]
@@ -19,6 +18,7 @@ momentum_phase = phase.MomentumPhase(latt_info).getPhases(momentum_list)
 t_src_list = list(range(0, 72, 72))
 pion = cp.zeros((len(t_src_list), len(momentum_list), latt_info.Lt), "<c16")
 
+dirac.loadGauge(gauge)
 for t_idx, t_src in enumerate(t_src_list):
     propag = core.invert(dirac, "point", [0, 0, 0, t_src])
 
@@ -30,8 +30,7 @@ for t_idx, t_src in enumerate(t_src_list):
         propag.data,
         G5 @ G5,
     )
-
-dirac.destroy()
+dirac.freeGauge()
 
 tmp = core.gatherLattice(pion.real.get(), [2, -1, -1, -1])
 if latt_info.mpi_rank == 0:

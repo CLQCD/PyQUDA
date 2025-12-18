@@ -1,5 +1,5 @@
 from os import environ, path
-from typing import List, Literal, Optional, Union
+from typing import List, Literal, Optional
 
 from ._version import __version__  # noqa: F401
 from pyquda_comm import (  # noqa: F401
@@ -21,10 +21,8 @@ from pyquda_comm import (  # noqa: F401
     getArrayBackend,
     getArrayDevice,
 )
-from pyquda_comm.field import LatticeInfo
 from . import quda_define
 
-_DEFAULT_LATTICE: Union[LatticeInfo, None] = None
 _QUDA_INITIALIZED: bool = False
 
 
@@ -83,8 +81,6 @@ def initQUDA(grid_size: List[int], device: int, use_quda_allocator: bool = False
 def init(
     grid_size: Optional[List[int]] = None,
     latt_size: Optional[List[int]] = None,
-    t_boundary: Optional[Literal[1, -1]] = None,
-    anisotropy: Optional[float] = None,
     grid_map: GridMapType = "default",
     backend: BackendType = "cupy",
     backend_target: BackendTargetType = quda_define.target(),
@@ -123,19 +119,9 @@ def init(
     """
     Initialize MPI along with the QUDA library.
     """
-    global _DEFAULT_LATTICE
     if not isGridInitialized() or not isDeviceInitialized():
         initGrid(grid_map, grid_size, latt_size)
         initDevice(backend, backend_target, -1, enable_mps)
-
-        use_default_grid = grid_size is None and latt_size is not None
-        use_default_latt = latt_size is not None and t_boundary is not None and anisotropy is not None
-        if use_default_grid and not use_default_latt:
-            getLogger().info(f"Using lattice size {latt_size} only for getting the default grid size {getGridSize()}")
-        if use_default_latt:
-            assert latt_size is not None and t_boundary is not None and anisotropy is not None
-            _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
-            getLogger().info(f"Using LatticeInfo({latt_size}, {t_boundary}, {anisotropy}) as the default lattice")
 
     if init_quda:
         if not _QUDA_INITIALIZED:
@@ -185,13 +171,3 @@ def init(
 
 def isQUDAInitialized():
     return _QUDA_INITIALIZED
-
-
-def setDefaultLattice(latt_size: List[int], t_boundary: Literal[1, -1], anisotropy: float):
-    global _DEFAULT_LATTICE
-    _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
-
-
-def getDefaultLattice():
-    assert _DEFAULT_LATTICE is not None, "Default lattice is not set"
-    return _DEFAULT_LATTICE

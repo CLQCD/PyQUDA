@@ -12,8 +12,6 @@ from pyquda import (
     getGridSize,
     getGridCoord,
     getGridMap,
-    setDefaultLattice,
-    getDefaultLattice,
     getArrayBackend,
     getArrayDevice,
     getLogger,
@@ -435,25 +433,3 @@ def getHISQ(
     assert latt_info.anisotropy == 1.0
 
     return fermion.HISQDirac(latt_info, mass, tol, maxiter, naik_epsilon, multigrid)
-
-
-def getDefaultDirac(
-    mass: float,
-    tol: float,
-    maxiter: int,
-    xi_0: float = 1.0,
-    clover_coeff_t: float = 0.0,
-    clover_coeff_r: float = 1.0,
-    multigrid: Union[List[List[int]], Multigrid] = None,
-):
-    return getDirac(getDefaultLattice(), mass, tol, maxiter, xi_0, clover_coeff_t, clover_coeff_r, multigrid)
-
-
-def getDefaultStaggeredDirac(
-    mass: float,
-    tol: float,
-    maxiter: int,
-    tadpole_coeff: float = 1.0,
-    naik_epsilon: float = 0.0,
-):
-    return getStaggeredDirac(getDefaultLattice(), mass, tol, maxiter, tadpole_coeff, naik_epsilon)

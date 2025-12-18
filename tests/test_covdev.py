@@ -3,11 +3,11 @@ import cupy as cp
 
 from check_pyquda import weak_field
 
-from pyquda.field import LatticeGauge, LatticeFermion, Nd, Nc
+from pyquda.field import LatticeGauge, LatticeFermion, Nd
 from pyquda_utils import core, io, source
 
-core.init([1, 1, 1, 1], [4, 4, 4, 8], 1, 1.0, resource_path=".cache")
-latt_info = core.getDefaultLattice()
+core.init([1, 1, 1, 1], resource_path=".cache")
+latt_info = core.LatticeInfo([4, 4, 4, 8], 1, 1.0)
 
 
 def covdev(U: LatticeGauge, x: LatticeFermion, mu: int):
@@ -44,18 +44,17 @@ unit = LatticeGauge(latt_info)
 
 gauge.toDevice()
 gauge2 = gauge.copy()
-gauge.gauge_dirac.loadGauge(unit)
-x = LatticeFermion(latt_info)
-for dim in range(Nd):
-    for covdev_mu in range(8):
-        gauge3_dim = gauge2[dim].shift(1, covdev_mu)
+with unit.use() as dirac:
+    x = LatticeFermion(latt_info)
+    for dim in range(Nd):
+        for covdev_mu in range(8):
+            gauge3_dim = gauge2[dim].shift(1, covdev_mu)
 
-        x.data[:, :, :, :, :, :Nc, :] = gauge2.data[dim]
-        gauge2.data[dim] = unit.gauge_dirac.covDev(x, covdev_mu).data[:, :, :, :, :, :Nc, :]
-        gauge2.projectSU3(2e-15)
+            gauge2.pack(dim, x)
+            gauge2.unpack(dim, dirac.covDev(x, covdev_mu))
+            gauge2.projectSU3(2e-15)
 
-        shift(gauge, dim, covdev_mu)
+            shift(gauge, dim, covdev_mu)
 
-        print(dim, covdev_mu, cp.linalg.norm(gauge.data[dim] - gauge2.data[dim]))
-        print(dim, covdev_mu, cp.linalg.norm(gauge2.data[dim] - gauge3_dim.data))
-
+            print(dim, covdev_mu, cp.linalg.norm(gauge.data[dim] - gauge2.data[dim]))
+            print(dim, covdev_mu, cp.linalg.norm(gauge2.data[dim] - gauge3_dim.data))

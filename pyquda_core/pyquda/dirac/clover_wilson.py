@@ -62,12 +62,14 @@ class CloverWilsonDirac(FermionDirac):
     def restoreClover(self):
         assert self.clover is not None and self.clover_inv is not None
         general.loadClover(self.clover, self.clover_inv, None, self.gauge_param, self.invert_param)
-        self.updateMultigrid(True)
+        general.loadMultigrid(self.multigrid, self.invert_param, True)
 
     def loadGauge(self, gauge: LatticeGauge, thin_update_only: bool = False):
         general.loadClover(self.clover, self.clover_inv, gauge, self.gauge_param, self.invert_param)
         general.loadGauge(gauge, self.gauge_param)
-        if self.multigrid.instance is None:
-            self.newMultigrid()
-        else:
-            self.updateMultigrid(thin_update_only)
+        general.loadMultigrid(self.multigrid, self.invert_param, thin_update_only)
+
+    def freeGauge(self):
+        general.freeClover()
+        general.freeGauge()
+        general.freeMultigrid(self.multigrid, self.invert_param)

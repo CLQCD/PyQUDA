@@ -16,7 +16,7 @@ core.init(resource_path=".cache")
 t = 3
 
 gauge = io.readChromaQIOGauge(weak_field)
-gauge.smearSTOUT(10, 0.12, 3)
+gauge.stoutSmear(10, 0.12, 3)
 Lx, Ly, Lz, Lt = gauge.latt_info.size
 latt_info = LatticeInfo([Lx, Ly, Lz, 1])
 gauge_tmp_lexico = cp.array(gauge.lexico()[:, t])
@@ -67,41 +67,41 @@ evals, evecs = linalg.eigsh(A, n_ev, which="SA", tol=tol)
 print(f"{perf_counter() - s:.3f} secs")
 print(evals)
 
-gauge_tmp._gauge_dirac.loadGauge(gauge_tmp)
-eig_param = quda.QudaEigParam()
-eig_param.invert_param = gauge_tmp._gauge_dirac.invert_param
-eig_param.eig_type = enum_quda.QudaEigType.QUDA_EIG_TR_LANCZOS
-eig_param.use_dagger = enum_quda.QudaBoolean.QUDA_BOOLEAN_FALSE
-eig_param.use_norm_op = enum_quda.QudaBoolean.QUDA_BOOLEAN_FALSE
-eig_param.use_pc = enum_quda.QudaBoolean.QUDA_BOOLEAN_FALSE
-eig_param.compute_gamma5 = enum_quda.QudaBoolean.QUDA_BOOLEAN_FALSE
-eig_param.spectrum = enum_quda.QudaEigSpectrumType.QUDA_SPECTRUM_SR_EIG
-eig_param.n_ev = n_ev
-eig_param.n_kr = n_kr
-eig_param.n_conv = n_ev
-eig_param.tol = tol
-eig_param.vec_infile = b""
-eig_param.vec_outfile = b""
-eig_param.max_restarts = max_restarts
-eig_param.use_poly_acc = enum_quda.QudaBoolean.QUDA_BOOLEAN_TRUE
-eig_param.poly_deg = 20
-eig_param.a_min = 0.4
-eig_param.a_max = 2.0
+with gauge_tmp.use() as dirac:
+    eig_param = quda.QudaEigParam()
+    eig_param.invert_param = dirac.invert_param
+    eig_param.eig_type = enum_quda.QudaEigType.QUDA_EIG_TR_LANCZOS
+    eig_param.use_dagger = enum_quda.QudaBoolean.QUDA_BOOLEAN_FALSE
+    eig_param.use_norm_op = enum_quda.QudaBoolean.QUDA_BOOLEAN_FALSE
+    eig_param.use_pc = enum_quda.QudaBoolean.QUDA_BOOLEAN_FALSE
+    eig_param.compute_gamma5 = enum_quda.QudaBoolean.QUDA_BOOLEAN_FALSE
+    eig_param.spectrum = enum_quda.QudaEigSpectrumType.QUDA_SPECTRUM_SR_EIG
+    eig_param.n_ev = n_ev
+    eig_param.n_kr = n_kr
+    eig_param.n_conv = n_ev
+    eig_param.tol = tol
+    eig_param.vec_infile = b""
+    eig_param.vec_outfile = b""
+    eig_param.max_restarts = max_restarts
+    eig_param.use_poly_acc = enum_quda.QudaBoolean.QUDA_BOOLEAN_TRUE
+    eig_param.poly_deg = 20
+    eig_param.a_min = 0.4
+    eig_param.a_max = 2.0
 
-evecs = MultiLatticeStaggeredFermion(latt_info, n_ev)
-evals = np.zeros((n_ev), "<c16")
-s = perf_counter()
-quda.eigensolveQuda(evecs.data_ptrs, evals, eig_param)
-print(f"{perf_counter() - s:.3f} secs")
-print(evals.real)
-evecs = evecs.lexico().reshape(n_ev, -1)
-evecs *= np.exp(-1j * np.angle(evecs[:, 0])).reshape(n_ev, 1)
+    evecs = MultiLatticeStaggeredFermion(latt_info, n_ev)
+    evals = np.zeros((n_ev), "<c16")
+    s = perf_counter()
+    quda.eigensolveQuda(evecs.data_ptrs, evals, eig_param)
+    print(f"{perf_counter() - s:.3f} secs")
+    print(np.real(evals))
+    evecs = evecs.lexico().reshape(n_ev, -1)
+    evecs *= np.exp(-1j * np.angle(evecs[:, 0])).reshape(n_ev, 1)
 
-s = perf_counter()
-evals_all, evecs_all = eigensolve.laplace3d(gauge, n_ev, n_kr, tol, max_restarts, poly_deg=20, poly_cut=0.4)
-print(f"{perf_counter() - s:.3f} secs")
-print(evals_all[t])
-evecs_all = evecs_all.lexico().reshape(n_ev, Lt, -1)
-evecs_all *= np.exp(-1j * np.angle(evecs_all[:, :, 0])).reshape(n_ev, Lt, 1)
+    s = perf_counter()
+    evals_all, evecs_all = eigensolve.laplace3d(gauge, n_ev, n_kr, tol, max_restarts, poly_deg=20, poly_cut=0.4)
+    print(f"{perf_counter() - s:.3f} secs")
+    print(evals_all[t])
+    evecs_all = evecs_all.lexico().reshape(n_ev, Lt, -1)
+    evecs_all *= np.exp(-1j * np.angle(evecs_all[:, :, 0])).reshape(n_ev, Lt, 1)
 
 print(np.linalg.norm(evecs - evecs_all[:, t]))

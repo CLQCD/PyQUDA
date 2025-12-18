@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from contextlib import contextmanager
+from typing import Any, List, Dict, Tuple, Optional
 
 from pyquda_comm import getLogger
-from pyquda_comm.pointer import Pointer
-from ..field import (
+from pyquda_comm.field import (
     LatticeInfo,
     LatticeGauge,
     LatticeFermion,
@@ -14,7 +14,6 @@ from ..field import (
 from ..pyquda import (
     QudaGaugeParam,
     QudaInvertParam,
-    QudaMultigridParam,
     QudaEigParam,
     QudaGaugeSmearParam,
     QudaGaugeObservableParam,
@@ -24,16 +23,15 @@ from ..pyquda import (
     MatDagMatQuda,
     dslashQuda,
     dslashMultiSrcQuda,
-    newMultigridQuda,
-    updateMultigridQuda,
-    destroyMultigridQuda,
+    cloverQuda,
 )
 from ..enum_quda import (
     QUDA_MAX_MG_LEVEL,
-    QudaBoolean,
     QudaParity,
     QudaPrecision,
     QudaReconstructType,
+    QudaSolutionType,
+    QudaMatPCType,
     # QudaSolverNormalization,
     QudaVerbosity,
 )
@@ -41,11 +39,14 @@ from ..enum_quda import (
 from .general import (
     Precision,
     Reconstruct,
+    Multigrid,
     getGlobalPrecision,
     getGlobalReconstruct,
     setPrecisionParam,
     setReconstructParam,
 )
+
+_DIRAC_GAUGE_STACK: List[Tuple["Dirac", LatticeGauge, Dict[str, Any]]] = []
 
 
 class Dirac(ABC):
@@ -62,6 +63,27 @@ class Dirac(ABC):
         self.latt_info = latt_info
         self.precision = getGlobalPrecision("none")
         self.reconstruct = getGlobalReconstruct("none")
+
+    @abstractmethod
+    def loadGauge(self, gauge: LatticeGauge):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def freeGauge(self):
+        raise NotImplementedError()
+
+    @contextmanager
+    def useGauge(self, gauge: LatticeGauge):
+        try:
+            _DIRAC_GAUGE_STACK.append((self, gauge, {}))
+            self.loadGauge(gauge)
+            yield self
+        finally:
+            _DIRAC_GAUGE_STACK.pop()
+            self.freeGauge()
+            if len(_DIRAC_GAUGE_STACK) > 0:
+                _dirac, _gauge, _kwargs = _DIRAC_GAUGE_STACK[-1]
+                _dirac.loadGauge(_gauge, **_kwargs)
 
     def setPrecision(
         self,
@@ -103,64 +125,33 @@ class Dirac(ABC):
         self.invert_param.verbosity_precondition = verbosity
 
 
-class Multigrid:
-    param: Optional[QudaMultigridParam]
-    inv_param: Optional[QudaInvertParam]
-    instance: Optional[Pointer]
-
-    def __init__(self, param: Optional[QudaMultigridParam], inv_param: Optional[QudaInvertParam]) -> None:
-        self.param = param
-        self.inv_param = inv_param
-        self.instance = None
-
-    def setParam(
-        self,
-        *,
-        coarse_tol: float = 0.25,
-        coarse_maxiter: int = 16,
-        setup_tol: float = 1e-6,
-        setup_maxiter: int = 1000,
-        smoother_tol: float = 0.25,
-        smoother_nu_pre: int = 0,
-        smoother_nu_post: int = 8,
-        smoother_omega: float = 1.0,
-    ):
-        assert self.param is not None
-        self.param.coarse_solver_tol = [coarse_tol] * QUDA_MAX_MG_LEVEL
-        self.param.coarse_solver_maxiter = [coarse_maxiter] * QUDA_MAX_MG_LEVEL
-        self.param.setup_tol = [setup_tol] * QUDA_MAX_MG_LEVEL
-        self.param.setup_maxiter = [setup_maxiter] * QUDA_MAX_MG_LEVEL
-        self.param.setup_maxiter_refresh = [setup_maxiter // 10] * QUDA_MAX_MG_LEVEL
-        self.param.smoother_tol = [smoother_tol] * QUDA_MAX_MG_LEVEL
-        self.param.nu_pre = [smoother_nu_pre] * QUDA_MAX_MG_LEVEL
-        self.param.nu_post = [smoother_nu_post] * QUDA_MAX_MG_LEVEL
-        self.param.omega = [smoother_omega] * QUDA_MAX_MG_LEVEL
-
-    def new(self):
-        assert self.param is not None
-        if self.instance is not None:
-            destroyMultigridQuda(self.instance)
-        self.instance = newMultigridQuda(self.param)
-
-    def update(self, thin_update_only: bool):
-        assert self.param is not None
-        if self.instance is not None:
-            self.param.thin_update_only = QudaBoolean(thin_update_only)
-            updateMultigridQuda(self.instance, self.param)
-            self.param.thin_update_only = QudaBoolean.QUDA_BOOLEAN_FALSE
-
-    def destroy(self):
-        if self.instance is not None:
-            destroyMultigridQuda(self.instance)
-        self.instance = None
-
-
 class FermionDirac(Dirac):
     multigrid: Multigrid
 
     def __init__(self, latt_info: LatticeInfo) -> None:
         super().__init__(latt_info)
         self.reconstruct = getGlobalReconstruct("wilson")
+
+    @abstractmethod
+    def loadGauge(self, gauge: LatticeGauge, thin_update_only: bool = False):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def freeGauge(self):
+        raise NotImplementedError()
+
+    @contextmanager
+    def useGauge(self, gauge: LatticeGauge):
+        try:
+            _DIRAC_GAUGE_STACK.append((self, gauge, {"thin_update_only": True}))
+            self.loadGauge(gauge, True)
+            yield self
+        finally:
+            _DIRAC_GAUGE_STACK.pop()
+            self.freeGauge()
+            if len(_DIRAC_GAUGE_STACK) > 0:
+                _dirac, _gauge, _kwargs = _DIRAC_GAUGE_STACK[-1]
+                _dirac.loadGauge(_gauge, **_kwargs)
 
     def setPrecision(
         self,
@@ -182,13 +173,6 @@ class FermionDirac(Dirac):
         if self.multigrid.param is not None and self.multigrid.inv_param is not None:
             self.multigrid.param.verbosity = [verbosity] * QUDA_MAX_MG_LEVEL
             self.multigrid.inv_param.verbosity = verbosity
-
-    @abstractmethod
-    def loadGauge(self, gauge: LatticeGauge):
-        pass
-
-    def destroy(self):
-        self.multigrid.destroy()
 
     def performance(self):
         gflops, secs = self.invert_param.gflops, self.invert_param.secs
@@ -224,9 +208,15 @@ class FermionDirac(Dirac):
         MatDagMatQuda(b.data_ptr, x.data_ptr, self.invert_param)
         return b
 
-    def dslash(self, x: LatticeFermion, parity: QudaParity):
+    def dslash(self, x: LatticeFermion, parity: QudaParity = QudaParity.QUDA_INVALID_PARITY):
         b = LatticeFermion(x.latt_info)
-        dslashQuda(b.data_ptr, x.data_ptr, self.invert_param, parity)
+        if parity == QudaParity.QUDA_EVEN_PARITY:
+            dslashQuda(b.even_ptr, x.odd_ptr, self.invert_param, QudaParity.QUDA_EVEN_PARITY)
+        elif parity == QudaParity.QUDA_ODD_PARITY:
+            dslashQuda(b.odd_ptr, x.even_ptr, self.invert_param, QudaParity.QUDA_ODD_PARITY)
+        elif parity == QudaParity.QUDA_INVALID_PARITY:
+            dslashQuda(b.even_ptr, x.odd_ptr, self.invert_param, QudaParity.QUDA_EVEN_PARITY)
+            dslashQuda(b.odd_ptr, x.even_ptr, self.invert_param, QudaParity.QUDA_ODD_PARITY)
         return b
 
     def invertMultiSrc(self, b: MultiLatticeFermion):
@@ -251,23 +241,38 @@ class FermionDirac(Dirac):
                 x[i] += r[i]
         return x
 
-    def dslashMultiSrc(self, x: MultiLatticeFermion, parity: QudaParity):
+    def dslashMultiSrc(self, x: MultiLatticeFermion, parity: QudaParity = QudaParity.QUDA_INVALID_PARITY):
         self.invert_param.num_src = x.L5
         b = MultiLatticeFermion(x.latt_info, x.L5)
-        dslashMultiSrcQuda(b.data_ptrs, x.data_ptrs, self.invert_param, parity)
+        if parity == QudaParity.QUDA_EVEN_PARITY:
+            dslashMultiSrcQuda(b.even_ptrs, x.odd_ptrs, self.invert_param, QudaParity.QUDA_EVEN_PARITY)
+        elif parity == QudaParity.QUDA_ODD_PARITY:
+            dslashMultiSrcQuda(b.odd_ptrs, x.even_ptrs, self.invert_param, QudaParity.QUDA_ODD_PARITY)
+        elif parity == QudaParity.QUDA_INVALID_PARITY:
+            dslashMultiSrcQuda(b.even_ptrs, x.odd_ptrs, self.invert_param, QudaParity.QUDA_EVEN_PARITY)
+            dslashMultiSrcQuda(b.odd_ptrs, x.even_ptrs, self.invert_param, QudaParity.QUDA_ODD_PARITY)
         return b
 
-    def newMultigrid(self):
-        if self.multigrid.param is not None:
-            self.multigrid.new()
-            assert self.multigrid.instance is not None
-            self.invert_param.preconditioner = self.multigrid.instance
+    def invertPC(self, b: LatticeFermion):
+        kappa = self.invert_param.kappa
+        self.invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
+        self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
 
-    def updateMultigrid(self, thin_update_only: bool):
-        if self.multigrid.param is not None:
-            self.multigrid.update(thin_update_only)
-            assert self.multigrid.instance is not None
-            self.invert_param.preconditioner = self.multigrid.instance
+        x = LatticeFermion(b.latt_info)
+        dslashQuda(x.odd_ptr, b.even_ptr, self.invert_param, QudaParity.QUDA_ODD_PARITY)
+        x.even = b.odd + kappa * x.odd
+        # * QUDA_ASYMMETRIC_MASS_NORMALIZATION makes the even part 1 / (2 * kappa) instead of 1
+        invertQuda(x.odd_ptr, x.even_ptr, self.invert_param)
+        self.performance()
+        dslashQuda(x.even_ptr, x.odd_ptr, self.invert_param, QudaParity.QUDA_EVEN_PARITY)
+        x.even = kappa * (2 * b.even + x.even)
+        return x
+
+    def invertCloverPC(self, b: LatticeFermion):
+        a = LatticeFermion(b.latt_info)
+        cloverQuda(a.even_ptr, b.even_ptr, self.invert_param, QudaParity.QUDA_EVEN_PARITY, 1)
+        cloverQuda(a.odd_ptr, b.odd_ptr, self.invert_param, QudaParity.QUDA_ODD_PARITY, 1)
+        return self.invertPC(a)
 
 
 class StaggeredFermionDirac(FermionDirac):
@@ -302,9 +307,15 @@ class StaggeredFermionDirac(FermionDirac):
         MatDagMatQuda(b.data_ptr, x.data_ptr, self.invert_param)
         return b
 
-    def dslash(self, x: LatticeStaggeredFermion, parity: QudaParity):
+    def dslash(self, x: LatticeStaggeredFermion, parity: QudaParity = QudaParity.QUDA_INVALID_PARITY):
         b = LatticeStaggeredFermion(x.latt_info)
-        dslashQuda(b.data_ptr, x.data_ptr, self.invert_param, parity)
+        if parity == QudaParity.QUDA_EVEN_PARITY:
+            dslashQuda(b.even_ptr, x.odd_ptr, self.invert_param, QudaParity.QUDA_EVEN_PARITY)
+        elif parity == QudaParity.QUDA_ODD_PARITY:
+            dslashQuda(b.odd_ptr, x.even_ptr, self.invert_param, QudaParity.QUDA_ODD_PARITY)
+        elif parity == QudaParity.QUDA_INVALID_PARITY:
+            dslashQuda(b.even_ptr, x.odd_ptr, self.invert_param, QudaParity.QUDA_EVEN_PARITY)
+            dslashQuda(b.odd_ptr, x.even_ptr, self.invert_param, QudaParity.QUDA_ODD_PARITY)
         return b
 
     def invertMultiSrc(self, b: MultiLatticeStaggeredFermion):
@@ -329,8 +340,28 @@ class StaggeredFermionDirac(FermionDirac):
                 x[i] += r[i]
         return x
 
-    def dslashMultiSrc(self, x: MultiLatticeStaggeredFermion, parity: QudaParity):
+    def dslashMultiSrc(self, x: MultiLatticeStaggeredFermion, parity: QudaParity = QudaParity.QUDA_INVALID_PARITY):
         self.invert_param.num_src = x.L5
         b = MultiLatticeStaggeredFermion(x.latt_info, x.L5)
-        dslashMultiSrcQuda(b.data_ptrs, x.data_ptrs, self.invert_param, parity)
+        if parity == QudaParity.QUDA_EVEN_PARITY:
+            dslashMultiSrcQuda(b.even_ptrs, x.odd_ptrs, self.invert_param, QudaParity.QUDA_EVEN_PARITY)
+        elif parity == QudaParity.QUDA_ODD_PARITY:
+            dslashMultiSrcQuda(b.odd_ptrs, x.even_ptrs, self.invert_param, QudaParity.QUDA_ODD_PARITY)
+        elif parity == QudaParity.QUDA_INVALID_PARITY:
+            dslashMultiSrcQuda(b.even_ptrs, x.odd_ptrs, self.invert_param, QudaParity.QUDA_EVEN_PARITY)
+            dslashMultiSrcQuda(b.odd_ptrs, x.even_ptrs, self.invert_param, QudaParity.QUDA_ODD_PARITY)
         return b
+
+    def invertPC(self, b: LatticeStaggeredFermion):
+        mass = self.invert_param.mass
+        self.invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
+        self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
+
+        x = LatticeStaggeredFermion(b.latt_info)
+        dslashQuda(x.odd_ptr, b.even_ptr, self.invert_param, QudaParity.QUDA_ODD_PARITY)
+        x.even = (2 * mass) * b.odd + x.odd
+        invertQuda(x.odd_ptr, x.even_ptr, self.invert_param)
+        self.performance()
+        dslashQuda(x.even_ptr, x.odd_ptr, self.invert_param, QudaParity.QUDA_EVEN_PARITY)
+        x.even = (0.5 / mass) * (b.even + x.even)
+        return x

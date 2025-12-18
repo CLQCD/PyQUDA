@@ -9,7 +9,7 @@ from mpi4py import MPI
 from mpi4py.util import dtlib
 
 GridMapType = Literal["default", "reversed", "shared"]
-from .array import BackendType, BackendTargetType, backendDeviceAPI, backendDeviceMMAAvailable
+from .array import BackendType, BackendTargetType, backendDeviceAPI
 
 
 class _MPILogger:
@@ -290,6 +290,7 @@ def initGrid(
 
         if grid_size is None and latt_size is not None:
             grid_size = getDefaultGrid(_MPI_SIZE, latt_size, evenodd)
+            _MPI_LOGGER.info(f"Using lattice size {latt_size} to set the default grid size {grid_size}")
         if grid_size is None:
             grid_size = [1, 1, 1, 1]
 

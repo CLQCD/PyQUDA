@@ -20,22 +20,8 @@ def main():
         "--latt",
         nargs=4,
         type=int,
-        help="Lattice size used as the default",
+        help="Lattice size used to set the default GPU grid",
         metavar=("Lx", "Ly", "Lz", "Lt"),
-    )
-    parser.add_argument(
-        "-t",
-        "--t-boundary",
-        type=int,
-        choices=(1, -1),
-        help="Lattice t boundary used as the default (required if the lattice size is set)",
-    )
-    parser.add_argument(
-        "-a",
-        "--anisotropy",
-        type=float,
-        help="Lattice anisotropy used as the default (required if the lattice size is set)",
-        metavar="xi",
     )
     parser.add_argument(
         "-m",
@@ -73,8 +59,6 @@ def main():
     init(
         args.grid,
         args.latt,
-        args.t_boundary,
-        args.anisotropy,
         args.grid_map,
         args.backend,
         args.backend_target,

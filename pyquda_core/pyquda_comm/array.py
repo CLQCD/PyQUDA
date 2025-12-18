@@ -79,19 +79,6 @@ def backendDeviceAPI(backend: BackendType, backend_target: BackendTargetType):
     return getDeviceCount, setDevice
 
 
-def backendDeviceMMAAvailable(backend: BackendType, backend_target: BackendTargetType, device: int):
-    if backend_target == "cuda":
-        if backend == "cupy":
-            import cupy
-
-            return cupy.cuda.runtime.getDeviceProperties(device)["major"] >= 7
-        elif backend == "torch":
-            import torch
-
-            return torch.cuda.get_device_properties(device).major >= 7
-    return False
-
-
 def arrayDType(dtype: DTypeLike, backend: BackendType) -> DTypeLike:
     if backend == "numpy":
         return numpy.dtype(dtype).type
