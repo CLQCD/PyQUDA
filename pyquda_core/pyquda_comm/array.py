@@ -57,6 +57,7 @@ def backendDeviceAPI(backend: BackendType, backend_target: BackendTargetType):
             raise ValueError(f"Array API backend {backend} does not support target {backend_target}")
     elif backend == "torch":
         import torch
+        import torch.version
 
         if backend_target == "cpu":
             getDeviceCount: Callable[[], int] = lambda: 0x7FFFFFFF
@@ -218,6 +219,23 @@ def arrayZeros(shape: Sequence[int], dtype: DTypeLike, backend: BackendType) -> 
         import torch
 
         return torch.zeros(shape, dtype=dtype)
+
+
+def arrayEmpty(shape: Sequence[int], dtype: DTypeLike, backend: BackendType) -> NDArray:
+    if backend == "numpy":
+        return numpy.empty(shape, dtype)
+    elif backend == "cupy":
+        import cupy
+
+        return cupy.empty(shape, dtype)
+    elif backend == "dpnp":
+        import dpnp
+
+        return dpnp.empty(shape, dtype=dtype, sycl_queue=dpnp_sycl_queue)
+    elif backend == "torch":
+        import torch
+
+        return torch.empty(shape, dtype=dtype)
 
 
 def arrayExp(data, backend: BackendType) -> NDArray:

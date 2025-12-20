@@ -46,7 +46,33 @@ from .general import (
     setReconstructParam,
 )
 
-_DIRAC_GAUGE_STACK: List[Tuple["Dirac", LatticeGauge, Dict[str, Any]]] = []
+
+class DiracGaugeStack:
+    loaded: List[bool]
+    stack: List[Tuple["Dirac", LatticeGauge, Dict[str, Any]]]
+
+    def __init__(self):
+        self.loaded = []
+        self.stack = []
+
+    def load(self, dirac: "Dirac", gauge: LatticeGauge, kwargs: Dict[str, Any]):
+        if len(self.stack) > 0 and self.stack[-1][0] is dirac and self.stack[-1][1] is gauge:
+            self.loaded.append(False)
+        else:
+            self.loaded.append(True)
+            self.stack.append((dirac, gauge, kwargs))
+            dirac.loadGauge(gauge, **kwargs)
+
+    def free(self):
+        if self.loaded.pop():
+            dirac, gauge, kwargs = self.stack.pop()
+            dirac.freeGauge()
+            if len(self.loaded) > 0 and self.loaded[-1]:
+                dirac, gauge, kwargs = self.stack[-1]
+                dirac.loadGauge(gauge, **kwargs)
+
+
+_DIRAC_GAUGE_STACK = DiracGaugeStack()
 
 
 class Dirac(ABC):
@@ -75,15 +101,10 @@ class Dirac(ABC):
     @contextmanager
     def useGauge(self, gauge: LatticeGauge):
         try:
-            _DIRAC_GAUGE_STACK.append((self, gauge, {}))
-            self.loadGauge(gauge)
+            _DIRAC_GAUGE_STACK.load(self, gauge, {})
             yield self
         finally:
-            _DIRAC_GAUGE_STACK.pop()
-            self.freeGauge()
-            if len(_DIRAC_GAUGE_STACK) > 0:
-                _dirac, _gauge, _kwargs = _DIRAC_GAUGE_STACK[-1]
-                _dirac.loadGauge(_gauge, **_kwargs)
+            _DIRAC_GAUGE_STACK.free()
 
     def setPrecision(
         self,
@@ -143,15 +164,10 @@ class FermionDirac(Dirac):
     @contextmanager
     def useGauge(self, gauge: LatticeGauge):
         try:
-            _DIRAC_GAUGE_STACK.append((self, gauge, {"thin_update_only": True}))
-            self.loadGauge(gauge, True)
+            _DIRAC_GAUGE_STACK.load(self, gauge, {"thin_update_only": True})
             yield self
         finally:
-            _DIRAC_GAUGE_STACK.pop()
-            self.freeGauge()
-            if len(_DIRAC_GAUGE_STACK) > 0:
-                _dirac, _gauge, _kwargs = _DIRAC_GAUGE_STACK[-1]
-                _dirac.loadGauge(_gauge, **_kwargs)
+            _DIRAC_GAUGE_STACK.free()
 
     def setPrecision(
         self,
@@ -254,10 +270,10 @@ class FermionDirac(Dirac):
         return b
 
     def invertPC(self, b: LatticeFermion):
-        kappa = self.invert_param.kappa
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
         self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
 
+        kappa = self.invert_param.kappa
         x = LatticeFermion(b.latt_info)
         dslashQuda(x.odd_ptr, b.even_ptr, self.invert_param, QudaParity.QUDA_ODD_PARITY)
         x.even = b.odd + kappa * x.odd
@@ -266,6 +282,9 @@ class FermionDirac(Dirac):
         self.performance()
         dslashQuda(x.even_ptr, x.odd_ptr, self.invert_param, QudaParity.QUDA_EVEN_PARITY)
         x.even = kappa * (2 * b.even + x.even)
+
+        self.invert_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
+        self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
         return x
 
     def invertCloverPC(self, b: LatticeFermion):
@@ -353,10 +372,10 @@ class StaggeredFermionDirac(FermionDirac):
         return b
 
     def invertPC(self, b: LatticeStaggeredFermion):
-        mass = self.invert_param.mass
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
         self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
 
+        mass = self.invert_param.mass
         x = LatticeStaggeredFermion(b.latt_info)
         dslashQuda(x.odd_ptr, b.even_ptr, self.invert_param, QudaParity.QUDA_ODD_PARITY)
         x.even = (2 * mass) * b.odd + x.odd
@@ -364,4 +383,7 @@ class StaggeredFermionDirac(FermionDirac):
         self.performance()
         dslashQuda(x.even_ptr, x.odd_ptr, self.invert_param, QudaParity.QUDA_EVEN_PARITY)
         x.even = (0.5 / mass) * (b.even + x.even)
+
+        self.invert_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
+        self.invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
         return x

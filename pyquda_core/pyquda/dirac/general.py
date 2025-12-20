@@ -36,6 +36,7 @@ from ..enum_quda import (
     QudaPrecision,
     QudaReconstructType,
     QudaGaugeFixed,
+    QudaDslashType,
     QudaInverterType,
     QudaSolutionType,
     QudaSolveType,
@@ -264,17 +265,18 @@ def newQudaGaugeParam(lattice: LatticeInfo):
     return gauge_param
 
 
-def newQudaMultigridParam(mass: float, kappa: float, geo_block_size: List[List[int]], staggered: bool):
+def newQudaMultigridParam(dslash_type: QudaDslashType, mass: float, kappa: float, geo_block_size: List[List[int]]):
+    is_staggered = dslash_type in (QudaDslashType.QUDA_STAGGERED_DSLASH, QudaDslashType.QUDA_ASQTAD_DSLASH)
     mg_param = QudaMultigridParam()
     mg_inv_param = QudaInvertParam()
 
-    # mg_inv_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
+    mg_inv_param.dslash_type = dslash_type
+    mg_inv_param.inv_type = QudaInverterType.QUDA_GCR_INVERTER
     mg_inv_param.mass = mass
     mg_inv_param.kappa = kappa
     mg_inv_param.m5 = 0.0
     mg_inv_param.Ls = 1
 
-    mg_inv_param.inv_type = QudaInverterType.QUDA_GCR_INVERTER
     mg_inv_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
     mg_inv_param.solve_type = QudaSolveType.QUDA_DIRECT_SOLVE
     mg_inv_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
@@ -305,14 +307,14 @@ def newQudaMultigridParam(mass: float, kappa: float, geo_block_size: List[List[i
     mg_param.invert_param = mg_inv_param
 
     geo_block_size = geo_block_size + [[4, 4, 4, 4]]
-    if staggered:
+    if is_staggered:
         geo_block_size = [[1, 1, 1, 1]] + geo_block_size
     n_level = len(geo_block_size)
     for i in range(n_level):
         geo_block_size[i] = geo_block_size[i] + [1] * (QUDA_MAX_DIM - len(geo_block_size[i]))
     mg_param.n_level = n_level
     mg_param.geo_block_size = geo_block_size
-    if staggered:
+    if is_staggered:
         mg_param.spin_block_size = [0] + [0] + [1] * (QUDA_MAX_MG_LEVEL - 2)
         mg_param.n_vec = [3] + [64] * (QUDA_MAX_MG_LEVEL - 1)
         mg_param.n_block_ortho = [1] + [2] * (QUDA_MAX_MG_LEVEL - 1)
@@ -354,7 +356,7 @@ def newQudaMultigridParam(mass: float, kappa: float, geo_block_size: List[List[i
 
     coarse_grid_solution_type = [QudaSolutionType.QUDA_MATPC_SOLUTION] * QUDA_MAX_MG_LEVEL
     smoother_solve_type = [QudaSolveType.QUDA_DIRECT_PC_SOLVE] * QUDA_MAX_MG_LEVEL
-    if staggered:
+    if is_staggered:
         coarse_grid_solution_type[1] = QudaSolutionType.QUDA_MAT_SOLUTION
         smoother_solve_type[1] = QudaSolveType.QUDA_DIRECT_SOLVE
     mg_param.coarse_grid_solution_type = coarse_grid_solution_type
@@ -373,7 +375,7 @@ def newQudaMultigridParam(mass: float, kappa: float, geo_block_size: List[List[i
 
     mg_param.mu_factor = [1.0] * QUDA_MAX_MG_LEVEL
     transfer_type = [QudaTransferType.QUDA_TRANSFER_AGGREGATE] * QUDA_MAX_MG_LEVEL
-    if staggered:
+    if is_staggered:
         transfer_type[0] = QudaTransferType.QUDA_TRANSFER_OPTIMIZED_KD
     mg_param.transfer_type = transfer_type
 
@@ -381,6 +383,7 @@ def newQudaMultigridParam(mass: float, kappa: float, geo_block_size: List[List[i
 
 
 def newQudaInvertParam(
+    dslash_type: QudaDslashType,
     mass: float,
     kappa: float,
     tol: float,
@@ -389,16 +392,20 @@ def newQudaInvertParam(
     clover_anisotropy: float,
     mg_param: Optional[QudaMultigridParam],
 ):
+    is_staggered = dslash_type in (QudaDslashType.QUDA_STAGGERED_DSLASH, QudaDslashType.QUDA_ASQTAD_DSLASH)
     invert_param = QudaInvertParam()
 
-    # invert_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
+    invert_param.dslash_type = dslash_type
+    if is_staggered:
+        invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
+    else:
+        invert_param.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
     invert_param.mass = mass
     invert_param.kappa = kappa
     invert_param.m5 = 0.0
     invert_param.Ls = 1
     invert_param.laplace3D = 3
 
-    invert_param.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
     invert_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
     invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE
     invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN

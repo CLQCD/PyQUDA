@@ -37,6 +37,7 @@ from .array import (
     arrayLinalgNorm,
     arrayIdentity,
     arrayZeros,
+    arrayEmpty,
 )
 from .pointer import Pointer, ndarrayPointer
 
@@ -126,7 +127,7 @@ class LatticeInfo(BaseInfo):
         sublatt_size[0] *= 2
         assert sublatt_size == self.size
         data_evenodd = data.reshape(L5, 2, self.volume // 2, prod(field_shape))
-        data_lexico = arrayZeros((L5, self.volume, prod(field_shape)), data.dtype, backend)
+        data_lexico = arrayEmpty((L5, self.volume, prod(field_shape)), data.dtype, backend)
         data_lexico[:, self._even] = data_evenodd[:, 0]
         data_lexico[:, self._odd] = data_evenodd[:, 1]
         if multi:
@@ -148,7 +149,7 @@ class LatticeInfo(BaseInfo):
         assert sublatt_size == self.size
         sublatt_size[0] //= 2
         data_lexico = data.reshape(L5, self.volume, prod(field_shape))
-        data_evenodd = arrayZeros((L5, 2, self.volume // 2, prod(field_shape)), data.dtype, backend)
+        data_evenodd = arrayEmpty((L5, 2, self.volume // 2, prod(field_shape)), data.dtype, backend)
         data_evenodd[:, 0] = data_lexico[:, self._even]
         data_evenodd[:, 1] = data_lexico[:, self._odd]
         if multi:

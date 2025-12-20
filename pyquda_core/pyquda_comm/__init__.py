@@ -24,7 +24,7 @@ class _MPILogger:
         stderr_handler.setFormatter(formatter)
         stderr_handler.setLevel(logging.WARNING)
         self.logger = logging.getLogger("PyQUDA")
-        self.logger.level = logging.DEBUG
+        self.logger.level = logging.INFO
         self.logger.handlers = [stdout_handler, stderr_handler]
 
     def debug(self, msg: str):

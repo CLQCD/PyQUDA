@@ -33,15 +33,17 @@ class WilsonDirac(FermionDirac):
             self.multigrid = multigrid
         elif multigrid is not None:
             geo_block_size = multigrid
-            mg_param, mg_inv_param = general.newQudaMultigridParam(mass, kappa, geo_block_size, False)
-            mg_inv_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
+            mg_param, mg_inv_param = general.newQudaMultigridParam(
+                QudaDslashType.QUDA_WILSON_DSLASH, mass, kappa, geo_block_size
+            )
             self.multigrid = Multigrid(mg_param, mg_inv_param)
         else:
             self.multigrid = Multigrid(None, None)
 
     def newQudaInvertParam(self, mass: float, kappa: float, tol: float, maxiter: int):
-        invert_param = general.newQudaInvertParam(mass, kappa, tol, maxiter, 0.0, 1.0, self.multigrid.param)
-        invert_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
+        invert_param = general.newQudaInvertParam(
+            QudaDslashType.QUDA_WILSON_DSLASH, mass, kappa, tol, maxiter, 0.0, 1.0, self.multigrid.param
+        )
         self.invert_param = invert_param
 
     def loadGauge(self, gauge: LatticeGauge, thin_update_only: bool = False):

@@ -1,7 +1,7 @@
 from typing import List, Union
 
 from ..field import LatticeInfo, LatticeGauge
-from ..enum_quda import QudaDslashType, QudaInverterType
+from ..enum_quda import QudaDslashType
 
 from . import general
 from .abstract import Multigrid, StaggeredFermionDirac
@@ -40,17 +40,17 @@ class HISQDirac(StaggeredFermionDirac):
             self.multigrid = multigrid
         elif multigrid is not None:
             geo_block_size = multigrid
-            mg_param, mg_inv_param = general.newQudaMultigridParam(mass, kappa, geo_block_size, True)
-            mg_inv_param.dslash_type = QudaDslashType.QUDA_ASQTAD_DSLASH
+            mg_param, mg_inv_param = general.newQudaMultigridParam(
+                QudaDslashType.QUDA_ASQTAD_DSLASH, mass, kappa, geo_block_size
+            )
             self.multigrid = Multigrid(mg_param, mg_inv_param)
         else:
             self.multigrid = Multigrid(None, None)
 
     def newQudaInvertParam(self, mass: float, kappa: float, tol: float, maxiter: int):
-        invert_param = general.newQudaInvertParam(mass, kappa, tol, maxiter, 0.0, 1.0, self.multigrid.param)
-        invert_param.dslash_type = QudaDslashType.QUDA_ASQTAD_DSLASH
-        if self.multigrid.param is None:
-            invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
+        invert_param = general.newQudaInvertParam(
+            QudaDslashType.QUDA_ASQTAD_DSLASH, mass, kappa, tol, maxiter, 0.0, 1.0, self.multigrid.param
+        )
         self.invert_param = invert_param
 
     def computeULink(self, gauge: LatticeGauge):
