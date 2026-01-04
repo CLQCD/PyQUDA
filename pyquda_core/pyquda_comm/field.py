@@ -317,6 +317,7 @@ class BaseField:
             cls.__name__.replace("Multi", "")
             .replace("Lexico", "")
             .replace("Link", "ColorMatrix")
+            .replace("Rotation", "ColorMatrix")
             .replace("Gauge", "ColorMatrix")
             .replace("StaggeredFermion", "ColorVector")
             .replace("StaggeredPropagator", "ColorMatrix")

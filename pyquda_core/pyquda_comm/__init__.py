@@ -53,6 +53,7 @@ _MPI_LOGGER: _MPILogger = _MPILogger()
 _MPI_COMM: MPI.Intracomm = MPI.COMM_WORLD
 _MPI_SIZE: int = _MPI_COMM.Get_size()
 _MPI_RANK: int = _MPI_COMM.Get_rank()
+_MPI_IO_MAX_COUNT: int = 2**30
 _GRID_MAP: GridMapType = "default"
 """For MPI, the default node mapping is lexicographical with t varying fastest."""
 _GRID_SIZE: Optional[Tuple[int, ...]] = None
@@ -426,11 +427,13 @@ def getSubarray(dtype: DTypeLike, shape: Sequence[int], axes: Sequence[int]):
 def readMPIFile(filename: str, dtype: DTypeLike, offset: int, shape: Sequence[int], axes: Sequence[int]) -> NDArray:
     native_dtype_str, filetype = getSubarray(dtype, shape, axes)
     buf = numpy.empty(shape, native_dtype_str)
+    buf_flat = buf.reshape(-1)
 
     fh = MPI.File.Open(getMPIComm(), filename, MPI.MODE_RDONLY)
     filetype.Commit()
     fh.Set_view(disp=offset, filetype=filetype)
-    fh.Read_all(buf)
+    for start in range(0, buf.size, _MPI_IO_MAX_COUNT):
+        fh.Read_all(buf_flat[start : start + _MPI_IO_MAX_COUNT])
     filetype.Free()
     fh.Close()
 
@@ -442,12 +445,14 @@ def readMPIFileInChunks(
 ) -> Generator[Tuple[int, NDArray], None, None]:
     native_dtype_str, filetype = getSubarray(dtype, shape, axes)
     buf = numpy.empty(shape, native_dtype_str)
+    buf_flat = buf.reshape(-1)
 
     fh = MPI.File.Open(getMPIComm(), filename, MPI.MODE_RDONLY)
     filetype.Commit()
     for i in range(count):
         fh.Set_view(disp=offset + i * _MPI_SIZE * filetype.size, filetype=filetype)
-        fh.Read_all(buf)
+        for start in range(0, buf.size, _MPI_IO_MAX_COUNT):
+            fh.Read_all(buf_flat[start : start + _MPI_IO_MAX_COUNT])
         yield i, buf.view(dtype)
     filetype.Free()
     fh.Close()
@@ -456,11 +461,13 @@ def readMPIFileInChunks(
 def writeMPIFile(filename: str, dtype: DTypeLike, offset: int, shape: Sequence[int], axes: Sequence[int], buf: NDArray):
     native_dtype_str, filetype = getSubarray(dtype, shape, axes)
     buf = buf.view(native_dtype_str)
+    buf_flat = buf.reshape(-1)
 
     fh = MPI.File.Open(getMPIComm(), filename, MPI.MODE_WRONLY | MPI.MODE_CREATE)
     filetype.Commit()
     fh.Set_view(disp=offset, filetype=filetype)
-    fh.Write_all(buf)
+    for start in range(0, buf.size, _MPI_IO_MAX_COUNT):
+        fh.Write_all(buf_flat[start : start + _MPI_IO_MAX_COUNT])
     filetype.Free()
     fh.Close()
 
@@ -470,12 +477,14 @@ def writeMPIFileInChunks(
 ):
     native_dtype_str, filetype = getSubarray(dtype, shape, axes)
     buf = buf.view(native_dtype_str)
+    buf_flat = buf.reshape(-1)
 
     fh = MPI.File.Open(getMPIComm(), filename, MPI.MODE_WRONLY | MPI.MODE_CREATE)
     filetype.Commit()
     for i in range(count):
         fh.Set_view(disp=offset + i * _MPI_SIZE * filetype.size, filetype=filetype)
         yield i  # Waiting for buf
-        fh.Write_all(buf)
+        for start in range(0, buf.size, _MPI_IO_MAX_COUNT):
+            fh.Write_all(buf_flat[start : start + _MPI_IO_MAX_COUNT])
     filetype.Free()
     fh.Close()

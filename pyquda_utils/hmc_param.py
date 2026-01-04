@@ -1,7 +1,7 @@
 from math import log
 import json
 from os import environ, path
-from typing import Literal, Sequence, Tuple
+from typing import Dict, Literal, Optional, Sequence, Tuple
 
 from gmpy2 import mpfr
 
@@ -91,7 +91,7 @@ def symanzikTreeGaugeLoopParam(u_0: float):
 
 
 def symanzikOneLoopGaugeLoopParam(
-    u_0: float, fermion_type: Literal["quenched", "asqtad", "hisq"] = "quenched", n_flavor: int = None
+    u_0: float, fermion_type: Literal["quenched", "asqtad", "hisq"] = "quenched", n_flavor: Optional[int] = None
 ):
     """
     Quenched: https://arxiv.org/pdf/hep-lat/9507010 Eqs. (6), (7), (8), (9)
@@ -106,9 +106,11 @@ def symanzikOneLoopGaugeLoopParam(
         beta_1 = -beta_0 / (20 * u_0**2) * (1 + 0.4805 * alpha_s)
         beta_2 = -beta_0 / u_0**2 * 0.03325 * alpha_s
     elif fermion_type == "asqtad":
+        assert n_flavor is not None
         beta_1 = -beta_0 / (20 * u_0**2) * (1 + (0.4805 - 0.3637 * n_flavor) * alpha_s)
         beta_2 = -beta_0 / u_0**2 * (0.03325 - 0.009 * n_flavor) * alpha_s
     elif fermion_type == "hisq":
+        assert n_flavor is not None
         beta_1 = -beta_0 / (20 * u_0**2) * (1 + (0.4805 - 0.899 * n_flavor) * alpha_s)
         beta_2 = -beta_0 / u_0**2 * (0.03325 - 0.0121 * n_flavor) * alpha_s
     return LoopParam(
@@ -152,7 +154,7 @@ def symanzikOneLoopGaugeLoopParam(
     )
 
 
-def _loadCache():
+def _loadCache() -> Dict[str, RationalParam]:
     cache = {}
     if environ.get("QUDA_RESOURCE_PATH") is not None:
         resource_path = path.expanduser(path.expandvars(environ["QUDA_RESOURCE_PATH"]))
@@ -164,7 +166,7 @@ def _loadCache():
     return cache
 
 
-def _dumpCache(cache):
+def _dumpCache(cache: Dict[str, RationalParam]):
     if environ.get("QUDA_RESOURCE_PATH") is not None:
         resource_path = path.expanduser(path.expandvars(environ["QUDA_RESOURCE_PATH"]))
         cache_file = path.join(path.realpath(resource_path), "hmc_param.json")
@@ -205,7 +207,7 @@ def fermionRationalParam(
     lower_bound: float,
     upper_bound: float,
     precision: int,
-):
+) -> RationalParam:
     if getMPIRank() == 0:
         key = str(
             (
@@ -226,11 +228,11 @@ def fermionRationalParam(
             else:
                 remez = AlgRemez(lower_bound, upper_bound, precision)
                 remez.generateApprox(molecular_dynamics_degree, molecular_dynamics_degree, _WilsonMD(num_flavor))
-                molecular_dynamics = remez.getIPFE()
+                force = remez.getIPFE()
                 remez.generateApprox(fermion_action_degree, fermion_action_degree, _WilsonFA(num_flavor))
-                pseudo_fermion = remez.getPFE()
-                fermion_action = remez.getIPFE()
-                rational_param = RationalParam(*molecular_dynamics, *pseudo_fermion, *fermion_action)
+                sample = remez.getPFE()
+                action = remez.getIPFE()
+                rational_param = RationalParam(*force, *sample, *action)
             cache[key] = rational_param
         _dumpCache(cache)
     else:
@@ -282,7 +284,7 @@ def staggeredFermionRationalParam(
     lower_bound: float,
     upper_bound: float,
     precision: int,
-):
+) -> RationalParam:
     if getMPIRank() == 0:
         mass = tuple(mass) if isinstance(mass, Sequence) else (mass,)
         num_flavor = tuple(num_flavor) if isinstance(num_flavor, Sequence) else (num_flavor,)
@@ -303,11 +305,11 @@ def staggeredFermionRationalParam(
         else:
             remez = AlgRemez(lower_bound, upper_bound, precision)
             remez.generateApprox(molecular_dynamics_degree, molecular_dynamics_degree, _StaggeredMD(mass, num_flavor))
-            molecular_dynamics = remez.getIPFE()
+            force = remez.getIPFE()
             remez.generateApprox(fermion_action_degree, fermion_action_degree, _StaggeredFA(mass, num_flavor))
-            pseudo_fermion = remez.getPFE()
-            fermion_action = remez.getIPFE()
-            rational_param = RationalParam(*molecular_dynamics, *pseudo_fermion, *fermion_action)
+            sample = remez.getPFE()
+            action = remez.getIPFE()
+            rational_param = RationalParam(*force, *sample, *action)
             cache[key] = rational_param
             _dumpCache(cache)
     else:

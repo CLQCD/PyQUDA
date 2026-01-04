@@ -34,6 +34,7 @@ from ..pyquda import (
 )
 from ..enum_quda import (
     QudaBoolean,
+    QudaTboundary,
     QudaDslashType,
     QudaGaugeSmearType,
     QudaLinkType,
@@ -58,6 +59,7 @@ class GaugeDirac(Dirac):
 
     def newQudaGaugeParam(self):
         gauge_param = general.newQudaGaugeParam(self.latt_info)
+        gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
         self.gauge_param = gauge_param
 
     def newQudaInvertParam(self):

@@ -111,6 +111,7 @@ class Dirac(ABC):
         *,
         cuda: Optional[QudaPrecision] = None,
         sloppy: Optional[QudaPrecision] = None,
+        refinement_sloppy: Optional[QudaPrecision] = None,
         precondition: Optional[QudaPrecision] = None,
         eigensolver: Optional[QudaPrecision] = None,
     ):
@@ -119,6 +120,7 @@ class Dirac(ABC):
                 self.precision.cpu,
                 cuda if cuda is not None else self.precision.cuda,
                 sloppy if sloppy is not None else self.precision.sloppy,
+                refinement_sloppy if refinement_sloppy is not None else self.precision.refinement_sloppy,
                 precondition if precondition is not None else self.precision.precondition,
                 eigensolver if eigensolver is not None else self.precision.eigensolver,
             )
@@ -129,6 +131,7 @@ class Dirac(ABC):
         *,
         cuda: Optional[QudaReconstructType] = None,
         sloppy: Optional[QudaReconstructType] = None,
+        refinement_sloppy: Optional[QudaReconstructType] = None,
         precondition: Optional[QudaReconstructType] = None,
         eigensolver: Optional[QudaReconstructType] = None,
     ):
@@ -136,6 +139,7 @@ class Dirac(ABC):
             self.reconstruct = Reconstruct(
                 cuda if cuda is not None else self.reconstruct.cuda,
                 sloppy if sloppy is not None else self.reconstruct.sloppy,
+                refinement_sloppy if refinement_sloppy is not None else self.reconstruct.refinement_sloppy,
                 precondition if precondition is not None else self.reconstruct.precondition,
                 eigensolver if eigensolver is not None else self.reconstruct.eigensolver,
             )
@@ -171,17 +175,27 @@ class FermionDirac(Dirac):
 
     def setPrecision(
         self,
+        multishift: bool = False,
         *,
         cuda: Optional[QudaPrecision] = None,
         sloppy: Optional[QudaPrecision] = None,
+        refinement_sloppy: Optional[QudaPrecision] = None,
         precondition: Optional[QudaPrecision] = None,
         eigensolver: Optional[QudaPrecision] = None,
     ):
         if self.multigrid.param is not None and self.multigrid.inv_param is not None:
             self.precision = getGlobalPrecision("multigrid")
+        if multishift:
+            self.precision = getGlobalPrecision("multigrid")  # Use SINGLE for MultiCG and HALF for refinement
         else:
             self.precision = getGlobalPrecision("invert")
-        super().setPrecision(cuda=cuda, sloppy=sloppy, precondition=precondition, eigensolver=eigensolver)
+        super().setPrecision(
+            cuda=cuda,
+            sloppy=sloppy,
+            refinement_sloppy=refinement_sloppy,
+            precondition=precondition,
+            eigensolver=eigensolver,
+        )
         setPrecisionParam(self.precision, None, None, self.multigrid.param, self.multigrid.inv_param)
 
     def setVerbosity(self, verbosity: QudaVerbosity):

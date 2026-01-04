@@ -18,7 +18,7 @@ from .pyquda import (
     momActionQuda,
     updateGaugeFieldQuda,
 )
-from .enum_quda import QudaBoolean, QudaTboundary
+from .enum_quda import QudaBoolean, QudaTboundary, QudaVerbosity
 from .dirac import WilsonDirac, StaggeredDirac
 from .action.abstract import Action, FermionAction, StaggeredFermionAction
 
@@ -266,6 +266,10 @@ class HMC:
             self.loadMom(LatticeMom(gauge.latt_info))
         else:
             self.loadMom(mom)
+
+    def setFermionVerbosity(self, verbosity: QudaVerbosity):
+        for fermion_monomial in self.fermion_monomials:
+            fermion_monomial.setVerbosity(verbosity)
 
     def loadGaugeMomSmeared(self):
         if self.gauge is not None and self.smeared is not None and self.force is not None and self.mom is not None:

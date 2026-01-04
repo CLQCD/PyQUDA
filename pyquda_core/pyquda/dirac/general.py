@@ -70,6 +70,7 @@ class Precision(NamedTuple):
     cpu: QudaPrecision
     cuda: QudaPrecision
     sloppy: QudaPrecision
+    refinement_sloppy: QudaPrecision
     precondition: QudaPrecision
     eigensolver: QudaPrecision
 
@@ -77,6 +78,7 @@ class Precision(NamedTuple):
 class Reconstruct(NamedTuple):
     cuda: QudaReconstructType
     sloppy: QudaReconstructType
+    refinement_sloppy: QudaReconstructType
     precondition: QudaReconstructType
     eigensolver: QudaReconstructType
 
@@ -88,10 +90,12 @@ _precision = {
         QudaPrecision.QUDA_DOUBLE_PRECISION,
         QudaPrecision.QUDA_DOUBLE_PRECISION,
         QudaPrecision.QUDA_DOUBLE_PRECISION,
+        QudaPrecision.QUDA_DOUBLE_PRECISION,
     ),
     "invert": Precision(
         QudaPrecision.QUDA_DOUBLE_PRECISION,
         QudaPrecision.QUDA_DOUBLE_PRECISION,
+        QudaPrecision.QUDA_HALF_PRECISION,
         QudaPrecision.QUDA_HALF_PRECISION,
         QudaPrecision.QUDA_HALF_PRECISION,
         QudaPrecision.QUDA_DOUBLE_PRECISION,
@@ -100,6 +104,7 @@ _precision = {
         QudaPrecision.QUDA_DOUBLE_PRECISION,
         QudaPrecision.QUDA_DOUBLE_PRECISION,
         QudaPrecision.QUDA_SINGLE_PRECISION,
+        QudaPrecision.QUDA_HALF_PRECISION,
         QudaPrecision.QUDA_HALF_PRECISION,
         QudaPrecision.QUDA_DOUBLE_PRECISION,
     ),
@@ -110,15 +115,18 @@ _reconstruct = {
         QudaReconstructType.QUDA_RECONSTRUCT_NO,
         QudaReconstructType.QUDA_RECONSTRUCT_NO,
         QudaReconstructType.QUDA_RECONSTRUCT_NO,
+        QudaReconstructType.QUDA_RECONSTRUCT_NO,
     ),
     "wilson": Reconstruct(
         QudaReconstructType.QUDA_RECONSTRUCT_12,
+        QudaReconstructType.QUDA_RECONSTRUCT_8,
         QudaReconstructType.QUDA_RECONSTRUCT_8,
         QudaReconstructType.QUDA_RECONSTRUCT_8,
         QudaReconstructType.QUDA_RECONSTRUCT_12,
     ),
     "staggered": Reconstruct(
         QudaReconstructType.QUDA_RECONSTRUCT_13,
+        QudaReconstructType.QUDA_RECONSTRUCT_9,
         QudaReconstructType.QUDA_RECONSTRUCT_9,
         QudaReconstructType.QUDA_RECONSTRUCT_9,
         QudaReconstructType.QUDA_RECONSTRUCT_13,
@@ -135,6 +143,7 @@ def setGlobalPrecision(
     *,
     cuda: Optional[QudaPrecision] = None,
     sloppy: Optional[QudaPrecision] = None,
+    refinement_sloppy: Optional[QudaPrecision] = None,
     precondition: Optional[QudaPrecision] = None,
     eigensolver: Optional[QudaPrecision] = None,
 ):
@@ -144,6 +153,7 @@ def setGlobalPrecision(
         precision.cpu,
         cuda if cuda is not None else precision.cuda,
         sloppy if sloppy is not None else precision.sloppy,
+        refinement_sloppy if refinement_sloppy is not None else precision.refinement_sloppy,
         precondition if precondition is not None else precision.precondition,
         eigensolver if eigensolver is not None else precision.eigensolver,
     )
@@ -158,6 +168,7 @@ def setGlobalReconstruct(
     *,
     cuda: Optional[QudaReconstructType] = None,
     sloppy: Optional[QudaReconstructType] = None,
+    refinement_sloppy: Optional[QudaReconstructType] = None,
     precondition: Optional[QudaReconstructType] = None,
     eigensolver: Optional[QudaReconstructType] = None,
 ):
@@ -166,6 +177,7 @@ def setGlobalReconstruct(
     _reconstruct[key] = Reconstruct(
         cuda if cuda is not None else reconstruct.cuda,
         sloppy if sloppy is not None else reconstruct.sloppy,
+        refinement_sloppy if refinement_sloppy is not None else reconstruct.refinement_sloppy,
         precondition if precondition is not None else reconstruct.precondition,
         eigensolver if eigensolver is not None else reconstruct.eigensolver,
     )
@@ -182,7 +194,7 @@ def setPrecisionParam(
         gauge_param.cpu_prec = precision.cpu
         gauge_param.cuda_prec = precision.cuda
         gauge_param.cuda_prec_sloppy = precision.sloppy
-        gauge_param.cuda_prec_refinement_sloppy = precision.sloppy
+        gauge_param.cuda_prec_refinement_sloppy = precision.refinement_sloppy
         gauge_param.cuda_prec_precondition = precision.precondition
         gauge_param.cuda_prec_eigensolver = precision.eigensolver
 
@@ -190,7 +202,7 @@ def setPrecisionParam(
         invert_param.cpu_prec = precision.cpu
         invert_param.cuda_prec = precision.cuda
         invert_param.cuda_prec_sloppy = precision.sloppy
-        invert_param.cuda_prec_refinement_sloppy = precision.sloppy
+        invert_param.cuda_prec_refinement_sloppy = precision.refinement_sloppy
         invert_param.cuda_prec_precondition = precision.precondition
         invert_param.cuda_prec_eigensolver = precision.eigensolver
 
@@ -198,7 +210,7 @@ def setPrecisionParam(
             invert_param.clover_cpu_prec = precision.cpu
             invert_param.clover_cuda_prec = precision.cuda
             invert_param.clover_cuda_prec_sloppy = precision.sloppy
-            invert_param.clover_cuda_prec_refinement_sloppy = precision.sloppy
+            invert_param.clover_cuda_prec_refinement_sloppy = precision.refinement_sloppy
             invert_param.clover_cuda_prec_precondition = precision.precondition
             invert_param.clover_cuda_prec_eigensolver = precision.eigensolver
 
@@ -223,7 +235,7 @@ def setReconstructParam(reconstruct: Reconstruct, gauge_param: Optional[QudaGaug
     if gauge_param is not None:
         gauge_param.reconstruct = reconstruct.cuda
         gauge_param.reconstruct_sloppy = reconstruct.sloppy
-        gauge_param.reconstruct_refinement_sloppy = reconstruct.sloppy
+        gauge_param.reconstruct_refinement_sloppy = reconstruct.refinement_sloppy
         gauge_param.reconstruct_precondition = reconstruct.precondition
         gauge_param.reconstruct_eigensolver = reconstruct.eigensolver
 

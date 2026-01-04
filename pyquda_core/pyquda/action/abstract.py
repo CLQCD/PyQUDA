@@ -11,7 +11,7 @@ from ..field import (
     MultiLatticeFermion,
     MultiLatticeStaggeredFermion,
 )
-from ..enum_quda import QUDA_MAX_MULTI_SHIFT, QudaDagType, QudaMatPCType
+from ..enum_quda import QUDA_MAX_MULTI_SHIFT, QudaDagType, QudaMatPCType, QudaVerbosity
 from ..pyquda import QudaGaugeParam, QudaInvertParam, invertQuda, MatQuda, invertMultiShiftQuda
 from ..dirac.abstract import Dirac, FermionDirac, StaggeredFermionDirac
 
@@ -42,15 +42,15 @@ class Action(ABC):
 
 
 class RationalParam(NamedTuple):
-    norm_molecular_dynamics: float = 0.0
-    residue_molecular_dynamics: List[float] = [1.0]
-    offset_molecular_dynamics: List[float] = [0.0]
-    norm_pseudo_fermion: float = 0.0
-    residue_pseudo_fermion: List[float] = [1.0]
-    offset_pseudo_fermion: List[float] = [0.0]
-    norm_fermion_action: float = 0.0
-    residue_fermion_action: List[float] = [1.0]
-    offset_fermion_action: List[float] = [0.0]
+    norm_force: float = 0.0
+    residue_force: List[float] = [1.0]
+    offset_force: List[float] = [0.0]
+    norm_sample: float = 0.0
+    residue_sample: List[float] = [1.0]
+    offset_sample: List[float] = [0.0]
+    norm_action: float = 0.0
+    residue_action: List[float] = [1.0]
+    offset_action: List[float] = [0.0]
 
 
 class FermionAction(Action):
@@ -65,6 +65,9 @@ class FermionAction(Action):
         super().__init__(latt_info, dirac)
         self.invert_param = self.dirac.invert_param
 
+    def setVerbosity(self, verbosity: QudaVerbosity):
+        self.dirac.setVerbosity(verbosity)
+
     @abstractmethod
     def sample(self):
         pass
@@ -72,24 +75,24 @@ class FermionAction(Action):
     def sampleEta(self):
         self.eta.data[:] = arrayRandomNormalComplex(0.0, 2.0**-0.5, self.eta.shape, getArrayBackend())
 
-    def _invertMultiShiftParam(self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]):
-        if mode == "pseudo_fermion":
+    def _invertMultiShiftParam(self, mode: Literal["sample", "action", "force"]):
+        if mode == "sample":
             offset, residue, norm = (
-                self.rational_param.offset_pseudo_fermion,
-                self.rational_param.residue_pseudo_fermion,
-                self.rational_param.norm_pseudo_fermion,
+                self.rational_param.offset_sample,
+                self.rational_param.residue_sample,
+                self.rational_param.norm_sample,
             )
-        elif mode == "molecular_dynamics":
+        elif mode == "action":
             offset, residue, norm = (
-                self.rational_param.offset_molecular_dynamics,
-                self.rational_param.residue_molecular_dynamics,
+                self.rational_param.offset_action,
+                self.rational_param.residue_action,
+                self.rational_param.norm_action,
+            )
+        elif mode == "force":
+            offset, residue, norm = (
+                self.rational_param.offset_force,
+                self.rational_param.residue_force,
                 None,
-            )
-        elif mode == "fermion_action":
-            offset, residue, norm = (
-                self.rational_param.offset_fermion_action,
-                self.rational_param.residue_fermion_action,
-                self.rational_param.norm_fermion_action,
             )
         assert len(offset) == len(residue)
         num_offset = len(offset)
@@ -99,8 +102,7 @@ class FermionAction(Action):
             self.invert_param.offset = offset + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
             self.invert_param.residue = residue + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
             self.invert_param.tol_offset = [
-                max(tol * abs(residue[0] / residue[i]), 2e-16 * (self.latt_info.Gt * self.latt_info.Lt) ** 0.5)
-                for i in range(num_offset)
+                max(tol * abs(residue[0] / residue[i]), 2e-16 * self.latt_info.GLt**0.5) for i in range(num_offset)
             ] + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
         else:
             assert offset == [0.0] and residue == [1.0] and (norm is None or norm == 0.0)
@@ -174,9 +176,9 @@ class FermionAction(Action):
                     MatQuda(x.odd_ptr, b.odd_ptr, self.invert_param)
                     self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
 
-    def invertMultiShift(self, mode: Literal["pseudo_fermion", "molecular_dynamics", "fermion_action"]):
+    def invertMultiShift(self, mode: Literal["sample", "action", "force"]):
         residue, norm = self._invertMultiShiftParam(mode)
-        if mode == "pseudo_fermion":
+        if mode == "sample":
             self._invertMultiShift(self.quark, self.phi, self.eta, residue, norm)
         else:
             self._invertMultiShift(self.quark, self.eta, self.phi, residue, norm)

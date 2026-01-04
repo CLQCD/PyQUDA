@@ -62,11 +62,11 @@ def poly4_rhmc_param(filename: str):
         index += 3
         order = int(lines[index][1])
         index += 1
-        norm_molecular_dynamics = float(lines[index][1])
+        norm_force = float(lines[index][1])
         index += 1
-        residue_molecular_dynamics = [float(lines[index + i][1]) for i in range(order)]
+        residue_force = [float(lines[index + i][1]) for i in range(order)]
         index += order + 1
-        offset_molecular_dynamics = [float(lines[index + i][1]) for i in range(order)]
+        offset_force = [float(lines[index + i][1]) for i in range(order)]
         index += order
 
         n_flavor = tuple(int(lines[index][1 + i]) for i in range(4) if lines[index][1 + i] != "0")
@@ -74,47 +74,47 @@ def poly4_rhmc_param(filename: str):
         index += 3
         order = int(lines[index][1])
         index += 1
-        norm_pseudo_fermion = float(lines[index][1])
+        norm_sample = float(lines[index][1])
         index += 1
-        residue_pseudo_fermion = [float(lines[index + i][1]) for i in range(order)]
+        residue_sample = [float(lines[index + i][1]) for i in range(order)]
         index += order + 1
-        offset_pseudo_fermion = [float(lines[index + i][1]) for i in range(order)]
+        offset_sample = [float(lines[index + i][1]) for i in range(order)]
         index += order
 
         index += 3
         order = int(lines[index][1])
         index += 1
-        norm_fermion_action = float(lines[index][1])
+        norm_action = float(lines[index][1])
         index += 1
-        residue_fermion_action = [float(lines[index + i][1]) for i in range(order)]
+        residue_action = [float(lines[index + i][1]) for i in range(order)]
         index += order + 1
-        offset_fermion_action = [float(lines[index + i][1]) for i in range(order)]
+        offset_action = [float(lines[index + i][1]) for i in range(order)]
         index += order
 
         key = (mass, n_flavor)
         if key not in rhmc_params:
             rhmc_params[key] = RationalParam(
-                norm_molecular_dynamics,
-                residue_molecular_dynamics,
-                offset_molecular_dynamics,
-                norm_pseudo_fermion,
-                residue_pseudo_fermion,
-                offset_pseudo_fermion,
-                norm_fermion_action,
-                residue_fermion_action,
-                offset_fermion_action,
+                norm_force,
+                residue_force,
+                offset_force,
+                norm_sample,
+                residue_sample,
+                offset_sample,
+                norm_action,
+                residue_action,
+                offset_action,
             )
         else:
             assert rhmc_params[key] == RationalParam(
-                norm_molecular_dynamics,
-                residue_molecular_dynamics,
-                offset_molecular_dynamics,
-                norm_pseudo_fermion,
-                residue_pseudo_fermion,
-                offset_pseudo_fermion,
-                norm_fermion_action,
-                residue_fermion_action,
-                offset_fermion_action,
+                norm_force,
+                residue_force,
+                offset_force,
+                norm_sample,
+                residue_sample,
+                offset_sample,
+                norm_action,
+                residue_action,
+                offset_action,
             )
 
     return rhmc_params
