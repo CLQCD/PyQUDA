@@ -182,7 +182,9 @@ class MultiHISQAction(StaggeredFermionAction):
         self.num = num_total
         self.num_naik = num_naik_total
         self.coeff = coeff_all
-        self.max_num_offset = max([self.num] + [pseudo_fermion.max_num_offset for pseudo_fermion in pseudo_fermions])
+        self.max_num_offset = max(
+            [self.num] + [pseudo_fermion.max_num_offset for pseudo_fermion in self.pseudo_fermions]
+        )
 
     def prepareFatLong(self):
         u_link = LatticeGauge(self.latt_info)
