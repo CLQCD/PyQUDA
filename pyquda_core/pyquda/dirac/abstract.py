@@ -117,7 +117,6 @@ class Dirac(ABC):
     ):
         if cuda is not None or sloppy is not None or precondition is not None or eigensolver is not None:
             self.precision = Precision(
-                self.precision.cpu,
                 cuda if cuda is not None else self.precision.cuda,
                 sloppy if sloppy is not None else self.precision.sloppy,
                 refinement_sloppy if refinement_sloppy is not None else self.precision.refinement_sloppy,
@@ -183,10 +182,10 @@ class FermionDirac(Dirac):
         precondition: Optional[QudaPrecision] = None,
         eigensolver: Optional[QudaPrecision] = None,
     ):
-        if self.multigrid.param is not None and self.multigrid.inv_param is not None:
-            self.precision = getGlobalPrecision("multigrid")
         if multishift:
-            self.precision = getGlobalPrecision("multigrid")  # Use SINGLE for MultiCG and HALF for refinement
+            self.precision = getGlobalPrecision("multishift")  # Use SINGLE for MultiCG and HALF for refinement
+        elif self.multigrid.param is not None and self.multigrid.inv_param is not None:
+            self.precision = getGlobalPrecision("multigrid")
         else:
             self.precision = getGlobalPrecision("invert")
         super().setPrecision(

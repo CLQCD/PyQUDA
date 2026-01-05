@@ -67,7 +67,6 @@ nullptrs = numpy.empty((0, 0), "<c16")
 
 
 class Precision(NamedTuple):
-    cpu: QudaPrecision
     cuda: QudaPrecision
     sloppy: QudaPrecision
     refinement_sloppy: QudaPrecision
@@ -83,9 +82,9 @@ class Reconstruct(NamedTuple):
     eigensolver: QudaReconstructType
 
 
+precision_cpu = QudaPrecision.QUDA_DOUBLE_PRECISION
 _precision = {
     "none": Precision(
-        QudaPrecision.QUDA_DOUBLE_PRECISION,
         QudaPrecision.QUDA_DOUBLE_PRECISION,
         QudaPrecision.QUDA_DOUBLE_PRECISION,
         QudaPrecision.QUDA_DOUBLE_PRECISION,
@@ -94,17 +93,22 @@ _precision = {
     ),
     "invert": Precision(
         QudaPrecision.QUDA_DOUBLE_PRECISION,
-        QudaPrecision.QUDA_DOUBLE_PRECISION,
         QudaPrecision.QUDA_HALF_PRECISION,
+        QudaPrecision.QUDA_HALF_PRECISION,
+        QudaPrecision.QUDA_HALF_PRECISION,
+        QudaPrecision.QUDA_DOUBLE_PRECISION,
+    ),
+    "multishift": Precision(
+        QudaPrecision.QUDA_DOUBLE_PRECISION,
+        QudaPrecision.QUDA_SINGLE_PRECISION,
         QudaPrecision.QUDA_HALF_PRECISION,
         QudaPrecision.QUDA_HALF_PRECISION,
         QudaPrecision.QUDA_DOUBLE_PRECISION,
     ),
     "multigrid": Precision(
         QudaPrecision.QUDA_DOUBLE_PRECISION,
-        QudaPrecision.QUDA_DOUBLE_PRECISION,
         QudaPrecision.QUDA_SINGLE_PRECISION,
-        QudaPrecision.QUDA_HALF_PRECISION,
+        QudaPrecision.QUDA_SINGLE_PRECISION,
         QudaPrecision.QUDA_HALF_PRECISION,
         QudaPrecision.QUDA_DOUBLE_PRECISION,
     ),
@@ -134,12 +138,12 @@ _reconstruct = {
 }
 
 
-def getGlobalPrecision(key: Literal["none", "invert", "multigrid"]):
+def getGlobalPrecision(key: Literal["none", "invert", "multishift", "multigrid"]):
     return _precision[key]
 
 
 def setGlobalPrecision(
-    key: Literal["none", "invert", "multigrid"],
+    key: Literal["none", "invert", "multishift", "multigrid"],
     *,
     cuda: Optional[QudaPrecision] = None,
     sloppy: Optional[QudaPrecision] = None,
@@ -150,7 +154,6 @@ def setGlobalPrecision(
     global _precision
     precision = _precision[key]
     _precision[key] = Precision(
-        precision.cpu,
         cuda if cuda is not None else precision.cuda,
         sloppy if sloppy is not None else precision.sloppy,
         refinement_sloppy if refinement_sloppy is not None else precision.refinement_sloppy,
@@ -191,7 +194,7 @@ def setPrecisionParam(
     mg_inv_param: Optional[QudaInvertParam] = None,
 ):
     if gauge_param is not None:
-        gauge_param.cpu_prec = precision.cpu
+        gauge_param.cpu_prec = precision_cpu
         gauge_param.cuda_prec = precision.cuda
         gauge_param.cuda_prec_sloppy = precision.sloppy
         gauge_param.cuda_prec_refinement_sloppy = precision.refinement_sloppy
@@ -199,7 +202,7 @@ def setPrecisionParam(
         gauge_param.cuda_prec_eigensolver = precision.eigensolver
 
     if invert_param is not None:
-        invert_param.cpu_prec = precision.cpu
+        invert_param.cpu_prec = precision_cpu
         invert_param.cuda_prec = precision.cuda
         invert_param.cuda_prec_sloppy = precision.sloppy
         invert_param.cuda_prec_refinement_sloppy = precision.refinement_sloppy
@@ -207,7 +210,7 @@ def setPrecisionParam(
         invert_param.cuda_prec_eigensolver = precision.eigensolver
 
         if invert_param.clover_coeff != 0.0:
-            invert_param.clover_cpu_prec = precision.cpu
+            invert_param.clover_cpu_prec = precision_cpu
             invert_param.clover_cuda_prec = precision.cuda
             invert_param.clover_cuda_prec_sloppy = precision.sloppy
             invert_param.clover_cuda_prec_refinement_sloppy = precision.refinement_sloppy
@@ -215,13 +218,13 @@ def setPrecisionParam(
             invert_param.clover_cuda_prec_eigensolver = precision.eigensolver
 
     if mg_inv_param is not None:
-        mg_inv_param.cpu_prec = precision.cpu
+        mg_inv_param.cpu_prec = precision_cpu
         mg_inv_param.cuda_prec = precision.cuda
         mg_inv_param.cuda_prec_sloppy = precision.sloppy
         mg_inv_param.cuda_prec_precondition = precision.precondition
         mg_inv_param.cuda_prec_eigensolver = precision.eigensolver
 
-        mg_inv_param.clover_cpu_prec = precision.cpu
+        mg_inv_param.clover_cpu_prec = precision_cpu
         mg_inv_param.clover_cuda_prec = precision.cuda
         mg_inv_param.clover_cuda_prec_sloppy = precision.sloppy
         mg_inv_param.clover_cuda_prec_precondition = precision.precondition
