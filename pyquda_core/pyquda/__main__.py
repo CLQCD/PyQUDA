@@ -50,6 +50,11 @@ def main():
         help="Don't initialize the QUDA library",
     )
     parser.add_argument(
+        "--use-malloc_quda",
+        action="store_true",
+        help="Use QUDA's allocator for array backends",
+    )
+    parser.add_argument(
         "-p",
         "--resource-path",
         help="(default: QUDA_RESOURCE_PATH)",
@@ -63,6 +68,7 @@ def main():
         args.backend,
         args.backend_target,
         not args.no_init_quda,
+        args.use_malloc_quda,
         resource_path=args.resource_path,
     )
     exec(open(args.script).read(), globals(), globals())

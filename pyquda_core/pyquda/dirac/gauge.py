@@ -10,7 +10,7 @@ from pyquda_comm.field import (
     LatticeStaggeredFermion,
     LatticeReal,
 )
-from ..pyquda import (
+from ..quda import (
     QudaEigParam,
     QudaGaugeSmearParam,
     QudaGaugeObservableParam,

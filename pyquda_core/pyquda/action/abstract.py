@@ -12,7 +12,7 @@ from ..field import (
     MultiLatticeStaggeredFermion,
 )
 from ..enum_quda import QUDA_MAX_MULTI_SHIFT, QudaDagType, QudaMatPCType, QudaVerbosity
-from ..pyquda import QudaGaugeParam, QudaInvertParam, invertQuda, MatQuda, invertMultiShiftQuda
+from ..quda import QudaGaugeParam, QudaInvertParam, invertQuda, MatQuda, invertMultiShiftQuda
 from ..dirac.abstract import Dirac, FermionDirac, StaggeredFermionDirac
 
 

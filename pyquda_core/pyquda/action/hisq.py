@@ -4,7 +4,7 @@ import numpy
 
 from pyquda_comm import getLogger
 from ..field import LatticeInfo, LatticeGauge, LatticeMom, LatticeStaggeredFermion, MultiLatticeStaggeredFermion
-from ..pyquda import computeHISQForceQuda, dslashQuda, saveGaugeQuda
+from ..quda import computeHISQForceQuda, dslashQuda, saveGaugeQuda
 from ..enum_quda import (
     QudaReconstructType,
     QudaInverterType,

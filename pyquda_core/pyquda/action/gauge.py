@@ -4,7 +4,7 @@ import numpy
 from numpy.typing import NDArray
 
 from ..field import LatticeInfo, LatticeMom
-from ..pyquda import computeGaugeLoopTraceQuda, computeGaugeForceQuda
+from ..quda import computeGaugeLoopTraceQuda, computeGaugeForceQuda
 from ..dirac import GaugeDirac
 
 nullptr = numpy.empty((0, 0), "<c16")

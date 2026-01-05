@@ -1,4 +1,4 @@
-from pyquda import pyquda as quda
+from pyquda import quda
 from pyquda.enum_quda import QudaDslashType, QudaBoolean, QudaEigType, QudaEigSpectrumType
 from pyquda.field import LatticeGauge, MultiLatticeStaggeredFermion
 

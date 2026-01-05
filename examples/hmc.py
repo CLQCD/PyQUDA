@@ -3,7 +3,7 @@ from typing import Union, List
 import numpy
 
 from pyquda.field import LatticeInfo, LatticeGauge, LatticeMom
-from pyquda.pyquda import (
+from pyquda.quda import (
     gaussGaugeQuda,
     gaussMomQuda,
     loadGaugeQuda,

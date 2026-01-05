@@ -8,7 +8,7 @@ import numpy
 from pyquda_comm import getLogger, getArrayBackend
 from pyquda_comm.array import arrayRandomGetState, arrayRandomSetState, arrayRandomSeed
 from .field import LatticeInfo, LatticeGauge, LatticeMom, LatticeReal
-from .pyquda import (
+from .quda import (
     QudaGaugeObservableParam,
     gaugeObservablesQuda,
     gaussMomQuda,

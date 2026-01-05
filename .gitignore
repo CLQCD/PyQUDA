@@ -18,9 +18,8 @@ venv/
 pyquda_core/pyquda_comm/src/*
 !pyquda_core/pyquda_comm/src/pointer.pyx
 pyquda_core/pyquda/src/*
-!pyquda_core/pyquda/src/malloc_pyquda.pyx
-!pyquda_core/pyquda/src/malloc_quda.pxd
-!pyquda_core/pyquda/src/pyquda.in.pyx
+!pyquda_core/pyquda/src/malloc_quda.cpp
+!pyquda_core/pyquda/src/quda.in.pyx
 !pyquda_core/pyquda/src/quda.in.pxd
 pyquda_core/pyquda/enum_quda.py
 pyquda_core/pyquda/quda_define.py

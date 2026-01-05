@@ -10,7 +10,7 @@ from ..field import (
     LatticeGauge,
     LatticeClover,
 )
-from ..pyquda import (
+from ..quda import (
     QudaGaugeParam,
     QudaInvertParam,
     QudaMultigridParam,

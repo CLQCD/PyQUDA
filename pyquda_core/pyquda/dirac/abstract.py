@@ -11,7 +11,7 @@ from pyquda_comm.field import (
     LatticeStaggeredFermion,
     MultiLatticeStaggeredFermion,
 )
-from ..pyquda import (
+from ..quda import (
     QudaGaugeParam,
     QudaInvertParam,
     QudaEigParam,

@@ -317,10 +317,10 @@ def build_pyquda_pyx(pyquda_root, quda_path):
         enum_quda_py = f.read()
     with open(os.path.join(pyquda_root, "pyquda", "src", "quda.in.pxd"), "r") as f:
         quda_pxd = f.read()
-    with open(os.path.join(pyquda_root, "pyquda", "src", "pyquda.in.pyx"), "r") as f:
-        pyquda_pyx = f.read()
-    # with open(os.path.join(pyquda_root, "pyquda", "pyquda.in.pyi"), "r") as f:
-    #     pyquda_pyi = f.read()
+    with open(os.path.join(pyquda_root, "pyquda", "src", "quda.in.pyx"), "r") as f:
+        quda_pyx = f.read()
+    # with open(os.path.join(pyquda_root, "pyquda", "quda.in.pyi"), "r") as f:
+    #     quda_pyi = f.read()
 
     quda_constants_py = ""
     quda_constants_pxd = 'cdef extern from "quda_constants.h":\n    cdef enum:'
@@ -376,50 +376,50 @@ def build_pyquda_pyx(pyquda_root, quda_path):
 
     for key, val in quda_params_meta.items():
         quda_pxd_block = ""
-        pyquda_pyx_block = ""
-        pyquda_pyi_block = ""
+        quda_pyx_block = ""
+        quda_pyi_block = ""
         for item in val:
             quda_pxd_block += f"        {item}\n"
             if len(item.array) > 0 and item.type.startswith("Quda") and item.type.endswith("Param"):
-                pyquda_pyx_block += multigrid_param.replace("%name%", item.name).replace("%type%", item.type)
-                pyquda_pyi_block += f"    {item.name}: List[{item.type}, {item.array[0]}]\n"
+                quda_pyx_block += multigrid_param.replace("%name%", item.name).replace("%type%", item.type)
+                quda_pyi_block += f"    {item.name}: List[{item.type}, {item.array[0]}]\n"
             elif item.type.startswith("Quda") and item.type.endswith("Param"):
-                pyquda_pyx_block += param.replace("%name%", item.name).replace("%type%", item.type)
-                pyquda_pyi_block += f"    {item.name}: {item.type}\n"
+                quda_pyx_block += param.replace("%name%", item.name).replace("%type%", item.type)
+                quda_pyi_block += f"    {item.name}: {item.type}\n"
             elif len(item.array) == 1:
                 if item.type == "char":
-                    pyquda_pyx_block += cstring.replace("%name%", item.name)
-                    pyquda_pyi_block += f"    {item.name}: bytes[{item.array[0]}]\n"
+                    quda_pyx_block += cstring.replace("%name%", item.name)
+                    quda_pyi_block += f"    {item.name}: bytes[{item.array[0]}]\n"
                 else:
-                    pyquda_pyx_block += normal.replace("%name%", item.name)
-                    pyquda_pyi_block += f"    {item.name}: List[{item.type}, {item.array[0]}]\n"
+                    quda_pyx_block += normal.replace("%name%", item.name)
+                    quda_pyi_block += f"    {item.name}: List[{item.type}, {item.array[0]}]\n"
             elif len(item.array) == 2:
-                pyquda_pyx_block += multigrid.replace("%name%", item.name)
+                quda_pyx_block += multigrid.replace("%name%", item.name)
                 if item.type == "char":
-                    pyquda_pyi_block += f"    {item.name}: List[bytes[{item.array[1]}], {item.array[0]}]\n"
+                    quda_pyi_block += f"    {item.name}: List[bytes[{item.array[1]}], {item.array[0]}]\n"
                 else:
-                    pyquda_pyi_block += f"    {item.name}: List[List[{item.type}, {item.array[1]}], {item.array[0]}]\n"
+                    quda_pyi_block += f"    {item.name}: List[List[{item.type}, {item.array[1]}], {item.array[0]}]\n"
             elif item.ptr == "*" and item.type == "void":
-                pyquda_pyx_block += void_ptr.replace("%name%", item.name)
-                pyquda_pyi_block += f"    {item.name}: Pointer\n"
+                quda_pyx_block += void_ptr.replace("%name%", item.name)
+                quda_pyi_block += f"    {item.name}: Pointer\n"
             elif item.ptr == "*":
-                pyquda_pyx_block += ptr.replace("%name%", item.name).replace("%type%", item.type)
-                pyquda_pyi_block += f"    {item.name}: Pointer\n"
+                quda_pyx_block += ptr.replace("%name%", item.name).replace("%type%", item.type)
+                quda_pyi_block += f"    {item.name}: Pointer\n"
             elif item.ptr == "**":
-                pyquda_pyx_block += ptrptr.replace("%name%", item.name).replace("%type%", item.type)
-                pyquda_pyi_block += f"    {item.name}: Pointers\n"
+                quda_pyx_block += ptrptr.replace("%name%", item.name).replace("%type%", item.type)
+                quda_pyi_block += f"    {item.name}: Pointers\n"
             else:
-                pyquda_pyx_block += normal.replace("%name%", item.name)
-                pyquda_pyi_block += f"    {item.name}: {item.type}\n"
+                quda_pyx_block += normal.replace("%name%", item.name)
+                quda_pyi_block += f"    {item.name}: {item.type}\n"
         idx = quda_pxd.find(key)
         quda_pxd = quda_pxd[:idx] + quda_pxd[idx:].replace(
             "        pass\n", quda_pxd_block.replace("double _Complex", "double_complex"), 1
         )
-        pyquda_pyx = pyquda_pyx.replace(
+        quda_pyx = quda_pyx.replace(
             f"\n##%%!! {key}\n",
-            pyquda_pyx_block.replace("double _Complex", "double_complex"),
+            quda_pyx_block.replace("double _Complex", "double_complex"),
         )
-        # pyquda_pyi = pyquda_pyi.replace(
+        # quda_pyi = quda_pyi.replace(
         #     f"##%%!! {key}\n",
         #     pyi.replace("double _Complex", "double_complex").replace("unsigned int", "int"),
         # )
@@ -430,12 +430,12 @@ def build_pyquda_pyx(pyquda_root, quda_path):
         f.write(enum_quda_pxd)
     with open(os.path.join(pyquda_root, "pyquda", "src", "quda.pxd"), "w") as f:
         f.write(quda_pxd)
-    with open(os.path.join(pyquda_root, "pyquda", "src", "pyquda.pyx"), "w") as f:
-        f.write(pyquda_pyx)
+    with open(os.path.join(pyquda_root, "pyquda", "src", "quda.pyx"), "w") as f:
+        f.write(quda_pyx)
     with open(os.path.join(pyquda_root, "pyquda", "enum_quda.py"), "w") as f:
         f.write(enum_quda_py)
     # with open(os.path.join(pyquda_root, "pyquda", "pyquda.pyi"), "w") as f:
-    #     f.write(pyquda_pyi)
+    #     f.write(quda_pyi)
 
     if os.path.exists(os.path.join(pyquda_root, "yacctab.py")):
         os.remove(os.path.join(pyquda_root, "yacctab.py"))
