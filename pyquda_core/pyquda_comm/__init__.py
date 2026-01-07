@@ -58,7 +58,7 @@ _GRID_MAP: GridMapType = "default"
 """For MPI, the default node mapping is lexicographical with t varying fastest."""
 _GRID_SIZE: Optional[Tuple[int, ...]] = None
 _GRID_COORD: Optional[Tuple[int, ...]] = None
-_SHARED_RANK_LIST: Optional[List[int]] = None
+_SHARED_RANK_LIST: Optional[Tuple[int]] = None
 _ARRAY_BACKEND: BackendType = "cupy"
 _ARRAY_BACKEND_TARGET: BackendTargetType = "cuda"
 _ARRAY_DEVICE: int = -1
@@ -274,7 +274,7 @@ def setSharedRankList(grid_size: Sequence[int]):
             _defaultCoordFromRank(shared_rank, shared_grid_size),
         )
     ]
-    _SHARED_RANK_LIST = _MPI_COMM.allgather(_defaultRankFromCoord(grid_coord, grid_size))
+    _SHARED_RANK_LIST = tuple(_MPI_COMM.allgather(_defaultRankFromCoord(grid_coord, grid_size)))
 
 
 def initGrid(

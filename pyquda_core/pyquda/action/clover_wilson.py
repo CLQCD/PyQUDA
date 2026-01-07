@@ -43,7 +43,7 @@ class CloverWilsonAction(FermionAction):
         self.phi = LatticeFermion(latt_info)
         self.eta = LatticeFermion(latt_info)
 
-        self.dirac.setPrecision(True)  # TODO: Check if it's better or worse
+        self.dirac.setPrecision(n_flavor != 2)  # TODO: Check if it's better or worse
         self.invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
         self.invert_param.solution_type = QudaSolutionType.QUDA_MATPCDAG_MATPC_SOLUTION
         self.invert_param.solve_type = QudaSolveType.QUDA_NORMOP_PC_SOLVE  # This is set to compute action

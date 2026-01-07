@@ -15,7 +15,7 @@ from ..enum_quda import (
     QudaSolveType,
     QudaVerbosity,
 )
-from ..dirac import getGlobalReconstruct, HISQDirac
+from ..dirac import HISQDirac, getGlobalReconstruct
 
 nullptr = numpy.empty((0, 0), "<c16")
 
@@ -154,7 +154,7 @@ class MultiHISQAction(StaggeredFermionAction):
             getLogger().critical("anisotropy != 1.0 not implemented", NotImplementedError)
         super().__init__(latt_info, pseudo_fermions[0].dirac)
         self.pseudo_fermions = pseudo_fermions
-        self.current_naik_epsilon = pseudo_fermions[0].dirac.naik_epsilon
+        self.current_naik_epsilon = -1.0  # An impossible value for initialization
 
         self.setForceParam()
         self.quark = MultiLatticeStaggeredFermion(self.latt_info, self.max_num_offset)
@@ -204,7 +204,7 @@ class MultiHISQAction(StaggeredFermionAction):
 
     def updateFatLong(self, pseudo_fermion: HISQAction):
         dirac = pseudo_fermion.dirac
-        if self.current_naik_epsilon != dirac.naik_epsilon or self.dirac is dirac:
+        if self.current_naik_epsilon != dirac.naik_epsilon:
             fatlink, longlink = dirac.computeXLinkEpsilon(self.fatlink, self.longlink, self.w_link)
             dirac.loadFatLongGauge(fatlink, longlink)
             self.current_naik_epsilon = dirac.naik_epsilon

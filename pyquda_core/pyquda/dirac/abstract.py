@@ -203,10 +203,13 @@ class FermionDirac(Dirac):
             self.multigrid.param.verbosity = [verbosity] * QUDA_MAX_MG_LEVEL
             self.multigrid.inv_param.verbosity = verbosity
 
-    def performance(self):
+    def performance(self, tag: str = ""):
         gflops, secs = self.invert_param.gflops, self.invert_param.secs
         if self.invert_param.verbosity >= QudaVerbosity.QUDA_SUMMARIZE:
-            getLogger().info(f"Time = {secs:.3f} secs, Performance = {gflops / secs:.3f} GFLOPS")
+            if tag == "":
+                getLogger().info(f"Time = {secs:.3f} secs, Performance = {gflops / secs:.3f} GFLOPS")
+            else:
+                getLogger().info(f"Time = {secs:.3f} secs, Performance = {gflops / secs:.3f} GFLOPS ({tag})")
 
     def invert(self, b: LatticeFermion):
         x = LatticeFermion(b.latt_info)
