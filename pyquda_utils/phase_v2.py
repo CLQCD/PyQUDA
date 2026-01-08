@@ -26,7 +26,7 @@ class DistancePhase:
         phase = MultiLatticeInt(self.latt_info, self.latt_info.Nd)
         for i in range(self.latt_info.Nd):
             GL = self.latt_info.global_size[i]
-            phase[i].data[:] = arrayDevice((self.x[i] - x0[i] + GL // 2) % GL - GL // 2, getArrayBackend())
+            phase[i].data = (self.x[i] - x0[i] + GL // 2) % GL - GL // 2
         return phase
 
 

@@ -80,6 +80,23 @@ def backendDeviceAPI(backend: BackendType, backend_target: BackendTargetType):
     return getDeviceCount, setDevice
 
 
+def arrayIsInstance(data, backend: BackendType):
+    if backend == "numpy":
+        return isinstance(data, numpy.ndarray)
+    elif backend == "cupy":
+        import cupy
+
+        return isinstance(data, cupy.ndarray)
+    elif backend == "dpnp":
+        import dpnp
+
+        return isinstance(data, dpnp.ndarray)
+    elif backend == "torch":
+        import torch
+
+        return isinstance(data, torch.Tensor)
+
+
 def arrayDType(dtype: DTypeLike, backend: BackendType) -> DTypeLike:
     if backend == "numpy":
         return numpy.dtype(dtype).type

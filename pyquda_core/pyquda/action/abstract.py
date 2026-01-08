@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Literal, NamedTuple, Optional
 
-from pyquda_comm import getArrayBackend
 from pyquda_comm.array import arrayRandomNormalComplex
 from ..field import (
     LatticeInfo,
@@ -74,7 +73,7 @@ class FermionAction(Action):
         pass
 
     def sampleEta(self):
-        self.eta.data[:] = arrayRandomNormalComplex(0.0, 2.0**-0.5, self.eta.shape, getArrayBackend())
+        self.eta.data = arrayRandomNormalComplex(0.0, 2.0**-0.5, self.eta.shape, self.eta.location)
 
     def invertMultiShift(self, mode: Literal["sample", "action", "force"]):
         if mode == "sample":
@@ -102,7 +101,9 @@ class FermionAction(Action):
         num_offset = len(offset)
         if num_offset > 1:
             tol = self.invert_param.tol
-            use_invert_sloppy = max(map(abs, residue)) / min(map(abs, residue)) < 256  # ? 2**-15 / 2**-23
+            use_invert_sloppy = tol > 2**-15 and (
+                min(map(abs, residue)) / max(map(abs, residue)) > 2**-8
+            )  # ? tol_0 > epsilon_short and tol_min / tol_max > epsilon_float / epsilon_short
             self.invert_param.num_offset = num_offset
             self.invert_param.offset = offset + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
             self.invert_param.residue = residue + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)

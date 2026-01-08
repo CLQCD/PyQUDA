@@ -475,7 +475,7 @@ def _gaussian1(latt_info: LatticeInfo, t_srce: List[int], spin: int, color: int,
     from . import core
 
     def _Laplacian(src, aux, sigma, xi, invert_param):
-        aux.data[:] = 0
+        aux.data = 0
         quda.dslashQuda(aux.even_ptr, src.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
         quda.dslashQuda(aux.odd_ptr, src.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
         aux.even -= src.odd

@@ -284,7 +284,7 @@ class HMC:
             self.gauge_param.make_resident_mom = 1
             self.gauge_param.return_result_mom = 0
 
-            self.smeared.data[:] = self.gauge.data
+            self.smeared.data = self.gauge.data
             # self._stoutSmear()
             if self.is_staggered:
                 self.smeared.staggeredPhase(False)
@@ -293,14 +293,14 @@ class HMC:
             self.gauge_param.use_resident_gauge = 0
             loadGaugeQuda(self.smeared.data_ptrs, self.gauge_param)
             self.gauge_param.use_resident_gauge = 1
-            self.force.data[:] = 0
+            self.force.data = 0
 
     def loadGaugeMom(self):
         if self.gauge is not None and self.smeared is not None and self.force is not None and self.mom is not None:
             # self._stoutSmearReverse()
             self.mom += self.force
 
-            self.smeared.data[:] = self.gauge.data
+            self.smeared.data = self.gauge.data
             if self.is_staggered:
                 self.smeared.staggeredPhase(False)
             if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:

@@ -27,6 +27,7 @@ from . import (
 )
 from .array import (
     BackendType,
+    arrayIsInstance,
     arrayDType,
     arrayHost,
     arrayHostCopy,
@@ -213,19 +214,19 @@ class LexicoInfo(BaseInfo):
 
 
 def read_array_header(filename: str) -> Tuple[Tuple[int, ...], str, int]:
-    with open(filename, "rb") as f:
-        assert read_magic(f) == (1, 0)
-        shape, fortran_order, dtype = read_array_header_1_0(f)
-        dtype = dtype_to_descr(dtype)
+    with open(filename, "rb") as fp:
+        assert read_magic(fp) == (1, 0)
+        shape, fortran_order, dtype = read_array_header_1_0(fp)
         assert not fortran_order
-        offset = f.tell()
-    return shape, dtype, offset
+        offset = fp.tell()
+    return shape, dtype.str, offset
 
 
 def write_array_header(filename: str, shape: Tuple[int, ...], dtype: str):
     if getMPIRank() == 0:
-        with open(filename, "wb") as f:
-            write_array_header_1_0(f, {"shape": shape, "fortran_order": False, "descr": dtype})
+        with open(filename, "wb") as fp:
+            d = {"shape": shape, "fortran_order": False, "descr": dtype_to_descr(numpy.dtype(dtype))}
+            write_array_header_1_0(fp, d)
     getMPIComm().Barrier()
 
 
@@ -302,10 +303,7 @@ class BaseField:
 
     @property
     def location(self) -> BackendType:
-        if isinstance(self.data, numpy.ndarray):
-            return "numpy"
-        else:
-            return self.backend
+        return "numpy" if isinstance(self.data, numpy.ndarray) else self.backend
 
     @abstractmethod
     def _latticeShape(self) -> List[int]:
@@ -331,8 +329,18 @@ class BaseField:
 
     @data.setter
     def data(self, value):
-        location = "numpy" if isinstance(value, numpy.ndarray) else self.backend
-        self._data = arrayAsContiguous(value, location)
+        if isinstance(value, numpy.ndarray):
+            if self.location == "numpy":
+                self._data[:] = value
+            else:
+                self._data[:] = arrayDevice(value, self.backend)
+        elif arrayIsInstance(value, self.backend):
+            if self.location == "numpy":
+                self._data[:] = arrayHost(value, self.backend)
+            else:
+                self._data[:] = value
+        else:
+            self._data[:] = value
 
     @property
     def data_ptr(self) -> NDArray:
@@ -369,11 +377,20 @@ class BaseField:
     def _initData(self, value: Union[NDArray, BackendType, None]):
         self._setField()
         if value is None:
-            self.data = arrayZeros(self.shape, self.dtype, self.backend)
+            self._data = arrayZeros(self.shape, self.dtype, self.backend)
         elif isinstance(value, str):
-            self.data = arrayZeros(self.shape, self.dtype, value)
+            self._data = arrayZeros(self.shape, self.dtype, value)
         else:
-            self.data = value.reshape(self.shape)
+            location = "numpy" if isinstance(value, numpy.ndarray) else self.backend
+            if self.L5 == 0:
+                self._data = arrayAsContiguous(value.reshape(self.shape), location)
+            else:
+                for index in range(self.L5):
+                    if not arrayIsContiguous(value[index], location):
+                        self._data = arrayAsContiguous(value.reshape(self.shape), location)
+                        break
+                else:
+                    self._data = value.reshape(self.shape)
 
     def lexico(self, force_numpy: bool = True):
         if not isinstance(self, _FULL_FILED_TUPLE):
@@ -658,10 +675,10 @@ class BaseField:
             return self.__class__(self.latt_info, self.L5, arrayCopy(self.data, self.location))
 
     def toDevice(self):
-        self.data = arrayDevice(self.data, self.backend)
+        self._data = arrayDevice(self.data, self.backend)
 
     def toHost(self):
-        self.data = arrayHost(self.data, self.location)
+        self._data = arrayHost(self.data, self.location)
 
     def getHost(self):
         return arrayHostCopy(self.data, self.location)
@@ -1022,21 +1039,6 @@ class MultiField(BaseField, Generic[Field]):
         self.L5 = L5
         if init_data:
             self._initData(value)
-
-    @property
-    def data(self) -> NDArray:
-        return self._data
-
-    @data.setter
-    def data(self, value):
-        contiguous = True
-        location = "numpy" if isinstance(value, numpy.ndarray) else self.backend
-        for index in range(self.L5):
-            contiguous &= arrayIsContiguous(value[index], location)
-        if contiguous:
-            self._data = value
-        else:
-            self._data = arrayAsContiguous(value, location)
 
     @overload
     def __getitem__(self, key: int) -> Field: ...

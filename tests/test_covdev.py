@@ -18,7 +18,6 @@ def covdev(U: LatticeGauge, x: LatticeFermion, mu: int):
     elif 4 <= mu <= 7:
         x_ = np.roll(np.einsum("tzyxba,tzyxib->tzyxia", U_[mu - 4].conj(), x_), 1, 7 - mu)
     x.data = U.latt_info.evenodd(x_, False)
-    x.toDevice()
 
 
 gauge = io.readQIOGauge(weak_field)
