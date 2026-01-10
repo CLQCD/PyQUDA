@@ -376,12 +376,12 @@ def gaussianSmear(
             b = dirac.wuppertalSmear(x, n_steps, alpha)
         elif isinstance(x, MultiLatticeFermion):
             b = MultiLatticeFermion(x.latt_info, x.L5)
-            for index in range(x.L5):
-                b[index] = dirac.wuppertalSmear(x[index], n_steps, alpha)
+            for i in range(x.L5):
+                b[i] = dirac.wuppertalSmear(x[i], n_steps, alpha)
         elif isinstance(x, MultiLatticeStaggeredFermion):
             b = MultiLatticeStaggeredFermion(x.latt_info, x.L5)
-            for index in range(x.L5):
-                b[index] = dirac.wuppertalSmear(x[index], n_steps, alpha)
+            for i in range(x.L5):
+                b[i] = dirac.wuppertalSmear(x[i], n_steps, alpha)
         elif isinstance(x, LatticePropagator):
             b = LatticePropagator(x.latt_info)
             for spin in range(Ns):

@@ -218,11 +218,9 @@ class FermionDirac(Dirac):
     def invertRestart(self, b: LatticeFermion, restart: int):
         x = self.invert(b)
         if restart > 0:
-            r = b - self.mat(x)
             self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_SOURCE_NORMALIZATION
-            r = self.invertRestart(r, restart - 1)
+            x += self.invertRestart(b - self.mat(x), restart - 1)
             self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
-            x += r
         return x
 
     def mat(self, x: LatticeFermion):
@@ -256,15 +254,22 @@ class FermionDirac(Dirac):
     def invertMultiSrcRestart(self, b: MultiLatticeFermion, restart: int):
         x = self.invertMultiSrc(b)
         if restart > 0:
-            r = MultiLatticeFermion(b.latt_info, b.L5)
-            for i in range(b.L5):
-                r[i] = b[i] - self.mat(x[i])
             self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_SOURCE_NORMALIZATION
-            r = self.invertMultiSrcRestart(r, restart - 1)
+            x += self.invertMultiSrcRestart(b - self.matMultiSrc(x), restart - 1)
             self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
-            for i in range(b.L5):
-                x[i] += r[i]
         return x
+
+    def matMultiSrc(self, x: MultiLatticeFermion):
+        b = MultiLatticeFermion(x.latt_info, x.L5)
+        for i in range(x.L5):
+            MatQuda(b[i].data_ptr, x[i].data_ptr, self.invert_param)
+        return b
+
+    def matDagMatMultiSrc(self, x: MultiLatticeFermion):
+        b = MultiLatticeFermion(x.latt_info, x.L5)
+        for i in range(x.L5):
+            MatDagMatQuda(b[i].data_ptr, x[i].data_ptr, self.invert_param)
+        return b
 
     def dslashMultiSrc(self, x: MultiLatticeFermion, parity: QudaParity = QudaParity.QUDA_INVALID_PARITY):
         self.invert_param.num_src = x.L5
@@ -317,11 +322,9 @@ class StaggeredFermionDirac(FermionDirac):
     def invertRestart(self, b: LatticeStaggeredFermion, restart: int):
         x = self.invert(b)
         if restart > 0:
-            r = b - self.mat(x)
             self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_SOURCE_NORMALIZATION
-            r = self.invertRestart(r, restart - 1)
+            x += self.invertRestart(b - self.mat(x), restart - 1)
             self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
-            x += r
         return x
 
     def mat(self, x: LatticeStaggeredFermion):
@@ -355,15 +358,22 @@ class StaggeredFermionDirac(FermionDirac):
     def invertMultiSrcRestart(self, b: MultiLatticeStaggeredFermion, restart: int):
         x = self.invertMultiSrc(b)
         if restart > 0:
-            r = MultiLatticeStaggeredFermion(b.latt_info, b.L5)
-            for i in range(b.L5):
-                r[i] = b[i] - self.mat(x[i])
             self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_SOURCE_NORMALIZATION
-            r = self.invertMultiSrcRestart(r, restart - 1)
+            x += self.invertMultiSrcRestart(b - self.matMultiSrc(x), restart - 1)
             self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
-            for i in range(b.L5):
-                x[i] += r[i]
         return x
+
+    def matMultiSrc(self, x: MultiLatticeStaggeredFermion):
+        b = MultiLatticeStaggeredFermion(x.latt_info, x.L5)
+        for i in range(x.L5):
+            MatQuda(b[i].data_ptr, x[i].data_ptr, self.invert_param)
+        return b
+
+    def matDagMatMultiSrc(self, x: MultiLatticeStaggeredFermion):
+        b = MultiLatticeStaggeredFermion(x.latt_info, x.L5)
+        for i in range(x.L5):
+            MatDagMatQuda(b[i].data_ptr, x[i].data_ptr, self.invert_param)
+        return b
 
     def dslashMultiSrc(self, x: MultiLatticeStaggeredFermion, parity: QudaParity = QudaParity.QUDA_INVALID_PARITY):
         self.invert_param.num_src = x.L5

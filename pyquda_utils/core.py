@@ -1,10 +1,10 @@
 from math import prod
-from typing import List, Literal, Union
+from typing import List, Literal, Optional, Union
 
 import numpy
 
-from pyquda_comm import getCoordFromRank, getRankFromCoord
-from pyquda import (
+from pyquda_comm import getCoordFromRank, getRankFromCoord  # noqa: F401
+from pyquda import (  # noqa: F401
     init,
     getMPIComm,
     getMPISize,
@@ -53,7 +53,7 @@ from pyquda.field import (  # noqa: F401
 from pyquda.dirac.abstract import Multigrid, FermionDirac, StaggeredFermionDirac
 
 from . import source
-from .deprecated import smear, smear4, invert12, getDslash, getStaggeredDslash, cb2
+from .deprecated import smear, smear4, invert12, getDslash, getStaggeredDslash, cb2  # noqa:F401
 
 LaplaceLatticeInfo = LatticeInfo
 
@@ -177,11 +177,12 @@ def invertStaggeredPropagator(
 
 def gatherLattice2(
     data: numpy.ndarray, tzyx: List[int], reduce_op: Literal["sum", "mean", "prod", "max", "min"] = "sum", root: int = 0
-):
+) -> Optional[numpy.ndarray]:
     sendobj = numpy.ascontiguousarray(data)
     recvobj = getMPIComm().gather(sendobj, root)
 
     if getMPIRank() == root:
+        assert recvobj is not None
         gather_axis = [d for d in range(4)]
         reduce_axis = [d for d in range(4) if tzyx[::-1][d] < 0]
         grid_size = numpy.array(getGridSize())[gather_axis]
@@ -204,34 +205,35 @@ def gatherLattice2(
 
         reduce_axis = tuple([len(prefix) + 3 - axis for axis in reduce_axis])
         if reduce_op.lower() == "sum":
-            recvobj = numpy.sum(data_all, reduce_axis)
+            data_all = numpy.sum(data_all, reduce_axis)
         elif reduce_op.lower() == "mean":
-            recvobj = numpy.mean(data_all, reduce_axis)
+            data_all = numpy.mean(data_all, reduce_axis)
         elif reduce_op.lower() == "prod":
-            recvobj = numpy.prod(data_all, reduce_axis)
+            data_all = numpy.prod(data_all, reduce_axis)
         elif reduce_op.lower() == "max":
-            recvobj = numpy.amax(data_all, reduce_axis)
+            data_all = numpy.amax(data_all, reduce_axis)
         elif reduce_op.lower() == "min":
-            recvobj = numpy.amin(data_all, reduce_axis)
+            data_all = numpy.amin(data_all, reduce_axis)
         else:
-            getLogger().critical(
-                f"gatherLattice doesn't support reduce operator reduce_op={reduce_op}", NotImplementedError
-            )
+            getLogger().critical(f"gatherLattice doesn't support reduce operator {reduce_op}", NotImplementedError)
+    else:
+        data_all = None
 
-    return recvobj
+    return data_all
 
 
-def scatterLattice(data: numpy.ndarray, tzyx: List[int], root: int = 0):
+def scatterLattice(data_all: Optional[numpy.ndarray], tzyx: List[int], root: int = 0) -> numpy.ndarray:
     if getMPIRank() == root:
+        assert data_all is not None
         scatter_axis = [d for d in range(4) if tzyx[::-1][d] >= 0]
         grid_size = numpy.array(getGridSize())[scatter_axis]
-        send_latt = numpy.array([data.shape[i] if i >= 0 else 1 for i in tzyx[::-1]])[scatter_axis]
+        send_latt = numpy.array([data_all.shape[i] if i >= 0 else 1 for i in tzyx[::-1]])[scatter_axis]
         recv_latt = [L // G for G, L in zip(grid_size, send_latt)]
 
         keep = tuple([i for i in tzyx if i >= 0])
         keep = (0, -1) if keep == () else keep
-        prefix = data.shape[: keep[0]]
-        suffix = data.shape[keep[-1] + 1 :]
+        prefix = data_all.shape[: keep[0]]
+        suffix = data_all.shape[keep[-1] + 1 :]
         prefix_slice = [slice(None) for _ in range(len(prefix))]
         suffix_slice = [slice(None) for _ in range(len(suffix))]
 
@@ -240,21 +242,22 @@ def scatterLattice(data: numpy.ndarray, tzyx: List[int], root: int = 0):
             grid_coord = numpy.array(getCoordFromRank(rank))[scatter_axis]
             send_slice = [slice(g * L, (g + 1) * L) for g, L in zip(grid_coord, recv_latt)]
             all_slice = (*prefix_slice, *send_slice[::-1], *suffix_slice)
-            sendobj.append(numpy.ascontiguousarray(data[all_slice]))
+            sendobj.append(numpy.ascontiguousarray(data_all[all_slice]))
     else:
         sendobj = None
 
     recvobj = getMPIComm().scatter(sendobj, root)
+    data = recvobj
 
-    return recvobj
+    return data
 
 
 def gatherScatterLattice(
     data: numpy.ndarray, tzyx: List[int], reduce_op: Literal["sum", "mean", "prod", "max", "min"] = "sum", root: int = 0
 ):
-    data = gatherLattice2(data, tzyx, reduce_op, root)
-    data = scatterLattice(data, tzyx, root)
-    return data
+    result = gatherLattice2(data, tzyx, reduce_op, root)
+    result = scatterLattice(result, tzyx, root)
+    return result
 
 
 def gatherLattice(data: numpy.ndarray, axes: List[int], reduce_op: Literal["sum", "mean"] = "sum", root: int = 0):
@@ -338,7 +341,7 @@ def getDirac(
     xi_0: float = 1.0,
     clover_coeff_t: float = 0.0,
     clover_coeff_r: float = 1.0,
-    multigrid: Union[List[List[int]], Multigrid] = None,
+    multigrid: Union[List[List[int]], Multigrid, None] = None,
 ):
     xi = latt_info.anisotropy
     if xi != 1.0:
@@ -377,7 +380,7 @@ def getWilson(
     mass: float,
     tol: float,
     maxiter: int,
-    multigrid: List[List[int]] = None,
+    multigrid: Union[List[List[int]], Multigrid, None] = None,
 ):
     if not multigrid:
         multigrid = None
@@ -396,7 +399,7 @@ def getClover(
     xi_0: float = 1.0,
     clover_csw_t: float = 0.0,
     clover_csw_r: float = 1.0,
-    multigrid: List[List[int]] = None,
+    multigrid: Union[List[List[int]], Multigrid, None] = None,
 ):
     assert clover_csw_t != 0.0
     xi = latt_info.anisotropy
@@ -433,7 +436,7 @@ def getHISQ(
     tol: float,
     maxiter: int,
     naik_epsilon: float = 0.0,
-    multigrid: Union[List[List[int]], Multigrid] = None,
+    multigrid: Union[List[List[int]], Multigrid, None] = None,
 ):
     assert latt_info.anisotropy == 1.0
 

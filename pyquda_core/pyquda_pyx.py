@@ -172,6 +172,7 @@ def build_pyquda_pyx(pyquda_root, quda_path):
     subprocess.run(
         [
             "cpp",
+            "-P",
             Rf"-I{quda_include}",
             "-o",
             os.path.join(pyquda_root, 'pyquda', 'quda_define.py'),

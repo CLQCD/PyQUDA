@@ -15,7 +15,7 @@ def target() -> Literal["cuda", "hip", "sycl"]:
 
 def mmaAvailable() -> bool:
     # if defined QUDA_ENABLE_MMA
-    return __COMPUTE_CAPABILITY__ >= 700
+    return (__COMPUTE_CAPABILITY__ >= 700)
     # else
     return False
     # endif
