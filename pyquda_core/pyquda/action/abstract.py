@@ -21,6 +21,18 @@ class LoopParam(NamedTuple):
     coeff: List[float]
 
 
+class RationalParam(NamedTuple):
+    norm_force: float = 0.0
+    residue_force: List[float] = [1.0]
+    offset_force: List[float] = [0.0]
+    norm_sample: float = 0.0
+    residue_sample: List[float] = [1.0]
+    offset_sample: List[float] = [0.0]
+    norm_action: float = 0.0
+    residue_action: List[float] = [1.0]
+    offset_action: List[float] = [0.0]
+
+
 class Action(ABC):
     latt_info: LatticeInfo
     dirac: Dirac
@@ -39,18 +51,6 @@ class Action(ABC):
     @abstractmethod
     def force(self, dt: float, mom: Optional[LatticeMom] = None):
         pass
-
-
-class RationalParam(NamedTuple):
-    norm_force: float = 0.0
-    residue_force: List[float] = [1.0]
-    offset_force: List[float] = [0.0]
-    norm_sample: float = 0.0
-    residue_sample: List[float] = [1.0]
-    offset_sample: List[float] = [0.0]
-    norm_action: float = 0.0
-    residue_action: List[float] = [1.0]
-    offset_action: List[float] = [0.0]
 
 
 class FermionAction(Action):
@@ -112,10 +112,12 @@ class FermionAction(Action):
             ] + [0.0] * (QUDA_MAX_MULTI_SHIFT - num_offset)
             if use_invert_sloppy:
                 self.invert_param.cuda_prec_sloppy = getGlobalPrecision("invert").sloppy
+                self.invert_param.cuda_prec_precondition = getGlobalPrecision("invert").precondition
             invertMultiShiftQuda(xx.even_ptrs, b.even_ptr, self.invert_param)
             self.dirac.performance()
             if use_invert_sloppy:
                 self.invert_param.cuda_prec_sloppy = getGlobalPrecision("multishift").sloppy
+                self.invert_param.cuda_prec_precondition = getGlobalPrecision("multishift").precondition
             if mode == "sample" or mode == "action":
                 x.even = norm * b.even
                 for i in range(num_offset):

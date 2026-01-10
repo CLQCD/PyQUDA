@@ -32,7 +32,7 @@ from ..enum_quda import (
     QudaReconstructType,
     QudaSolutionType,
     QudaMatPCType,
-    # QudaSolverNormalization,
+    QudaSolverNormalization,
     QudaVerbosity,
 )
 
@@ -115,14 +115,13 @@ class Dirac(ABC):
         precondition: Optional[QudaPrecision] = None,
         eigensolver: Optional[QudaPrecision] = None,
     ):
-        if cuda is not None or sloppy is not None or precondition is not None or eigensolver is not None:
-            self.precision = Precision(
-                cuda if cuda is not None else self.precision.cuda,
-                sloppy if sloppy is not None else self.precision.sloppy,
-                refinement_sloppy if refinement_sloppy is not None else self.precision.refinement_sloppy,
-                precondition if precondition is not None else self.precision.precondition,
-                eigensolver if eigensolver is not None else self.precision.eigensolver,
-            )
+        self.precision = Precision(
+            cuda if cuda is not None else self.precision.cuda,
+            sloppy if sloppy is not None else self.precision.sloppy,
+            refinement_sloppy if refinement_sloppy is not None else self.precision.refinement_sloppy,
+            precondition if precondition is not None else self.precision.precondition,
+            eigensolver if eigensolver is not None else self.precision.eigensolver,
+        )
         setPrecisionParam(self.precision, self.gauge_param, self.invert_param, None, None)
 
     def setReconstruct(
@@ -134,14 +133,13 @@ class Dirac(ABC):
         precondition: Optional[QudaReconstructType] = None,
         eigensolver: Optional[QudaReconstructType] = None,
     ):
-        if cuda is not None or sloppy is not None or precondition is not None or eigensolver is not None:
-            self.reconstruct = Reconstruct(
-                cuda if cuda is not None else self.reconstruct.cuda,
-                sloppy if sloppy is not None else self.reconstruct.sloppy,
-                refinement_sloppy if refinement_sloppy is not None else self.reconstruct.refinement_sloppy,
-                precondition if precondition is not None else self.reconstruct.precondition,
-                eigensolver if eigensolver is not None else self.reconstruct.eigensolver,
-            )
+        self.reconstruct = Reconstruct(
+            cuda if cuda is not None else self.reconstruct.cuda,
+            sloppy if sloppy is not None else self.reconstruct.sloppy,
+            refinement_sloppy if refinement_sloppy is not None else self.reconstruct.refinement_sloppy,
+            precondition if precondition is not None else self.reconstruct.precondition,
+            eigensolver if eigensolver is not None else self.reconstruct.eigensolver,
+        )
         setReconstructParam(self.reconstruct, self.gauge_param)
 
     def setVerbosity(self, verbosity: QudaVerbosity):
@@ -182,8 +180,8 @@ class FermionDirac(Dirac):
         precondition: Optional[QudaPrecision] = None,
         eigensolver: Optional[QudaPrecision] = None,
     ):
-        if multishift:
-            self.precision = getGlobalPrecision("multishift")  # Use SINGLE for MultiCG and HALF for refinement
+        if multishift:  # Use SINGLE as sloppy and HALF as refinement_sloppy
+            self.precision = getGlobalPrecision("multishift")
         elif self.multigrid.param is not None and self.multigrid.inv_param is not None:
             self.precision = getGlobalPrecision("multigrid")
         else:
@@ -219,15 +217,12 @@ class FermionDirac(Dirac):
 
     def invertRestart(self, b: LatticeFermion, restart: int):
         x = self.invert(b)
-        # self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_SOURCE_NORMALIZATION
-        for _ in range(restart):
+        if restart > 0:
             r = b - self.mat(x)
-            norm = r.norm2() ** 0.5
-            r /= norm
+            self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_SOURCE_NORMALIZATION
             r = self.invertRestart(r, restart - 1)
-            r *= norm
+            self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
             x += r
-        # self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
         return x
 
     def mat(self, x: LatticeFermion):
@@ -260,16 +255,14 @@ class FermionDirac(Dirac):
 
     def invertMultiSrcRestart(self, b: MultiLatticeFermion, restart: int):
         x = self.invertMultiSrc(b)
-        for _ in range(restart):
+        if restart > 0:
             r = MultiLatticeFermion(b.latt_info, b.L5)
-            norm = []
             for i in range(b.L5):
                 r[i] = b[i] - self.mat(x[i])
-                norm.append(r[i].norm2() ** 0.5)
-                r[i] /= norm[i]
+            self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_SOURCE_NORMALIZATION
             r = self.invertMultiSrcRestart(r, restart - 1)
+            self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
             for i in range(b.L5):
-                r[i] *= norm[i]
                 x[i] += r[i]
         return x
 
@@ -323,12 +316,11 @@ class StaggeredFermionDirac(FermionDirac):
 
     def invertRestart(self, b: LatticeStaggeredFermion, restart: int):
         x = self.invert(b)
-        for _ in range(restart):
+        if restart > 0:
             r = b - self.mat(x)
-            norm = r.norm2() ** 0.5
-            r /= norm
+            self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_SOURCE_NORMALIZATION
             r = self.invertRestart(r, restart - 1)
-            r *= norm
+            self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
             x += r
         return x
 
@@ -362,16 +354,14 @@ class StaggeredFermionDirac(FermionDirac):
 
     def invertMultiSrcRestart(self, b: MultiLatticeStaggeredFermion, restart: int):
         x = self.invertMultiSrc(b)
-        for _ in range(restart):
+        if restart > 0:
             r = MultiLatticeStaggeredFermion(b.latt_info, b.L5)
-            norm = []
             for i in range(b.L5):
                 r[i] = b[i] - self.mat(x[i])
-                norm.append(r[i].norm2() ** 0.5)
-                r[i] /= norm[i]
+            self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_SOURCE_NORMALIZATION
             r = self.invertMultiSrcRestart(r, restart - 1)
+            self.invert_param.solver_normalization = QudaSolverNormalization.QUDA_DEFAULT_NORMALIZATION
             for i in range(b.L5):
-                r[i] *= norm[i]
                 x[i] += r[i]
         return x
 

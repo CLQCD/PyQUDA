@@ -6,7 +6,6 @@ from pyquda_comm import getLogger
 from ..field import LatticeInfo, LatticeGauge, LatticeMom, LatticeStaggeredFermion, MultiLatticeStaggeredFermion
 from ..quda import computeHISQForceQuda, dslashQuda, saveGaugeQuda
 from ..enum_quda import (
-    QudaReconstructType,
     QudaInverterType,
     QudaMassNormalization,
     QudaMatPCType,
@@ -138,7 +137,7 @@ class HISQAction(StaggeredFermionAction):
             self.coeff,
             self.gauge_param,
         )
-        self.gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
+        self.gauge_param.reconstruct = getGlobalReconstruct("none").cuda
         if mom is not None:
             self.gauge_param.use_resident_mom = 1
             self.gauge_param.make_resident_mom = 1
@@ -275,7 +274,7 @@ class MultiHISQAction(StaggeredFermionAction):
             self.coeff,
             self.gauge_param,
         )
-        self.gauge_param.reconstruct = QudaReconstructType.QUDA_RECONSTRUCT_NO
+        self.gauge_param.reconstruct = getGlobalReconstruct("none").cuda
         if mom is not None:
             self.gauge_param.use_resident_mom = 1
             self.gauge_param.make_resident_mom = 1

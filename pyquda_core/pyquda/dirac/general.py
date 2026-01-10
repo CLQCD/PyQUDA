@@ -86,31 +86,31 @@ precision_cpu = QudaPrecision.QUDA_DOUBLE_PRECISION
 _precision = {
     "none": Precision(
         QudaPrecision.QUDA_DOUBLE_PRECISION,
-        QudaPrecision.QUDA_DOUBLE_PRECISION,
-        QudaPrecision.QUDA_DOUBLE_PRECISION,
-        QudaPrecision.QUDA_DOUBLE_PRECISION,
-        QudaPrecision.QUDA_DOUBLE_PRECISION,
+        QudaPrecision.QUDA_DOUBLE_PRECISION,  # cuda
+        QudaPrecision.QUDA_DOUBLE_PRECISION,  # cuda
+        QudaPrecision.QUDA_DOUBLE_PRECISION,  # cuda
+        QudaPrecision.QUDA_DOUBLE_PRECISION,  # cuda
     ),
     "invert": Precision(
         QudaPrecision.QUDA_DOUBLE_PRECISION,
         QudaPrecision.QUDA_HALF_PRECISION,
-        QudaPrecision.QUDA_HALF_PRECISION,
-        QudaPrecision.QUDA_HALF_PRECISION,
-        QudaPrecision.QUDA_DOUBLE_PRECISION,
+        QudaPrecision.QUDA_HALF_PRECISION,  # sloppy
+        QudaPrecision.QUDA_HALF_PRECISION,  # sloppy
+        QudaPrecision.QUDA_DOUBLE_PRECISION,  # cuda
     ),
     "multishift": Precision(
         QudaPrecision.QUDA_DOUBLE_PRECISION,
         QudaPrecision.QUDA_SINGLE_PRECISION,
         QudaPrecision.QUDA_HALF_PRECISION,
-        QudaPrecision.QUDA_HALF_PRECISION,
-        QudaPrecision.QUDA_DOUBLE_PRECISION,
+        QudaPrecision.QUDA_SINGLE_PRECISION,  # sloppy
+        QudaPrecision.QUDA_DOUBLE_PRECISION,  # cuda
     ),
     "multigrid": Precision(
         QudaPrecision.QUDA_DOUBLE_PRECISION,
         QudaPrecision.QUDA_SINGLE_PRECISION,
-        QudaPrecision.QUDA_SINGLE_PRECISION,
+        QudaPrecision.QUDA_SINGLE_PRECISION,  # sloppy
         QudaPrecision.QUDA_HALF_PRECISION,
-        QudaPrecision.QUDA_DOUBLE_PRECISION,
+        QudaPrecision.QUDA_DOUBLE_PRECISION,  # cuda
     ),
 }
 _reconstruct = {
@@ -221,12 +221,14 @@ def setPrecisionParam(
         mg_inv_param.cpu_prec = precision_cpu
         mg_inv_param.cuda_prec = precision.cuda
         mg_inv_param.cuda_prec_sloppy = precision.sloppy
+        mg_inv_param.cuda_prec_refinement_sloppy = precision.refinement_sloppy
         mg_inv_param.cuda_prec_precondition = precision.precondition
         mg_inv_param.cuda_prec_eigensolver = precision.eigensolver
 
         mg_inv_param.clover_cpu_prec = precision_cpu
         mg_inv_param.clover_cuda_prec = precision.cuda
         mg_inv_param.clover_cuda_prec_sloppy = precision.sloppy
+        mg_inv_param.clover_cuda_prec_refinement_sloppy = precision.refinement_sloppy
         mg_inv_param.clover_cuda_prec_precondition = precision.precondition
         mg_inv_param.clover_cuda_prec_eigensolver = precision.eigensolver
 
