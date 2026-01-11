@@ -3,7 +3,7 @@ import json
 from os import environ, path
 from typing import Dict, Literal, Optional, Sequence, Tuple
 
-from gmpy2 import mpfr
+from gmpy2 import mpfr  # type: ignore
 
 from pyquda_comm import getMPIComm, getMPIRank
 from pyquda.field import X, Y, Z, T
@@ -16,7 +16,7 @@ class ScientificNotation(float):
         return f"{self:.16e}"
 
 
-json.encoder.float = ScientificNotation
+json.encoder.float = ScientificNotation  # type: ignore
 
 
 def wilsonGaugeLoopParam():
@@ -170,8 +170,9 @@ def _dumpCache(cache: Dict[str, RationalParam]):
     if environ.get("QUDA_RESOURCE_PATH") is not None:
         resource_path = path.expanduser(path.expandvars(environ["QUDA_RESOURCE_PATH"]))
         cache_file = path.join(path.realpath(resource_path), "hmc_param.json")
-        with open(cache_file, "w") as fp:
-            json.dump(cache, fp)
+        if path.exists(resource_path):
+            with open(cache_file, "w") as fp:
+                json.dump(cache, fp)
 
 
 class _WilsonMD:

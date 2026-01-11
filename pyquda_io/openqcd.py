@@ -4,7 +4,7 @@ from typing import List
 
 import numpy
 
-from pyquda_comm import getMPIComm, getMPIRank, getSublatticeSize, readMPIFile, writeMPIFile
+from pyquda_comm import getSublatticeSize, openReadHeader, openWriteHeader, readMPIFile, writeMPIFile
 from .io_utils import gaugeEvenOdd, gaugeLexico, gaugePlaquette, gaugeOddShiftForward, gaugeEvenShiftBackward
 
 Nd, Ns, Nc = 4, 4, 3
@@ -12,12 +12,12 @@ Nd, Ns, Nc = 4, 4, 3
 
 def readGauge(filename: str, plaquette: bool = True, lexico: bool = True):
     filename = path.expanduser(path.expandvars(filename))
-    with open(filename, "rb") as f:
-        latt_size = list(struct.unpack("<iiii", f.read(16))[::-1])
-        plaquette_ = struct.unpack("<d", f.read(8))[0] / Nc
-        offset = f.tell()
+    with openReadHeader(filename) as f:
+        if f.fp is not None:
+            latt_size = list(struct.unpack("<iiii", f.fp.read(16))[::-1])
+            plaquette_ = struct.unpack("<d", f.fp.read(8))[0] / Nc
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
-    dtype = "<c16"
+    dtype, offset = "<c16", f.offset
 
     gauge_reorder = readMPIFile(filename, dtype, offset, (Lt, Lx, Ly, Lz // 2, Nd, 2, Nc, Nc), (1, 2, 3, 0))
 
@@ -65,11 +65,10 @@ def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray, lexico
                     gauge_reorder[t, x_, y, z_] = gauge[[3, 0, 1, 2], :, t, z, y, x, :, :]
 
     gauge = gauge_reorder.astype(dtype)
-    if getMPIRank() == 0:
-        with open(filename, "wb") as f:
-            f.write(struct.pack("<iiii", *latt_size[::-1]))
-            f.write(struct.pack("<d", plaquette * Nc))
-            offset = f.tell()
-    offset = getMPIComm().bcast(offset)
+    with openWriteHeader(filename) as f:
+        if f.fp is not None:
+            f.fp.write(struct.pack("<iiii", *latt_size[::-1]))
+            f.fp.write(struct.pack("<d", plaquette * Nc))
+    offset = f.offset
 
     writeMPIFile(filename, dtype, offset, (Lt, Lx, Ly, Lz // 2, Nd, 2, Nc, Nc), (1, 2, 3, 0), gauge)

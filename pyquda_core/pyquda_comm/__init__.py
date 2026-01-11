@@ -1,7 +1,8 @@
+from contextlib import contextmanager
 import logging
-from os import environ
-from sys import stdout
-from typing import Generator, List, Literal, Optional, Sequence, Tuple, Type, Union, get_args
+import os
+import sys
+from typing import Generator, List, Literal, Optional, Sequence, IO, Tuple, Type, Union, get_args
 
 import numpy
 from numpy.typing import NDArray, DTypeLike
@@ -16,7 +17,7 @@ class _MPILogger:
     def __init__(self, root: int = 0) -> None:
         self.root = root
         formatter = logging.Formatter(fmt="{name} {levelname}: {message}", style="{")
-        stdout_handler = logging.StreamHandler(stdout)
+        stdout_handler = logging.StreamHandler(sys.stdout)
         stdout_handler.setFormatter(formatter)
         stdout_handler.setLevel(logging.DEBUG)
         stdout_handler.addFilter(lambda record: record.levelno <= logging.INFO)
@@ -37,7 +38,7 @@ class _MPILogger:
 
     def warning(self, msg: str, category: Type[Warning]):
         if _MPI_RANK == self.root:
-            self.logger.warning(msg, exc_info=category(msg), stack_info=True)
+            self.logger.warning(msg, exc_info=category(msg))
 
     def error(self, msg: str, category: Type[Exception]):
         if _MPI_RANK == self.root:
@@ -341,7 +342,7 @@ def initDevice(
                     device += 1
 
             if device >= device_count:
-                if enable_mps or environ.get("QUDA_ENABLE_MPS") == "1":
+                if enable_mps or os.environ.get("QUDA_ENABLE_MPS") == "1":
                     device %= device_count
                     print(f"MPS enabled, rank={_MPI_RANK:3d} -> gpu={device}")
                 else:
@@ -409,7 +410,56 @@ def getArrayDevice():
     return _ARRAY_DEVICE
 
 
-def getSubarray(dtype: DTypeLike, shape: Sequence[int], axes: Sequence[int]):
+class _FileWithOffset:
+    def __init__(self, fp: Optional[IO]):
+        self.fp = fp
+        self.offset: int = -1
+
+
+@contextmanager
+def openReadHeader(filename: str):
+    fp = None
+    try:
+        fp = open(filename, "rb")
+    except Exception as e:
+        _MPI_LOGGER.critical(str(e), type(e))
+    try:
+        f = _FileWithOffset(fp)
+        yield f
+    except Exception as e:
+        _MPI_LOGGER.critical(str(e), type(e))
+    finally:
+        f.offset = fp.tell()
+        fp.close()
+
+
+@contextmanager
+def openWriteHeader(filename: str, root: int = 0):
+    fp, e_ = None, None
+    if _MPI_RANK == root:
+        try:
+            fp = open(filename, "wb")
+        except Exception as e:
+            e_ = e
+    e_ = _MPI_COMM.bcast(e_, root)
+    if e_ is not None:
+        _MPI_LOGGER.critical(str(e_), type(e_))
+    try:
+        f = _FileWithOffset(fp)
+        yield f
+    except Exception as e:
+        e_ = e
+    finally:
+        e_ = _MPI_COMM.bcast(e_, root)
+        if e_ is not None:
+            _MPI_LOGGER.critical(str(e_), type(e_))
+        if fp is not None:
+            f.offset = fp.tell()
+            fp.close()
+        f.offset = _MPI_COMM.bcast(f.offset, root)
+
+
+def _getSubarray(dtype: DTypeLike, shape: Sequence[int], axes: Sequence[int]):
     sizes = [d for d in shape]
     subsizes = [d for d in shape]
     starts = [d if i in axes else 0 for i, d in enumerate(shape)]
@@ -425,11 +475,11 @@ def getSubarray(dtype: DTypeLike, shape: Sequence[int], axes: Sequence[int]):
 
 
 def readMPIFile(filename: str, dtype: DTypeLike, offset: int, shape: Sequence[int], axes: Sequence[int]) -> NDArray:
-    native_dtype_str, filetype = getSubarray(dtype, shape, axes)
+    native_dtype_str, filetype = _getSubarray(dtype, shape, axes)
     buf = numpy.empty(shape, native_dtype_str)
     buf_flat = buf.reshape(-1)
 
-    fh = MPI.File.Open(getMPIComm(), filename, MPI.MODE_RDONLY)
+    fh = MPI.File.Open(_MPI_COMM, filename, MPI.MODE_RDONLY)
     filetype.Commit()
     fh.Set_view(disp=offset, filetype=filetype)
     for start in range(0, buf.size, _MPI_IO_MAX_COUNT):
@@ -443,11 +493,11 @@ def readMPIFile(filename: str, dtype: DTypeLike, offset: int, shape: Sequence[in
 def readMPIFileInChunks(
     filename: str, dtype: DTypeLike, offset: int, count: int, shape: Sequence[int], axes: Sequence[int]
 ) -> Generator[Tuple[int, NDArray], None, None]:
-    native_dtype_str, filetype = getSubarray(dtype, shape, axes)
+    native_dtype_str, filetype = _getSubarray(dtype, shape, axes)
     buf = numpy.empty(shape, native_dtype_str)
     buf_flat = buf.reshape(-1)
 
-    fh = MPI.File.Open(getMPIComm(), filename, MPI.MODE_RDONLY)
+    fh = MPI.File.Open(_MPI_COMM, filename, MPI.MODE_RDONLY)
     filetype.Commit()
     for i in range(count):
         fh.Set_view(disp=offset + i * _MPI_SIZE * filetype.size, filetype=filetype)
@@ -459,11 +509,11 @@ def readMPIFileInChunks(
 
 
 def writeMPIFile(filename: str, dtype: DTypeLike, offset: int, shape: Sequence[int], axes: Sequence[int], buf: NDArray):
-    native_dtype_str, filetype = getSubarray(dtype, shape, axes)
+    native_dtype_str, filetype = _getSubarray(dtype, shape, axes)
     buf = buf.view(native_dtype_str)
     buf_flat = buf.reshape(-1)
 
-    fh = MPI.File.Open(getMPIComm(), filename, MPI.MODE_WRONLY | MPI.MODE_CREATE)
+    fh = MPI.File.Open(_MPI_COMM, filename, MPI.MODE_WRONLY | MPI.MODE_CREATE)
     filetype.Commit()
     fh.Set_view(disp=offset, filetype=filetype)
     for start in range(0, buf.size, _MPI_IO_MAX_COUNT):
@@ -475,11 +525,11 @@ def writeMPIFile(filename: str, dtype: DTypeLike, offset: int, shape: Sequence[i
 def writeMPIFileInChunks(
     filename: str, dtype: DTypeLike, offset: int, count: int, shape: Sequence[int], axes: Sequence[int], buf: NDArray
 ):
-    native_dtype_str, filetype = getSubarray(dtype, shape, axes)
+    native_dtype_str, filetype = _getSubarray(dtype, shape, axes)
     buf = buf.view(native_dtype_str)
     buf_flat = buf.reshape(-1)
 
-    fh = MPI.File.Open(getMPIComm(), filename, MPI.MODE_WRONLY | MPI.MODE_CREATE)
+    fh = MPI.File.Open(_MPI_COMM, filename, MPI.MODE_WRONLY | MPI.MODE_CREATE)
     filetype.Commit()
     for i in range(count):
         fh.Set_view(disp=offset + i * _MPI_SIZE * filetype.size, filetype=filetype)

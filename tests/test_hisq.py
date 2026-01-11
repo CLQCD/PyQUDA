@@ -29,7 +29,7 @@ dirac.gauge_param.staggered_phase_type = QudaStaggeredPhase.QUDA_STAGGERED_PHASE
 with dirac.useGauge(gauge):
     propagator = core.invertStaggered(dirac, "point", [0, 0, 0, 0])
 
-propagator_chroma = io.readQIOPropagator(data("pt_prop_2"))
+propagator_chroma = io.readQIOStaggeredPropagator(data("pt_prop_2"))
 propagator_chroma.toDevice()
 print((propagator - propagator_chroma).norm2() ** 0.5)
 

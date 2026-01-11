@@ -5,7 +5,7 @@ from typing import Dict, List
 
 import numpy
 
-from pyquda_comm import getMPIComm, getMPIRank, getSublatticeSize, readMPIFile, writeMPIFile
+from pyquda_comm import getSublatticeSize, openReadHeader, openWriteHeader, readMPIFile, writeMPIFile
 from .io_utils import (
     checksumNERSC,
     gaugeLinkTrace,
@@ -27,14 +27,14 @@ def readGauge(
 ):
     filename = path.expanduser(path.expandvars(filename))
     header: Dict[str, str] = {}
-    with open(filename, "rb") as f:
-        assert f.readline().decode() == "BEGIN_HEADER\n"
-        buffer = f.readline().decode()
-        while buffer != "END_HEADER\n":
-            key, val = buffer.split("=")
-            header[key.strip()] = val.strip()
-            buffer = f.readline().decode()
-        offset = f.tell()
+    with openReadHeader(filename) as f:
+        if f.fp is not None:
+            assert f.fp.readline().decode() == "BEGIN_HEADER\n"
+            buffer = f.fp.readline().decode()
+            while buffer != "END_HEADER\n":
+                key, val = buffer.split("=")
+                header[key.strip()] = val.strip()
+                buffer = f.fp.readline().decode()
     latt_size = [
         int(header["DIMENSION_1"]),
         int(header["DIMENSION_2"]),
@@ -50,13 +50,13 @@ def readGauge(
     else:
         raise ValueError(f"Unsupported endian: {header['FLOATING_POINT'][6:]}")
     float_nbytes = int(header["FLOATING_POINT"][4:6]) // 8
-    dtype = f"{endian}c{2 * float_nbytes}"
+    dtype, offset = f"{endian}c{2 * float_nbytes}", f.offset
 
     if header["DATATYPE"] == "4D_SU3_GAUGE_3x3":
         gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0))
         gauge = gauge.astype(f"<c{2 * float_nbytes}")
         if checksum:
-            assert checksumNERSC(gauge.reshape(-1)) == int(header["CHECKSUM"], 16), f"Bad checksum for {filename}"
+            assert int(header["CHECKSUM"], 16) == checksumNERSC(gauge.reshape(-1))
         gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
         if float_nbytes == 4:
             gauge = gaugeReunitarize(gauge, reunitarize_sigma)  # 5e-7: Nc * 2**0.5 * 1.1920929e-07
@@ -64,7 +64,7 @@ def readGauge(
         gauge = readMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc - 1, Nc), (3, 2, 1, 0))
         gauge = gauge.astype(f"<c{2 * float_nbytes}")
         if checksum:
-            assert checksumNERSC(gauge.reshape(-1)) == int(header["CHECKSUM"], 16), f"Bad checksum for {filename}"
+            assert int(header["CHECKSUM"], 16) == checksumNERSC(gauge.reshape(-1))
         gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
         if float_nbytes == 4:
             gauge = gaugeReunitarizeReconstruct12(gauge, reunitarize_sigma)  # 5e-7: Nc * 2**0.5 * 1.1920929e-07
@@ -128,13 +128,12 @@ def writeGauge(
         "ARCHIVE_DATE": timestamp,
         "FLOATING_POINT": f"IEEE{float_nbytes * 8}LITTLE",
     }
-    if getMPIRank() == 0:
-        with open(filename, "wb") as f:
-            f.write(b"BEGIN_HEADER\n")
+    with openWriteHeader(filename) as f:
+        if f.fp is not None:
+            f.fp.write(b"BEGIN_HEADER\n")
             for key, val in header.items():
-                f.write(f"{key} = {val}\n".encode())
-            f.write(b"END_HEADER\n")
-            offset = f.tell()
-    offset = getMPIComm().bcast(offset)
+                f.fp.write(f"{key} = {val}\n".encode())
+            f.fp.write(b"END_HEADER\n")
+    offset = f.offset
 
     writeMPIFile(filename, dtype, offset, (Lt, Lz, Ly, Lx, Nd, Nc, Nc), (3, 2, 1, 0), gauge)

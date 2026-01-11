@@ -20,7 +20,7 @@ class Lime:
             while buffer != b"" and buffer != b"\x0a":
                 assert buffer.startswith(b"\x45\x67\x89\xab\x00\x01")
                 length = struct.unpack(">Q", f.read(8))[0]
-                name = f.read(128).strip(b"\x00").decode("utf-8")
+                name = f.read(128).rstrip(b"\x00").decode("utf-8")
                 self._records.append(LimeRecord(name, f.tell(), length))
                 f.seek((length + 7) // 8 * 8, io.SEEK_CUR)
                 buffer = f.read(8)
@@ -39,4 +39,4 @@ class Lime:
         with open(self.filename, "rb") as f:
             f.seek(record.offset)
             buffer = f.read(record.length)
-        return ET.ElementTree(ET.fromstring(buffer.strip(b"\x00").decode("utf-8")))
+        return ET.ElementTree(ET.fromstring(buffer.rstrip(b"\x00").decode("utf-8")))

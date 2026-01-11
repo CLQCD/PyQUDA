@@ -26,6 +26,7 @@ from .npy import (
 from .chroma import (
     readQIOGauge as readChromaQIOGauge,
     readQIOPropagator as readChromaQIOPropagator,
+    readQIOStaggeredPropagator as readChromaQIOStaggeredPropagator,
 )
 from .ildg import (
     readGauge as readILDGGauge,
@@ -35,6 +36,7 @@ from .milc import (
     readGauge as readMILCGauge,
     writeGauge as writeMILCGauge,
     readQIOPropagator as readMILCQIOPropagator,
+    readQIOStaggeredPropagator as readMILCQIOStaggeredPropagator,
 )
 from .kyu import (
     readGauge as readKYUGauge,
@@ -45,6 +47,8 @@ from .kyu import (
 from .xqcd import (
     readPropagator as readXQCDPropagator,
     writePropagator as writeXQCDPropagator,
+    readStaggeredPropagator as readXQCDStaggeredPropagator,
+    writeStaggeredPropagator as writeXQCDStaggeredPropagator,
     readPropagatorFast as readXQCDPropagatorFast,
     writePropagatorFast as writeXQCDPropagatorFast,
 )

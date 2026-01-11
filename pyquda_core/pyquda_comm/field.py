@@ -22,6 +22,8 @@ from . import (
     getGridSize,
     getGridCoord,
     getArrayBackend,
+    openReadHeader,
+    openWriteHeader,
     readMPIFile,
     writeMPIFile,
 )
@@ -214,20 +216,20 @@ class LexicoInfo(BaseInfo):
 
 
 def read_array_header(filename: str) -> Tuple[Tuple[int, ...], str, int]:
-    with open(filename, "rb") as fp:
-        assert read_magic(fp) == (1, 0)
-        shape, fortran_order, dtype = read_array_header_1_0(fp)
-        assert not fortran_order
-        offset = fp.tell()
-    return shape, dtype.str, offset
+    with openReadHeader(filename) as f:
+        if f.fp is not None:
+            assert read_magic(f.fp) == (1, 0)
+            shape, fortran_order, dtype = read_array_header_1_0(f.fp)
+            assert not fortran_order
+    return shape, dtype.str, f.offset
 
 
-def write_array_header(filename: str, shape: Tuple[int, ...], dtype: str):
-    if getMPIRank() == 0:
-        with open(filename, "wb") as fp:
+def write_array_header(filename: str, shape: Tuple[int, ...], dtype: str) -> int:
+    with openWriteHeader(filename) as f:
+        if f.fp is not None:
             d = {"shape": shape, "fortran_order": False, "descr": dtype_to_descr(numpy.dtype(dtype))}
-            write_array_header_1_0(fp, d)
-    getMPIComm().Barrier()
+            write_array_header_1_0(f.fp, d)
+    return f.offset
 
 
 def _field_spin_color_dtype(
@@ -306,7 +308,7 @@ class BaseField:
         return "numpy" if isinstance(self.data, numpy.ndarray) else self.backend
 
     @abstractmethod
-    def _latticeShape(self) -> List[int]:
+    def _latticeShape(self) -> Tuple[int, ...]:
         getLogger().critical(f"{self.__class__.__name__}._latticeShape() not implemented", NotImplementedError)
 
     @classmethod
@@ -558,15 +560,15 @@ class BaseField:
         field = self.lexico()
         _, _, dtype = _field_spin_color_dtype(self._field(), self.field_shape, use_fp32)
         if self.L5 == 0:
-            write_array_header(filename, (*self.latt_info.global_size[::-1], *self.field_shape), dtype)
-            _, _, offset = read_array_header(filename)
+            global_shape = (*self.latt_info.global_size[::-1], *self.field_shape)
+            offset = write_array_header(filename, global_shape, dtype)
             shape = (*self.latt_info.size[::-1], *self.field_shape)
             axes = list(range(self.latt_info.Nd - 1, -1, -1))
             writeMPIFile(filename, dtype, offset, shape, axes, field.astype(dtype))
             gbytes += field.nbytes / 1024**3
         else:
-            write_array_header(filename, (self.L5, *self.latt_info.global_size[::-1], *self.field_shape), dtype)
-            _, _, offset = read_array_header(filename)
+            global_shape = (self.L5, *self.latt_info.global_size[::-1], *self.field_shape)
+            offset = write_array_header(filename, global_shape, dtype)
             shape = (self.L5, *self.latt_info.size[::-1], *self.field_shape)
             axes = list(range(self.latt_info.Nd, 0, -1))
             writeMPIFile(filename, dtype, offset, shape, axes, field.astype(dtype))
@@ -764,7 +766,7 @@ class LexicoField(BaseField):
             self._initData(value)
 
     def _latticeShape(self):
-        return [L for L in self.latt_info.size[::-1]]
+        return tuple(self.latt_info.size[::-1])
 
     def shift(self, n: int, mu: int):
         assert 0 <= mu < 2 * self.latt_info.Nd
@@ -829,7 +831,7 @@ class ParityField(BaseField):
             self._initData(value)
 
     def _latticeShape(self):
-        return [L // 2 if d == self.latt_info.Nd - 1 else L for d, L in enumerate(self.latt_info.size[::-1])]
+        return tuple(self.latt_info.size[1:][::-1] + [self.latt_info.size[0] // 2])
 
 
 class FullField(BaseField, Generic[Field]):
@@ -846,7 +848,7 @@ class FullField(BaseField, Generic[Field]):
             self._initData(value)
 
     def _latticeShape(self):
-        return [2] + [L // 2 if d == self.latt_info.Nd - 1 else L for d, L in enumerate(self.latt_info.size[::-1])]
+        return tuple([2] + self.latt_info.size[1:][::-1] + [self.latt_info.size[0] // 2])
 
     @property
     def even(self) -> Field:

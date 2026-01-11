@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List
 
 import numpy
 
@@ -52,12 +52,17 @@ def readILDGBinGauge(filename: str, dtype: str, latt_size: List[int]):
 def readChromaQIOPropagator(filename: str, checksum: bool = True):
     from pyquda_io.chroma import readQIOPropagator as read
 
-    latt_size, staggered, propagator_raw = read(filename, checksum)
+    latt_size, propagator_raw = read(filename, checksum)
     latt_info = LatticeInfo(latt_size)
-    if not staggered:
-        return LatticePropagator(latt_info, latt_info.evenodd(propagator_raw, False))
-    else:
-        return LatticeStaggeredPropagator(latt_info, latt_info.evenodd(propagator_raw, False))
+    return LatticePropagator(latt_info, latt_info.evenodd(propagator_raw, False))
+
+
+def readChromaQIOStaggeredPropagator(filename: str, checksum: bool = True):
+    from pyquda_io.chroma import readQIOStaggeredPropagator as read
+
+    latt_size, propagator_raw = read(filename, checksum)
+    latt_info = LatticeInfo(latt_size)
+    return LatticeStaggeredPropagator(latt_info, latt_info.evenodd(propagator_raw, False))
 
 
 def readMILCGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 5e-7):
@@ -77,12 +82,17 @@ def writeMILCGauge(filename: str, gauge: LatticeGauge):
 def readMILCQIOPropagator(filename: str):
     from pyquda_io.milc import readQIOPropagator as read
 
-    latt_size, staggered, propagator_raw = read(filename)
+    latt_size, propagator_raw = read(filename)
     latt_info = LatticeInfo(latt_size)
-    if not staggered:
-        return LatticePropagator(latt_info, latt_info.evenodd(propagator_raw, False))
-    else:
-        return LatticeStaggeredPropagator(latt_info, latt_info.evenodd(propagator_raw, False))
+    return LatticePropagator(latt_info, latt_info.evenodd(propagator_raw, False))
+
+
+def readMILCQIOStaggeredPropagator(filename: str):
+    from pyquda_io.milc import readQIOStaggeredPropagator as read
+
+    latt_size, propagator_raw = read(filename)
+    latt_info = LatticeInfo(latt_size)
+    return LatticeStaggeredPropagator(latt_info, latt_info.evenodd(propagator_raw, False))
 
 
 def readKYUGauge(filename: str, latt_size: List[int]):
@@ -113,22 +123,32 @@ def writeKYUPropagator(filename: str, propagator: LatticePropagator):
     write(filename, propagator.latt_info.global_size, propagator.lexico())
 
 
-def readXQCDPropagator(filename: str, latt_size: List[int], staggered: bool):
+def readXQCDPropagator(filename: str, latt_size: List[int]):
     from pyquda_io.xqcd import readPropagator as read
 
-    propagator_raw = read(filename, latt_size, staggered)
+    propagator_raw = read(filename, latt_size)
     latt_info = LatticeInfo(latt_size)
-    if not staggered:
-        return LatticePropagator(latt_info, latt_info.evenodd(propagator_raw, False))
-    else:
-        return LatticeStaggeredPropagator(latt_info, latt_info.evenodd(propagator_raw, False))
+    return LatticePropagator(latt_info, latt_info.evenodd(propagator_raw, False))
 
 
-def writeXQCDPropagator(filename: str, propagator: Union[LatticePropagator, LatticeStaggeredPropagator]):
+def readXQCDStaggeredPropagator(filename: str, latt_size: List[int]):
+    from pyquda_io.xqcd import readStaggeredPropagator as read
+
+    propagator_raw = read(filename, latt_size)
+    latt_info = LatticeInfo(latt_size)
+    return LatticeStaggeredPropagator(latt_info, latt_info.evenodd(propagator_raw, False))
+
+
+def writeXQCDPropagator(filename: str, propagator: LatticePropagator):
     from pyquda_io.xqcd import writePropagator as write
 
-    staggered = isinstance(propagator, LatticeStaggeredPropagator)
-    write(filename, propagator.latt_info.global_size, propagator.lexico(), staggered)
+    write(filename, propagator.latt_info.global_size, propagator.lexico())
+
+
+def writeXQCDStaggeredPropagator(filename: str, propagator: LatticeStaggeredPropagator):
+    from pyquda_io.xqcd import writeStaggeredPropagator as write
+
+    write(filename, propagator.latt_info.global_size, propagator.lexico())
 
 
 def readNPYGauge(filename: str):
@@ -210,19 +230,15 @@ def readQIOPropagator(filename: str):
     return readChromaQIOPropagator(filename)
 
 
+def readQIOStaggeredPropagator(filename: str):
+    return readChromaQIOStaggeredPropagator(filename)
+
+
 def readKYUPropagatorF(filename: str, latt_size: List[int]):
-    return readXQCDPropagator(filename, latt_size, False)
+    return readXQCDPropagator(filename, latt_size)
 
 
 def writeKYUPropagatorF(filename: str, propagator: LatticePropagator):
-    writeXQCDPropagator(filename, propagator)
-
-
-def readXQCDStaggeredPropagator(filename: str, latt_size: List[int]):
-    return readXQCDPropagator(filename, latt_size, True)
-
-
-def writeXQCDStaggeredPropagator(filename: str, propagator: LatticeStaggeredPropagator):
     writeXQCDPropagator(filename, propagator)
 
 

@@ -11,7 +11,6 @@ from pyquda_utils.hmc_param import (
     symanzikTreeGaugeLoopParam as loopParam,
     staggeredFermionRationalParam as rationalParam,
 )
-from pyquda_utils.io import readMILCGauge, writeNPYGauge
 
 beta, u_0 = 7.3, 0.880
 tol, maxiter = 1e-6, 2500
@@ -73,4 +72,4 @@ for i in range(start, stop):
     )
 
     if (i + 1) % save == 0:
-        writeNPYGauge(f"./DATA/cfg/cfg_{i + 1}.npy", gauge)
+        gauge.save(f"./DATA/cfg/cfg_{i + 1}.npy")

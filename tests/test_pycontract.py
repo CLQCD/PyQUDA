@@ -2,7 +2,7 @@ from typing import Union
 from time import perf_counter
 
 import cupy as cp
-from cupy.cuda.runtime import deviceSynchronize
+from cupy.cuda.runtime import deviceSynchronize  # type: ignore
 from opt_einsum import contract
 
 from check_pyquda import data
@@ -136,7 +136,7 @@ def baryonTwoPoint_v2(
     )
 
 
-propag: core.LatticePropagator = io.readChromaQIOPropagator(data("pt_prop_0"))
+propag = io.readQIOPropagator(data("pt_prop_0"))
 propag.toDevice()
 
 propag_i = propag.copy()

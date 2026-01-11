@@ -8,14 +8,14 @@ from opt_einsum import contract
 from check_pyquda import weak_field
 
 from pyquda.field import LatticeGauge, LatticeInfo, LatticeStaggeredFermion, MultiLatticeStaggeredFermion, Nc
-from pyquda import enum_quda, pyquda as quda
+from pyquda import enum_quda, quda
 from pyquda_utils import core, io, eigensolve
 
 core.init(resource_path=".cache")
 
 t = 3
 
-gauge = io.readChromaQIOGauge(weak_field)
+gauge = io.readQIOGauge(weak_field)
 gauge.stoutSmear(10, 0.12, 3)
 Lx, Ly, Lz, Lt = gauge.latt_info.size
 latt_info = LatticeInfo([Lx, Ly, Lz, 1])

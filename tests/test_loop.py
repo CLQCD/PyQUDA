@@ -5,7 +5,7 @@ from pyquda_utils.core import X, Y, Z, T
 from pyquda_utils.wilson_loop import wilson_loop
 
 core.init(None, [4, 4, 4, 8], resource_path=".cache")
-gauge = io.readChromaQIOGauge(weak_field)
+gauge = io.readQIOGauge(weak_field)
 gauge.toDevice()
 
 loop = gauge.loop([[[X, Y, -X, -Y]], [[Y, Z, -Y, -Z]], [[Z, X, -Z, -X]], [[T, -T, T, -T]]], [1.0])
