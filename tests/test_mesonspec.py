@@ -37,13 +37,13 @@ twopt = np.zeros((Lt, Lt, len(gamma_insertion), mom_num), "<c16")
 
 s = perf_counter()
 gauge = io.readQIOGauge(weak_field)
-print(f"Read and load gauge configuration: {perf_counter()-s:.2f}sec.")
+print(f"Read and load gauge configuration: {perf_counter() - s:.2f}sec.")
 
 with dirac.useGauge(gauge):
     for t in range(Lt):
         s = perf_counter()
         propagator = core.invert(dirac, "wall", t)
-        print(f"Invertion for wall source at t={t}: {perf_counter()-s:.2f}sec.")
+        print(f"Invertion for wall source at t={t}: {perf_counter() - s:.2f}sec.")
 
         s = perf_counter()
         gamma_idx = 0

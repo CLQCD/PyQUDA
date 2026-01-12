@@ -1,3 +1,4 @@
+from math import isclose
 from os import path
 import struct
 from typing import List
@@ -34,10 +35,10 @@ def readGauge(filename: str, plaquette: bool = True, lexico: bool = True):
     if lexico:
         gauge = gaugeLexico([Lx, Ly, Lz, Lt], gauge)
         if plaquette:
-            assert numpy.isclose(gaugePlaquette(latt_size, gauge), plaquette_)
+            assert isclose(plaquette_, gaugePlaquette(latt_size, gauge))
     else:
         if plaquette:
-            assert numpy.isclose(gaugePlaquette(latt_size, gaugeLexico([Lx, Ly, Lz, Lt], gauge)), plaquette_)
+            assert isclose(plaquette_, gaugePlaquette(latt_size, gaugeLexico([Lx, Ly, Lz, Lt], gauge)))
     gauge = gauge.astype("<c16")
 
     return latt_size, gauge

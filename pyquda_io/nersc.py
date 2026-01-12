@@ -1,5 +1,6 @@
 from datetime import datetime
 from getpass import getuser
+from math import isclose
 from os import path, uname
 from typing import Dict, List
 
@@ -74,13 +75,9 @@ def readGauge(
         raise ValueError(f"Unsupported datatype: {header['DATATYPE']}")
 
     if link_trace:
-        assert numpy.isclose(
-            gaugeLinkTrace(latt_size, gauge), float(header["LINK_TRACE"])
-        ), f"Bad link trace for {filename}"
+        assert isclose(float(header["LINK_TRACE"]), gaugeLinkTrace(latt_size, gauge))
     if plaquette:
-        assert numpy.isclose(
-            gaugePlaquette(latt_size, gauge), float(header["PLAQUETTE"])
-        ), f"Bad plaquette for {filename}"
+        assert isclose(float(header["PLAQUETTE"]), gaugePlaquette(latt_size, gauge))
     return latt_size, gauge
 
 
