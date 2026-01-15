@@ -5,7 +5,7 @@ from pyquda_utils.core import X, Y, Z, T
 import cupy as cp
 from time import perf_counter
 
-core.init(None, [4, 4, 4, 8], resource_path=".cache")
+core.init(None, [4, 4, 4, 8], resource_path=".cache/quda")
 
 latt_info = core.LatticeInfo([4, 4, 4, 8])
 unit = core.LatticeGauge(latt_info)

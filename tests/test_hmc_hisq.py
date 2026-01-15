@@ -17,7 +17,7 @@ tol, maxiter = 1e-6, 2500
 start, stop, warm, save = 0, 1000, 500, 5
 t = 0.48
 
-core.init([1, 1, 1, 2], resource_path=".cache", enable_force_monitor=True)
+core.init([1, 1, 1, 2], resource_path=".cache/quda", enable_force_monitor=True)
 latt_info = core.LatticeInfo([4, 4, 4, 12], t_boundary=-1, anisotropy=1.0)
 
 monomials = [

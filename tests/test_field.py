@@ -16,7 +16,7 @@ tol, maxiter = 1e-7, 2500
 start, stop, warm, save = 0, 1000, 300, 5
 t, n_steps = 1.0, 28
 
-core.init(None, [24, 24, 24, 64], resource_path=".cache", enable_force_monitor=True)
+core.init(None, [24, 24, 24, 64], resource_path=".cache/quda", enable_force_monitor=True)
 latt_info = core.LatticeInfo([24, 24, 24, 64], -1, 1.0)
 
 ml, ms, mc = 0.0102, 0.0509, 0.635

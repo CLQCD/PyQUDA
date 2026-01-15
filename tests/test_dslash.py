@@ -6,7 +6,7 @@ from check_pyquda import weak_field
 from pyquda.field import Ns, Nc
 from pyquda_utils import core
 
-core.init([1, 1, 1, 1], resource_path=".cache")
+core.init([1, 1, 1, 1], resource_path=".cache/quda")
 latt_info = core.LatticeInfo([16, 16, 16, 32], 1, 1.0)
 Lx, Ly, Lz, Lt = latt_info.size
 

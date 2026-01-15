@@ -8,7 +8,7 @@ mass = 1 / (2 * kappa) - 4
 coeff = 1.17
 coeff_r, coeff_t = 0.91, 1.07
 
-core.init(None, [4, 4, 4, 8], resource_path=".cache")
+core.init(None, [4, 4, 4, 8], resource_path=".cache/quda")
 
 gauge = io.readQIOGauge(weak_field)
 latt_info = core.LatticeInfo([4, 4, 4, 8], -1, xi_0 / nu)

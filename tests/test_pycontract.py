@@ -10,7 +10,7 @@ from check_pyquda import data
 from pyquda_utils import core, io, gamma
 from pyquda_plugins import pycontract
 
-core.init(resource_path=".cache")
+core.init(resource_path=".cache/quda")
 latt_info = core.LatticeInfo([4, 4, 4, 8])
 
 epsilon = cp.zeros((3, 3, 3), "<i4")

@@ -11,7 +11,7 @@ from pyquda.field import LatticeGauge, LatticeInfo, LatticeStaggeredFermion, Mul
 from pyquda import enum_quda, quda
 from pyquda_utils import core, io, eigensolve
 
-core.init(resource_path=".cache")
+core.init(resource_path=".cache/quda")
 
 t = 3
 

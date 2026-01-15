@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 
 from pyquda_utils import core, io, gamma, phase
 
-core.init([1, 1, 1, 2], resource_path=".cache")
+core.init([1, 1, 1, 2], resource_path=".cache/quda")
 latt_info = core.LatticeInfo([24, 24, 24, 72], -1, 1.0)
 
 dirac = core.getDirac(latt_info, -0.2770, 1e-12, 1000, 1.0, 1.160920226, 1.160920226, [[6, 6, 6, 4], [4, 4, 4, 9]])

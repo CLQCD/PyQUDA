@@ -11,7 +11,7 @@ mass = 0.09253
 kappa = 0.5 / (mass + 1 + 3 / (xi_0 / nu))
 coeff_r, coeff_t = 2.32582045, 0.8549165664
 
-core.init([1, 1, 1, 1], [4, 4, 4, 8], resource_path=".cache")
+core.init([1, 1, 1, 1], [4, 4, 4, 8], resource_path=".cache/quda")
 
 latt_info = core.LatticeInfo([4, 4, 4, 8], -1, xi_0 / nu)
 Lx, Ly, Lz, Lt = latt_info.size

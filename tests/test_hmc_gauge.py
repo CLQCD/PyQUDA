@@ -12,7 +12,7 @@ beta, u_0 = 7.4, 0.890
 start, stop, warm, save = 0, 2000, 500, 5
 t = 1.0
 
-core.init(resource_path=".cache", enable_force_monitor=True)
+core.init(resource_path=".cache/quda", enable_force_monitor=True)
 latt_info = core.LatticeInfo([4, 4, 4, 8], t_boundary=-1, anisotropy=1.0)
 
 monomials = [GaugeAction(latt_info, loopParam(u_0), beta)]

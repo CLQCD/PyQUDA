@@ -6,7 +6,7 @@ from check_pyquda import weak_field
 from pyquda.field import LatticeGauge, LatticeFermion, Nd
 from pyquda_utils import core, io, source
 
-core.init([1, 1, 1, 1], resource_path=".cache")
+core.init([1, 1, 1, 1], resource_path=".cache/quda")
 latt_info = core.LatticeInfo([4, 4, 4, 8], 1, 1.0)
 
 

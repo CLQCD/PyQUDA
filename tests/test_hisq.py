@@ -5,7 +5,7 @@ from check_pyquda import weak_field, data
 from pyquda.enum_quda import QudaStaggeredPhase
 from pyquda_utils import core, io
 
-core.init([1, 1, 1, 1], [4, 4, 4, 8], resource_path=".cache")
+core.init([1, 1, 1, 1], [4, 4, 4, 8], resource_path=".cache/quda")
 
 mass = 0.0102
 

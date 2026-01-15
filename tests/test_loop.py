@@ -4,7 +4,7 @@ from pyquda_utils import core, io
 from pyquda_utils.core import X, Y, Z, T
 from pyquda_utils.wilson_loop import wilson_loop
 
-core.init(None, [4, 4, 4, 8], resource_path=".cache")
+core.init(None, [4, 4, 4, 8], resource_path=".cache/quda")
 gauge = io.readQIOGauge(weak_field)
 gauge.toDevice()
 

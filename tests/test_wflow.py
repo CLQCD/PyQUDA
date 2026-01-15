@@ -2,7 +2,7 @@ from check_pyquda import weak_field, data
 
 from pyquda_utils import core, io
 
-core.init(resource_path=".cache")
+core.init(resource_path=".cache/quda")
 
 gauge = io.readQIOGauge(weak_field)
 
