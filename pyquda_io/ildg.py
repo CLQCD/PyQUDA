@@ -1,7 +1,7 @@
 from os import path
 from typing import List
 
-from pyquda_comm import getSublatticeSize, readMPIFile
+from .mpi_utils import getSublatticeSize, readMPIFile
 from .io_utils import checksumSciDAC, gaugeReunitarize
 
 Nd, Ns, Nc = 4, 4, 3

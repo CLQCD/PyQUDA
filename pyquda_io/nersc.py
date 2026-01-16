@@ -6,7 +6,7 @@ from typing import Dict, List
 
 import numpy
 
-from pyquda_comm import getSublatticeSize, openReadHeader, openWriteHeader, readMPIFile, writeMPIFile
+from .mpi_utils import getSublatticeSize, openReadHeader, openWriteHeader, readMPIFile, writeMPIFile
 from .io_utils import (
     checksumNERSC,
     gaugeLinkTrace,

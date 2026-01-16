@@ -5,7 +5,7 @@ from typing import List
 
 import numpy
 
-from pyquda_comm import getSublatticeSize, openReadHeader, openWriteHeader, readMPIFile, writeMPIFile
+from .mpi_utils import getSublatticeSize, openReadHeader, openWriteHeader, readMPIFile, writeMPIFile
 from .io_utils import checksumMILC, gaugeReunitarize
 
 Nd, Ns, Nc = 4, 4, 3

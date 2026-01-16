@@ -6,7 +6,7 @@ from mpi4py import MPI
 import numpy
 from numpy.typing import NDArray
 
-from pyquda_comm import getMPIComm, getMPIRank, getGridCoord, getNeighbourRank, getSublatticeSize
+from .mpi_utils import getMPIComm, getMPIRank, getGridCoord, getNeighbourRank, getSublatticeSize
 
 Nd, Ns, Nc = 4, 4, 3
 

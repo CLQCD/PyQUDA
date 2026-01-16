@@ -1,12 +1,29 @@
 from os import path
-from typing import List
+from typing import List, Tuple
 
 import numpy
+from numpy.lib.format import read_magic, read_array_header_1_0, write_array_header_1_0
 
-from pyquda_comm import getSublatticeSize, readMPIFile, writeMPIFile
-from pyquda_comm.field import read_array_header, write_array_header
+from .mpi_utils import getSublatticeSize, openReadHeader, openWriteHeader, readMPIFile, writeMPIFile
 
 Nd, Ns, Nc = 4, 4, 3
+
+
+def read_array_header(filename: str) -> Tuple[Tuple[int, ...], str, int]:
+    with openReadHeader(filename) as f:
+        if f.fp is not None:
+            assert read_magic(f.fp) == (1, 0)
+            shape, fortran_order, dtype = read_array_header_1_0(f.fp)
+            assert not fortran_order
+    return shape, dtype.str, f.offset
+
+
+def write_array_header(filename: str, shape: Tuple[int, ...], dtype: str) -> int:
+    with openWriteHeader(filename) as f:
+        if f.fp is not None:
+            d = {"shape": shape, "fortran_order": False, "descr": dtype}
+            write_array_header_1_0(f.fp, d)
+    return f.offset
 
 
 def readGauge(filename: str):

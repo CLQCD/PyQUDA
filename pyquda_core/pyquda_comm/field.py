@@ -9,7 +9,7 @@ SelfMulti = TypeVar("SelfMulti", bound="MultiField")
 Field = TypeVar("Field", bound="BaseField")
 
 import numpy
-from numpy.lib.format import dtype_to_descr, read_magic, read_array_header_1_0, write_array_header_1_0
+from numpy.lib.format import read_magic, read_array_header_1_0, write_array_header_1_0
 from numpy.typing import NDArray
 
 from . import (
@@ -227,7 +227,7 @@ def read_array_header(filename: str) -> Tuple[Tuple[int, ...], str, int]:
 def write_array_header(filename: str, shape: Tuple[int, ...], dtype: str) -> int:
     with openWriteHeader(filename) as f:
         if f.fp is not None:
-            d = {"shape": shape, "fortran_order": False, "descr": dtype_to_descr(numpy.dtype(dtype))}
+            d = {"shape": shape, "fortran_order": False, "descr": dtype}
             write_array_header_1_0(f.fp, d)
     return f.offset
 

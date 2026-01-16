@@ -1,13 +1,6 @@
 # flake8: noqa
 
-from typing import Optional, Sequence
-from pyquda_comm import initGrid, initDevice
-
-
-def init(grid_size: Optional[Sequence[int]], latt_size: Optional[Sequence[int]] = None):
-    initGrid("default", grid_size, latt_size, False)
-    initDevice("numpy")
-
+from .mpi_utils import init
 
 from .io_general import (
     IOGeneral,
