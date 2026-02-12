@@ -12,7 +12,7 @@ Nd, Ns, Nc = 4, 4, 3
 _precision_map = {"D": 8, "F": 4}
 
 
-def readGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 5e-7):
+def readGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 1e-6):
     filename = path.expanduser(path.expandvars(filename))
     with openReadHeader(filename) as f:
         if f.fp is not None:
@@ -33,7 +33,7 @@ def readGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 5
     if checksum:
         assert (sum29, sum31) == checksumMILC(latt_size, gauge.astype("<c8").reshape(-1))
     gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
-    gauge = gaugeReunitarize(gauge, reunitarize_sigma)  # 5e-7: Nc * 2**0.5 * 1.1920929e-07
+    gauge = gaugeReunitarize(gauge, reunitarize_sigma)
     return latt_size, gauge
 
 

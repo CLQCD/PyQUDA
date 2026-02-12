@@ -7,7 +7,7 @@ Nd, Ns, Nc = 4, 4, 3
 _precision_map = {"D": 8, "F": 4}
 
 
-def readQIOGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 5e-7):
+def readQIOGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 1e-6):
     from .lime import Lime
 
     filename = path.expanduser(path.expandvars(filename))
@@ -34,7 +34,7 @@ def readQIOGauge(filename: str, checksum: bool = True, reunitarize_sigma: float 
         ) == checksumSciDAC(latt_size, gauge.reshape(Lt * Lz * Ly * Lx, Nd * Nc * Nc))
     gauge = gauge.transpose(4, 0, 1, 2, 3, 5, 6).astype("<c16")
     if precision == 4:
-        gauge = gaugeReunitarize(gauge, reunitarize_sigma)  # 5e-7: Nc * 2**0.5 * 1.1920929e-07
+        gauge = gaugeReunitarize(gauge, reunitarize_sigma)
     return latt_size, gauge
 
 

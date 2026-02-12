@@ -25,7 +25,7 @@ _DR_TO_DP = numpy.array(
 )
 
 
-def readChromaQIOGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 5e-7):
+def readChromaQIOGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 1e-6):
     from pyquda_io.chroma import readQIOGauge as read
 
     latt_size, gauge_raw = read(filename, checksum, reunitarize_sigma)
@@ -33,7 +33,7 @@ def readChromaQIOGauge(filename: str, checksum: bool = True, reunitarize_sigma: 
     return LatticeGauge(latt_info, latt_info.evenodd(gauge_raw, True))
 
 
-def readILDGGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 5e-7):
+def readILDGGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 1e-6):
     from pyquda_io.ildg import readGauge as read
 
     latt_size, gauge_raw = read(filename, checksum, reunitarize_sigma)
@@ -65,7 +65,7 @@ def readChromaQIOStaggeredPropagator(filename: str, checksum: bool = True):
     return LatticeStaggeredPropagator(latt_info, latt_info.evenodd(propagator_raw, False))
 
 
-def readMILCGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 5e-7):
+def readMILCGauge(filename: str, checksum: bool = True, reunitarize_sigma: float = 1e-6):
     from pyquda_io.milc import readGauge as read
 
     latt_size, gauge_raw = read(filename, checksum, reunitarize_sigma)
@@ -200,7 +200,7 @@ def readNERSCGauge(
     checksum: bool = True,
     plaquette: bool = True,
     link_trace: bool = True,
-    reunitarize_sigma: float = 5e-7,
+    reunitarize_sigma: float = 1e-6,
 ):
     from pyquda_io.nersc import readGauge as read
 
