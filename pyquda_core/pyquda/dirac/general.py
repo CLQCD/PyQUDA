@@ -272,12 +272,16 @@ def newQudaGaugeParam(lattice: LatticeInfo):
 
     gauge_param.overwrite_gauge = 0
     gauge_param.overwrite_mom = 0
+    gauge_param.overwrite_force = 0
     gauge_param.use_resident_gauge = 1
     gauge_param.use_resident_mom = 1
+    gauge_param.use_resident_force = 1
     gauge_param.make_resident_gauge = 1
     gauge_param.make_resident_mom = 1
+    gauge_param.make_resident_force = 1
     gauge_param.return_result_gauge = 0
     gauge_param.return_result_mom = 0
+    gauge_param.return_result_force = 0
 
     return gauge_param
 

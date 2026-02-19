@@ -233,10 +233,11 @@ class HMC:
         self.obs_param = QudaGaugeObservableParam()
         self.obs_param.remove_staggered_phase = QudaBoolean(self.is_staggered)
         self.fuseFermionAction()
-        self.gauge = None  # LatticeGauge(latt_info)
-        self.smeared = None  # LatticeGauge(latt_info)
-        self.mom = None  # LatticeMom(latt_info)
-        self.force = None  # LatticeMom(latt_info)
+        self.gauge = LatticeGauge(latt_info)
+        self.smeared = LatticeGauge(latt_info)
+        self.mom = LatticeMom(latt_info)
+        self.force = LatticeMom(latt_info)
+        self.force_v2 = LatticeGauge(latt_info)
 
     def fuseFermionAction(self):
         if self.is_staggered:
@@ -271,13 +272,55 @@ class HMC:
         for fermion_monomial in self.fermion_monomials:
             fermion_monomial.setVerbosity(verbosity)
 
+    def _stoutSmear(self):
+        import os
+        import cupy as cp
+
+        if not hasattr(self, "_stout_smear"):
+            with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "stout_smear.cu")) as f:
+                self._stout_smear = cp.RawModule(
+                    code=f.read(), options=("--std=c++11",), name_expressions=("stout_smear<double, 3>",)
+                ).get_function("stout_smear<double, 3>")
+
+        Lx, Ly, Lz, Lt = self.smeared.latt_info.size
+        gauge_lexico = self.smeared.lexico(False)
+        smeared_lexico = cp.zeros_like(gauge_lexico)
+        self._stout_smear((Lx * Ly * Lz, 3, 1), (Lt, 1, 1), (smeared_lexico, gauge_lexico, 1e-15, Lx, Ly, Lz, Lt))
+        self.smeared.data[:3] = self.smeared.latt_info.evenodd(smeared_lexico[:3], True, "cupy")
+
+    def _stoutSmearReverse(self):
+        import os
+        import cupy as cp
+
+        if not hasattr(self, "_compute_lambda_kernel"):
+            with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "stout_smear.cu")) as f:
+                self._compute_lambda_kernel = cp.RawModule(
+                    code=f.read(), options=("--std=c++11",), name_expressions=("compute_lambda_kernel<double, 3>",)
+                ).get_function("compute_lambda_kernel<double, 3>")
+        if not hasattr(self, "_stout_smear_reverse"):
+            with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "stout_smear.cu")) as f:
+                self._stout_smear_reverse = cp.RawModule(
+                    code=f.read(), options=("--std=c++11",), name_expressions=("stout_smear_reverse<double, 3>",)
+                ).get_function("stout_smear_reverse<double, 3>")
+
+        Lx, Ly, Lz, Lt = self.smeared.latt_info.size
+        gauge_lexico = self.smeared.lexico(False)
+        force_lexico = self.force_v2.lexico(False)
+        lambda_lexico = cp.zeros_like(gauge_lexico)
+        self._compute_lambda_kernel(
+            (Lx * Ly * Lz, 3, 1), (Lt, 1, 1), (force_lexico, lambda_lexico, gauge_lexico, 1e-15, Lx, Ly, Lz, Lt)
+        )
+        self._stout_smear_reverse(
+            (Lx * Ly * Lz, 3, 1), (Lt, 1, 1), (force_lexico, lambda_lexico, gauge_lexico, 1e-15, Lx, Ly, Lz, Lt)
+        )
+        print(self.force_v2.data[0, 1, 0, 0, 0, 0])
+        print(force_lexico[0, 0, 0, 0, 1])
+        print(cp.where(self.force_v2.lexico(False)[:3] - force_lexico[:3] > 1e-12))
+        self.force_v2.data[:3] = self.smeared.latt_info.evenodd(force_lexico[:3], True, "cupy")
+
     def loadGaugeMomSmeared(self):
         if self.gauge is not None and self.smeared is not None and self.force is not None and self.mom is not None:
             saveGaugeQuda(self.gauge.data_ptrs, self.gauge_param)
-            if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
-                self.gauge.setAntiPeriodicT()
-            if self.is_staggered:
-                self.gauge.staggeredPhase(True)
             self.gauge_param.make_resident_mom = 0
             self.gauge_param.return_result_mom = 1
             momResidentQuda(self.mom.data_ptrs, self.gauge_param)
@@ -285,7 +328,11 @@ class HMC:
             self.gauge_param.return_result_mom = 0
 
             self.smeared.data = self.gauge.data
-            # self._stoutSmear()
+            if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
+                self.smeared.setAntiPeriodicT()
+            if self.is_staggered:
+                self.smeared.staggeredPhase(True)
+            self._stoutSmear()
             if self.is_staggered:
                 self.smeared.staggeredPhase(False)
             if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
@@ -294,19 +341,36 @@ class HMC:
             loadGaugeQuda(self.smeared.data_ptrs, self.gauge_param)
             self.gauge_param.use_resident_gauge = 1
             self.force.data = 0
+            self.force_v2.data = 0
 
     def loadGaugeMom(self):
         if self.gauge is not None and self.smeared is not None and self.force is not None and self.mom is not None:
-            # self._stoutSmearReverse()
-            self.mom += self.force
-
             self.smeared.data = self.gauge.data
-            if self.is_staggered:
-                self.smeared.staggeredPhase(False)
             if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
                 self.smeared.setAntiPeriodicT()
+            if self.is_staggered:
+                self.smeared.staggeredPhase(True)
+            self._stoutSmearReverse()
+
+            import cupy as cp
+
+            uf = cp.einsum("...ab,...bc->...ac", self.gauge.data, self.force_v2.data)
+            uf_ah = (uf - uf.conj().swapaxes(axis1=-2, axis2=-1)) / 2
+            uf_tlah = uf_ah - (uf_ah.trace(axis1=-2, axis2=-1) / 3)[..., None, None] * cp.eye(3)
+            self.force.data[..., 0] = uf_tlah[..., 0, 1].real
+            self.force.data[..., 1] = uf_tlah[..., 0, 1].imag
+            self.force.data[..., 2] = uf_tlah[..., 0, 2].real
+            self.force.data[..., 3] = uf_tlah[..., 0, 2].imag
+            self.force.data[..., 4] = uf_tlah[..., 1, 2].real
+            self.force.data[..., 5] = uf_tlah[..., 1, 2].imag
+            self.force.data[..., 6] = uf_tlah[..., 0, 0].imag
+            self.force.data[..., 7] = uf_tlah[..., 1, 1].imag
+            self.force.data[..., 8] = uf_tlah[..., 2, 2].imag
+
+            self.mom += self.force
+
             self.gauge_param.use_resident_gauge = 0
-            loadGaugeQuda(self.smeared.data_ptrs, self.gauge_param)
+            loadGaugeQuda(self.gauge.data_ptrs, self.gauge_param)
             self.gauge_param.use_resident_gauge = 1
             momResidentQuda(self.mom.data_ptrs, self.gauge_param)
 
@@ -363,12 +427,15 @@ class HMC:
 
     def gaugeForce(self, dt: float):
         for monomial in self.gauge_monomials:
-            monomial.force(dt, self.force)
+            monomial.force(dt, None)
 
     def fermionForce(self, dt: float):
         self.loadGaugeMomSmeared()
         for monomial in self.fermion_monomials:
-            monomial.force(dt, self.force)
+            # monomial.force(dt, self.force)
+            monomial.force_v2(dt, self.force_v2)
+        self.force_v2 *= dt
+
         self.loadGaugeMom()
 
     def updateGauge(self, dt: float):

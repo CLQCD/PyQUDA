@@ -417,6 +417,12 @@ def momActionQuda(momentum, QudaGaugeParam param):
 def createCloverQuda(QudaInvertParam param):
     quda.createCloverQuda(&param.param)
 
+def computeCloverForceV2Quda(force, double dt, x, ndarray[double, ndim=1] coeff, double kappa2, double ck, int nvector, double multiplicity, QudaGaugeParam gauge_param, QudaInvertParam inv_param):
+    _force = _NDArray(force, 2)
+    _x = _NDArray(x, 2)
+    _coeff = _NDArray(coeff)
+    quda.computeCloverForceV2Quda(_force.ptr, dt, _x.ptrs, NULL, <double *>_coeff.ptr, kappa2, ck, nvector, multiplicity, NULL, &gauge_param.param, &inv_param.param)
+
 def computeCloverForceQuda(mom, double dt, x, ndarray[double, ndim=1] coeff, double kappa2, double ck, int nvector, double multiplicity, QudaGaugeParam gauge_param, QudaInvertParam inv_param):
     _mom = _NDArray(mom, 2)
     _x = _NDArray(x, 2)

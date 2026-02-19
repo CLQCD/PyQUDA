@@ -2,8 +2,8 @@ from typing import Optional
 import numpy
 
 from pyquda_comm import getLogger
-from ..field import LatticeInfo, LatticeMom, LatticeFermion, MultiLatticeFermion
-from ..quda import computeCloverForceQuda, loadCloverQuda, loadGaugeQuda
+from ..field import LatticeInfo, LatticeGauge, LatticeMom, LatticeFermion, MultiLatticeFermion
+from ..quda import computeCloverForceV2Quda, computeCloverForceQuda, loadCloverQuda, loadGaugeQuda
 from ..enum_quda import (
     QudaDagType,
     QudaInverterType,
@@ -84,6 +84,31 @@ class CloverWilsonAction(FermionAction):
             - self.latt_info.volume // 2 * self.latt_info.Ns * self.latt_info.Nc  # volume_cb2 here
             - self.multiplicity * self.invert_param.trlogA[1]
         )
+
+    def force_v2(self, dt, force: Optional[LatticeGauge] = None):
+        self.updateClover()
+        self.invertMultiShift("force")
+        # Some conventions force the dagger to be YES here
+        self.invert_param.dagger = QudaDagType.QUDA_DAG_YES
+        if force is not None:
+            self.gauge_param.use_resident_force = 0
+            self.gauge_param.return_result_force = 1
+        computeCloverForceV2Quda(
+            nullptr if force is None else force.data_ptrs,
+            dt,
+            self.quark.even_ptrs,
+            self.coeff,
+            self.kappa2,
+            self.ck,
+            self.nvector,
+            self.multiplicity,
+            self.gauge_param,
+            self.invert_param,
+        )
+        if force is not None:
+            self.gauge_param.use_resident_force = 1
+            self.gauge_param.return_result_force = 0
+        self.invert_param.dagger = QudaDagType.QUDA_DAG_NO
 
     def force(self, dt, mom: Optional[LatticeMom] = None):
         self.updateClover()
