@@ -206,7 +206,7 @@ cdef int sharedMap(const int *coords, void *fdata) noexcept:
         shared_size = shared_comm.Get_size()
         shared_rank = shared_comm.Get_rank()
         shared_root = shared_comm.bcast(comm.Get_rank())
-        node_rank = comm.allgather(shared_root).index(shared_root)
+        node_rank = sorted(set(comm.allgather(shared_root))).index(shared_root)
         node_grid_size = [G for G in grid_size]
         shared_grid_size = [1 for _ in grid_size]
         dim, last_dim = 0, len(grid_size) - 1
