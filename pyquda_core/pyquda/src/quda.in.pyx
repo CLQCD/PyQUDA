@@ -3,8 +3,6 @@ import sys
 import io
 from contextlib import contextmanager
 
-from mpi4py import MPI
-
 from cython.operator cimport dereference
 from libc.stdio cimport stdout
 from libc.stdlib cimport malloc, free
@@ -160,93 +158,37 @@ cdef class QudaBLASParam:
 def setVerbosityQuda(quda.QudaVerbosity verbosity, const char prefix[]):
     quda.setVerbosityQuda(verbosity, prefix, stdout)
 
-ctypedef struct MapData:
+ctypedef struct CommsMapData:
     int ndim
     int dims[6]
+    int size
+    int *ranks
 
-cdef MapData map_data
+cdef CommsMapData map_data
 
-cdef int defaultMap(const int *coords, void *fdata) noexcept:
-    cdef MapData *md = <MapData *>fdata
+cdef int commsMap(const int *coords, void *fdata) noexcept:
+    cdef CommsMapData *md = <CommsMapData *>fdata
+
     cdef int rank = 0
     for i in range(md.ndim):
         rank = rank * md.dims[i] + coords[i]
-    return rank
 
-cdef int reversedMap(const int *coords, void *fdata) noexcept:
-    cdef MapData *md = <MapData *>fdata
-    cdef int rank = coords[md.ndim - 1]
-    for i in range(md.ndim - 2, -1, -1):
-        rank = rank * md.dims[i] + coords[i]
-    return rank
+    for i in range(md.size):
+        if rank == md.ranks[i]:
+            return i
+    else:
+        return rank
 
-def _defaultRankFromCoord(coords: Sequence[int], dims: Sequence[int]) -> int:
-    rank = 0
-    for coord, dim in zip(coords, dims):
-        rank = rank * dim + coord
-    return rank
-
-
-def _defaultCoordFromRank(rank: int, dims: Sequence[int]) -> List[int]:
-    coords = []
-    for dim in dims[::-1]:
-        coords.append(rank % dim)
-        rank = rank // dim
-    return coords[::-1]
-
-shared_rank_list: list = None
-
-cdef int sharedMap(const int *coords, void *fdata) noexcept:
-    cdef MapData *md = <MapData *>fdata
-    global shared_rank_list
-    grid_size = [md.dims[i] for i in range(md.ndim)]
-    if shared_rank_list is None:
-        comm = MPI.COMM_WORLD
-        shared_comm = comm.Split_type(MPI.COMM_TYPE_SHARED)
-        shared_size = shared_comm.Get_size()
-        shared_rank = shared_comm.Get_rank()
-        shared_root = shared_comm.bcast(comm.Get_rank())
-        node_rank = sorted(set(comm.allgather(shared_root))).index(shared_root)
-        node_grid_size = [G for G in grid_size]
-        shared_grid_size = [1 for _ in grid_size]
-        dim, last_dim = 0, len(grid_size) - 1
-        while shared_size > 1:
-            for prime in [2, 3, 5]:
-                if node_grid_size[dim] % prime == 0 and shared_size % prime == 0:
-                    node_grid_size[dim] //= prime
-                    shared_grid_size[dim] *= prime
-                    shared_size //= prime
-                    last_dim = dim
-                    break
-            else:
-                if last_dim == dim:
-                    raise ValueError("GlobalSharedMemory::GetShmDims failed")
-            dim = (dim + 1) % len(grid_size)
-        grid_coord = [
-            n * S + s
-            for n, S, s in zip(
-                _defaultCoordFromRank(node_rank, node_grid_size),
-                shared_grid_size,
-                _defaultCoordFromRank(shared_rank, shared_grid_size),
-            )
-        ]
-        shared_rank_list = comm.allgather(_defaultRankFromCoord(grid_coord, grid_size))
-
-    cdef int rank = shared_rank_list.index(defaultMap(coords, fdata))
-    return rank
-
-def initCommsGridQuda(int nDim, list dims, const char grid_map[]):
-    cdef int _dims[4]
-    _dims = dims
+def initCommsGridQuda(int nDim, list dims, list ranks):
     map_data.ndim = nDim
-    for i in range(nDim):
-        map_data.dims[i] = _dims[i]
-    if strcmp(grid_map, "default") == 0:
-        quda.initCommsGridQuda(nDim, _dims, NULL, NULL)
-    elif strcmp(grid_map, "reversed") == 0:
-        quda.initCommsGridQuda(nDim, _dims, reversedMap, <void *>(&map_data))
-    elif strcmp(grid_map, "shared") == 0:
-        quda.initCommsGridQuda(nDim, _dims, sharedMap, <void *>(&map_data))
+    map_data.size = 1
+    for i in range(map_data.ndim):
+        map_data.dims[i] = dims[i]
+        map_data.size *= dims[i]
+    map_data.ranks = <int *>malloc(map_data.size * sizeof(int))
+    for i in range(map_data.size):
+        map_data.ranks[i] = ranks[i]
+    quda.initCommsGridQuda(map_data.ndim, map_data.dims, commsMap, <void *>(&map_data))
 
 def initQudaDevice(int device):
     quda.initQudaDevice(device)
@@ -258,6 +200,7 @@ def initQuda(int device):
     quda.initQuda(device)
 
 def endQuda():
+    free(map_data.ranks)
     quda.endQuda()
 
 def updateR():

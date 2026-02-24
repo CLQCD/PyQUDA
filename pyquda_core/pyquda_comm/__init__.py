@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 import logging
+import math
 import os
 import sys
 from typing import Generator, List, Literal, Optional, Sequence, IO, Tuple, Type, Union, get_args
@@ -9,7 +10,7 @@ from numpy.typing import NDArray, DTypeLike
 from mpi4py import MPI
 from mpi4py.util import dtlib
 
-GridMapType = Literal["default", "reversed", "shared"]
+GridMapType = Literal["default", "reversed", "shared", "dist_graph"]
 from .array import BackendType, BackendTargetType, backendDeviceAPI
 
 
@@ -59,7 +60,7 @@ _GRID_MAP: GridMapType = "default"
 """For MPI, the default node mapping is lexicographical with t varying fastest."""
 _GRID_SIZE: Optional[Tuple[int, ...]] = None
 _GRID_COORD: Optional[Tuple[int, ...]] = None
-_SHARED_RANK_LIST: Optional[Tuple[int, ...]] = None
+_GRID_RANKS: Optional[Tuple[int, ...]] = None
 _ARRAY_BACKEND: BackendType = "cupy"
 _ARRAY_BACKEND_TARGET: BackendTargetType = "cuda"
 _ARRAY_DEVICE: int = -1
@@ -87,31 +88,15 @@ def getRankFromCoord(grid_coord: List[int]) -> int:
             f"Grid coordinate {grid_coord} and grid size {grid_size} must have the same dimension",
             ValueError,
         )
-
-    if _GRID_MAP == "default":
-        mpi_rank = _defaultRankFromCoord(grid_coord, grid_size)
-    elif _GRID_MAP == "reversed":
-        mpi_rank = _defaultRankFromCoord(grid_coord[::-1], grid_size[::-1])
-    elif _GRID_MAP == "shared":
-        assert _SHARED_RANK_LIST is not None
-        mpi_rank = _SHARED_RANK_LIST.index(_defaultRankFromCoord(grid_coord, grid_size))
-    else:
-        _MPI_LOGGER.critical(f"Unsupported grid mapping {_GRID_MAP}", ValueError)
+    grid_ranks = getGridRanks()
+    mpi_rank = grid_ranks.index(_defaultRankFromCoord(grid_coord, grid_size))
     return mpi_rank
 
 
 def getCoordFromRank(mpi_rank: int) -> List[int]:
     grid_size = getGridSize()
-
-    if _GRID_MAP == "default":
-        grid_coord = _defaultCoordFromRank(mpi_rank, grid_size)
-    elif _GRID_MAP == "reversed":
-        grid_coord = _defaultCoordFromRank(mpi_rank, grid_size[::-1])[::-1]
-    elif _GRID_MAP == "shared":
-        assert _SHARED_RANK_LIST is not None
-        grid_coord = _defaultCoordFromRank(_SHARED_RANK_LIST[mpi_rank], grid_size)
-    else:
-        _MPI_LOGGER.critical(f"Unsupported grid mapping {_GRID_MAP}", ValueError)
+    grid_ranks = getGridRanks()
+    grid_coord = _defaultCoordFromRank(grid_ranks[mpi_rank], grid_size)
     return grid_coord
 
 
@@ -244,38 +229,78 @@ def getDefaultGrid(mpi_size: int, latt_size: Sequence[int], evenodd: bool = True
     return min(min_grid)
 
 
-def setSharedRankList(grid_size: Sequence[int]):
-    global _SHARED_RANK_LIST
-    shared_comm = _MPI_COMM.Split_type(MPI.COMM_TYPE_SHARED)
-    shared_size = shared_comm.Get_size()
-    shared_rank = shared_comm.Get_rank()
-    shared_root = shared_comm.bcast(_MPI_RANK)
-    node_rank = sorted(set(_MPI_COMM.allgather(shared_root))).index(shared_root)
-    assert _MPI_SIZE % shared_size == 0
-    node_grid_size = [G for G in grid_size]
-    shared_grid_size = [1 for _ in grid_size]
-    dim, last_dim = 0, len(grid_size) - 1
-    while shared_size > 1:
-        for prime in [2, 3, 5]:
-            if node_grid_size[dim] % prime == 0 and shared_size % prime == 0:
-                node_grid_size[dim] //= prime
-                shared_grid_size[dim] *= prime
-                shared_size //= prime
-                last_dim = dim
-                break
+def setGridRanks(grid_map: GridMapType, grid_size: Sequence[int], latt_size: Optional[Sequence[int]] = None):
+    global _GRID_RANKS
+    if grid_map == "default":
+        _GRID_RANKS = tuple(range(_MPI_SIZE))
+    elif grid_map == "reversed":
+        grid_coord = _defaultCoordFromRank(_MPI_RANK, grid_size[::-1])
+        _GRID_RANKS = tuple(_MPI_COMM.allgather(_defaultRankFromCoord(grid_coord, grid_size)))
+    elif grid_map == "shared":
+        shared_comm = _MPI_COMM.Split_type(MPI.COMM_TYPE_SHARED)
+        shared_size = shared_comm.Get_size()
+        shared_rank = shared_comm.Get_rank()
+        shared_root = shared_comm.bcast(_MPI_RANK)
+        node_rank = sorted(set(_MPI_COMM.allgather(shared_root))).index(shared_root)
+        assert _MPI_SIZE % shared_size == 0
+        node_grid_size = [G for G in grid_size]
+        shared_grid_size = [1 for _ in grid_size]
+        dim, last_dim = 0, len(grid_size) - 1
+        while shared_size > 1:
+            for prime in [2, 3, 5]:
+                if node_grid_size[dim] % prime == 0 and shared_size % prime == 0:
+                    node_grid_size[dim] //= prime
+                    shared_grid_size[dim] *= prime
+                    shared_size //= prime
+                    last_dim = dim
+                    break
+            else:
+                if last_dim == dim:
+                    _MPI_LOGGER.critical("GlobalSharedMemory::GetShmDims failed", ValueError)
+            dim = (dim + 1) % len(grid_size)
+        grid_coord = [
+            n * S + s
+            for n, S, s in zip(
+                _defaultCoordFromRank(node_rank, node_grid_size),
+                shared_grid_size,
+                _defaultCoordFromRank(shared_rank, shared_grid_size),
+            )
+        ]
+        _GRID_RANKS = tuple(_MPI_COMM.allgather(_defaultRankFromCoord(grid_coord, grid_size)))
+    elif grid_map == "dist_graph":
+        grid_coord = _defaultCoordFromRank(_MPI_RANK, grid_size)
+        if latt_size is None:
+            sublatt_size = [1 for G in grid_size]
         else:
-            if last_dim == dim:
-                _MPI_LOGGER.critical("GlobalSharedMemory::GetShmDims failed", ValueError)
-        dim = (dim + 1) % len(grid_size)
-    grid_coord = [
-        n * S + s
-        for n, S, s in zip(
-            _defaultCoordFromRank(node_rank, node_grid_size),
-            shared_grid_size,
-            _defaultCoordFromRank(shared_rank, shared_grid_size),
+            sublatt_size = [GL // G for G, GL in zip(grid_size, latt_size)]
+        subvolume = math.prod(sublatt_size)
+        sources: List[int] = []
+        destinations: List[int] = []
+        sourceweights: List[int] = []
+        destweights: List[int] = []
+        for i in range(len(grid_size)):
+            grid_coord[i] = (grid_coord[i] + 1) % grid_size[i]
+            mpi_rank = _defaultRankFromCoord(grid_coord, grid_size)
+            if mpi_rank != _MPI_RANK:
+                sources.append(mpi_rank)
+                destinations.append(mpi_rank)
+                sourceweights.append(subvolume // sublatt_size[i])
+                destweights.append(subvolume // sublatt_size[i])
+            grid_coord[i] = (grid_coord[i] - 1) % grid_size[i]
+
+            grid_coord[i] = (grid_coord[i] - 1) % grid_size[i]
+            mpi_rank = _defaultRankFromCoord(grid_coord, grid_size)
+            if mpi_rank != _MPI_RANK:
+                sources.append(mpi_rank)
+                destinations.append(mpi_rank)
+                sourceweights.append(subvolume // sublatt_size[i])
+                destweights.append(subvolume // sublatt_size[i])
+            grid_coord[i] = (grid_coord[i] + 1) % grid_size[i]
+
+        dist_graph_comm = _MPI_COMM.Create_dist_graph_adjacent(
+            sources, destinations, sourceweights, destweights, reorder=True
         )
-    ]
-    _SHARED_RANK_LIST = tuple(_MPI_COMM.allgather(_defaultRankFromCoord(grid_coord, grid_size)))
+        _GRID_RANKS = tuple(_MPI_COMM.allgather(dist_graph_comm.Get_rank()))
 
 
 def initGrid(
@@ -296,8 +321,9 @@ def initGrid(
         if grid_size is None:
             grid_size = [1, 1, 1, 1]
 
-        if grid_map == "shared":
-            setSharedRankList(grid_size)
+        setGridRanks(grid_map, grid_size, latt_size)
+        if grid_map != "default":
+            _MPI_LOGGER.info(f"Mapping ranks to {_GRID_RANKS}")
 
         _GRID_SIZE = tuple(grid_size)
         _GRID_COORD = tuple(getCoordFromRank(_MPI_RANK))
@@ -396,6 +422,12 @@ def getGridCoord():
     if _GRID_COORD is None:
         _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
     return list(_GRID_COORD)
+
+
+def getGridRanks():
+    if _GRID_RANKS is None:
+        _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
+    return list(_GRID_RANKS)
 
 
 def getArrayBackend():

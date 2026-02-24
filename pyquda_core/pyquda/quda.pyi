@@ -1211,7 +1211,7 @@ def setVerbosityQuda(verbosity: QudaVerbosity, prefix: bytes) -> None:
     """
     ...
 
-def initCommsGridQuda(nDim: int, dims: List[int, 4], grid_map: bytes) -> None:
+def initCommsGridQuda(nDim: int, dims: List[int, 4], ranks: List[int]) -> None:
     """
     Declare the grid mapping ("logical topology" in QMP parlance)
     used for communications in a multi-GPU grid.  This function

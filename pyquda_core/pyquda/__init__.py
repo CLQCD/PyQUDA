@@ -18,6 +18,7 @@ from pyquda_comm import (  # noqa: F401
     getGridMap,
     getGridSize,
     getGridCoord,
+    getGridRanks,
     getArrayBackend,
     getArrayBackendTarget,
     getArrayDevice,
@@ -63,13 +64,13 @@ def initQUDA(grid_size: List[int], device: int, use_malloc_quda: bool = False):
     global _QUDA_INITIALIZED
     if not isGridInitialized() or not isDeviceInitialized():
         getLogger().critical("initGrid and initDevice should be called before initQUDA", RuntimeError)
+    backend = getArrayBackend()
+    backend_target = getArrayBackendTarget()
 
     if use_malloc_quda:
         import ctypes
         import sysconfig
 
-        backend = getArrayBackend()
-        backend_target = getArrayBackendTarget()
         malloc_quda = ctypes.CDLL(
             path.join(path.dirname(path.abspath(__file__)), "malloc_quda" + sysconfig.get_config_var("EXT_SUFFIX"))
         )
@@ -89,8 +90,8 @@ def initQUDA(grid_size: List[int], device: int, use_malloc_quda: bool = False):
             allocator = torch._C._cuda_customAllocator(quda_malloc, quda_free)
             torch._C._cuda_changeCurrentAllocator(allocator)
 
-    quda.initCommsGridQuda(4, grid_size, getGridMap().encode())
-    quda.initQuda(device)
+    quda.initCommsGridQuda(4, grid_size, getGridRanks())
+    quda.initQuda(device if backend_target != "cpu" else -1)
     atexit.register(quda.endQuda)
     _QUDA_INITIALIZED = True
 
