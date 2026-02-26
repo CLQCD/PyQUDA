@@ -27,15 +27,15 @@ def main():
         "-m",
         "--grid-map",
         default="default",
-        choices=("default", "reversed", "shared"),
+        choices=("default", "t_major", "x_major", "shared", "dist_graph"),
         help="Grid mapping used for PyQUDA (default: default)",
     )
     parser.add_argument(
         "-b",
         "--backend",
-        default="cupy",
+        default="numpy",
         choices=("numpy", "cupy", "torch", "dpnp"),
-        help="Array backend used for PyQUDA (default: cupy)",
+        help="Array backend used for PyQUDA (default: numpy)",
     )
     parser.add_argument(
         "-t",

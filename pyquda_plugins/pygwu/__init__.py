@@ -12,8 +12,8 @@ from . import _pygwu as gwu
 def init(latt_size: Sequence[int]):
     import atexit
 
-    initGrid("reversed", None, latt_size)
-    initDevice("numpy")
+    initGrid("x_major", None, latt_size)
+    initDevice()
     gwu.gwu_init_machine(np.asarray(latt_size, "<i4"))
     atexit.register(gwu.gwu_shutdown_machine)
 
