@@ -10,7 +10,7 @@ from numpy.typing import NDArray, DTypeLike
 from mpi4py import MPI
 from mpi4py.util import dtlib
 
-GridMapType = Literal["default", "t_major", "x_major", "shared", "dist_graph"]
+GridMapType = Literal["default", "t_major", "x_major", "minimize", "shared", "dist_graph"]
 from .array import BackendType, BackendTargetType, backendDeviceAPI
 
 
@@ -274,25 +274,34 @@ def initGrid(
             _MPI_LOGGER.critical(f"Unsupported grid mapping type: {grid_map}", ValueError)
         _MPI_LOGGER.info(f"Using {grid_map} grid mapping")
 
-        if grid_size is None and latt_size is not None:
+        if grid_size is not None:
+            if math.prod(grid_size) != _MPI_SIZE:
+                _MPI_LOGGER.critical(f"Grid size {grid_size} must matches MPI size {_MPI_SIZE}", ValueError)
+            if grid_map == "minimize":
+                _MPI_LOGGER.critical("Grid size must not be set while using minimize grid mapping", ValueError)
+        elif latt_size is not None:
             _MPI_LOGGER.info(f"Using lattice size {latt_size} to determine grid size")
-            if grid_map == "default" and _SHARED_SIZE_MAX == _SHARED_SIZE_MIN:
+            if grid_map == "minimize":
+                assert _SHARED_SIZE_MAX == _SHARED_SIZE_MIN
                 grid_size, shared_grid_size = getDefaultGrid(_MPI_SIZE, _SHARED_SIZE, latt_size, evenodd)
             else:
                 grid_size, shared_grid_size = getDefaultGrid(_MPI_SIZE, 1, latt_size, evenodd)
-        if grid_size is None:
+        else:
             grid_size = [1, 1, 1, 1]
         _MPI_LOGGER.info(f"Using grid size {grid_size}")
 
         if grid_map == "default":
-            assert _SHARED_SIZE_MAX == _SHARED_SIZE_MIN
-            grid_coord = _defaultCoordFromSharedRank(_SHARED_RANK, shared_grid_size, _MPI_RANK, grid_size)
-            grid_ranks = _MPI_COMM.allgather(_defaultRankFromCoord(grid_coord, grid_size))
+            grid_coord = _defaultCoordFromRank(_MPI_RANK, grid_size)
+            grid_ranks = list(range(_MPI_SIZE))
         elif grid_map == "t_major":
             grid_coord = _defaultCoordFromRank(_MPI_RANK, grid_size)
             grid_ranks = list(range(_MPI_SIZE))
         elif grid_map == "x_major":
             grid_coord = _defaultCoordFromRank(_MPI_RANK, grid_size[::-1])[::-1]
+            grid_ranks = _MPI_COMM.allgather(_defaultRankFromCoord(grid_coord, grid_size))
+        elif grid_map == "minimize":
+            assert _SHARED_SIZE_MAX == _SHARED_SIZE_MIN
+            grid_coord = _defaultCoordFromSharedRank(_SHARED_RANK, shared_grid_size, _MPI_RANK, grid_size)
             grid_ranks = _MPI_COMM.allgather(_defaultRankFromCoord(grid_coord, grid_size))
         elif grid_map == "shared":
             assert _SHARED_SIZE_MAX == _SHARED_SIZE_MIN
@@ -351,7 +360,7 @@ def initGrid(
             dist_graph_comm.Free()
             grid_ranks = _MPI_COMM.allgather(dist_graph_rank)
 
-        if grid_map != "t_major":
+        if grid_map != "default":
             _MPI_LOGGER.info(f"Mapping ranks to {grid_ranks}")
 
         _GRID_MAP = grid_map

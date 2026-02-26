@@ -27,7 +27,7 @@ def main():
         "-m",
         "--grid-map",
         default="default",
-        choices=("default", "t_major", "x_major", "shared", "dist_graph"),
+        choices=("default", "t_major", "x_major", "minimize", "shared", "dist_graph"),
         help="Grid mapping used for PyQUDA (default: default)",
     )
     parser.add_argument(
