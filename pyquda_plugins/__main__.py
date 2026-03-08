@@ -23,8 +23,8 @@ def dynamic(lib, header, include_path, library_path):
     return cythonize(
         [
             Extension(
-                name=f"pyquda_plugins.py{lib}._py{lib}",
-                sources=[os.path.join(f"pyquda_plugins/py{lib}/src/_py{lib}.pyx")],
+                name=f"pyquda_plugins.py{lib}.{lib}",
+                sources=[os.path.join(f"pyquda_plugins/py{lib}/src/{lib}.pyx")],
                 include_dirs=[include_path, numpy.get_include()],
                 define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
                 library_dirs=[library_path],

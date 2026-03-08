@@ -231,7 +231,7 @@ def parseHeader(plugins_root, header, include):
 
 def build_plugin_pyx(plugins_root, lib: str, header: str, include: str):
     lib_pxd = f'cdef extern from "{header}":\n'
-    pylib_pyx = (
+    lib_pyx = (
         "from enum import IntEnum\n"
         "from libcpp cimport bool\n"
         "from numpy cimport ndarray\n"
@@ -239,7 +239,7 @@ def build_plugin_pyx(plugins_root, lib: str, header: str, include: str):
         f"cimport {lib}\n"
         "\n"
     )
-    pylib_pyi = (
+    lib_pyi = (
         "from enum import IntEnum\n"
         "from numpy import int32, float64, complex128\n"
         "from numpy.typing import NDArray\n"
@@ -248,28 +248,28 @@ def build_plugin_pyx(plugins_root, lib: str, header: str, include: str):
     c_funcs, c_enums = parseHeader(plugins_root, header, include)
     for c_enum in c_enums.keys():
         lib_pxd += f"    ctypedef enum {c_enum}:\n        pass\n\n"
-        pylib_pyx += f"class {c_enum}(IntEnum):\n"
-        pylib_pyi += f"class {c_enum}(IntEnum):\n"
+        lib_pyx += f"class {c_enum}(IntEnum):\n"
+        lib_pyi += f"class {c_enum}(IntEnum):\n"
         for key, value in c_enums[c_enum]:
-            pylib_pyx += f"    {key} = {value}\n"
-            pylib_pyi += f"    {key} = {value}\n"
-        pylib_pyx += "\n"
-        pylib_pyi += "\n"
+            lib_pyx += f"    {key} = {value}\n"
+            lib_pyi += f"    {key} = {value}\n"
+        lib_pyx += "\n"
+        lib_pyi += "\n"
         _C_TO_PYTHON.update({c_enum: c_enum})
     for c_func in c_funcs:
         lib_pxd += f"    {c_func}\n"
-        pylib_pyx += "\n" + c_func.pyx(lib)
-        pylib_pyi += c_func.pyi()
+        lib_pyx += "\n" + c_func.pyx(lib)
+        lib_pyi += c_func.pyi()
     for c_enum in c_enums.keys():
-        pylib_pyx = pylib_pyx.replace(f"{c_enum} ", f"{lib}.{c_enum} ")
+        lib_pyx = lib_pyx.replace(f"{c_enum} ", f"{lib}.{c_enum} ")
 
     os.makedirs(os.path.join(plugins_root, f"py{lib}", "src"), exist_ok=True)
     with open(os.path.join(plugins_root, f"py{lib}", "src", f"{lib}.pxd"), "w") as f:
         f.write(lib_pxd)
-    with open(os.path.join(plugins_root, f"py{lib}", "src", f"_py{lib}.pyx"), "w") as f:
-        f.write(pylib_pyx)
-    with open(os.path.join(plugins_root, f"py{lib}", f"_py{lib}.pyi"), "w") as f:
-        f.write(pylib_pyi)
+    with open(os.path.join(plugins_root, f"py{lib}", "src", f"{lib}.pyx"), "w") as f:
+        f.write(lib_pyx)
+    with open(os.path.join(plugins_root, f"py{lib}", f"{lib}.pyi"), "w") as f:
+        f.write(lib_pyi)
 
     if os.path.exists(os.path.join(plugins_root, "yacctab.py")):
         os.remove(os.path.join(plugins_root, "yacctab.py"))

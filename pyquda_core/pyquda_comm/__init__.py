@@ -10,7 +10,7 @@ from numpy.typing import NDArray, DTypeLike
 from mpi4py import MPI
 from mpi4py.util import dtlib
 
-GridMapType = Literal["default", "t_major", "x_major", "minimize", "shared", "dist_graph"]
+GridMapType = Literal["default", "t_fastest", "x_fastest", "minimize", "shared", "dist_graph"]
 from .array import BackendType, BackendTargetType, backendDeviceAPI
 
 
@@ -287,16 +287,18 @@ def initGrid(
             else:
                 grid_size, shared_grid_size = getDefaultGrid(_MPI_SIZE, 1, latt_size, evenodd)
         else:
+            if grid_map == "minimize":
+                _MPI_LOGGER.critical("Lattice size must be set while using minimize grid mapping", ValueError)
             grid_size = [1, 1, 1, 1]
         _MPI_LOGGER.info(f"Using grid size {grid_size}")
 
         if grid_map == "default":
             grid_coord = _defaultCoordFromRank(_MPI_RANK, grid_size)
             grid_ranks = list(range(_MPI_SIZE))
-        elif grid_map == "t_major":
+        elif grid_map == "t_fastest":
             grid_coord = _defaultCoordFromRank(_MPI_RANK, grid_size)
             grid_ranks = list(range(_MPI_SIZE))
-        elif grid_map == "x_major":
+        elif grid_map == "x_fastest":
             grid_coord = _defaultCoordFromRank(_MPI_RANK, grid_size[::-1])[::-1]
             grid_ranks = _MPI_COMM.allgather(_defaultRankFromCoord(grid_coord, grid_size))
         elif grid_map == "minimize":

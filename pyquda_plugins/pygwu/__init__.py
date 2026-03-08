@@ -6,13 +6,13 @@ import numpy as np
 
 from pyquda_comm import initGrid, initDevice, getLogger, readMPIFile, readMPIFileInChunks
 from pyquda_comm.field import LatticeInfo, LatticeGauge, LatticeFermion, MultiLatticeFermion
-from . import _pygwu as gwu
+from . import gwu
 
 
 def init(latt_size: Sequence[int]):
     import atexit
 
-    initGrid("x_major", None, latt_size)
+    initGrid("x_fastest", None, latt_size)
     initDevice()
     gwu.gwu_init_machine(np.asarray(latt_size, "<i4"))
     atexit.register(gwu.gwu_shutdown_machine)

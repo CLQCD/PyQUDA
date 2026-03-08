@@ -6,8 +6,8 @@ from pyquda_comm import getLogger
 from pyquda_comm.field import LatticeComplex, MultiLatticeComplex, LatticePropagator
 from pyquda_utils.gamma import Gamma, Polarize
 
-from . import _pycontract as contract
-from ._pycontract import BaryonContractType, BaryonSequentialType
+from . import contract
+from .contract import BaryonContractType, BaryonSequentialType
 
 
 def mesonTwoPoint(
