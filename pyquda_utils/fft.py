@@ -8,7 +8,7 @@ from mpi4py import MPI
 from mpi4py.util import dtlib
 
 from pyquda_comm import getMPIComm, getMPISize, getMPIRank, getGridSize, getGridCoord, getCoordFromRank
-from pyquda_comm.array import BackendType, arrayHostCopy, arrayDevice
+from pyquda_comm.array import BackendType, arrayHostCopy, arrayDevice, arrayFFTN, arrayIFFTN
 from pyquda_comm.field import (
     LatticeInfo,
     LatticeComplex,
@@ -28,58 +28,6 @@ Field = TypeVar(
     LatticeStaggeredFermion,
     LatticeStaggeredPropagator,
 )
-
-
-def arrayFFTN(data, axes: Union[int, Sequence[int]], backend: BackendType) -> NDArray:
-    if isinstance(axes, int):
-        axis = axes
-        if backend == "numpy":
-            return numpy.fft.fft(data, axis=axis)
-        elif backend == "cupy":
-            import cupy
-
-            return cupy.fft.fft(data, axis=axis)
-        elif backend == "torch":
-            import torch
-
-            return torch.fft.fft(data, dim=axis, norm="backward")
-    else:
-        if backend == "numpy":
-            return numpy.fft.fftn(data, axes=axes)
-        elif backend == "cupy":
-            import cupy
-
-            return cupy.fft.fftn(data, axes=axes)
-        elif backend == "torch":
-            import torch
-
-            return torch.fft.fftn(data, dim=axes, norm="backward")
-
-
-def arrayIFFTN(data, axes: Union[int, Sequence[int]], backend: BackendType) -> NDArray:
-    if isinstance(axes, int):
-        axis = axes
-        if backend == "numpy":
-            return numpy.fft.ifft(data, axis=axis)
-        elif backend == "cupy":
-            import cupy
-
-            return cupy.fft.ifft(data, axis=axis)
-        elif backend == "torch":
-            import torch
-
-            return torch.fft.ifft(data, dim=axis, norm="backward")
-    else:
-        if backend == "numpy":
-            return numpy.fft.ifftn(data, axes=axes)
-        elif backend == "cupy":
-            import cupy
-
-            return cupy.fft.ifftn(data, axes=axes)
-        elif backend == "torch":
-            import torch
-
-            return torch.fft.ifftn(data, dim=axes, norm="backward")
 
 
 def loadBalanceSubsize(GL: int, size: int, rank: int):
