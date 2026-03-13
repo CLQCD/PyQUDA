@@ -1,13 +1,21 @@
-from typing import Union, overload
+from typing import Sequence, Union, overload
 
+from pyquda_comm.array import arrayDevice
 from pyquda import getLogger
 from pyquda.field import (
+    LatticeInt,
+    MultiLatticeInt,
+    LatticeReal,
+    MultiLatticeReal,
+    LatticeComplex,
+    MultiLatticeComplex,
     LatticeLink,
     LatticeFermion,
-    LatticePropagator,
-    LatticeStaggeredPropagator,
     MultiLatticeFermion,
+    LatticePropagator,
+    LatticeStaggeredFermion,
     MultiLatticeStaggeredFermion,
+    LatticeStaggeredPropagator,
 )
 
 
@@ -94,3 +102,43 @@ def propagatorToMultiFermion(propagator: Union[LatticePropagator, LatticeStagger
         raise getLogger().critical(
             f"No propagatorToMultiFermion implementation for {propagator.__class__.__name__}", NotImplementedError
         )
+
+
+@overload
+def multiField(fields: Sequence[LatticeInt]) -> MultiLatticeInt: ...
+@overload
+def multiField(fields: Sequence[LatticeReal]) -> MultiLatticeReal: ...
+@overload
+def multiField(fields: Sequence[LatticeComplex]) -> MultiLatticeComplex: ...
+@overload
+def multiField(fields: Sequence[LatticeFermion]) -> MultiLatticeFermion: ...
+@overload
+def multiField(fields: Sequence[LatticeStaggeredFermion]) -> MultiLatticeStaggeredFermion: ...
+
+
+def multiField(
+    fields: Sequence[Union[LatticeInt, LatticeReal, LatticeComplex, LatticeFermion, LatticeStaggeredFermion]],
+) -> Union[MultiLatticeInt, MultiLatticeReal, MultiLatticeComplex, MultiLatticeFermion, MultiLatticeStaggeredFermion]:
+    field_0 = fields[0]
+    if isinstance(field_0, LatticeInt):
+        return MultiLatticeInt(
+            field_0.latt_info, len(fields), arrayDevice([field.data for field in fields], field_0.location)
+        )
+    elif isinstance(field_0, LatticeReal):
+        return MultiLatticeReal(
+            field_0.latt_info, len(fields), arrayDevice([field.data for field in fields], field_0.location)
+        )
+    elif isinstance(field_0, LatticeComplex):
+        return MultiLatticeComplex(
+            field_0.latt_info, len(fields), arrayDevice([field.data for field in fields], field_0.location)
+        )
+    elif isinstance(field_0, LatticeFermion):
+        return MultiLatticeFermion(
+            field_0.latt_info, len(fields), arrayDevice([field.data for field in fields], field_0.location)
+        )
+    elif isinstance(field_0, LatticeStaggeredFermion):
+        return MultiLatticeStaggeredFermion(
+            field_0.latt_info, len(fields), arrayDevice([field.data for field in fields], field_0.location)
+        )
+    else:
+        getLogger().critical(f"Unknown field type {type(field_0)}", ValueError)

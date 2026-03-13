@@ -5,19 +5,19 @@ from check_pyquda import test_dir
 
 from pyquda.hmc import HMC, INT_3G1F
 from pyquda.action import GaugeAction, HISQAction
+from pyquda.enum_quda import QudaVerbosity
 from pyquda_utils import core
 from pyquda_utils.hmc_param import (
     symanzikTreeGaugeLoopParam as loopParam,
     staggeredFermionRationalParam as rationalParam,
 )
-from pyquda_utils.io import readMILCGauge, writeNPYGauge
 
 beta, u_0 = 7.3, 0.880
 tol, maxiter = 1e-6, 2500
-start, stop, warm, save = 0, 1, 500, 5
+start, stop, warm, save = 0, 1000, 500, 5
 t = 0.48
 
-core.init([1, 1, 1, 2], resource_path=".cache", enable_force_monitor=True)
+core.init([1, 1, 1, 2], resource_path=".cache/quda", enable_force_monitor=True)
 latt_info = core.LatticeInfo([4, 4, 4, 12], t_boundary=-1, anisotropy=1.0)
 
 monomials = [
@@ -30,6 +30,7 @@ monomials = [
 ]
 
 hmc = HMC(latt_info, monomials, INT_3G1F(24))
+hmc.setFermionVerbosity(QudaVerbosity.QUDA_SILENT)
 gauge = core.LatticeGauge(latt_info)
 # gauge = readMILCGauge("./s16t32_beta7.3_ml0.0012ms0.0323mc0.432.600")
 hmc.initialize(10086, gauge)
@@ -71,4 +72,4 @@ for i in range(start, stop):
     )
 
     if (i + 1) % save == 0:
-        writeNPYGauge(f"./DATA/cfg/cfg_{i + 1}.npy", gauge)
+        gauge.save(f"./DATA/cfg/cfg_{i + 1}.npy")

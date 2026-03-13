@@ -1,4 +1,4 @@
-from typing import Callable, Literal, Sequence
+from typing import Callable, Literal, Sequence, Union
 
 import numpy
 from numpy.typing import NDArray, DTypeLike
@@ -6,16 +6,14 @@ from numpy.typing import NDArray, DTypeLike
 BackendType = Literal["numpy", "cupy", "dpnp", "torch"]
 BackendTargetType = Literal["cpu", "cuda", "hip", "sycl"]
 
-dpnp_device = None
 dpnp_sycl_queue = None
 
 
 def setDPNPDevice(device: str):
-    import dpctl.tensor
+    import dpctl
 
-    global dpnp_device, dpnp_sycl_queue
-    dpnp_device = dpctl.tensor.Device.create_device(device)
-    dpnp_sycl_queue = dpnp_device.sycl_queue
+    global dpnp_sycl_queue
+    dpnp_sycl_queue = dpctl.SyclQueue(device)
 
 
 def backendDeviceAPI(backend: BackendType, backend_target: BackendTargetType):
@@ -57,6 +55,7 @@ def backendDeviceAPI(backend: BackendType, backend_target: BackendTargetType):
             raise ValueError(f"Array API backend {backend} does not support target {backend_target}")
     elif backend == "torch":
         import torch
+        import torch.version
 
         if backend_target == "cpu":
             getDeviceCount: Callable[[], int] = lambda: 0x7FFFFFFF
@@ -79,17 +78,21 @@ def backendDeviceAPI(backend: BackendType, backend_target: BackendTargetType):
     return getDeviceCount, setDevice
 
 
-def backendDeviceMMAAvailable(backend: BackendType, backend_target: BackendTargetType, device: int):
-    if backend_target == "cuda":
-        if backend == "cupy":
-            import cupy
+def arrayIsInstance(data, backend: BackendType):
+    if backend == "numpy":
+        return isinstance(data, numpy.ndarray)
+    elif backend == "cupy":
+        import cupy
 
-            return cupy.cuda.runtime.getDeviceProperties(device)["major"] >= 7
-        elif backend == "torch":
-            import torch
+        return isinstance(data, cupy.ndarray)
+    elif backend == "dpnp":
+        import dpnp
 
-            return torch.cuda.get_device_properties(device).major >= 7
-    return False
+        return isinstance(data, dpnp.ndarray)
+    elif backend == "torch":
+        import torch
+
+        return isinstance(data, torch.Tensor)
 
 
 def arrayDType(dtype: DTypeLike, backend: BackendType) -> DTypeLike:
@@ -129,7 +132,7 @@ def arrayHost(data, backend: BackendType) -> NDArray:
     elif backend == "cupy":
         return data.get()
     elif backend == "dpnp":
-        return data.asnumpy()
+        return numpy.ascontiguousarray(data.asnumpy())  # TODO: https://github.com/IntelPython/dpnp/issues/2568
     elif backend == "torch":
         return data.cpu().numpy()
 
@@ -140,7 +143,7 @@ def arrayHostCopy(data, backend: BackendType) -> NDArray:
     elif backend == "cupy":
         return data.get()
     elif backend == "dpnp":
-        return data.asnumpy()
+        return numpy.ascontiguousarray(data.asnumpy())  # TODO: https://github.com/IntelPython/dpnp/issues/2568
     elif backend == "torch":
         return data.cpu().numpy()
 
@@ -155,7 +158,7 @@ def arrayDevice(data, backend: BackendType) -> NDArray:
     elif backend == "dpnp":
         import dpnp
 
-        return dpnp.asarray(data, device=dpnp_device)
+        return dpnp.asarray(data, sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
         import torch
 
@@ -168,7 +171,7 @@ def arrayCopy(data, backend: BackendType) -> NDArray:
     elif backend == "cupy":
         return data.copy()
     elif backend == "dpnp":
-        return data.copy(device=dpnp_device)
+        return data.copy(sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
         return data.clone()
 
@@ -194,7 +197,7 @@ def arrayAsContiguous(data, backend: BackendType) -> NDArray:
     elif backend == "dpnp":
         import dpnp
 
-        return dpnp.ascontiguousarray(data, device=dpnp_device)
+        return dpnp.ascontiguousarray(data, sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
         return data.contiguous()
 
@@ -226,11 +229,28 @@ def arrayZeros(shape: Sequence[int], dtype: DTypeLike, backend: BackendType) -> 
     elif backend == "dpnp":
         import dpnp
 
-        return dpnp.zeros(shape, dtype=dtype, device=dpnp_device)
+        return dpnp.zeros(shape, dtype=dtype, sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
         import torch
 
         return torch.zeros(shape, dtype=dtype)
+
+
+def arrayEmpty(shape: Sequence[int], dtype: DTypeLike, backend: BackendType) -> NDArray:
+    if backend == "numpy":
+        return numpy.empty(shape, dtype)
+    elif backend == "cupy":
+        import cupy
+
+        return cupy.empty(shape, dtype)
+    elif backend == "dpnp":
+        import dpnp
+
+        return dpnp.empty(shape, dtype=dtype, sycl_queue=dpnp_sycl_queue)
+    elif backend == "torch":
+        import torch
+
+        return torch.empty(shape, dtype=dtype)
 
 
 def arrayExp(data, backend: BackendType) -> NDArray:
@@ -260,7 +280,7 @@ def arrayIdentity(n: int, dtype: DTypeLike, backend: BackendType) -> NDArray:
     elif backend == "dpnp":
         import dpnp
 
-        return dpnp.identity(n, dtype, device=dpnp_device)
+        return dpnp.identity(n, dtype, sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
         import torch
 
@@ -277,7 +297,7 @@ def arrayRandomRandom(size: Sequence[int], backend: BackendType) -> NDArray:
     elif backend == "dpnp":
         import dpnp.random
 
-        return dpnp.random.random(size, device=dpnp_device)
+        return dpnp.random.random(size, sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
         import torch
 
@@ -296,9 +316,11 @@ def arrayRandomRandomComplex(size: Sequence[int], backend: BackendType) -> NDArr
     elif backend == "dpnp":
         import dpnp.random
 
-        # size = tuple(size[:-1]) + (2 * size[-1],)
-        # return dpnp.random.random(size, device=dpnp_device).view(dpnp.complex128)  # TODO: 0.19.0
-        return dpnp.random.random(size, device=dpnp_device) + 1j * dpnp.random.random(size, device=dpnp_device)
+        size = tuple(size[:-1]) + (2 * size[-1],)
+        return dpnp.random.random(size, sycl_queue=dpnp_sycl_queue).view(dpnp.complex128)
+        # return dpnp.random.random(size, sycl_queue=dpnp_sycl_queue) + 1j * dpnp.random.random(
+        #     size, sycl_queue=dpnp_sycl_queue
+        # )  # ? dpnp<0.19.0
     elif backend == "torch":
         import torch
 
@@ -316,7 +338,7 @@ def arrayRandomNormal(loc: float, scale: float, size: Sequence[int], backend: Ba
     elif backend == "dpnp":
         import dpnp.random
 
-        return dpnp.random.normal(loc, scale, size, device=dpnp_device)
+        return dpnp.random.normal(loc, scale, size, sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
         import torch
 
@@ -335,11 +357,11 @@ def arrayRandomNormalComplex(loc: float, scale: float, size: Sequence[int], back
     elif backend == "dpnp":
         import dpnp.random
 
-        # size = tuple(size[:-1]) + (2 * size[-1],)
-        # return dpnp.random.normal(loc, scale, size, device=dpnp_device).view(dpnp.complex128)  # TODO: 0.19.0
-        return dpnp.random.normal(loc, scale, size, device=dpnp_device) + 1j * dpnp.random.normal(
-            loc, scale, size, device=dpnp_device
-        )
+        size = tuple(size[:-1]) + (2 * size[-1],)
+        return dpnp.random.normal(loc, scale, size, sycl_queue=dpnp_sycl_queue).view(dpnp.complex128)
+        # return dpnp.random.normal(loc, scale, size, sycl_queue=dpnp_sycl_queue) + 1j * dpnp.random.normal(
+        #     loc, scale, size, sycl_queue=dpnp_sycl_queue
+        # )  # ? dpnp<0.19.0
     elif backend == "torch":
         import torch
 
@@ -357,7 +379,7 @@ def arrayRandomGetState(backend: BackendType):
     elif backend == "dpnp":
         import dpnp.random.dpnp_iface_random
 
-        return dpnp.random.dpnp_iface_random._get_random_state(device=dpnp_device)
+        return dpnp.random.dpnp_iface_random._get_random_state(sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
         import torch
 
@@ -375,7 +397,7 @@ def arrayRandomSetState(state, backend: BackendType):
         import dpnp
         import dpnp.random.dpnp_iface_random
 
-        sycl_queue = dpnp.get_normalized_queue_device(device=dpnp_device)
+        sycl_queue = dpnp.get_normalized_queue_device(sycl_queue=dpnp_sycl_queue)
         dpnp.random.dpnp_iface_random._dpnp_random_states[sycl_queue] = state
     elif backend == "torch":
         import torch
@@ -393,8 +415,76 @@ def arrayRandomSeed(seed: int, backend: BackendType):
     elif backend == "dpnp":
         import dpnp.random
 
-        dpnp.random.seed(seed, device=dpnp_device)
+        dpnp.random.seed(seed, sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
         import torch
 
         torch.manual_seed(seed)
+
+
+def arrayFFTN(data, axes: Union[int, Sequence[int]], backend: BackendType) -> NDArray:
+    if isinstance(axes, int):
+        axis = axes
+        if backend == "numpy":
+            return numpy.fft.fft(data, axis=axis)
+        elif backend == "cupy":
+            import cupy
+
+            return cupy.fft.fft(data, axis=axis)
+        elif backend == "torch":
+            import torch
+
+            return torch.fft.fft(data, dim=axis, norm="backward")
+        elif backend == "dpnp":
+            import dpnp
+
+            return dpnp.fft.fft(data, axis=axis)
+    else:
+        if backend == "numpy":
+            return numpy.fft.fftn(data, axes=axes)
+        elif backend == "cupy":
+            import cupy
+
+            return cupy.fft.fftn(data, axes=axes)
+        elif backend == "torch":
+            import torch
+
+            return torch.fft.fftn(data, dim=axes, norm="backward")
+        elif backend == "dpnp":
+            import dpnp
+
+            return dpnp.fft.fftn(data, axes=axes)
+
+
+def arrayIFFTN(data, axes: Union[int, Sequence[int]], backend: BackendType) -> NDArray:
+    if isinstance(axes, int):
+        axis = axes
+        if backend == "numpy":
+            return numpy.fft.ifft(data, axis=axis)
+        elif backend == "cupy":
+            import cupy
+
+            return cupy.fft.ifft(data, axis=axis)
+        elif backend == "torch":
+            import torch
+
+            return torch.fft.ifft(data, dim=axis, norm="backward")
+        elif backend == "dpnp":
+            import dpnp
+
+            return dpnp.fft.ifft(data, axis=axis)
+    else:
+        if backend == "numpy":
+            return numpy.fft.ifftn(data, axes=axes)
+        elif backend == "cupy":
+            import cupy
+
+            return cupy.fft.ifftn(data, axes=axes)
+        elif backend == "torch":
+            import torch
+
+            return torch.fft.ifftn(data, dim=axes, norm="backward")
+        elif backend == "dpnp":
+            import dpnp
+
+            return dpnp.fft.ifftn(data, axes=axes)

@@ -2,14 +2,14 @@ from abc import abstractmethod
 from math import prod
 from os import path
 from time import perf_counter
-from typing import Any, Generic, List, Literal, Optional, Sequence, Tuple, Type, TypeVar, Union, overload
+from typing import Any, Dict, Generic, List, Literal, Optional, Sequence, Tuple, Type, TypeVar, Union, overload
 
 Self = TypeVar("Self", bound="BaseField")
 SelfMulti = TypeVar("SelfMulti", bound="MultiField")
 Field = TypeVar("Field", bound="BaseField")
 
 import numpy
-from numpy.lib.format import dtype_to_descr, read_magic, read_array_header_1_0, write_array_header_1_0
+from numpy.lib.format import read_magic, read_array_header_1_0, write_array_header_1_0
 from numpy.typing import NDArray
 
 from . import (
@@ -22,11 +22,14 @@ from . import (
     getGridSize,
     getGridCoord,
     getArrayBackend,
+    openReadHeader,
+    openWriteHeader,
     readMPIFile,
     writeMPIFile,
 )
 from .array import (
     BackendType,
+    arrayIsInstance,
     arrayDType,
     arrayHost,
     arrayHostCopy,
@@ -37,8 +40,15 @@ from .array import (
     arrayLinalgNorm,
     arrayIdentity,
     arrayZeros,
+    arrayEmpty,
 )
 from .pointer import Pointer, ndarrayPointer
+
+_latt_even_odd: Dict[Tuple[int, ...], Tuple[NDArray[numpy.intp], NDArray[numpy.intp]]] = {}
+_latt_coord: Dict[Tuple[int, ...], NDArray[numpy.int32]] = {}
+_latt_sort_key: Dict[Tuple[int, ...], NDArray[numpy.int64]] = {}
+_latt_lexico_coord: Dict[Tuple[int, ...], NDArray[numpy.int32]] = {}
+_latt_lexico_sort_key: Dict[Tuple[int, ...], NDArray[numpy.int64]] = {}
 
 
 class BaseInfo:
@@ -73,8 +83,19 @@ class BaseInfo:
         self.volume = prod(sublatt_size)
         self.ga_pad = self.volume // min(sublatt_size) // 2
 
+    @abstractmethod
     def lexico(self, data: NDArray, multi: bool, backend: BackendType = "numpy") -> NDArray:
-        return arrayCopy(data, backend)
+        getLogger().critical(
+            f"{self.__class__.__name__}.lexico(data, multi, backend) not implemented", NotImplementedError
+        )
+
+    @abstractmethod
+    def coordinate(self, mu: Optional[int] = None) -> NDArray:
+        getLogger().critical(f"{self.__class__.__name__}.coordinate(mu) not implemented", NotImplementedError)
+
+    @abstractmethod
+    def sortSelect(self, select: NDArray[numpy.intp]) -> NDArray:
+        getLogger().critical(f"{self.__class__.__name__}.lexico_index() not implemented", NotImplementedError)
 
 
 class LatticeInfo(BaseInfo):
@@ -86,13 +107,14 @@ class LatticeInfo(BaseInfo):
         self.anisotropy = anisotropy
 
     def _setEvenOdd(self):
-        if hasattr(self, "even") and hasattr(self, "odd"):
-            return
-        eo = numpy.sum(numpy.indices(self.size[::-1], "<i4"), axis=0).reshape(-1) % 2
-        self._even = eo == 0
-        self._odd = eo == 1
+        global _latt_even_odd
+        key = tuple(self.global_size)
+        if key not in _latt_even_odd:
+            eo = numpy.sum(numpy.indices(self.size[::-1], "<i4"), axis=0).reshape(-1) % 2
+            _latt_even_odd[key] = (numpy.where(eo == 0)[0], numpy.where(eo == 1)[0])
+        self._even, self._odd = _latt_even_odd[key]
 
-    def lexico(self, data: NDArray, multi: bool, backend: BackendType = "numpy"):
+    def lexico(self, data: NDArray, multi: bool, backend: BackendType = "numpy") -> NDArray:
         self._setEvenOdd()
         shape = data.shape
         if multi:
@@ -108,7 +130,7 @@ class LatticeInfo(BaseInfo):
         sublatt_size[0] *= 2
         assert sublatt_size == self.size
         data_evenodd = data.reshape(L5, 2, self.volume // 2, prod(field_shape))
-        data_lexico = arrayZeros((L5, self.volume, prod(field_shape)), data.dtype, backend)
+        data_lexico = arrayEmpty((L5, self.volume, prod(field_shape)), data.dtype, backend)
         data_lexico[:, self._even] = data_evenodd[:, 0]
         data_lexico[:, self._odd] = data_evenodd[:, 1]
         if multi:
@@ -116,7 +138,7 @@ class LatticeInfo(BaseInfo):
         else:
             return data_lexico.reshape(*sublatt_size[::-1], *field_shape)
 
-    def evenodd(self, data: NDArray, multi: bool, backend: BackendType = "numpy"):
+    def evenodd(self, data: NDArray, multi: bool, backend: BackendType = "numpy") -> NDArray:
         self._setEvenOdd()
         shape = data.shape
         if multi:
@@ -130,7 +152,7 @@ class LatticeInfo(BaseInfo):
         assert sublatt_size == self.size
         sublatt_size[0] //= 2
         data_lexico = data.reshape(L5, self.volume, prod(field_shape))
-        data_evenodd = arrayZeros((L5, 2, self.volume // 2, prod(field_shape)), data.dtype, backend)
+        data_evenodd = arrayEmpty((L5, 2, self.volume // 2, prod(field_shape)), data.dtype, backend)
         data_evenodd[:, 0] = data_lexico[:, self._even]
         data_evenodd[:, 1] = data_lexico[:, self._odd]
         if multi:
@@ -138,27 +160,76 @@ class LatticeInfo(BaseInfo):
         else:
             return data_evenodd.reshape(2, *sublatt_size[::-1], *field_shape)
 
+    def coordinate(self, mu: Optional[int] = None):
+        global _latt_coord
+        key = tuple(self.global_size)
+        if key not in _latt_coord:
+            _latt_coord[key] = self.evenodd(numpy.indices(self.size[::-1], "<i4")[::-1], True)
+            for i in range(self.Nd):
+                _latt_coord[key][i] += self.grid_coord[i] * self.size[i]
+        if mu is None:
+            return _latt_coord[key]
+        else:
+            assert 0 <= mu < self.Nd
+            return _latt_coord[key][mu]
+
+    def sortSelect(self, select: NDArray[numpy.intp]) -> NDArray:
+        global _latt_sort_key
+        key = tuple(self.global_size)
+        if key not in _latt_sort_key:
+            _latt_sort_key[key] = numpy.array(self.coordinate(0), "<i8")
+            for mu in range(1, self.Nd):
+                _latt_sort_key[key] *= self.global_size[mu]
+                _latt_sort_key[key] += self.coordinate(mu)
+        return select[numpy.argsort(_latt_sort_key[key].reshape(-1)[select])]
+
 
 class LexicoInfo(BaseInfo):
     def __init__(self, latt_size: Sequence[int], Ns: int = 4, Nc: int = 3) -> None:
         super().__init__(latt_size, False, Ns, Nc)
 
+    def lexico(self, data: NDArray, multi: bool, backend: BackendType = "numpy") -> NDArray:
+        return arrayCopy(data, backend)
+
+    def coordinate(self, mu: Optional[int] = None):
+        global _latt_lexico_coord
+        key = tuple(self.global_size)
+        if key not in _latt_lexico_coord:
+            _latt_lexico_coord[key] = numpy.indices(self.size[::-1], "<i4")[::-1]
+            for i in range(self.Nd):
+                _latt_lexico_coord[key][i] += self.grid_coord[i] * self.size[i]
+        if mu is None:
+            return _latt_lexico_coord[key]
+        else:
+            assert 0 <= mu < self.Nd
+            return _latt_lexico_coord[key][mu]
+
+    def sortSelect(self, select: NDArray[numpy.intp]) -> NDArray:
+        global _latt_lexico_sort_key
+        key = tuple(self.global_size)
+        if key not in _latt_lexico_sort_key:
+            _latt_lexico_sort_key[key] = numpy.array(self.coordinate(0), "<i8")
+            for mu in range(1, self.Nd):
+                _latt_lexico_sort_key[key] *= self.global_size[mu]
+                _latt_lexico_sort_key[key] += self.coordinate(mu).reshape(-1)
+        return select[numpy.argsort(_latt_lexico_sort_key[key][select])]
+
 
 def read_array_header(filename: str) -> Tuple[Tuple[int, ...], str, int]:
-    with open(filename, "rb") as f:
-        assert read_magic(f) == (1, 0)
-        shape, fortran_order, dtype = read_array_header_1_0(f)
-        dtype = dtype_to_descr(dtype)
-        assert not fortran_order
-        offset = f.tell()
-    return shape, dtype, offset
+    with openReadHeader(filename) as f:
+        if f.fp is not None:
+            assert read_magic(f.fp) == (1, 0)
+            shape, fortran_order, dtype = read_array_header_1_0(f.fp)
+            assert not fortran_order
+    return shape, dtype.str, f.offset
 
 
-def write_array_header(filename: str, shape: Tuple[int, ...], dtype: str):
-    if getMPIRank() == 0:
-        with open(filename, "wb") as f:
-            write_array_header_1_0(f, {"shape": shape, "fortran_order": False, "descr": dtype})
-    getMPIComm().Barrier()
+def write_array_header(filename: str, shape: Tuple[int, ...], dtype: str) -> int:
+    with openWriteHeader(filename) as f:
+        if f.fp is not None:
+            d = {"shape": shape, "fortran_order": False, "descr": dtype}
+            write_array_header_1_0(f.fp, d)
+    return f.offset
 
 
 def _field_spin_color_dtype(
@@ -234,13 +305,10 @@ class BaseField:
 
     @property
     def location(self) -> BackendType:
-        if isinstance(self.data, numpy.ndarray):
-            return "numpy"
-        else:
-            return self.backend
+        return "numpy" if isinstance(self.data, numpy.ndarray) else self.backend
 
     @abstractmethod
-    def _latticeShape(self) -> List[int]:
+    def _latticeShape(self) -> Tuple[int, ...]:
         getLogger().critical(f"{self.__class__.__name__}._latticeShape() not implemented", NotImplementedError)
 
     @classmethod
@@ -249,6 +317,7 @@ class BaseField:
             cls.__name__.replace("Multi", "")
             .replace("Lexico", "")
             .replace("Link", "ColorMatrix")
+            .replace("Rotation", "ColorMatrix")
             .replace("Gauge", "ColorMatrix")
             .replace("StaggeredFermion", "ColorVector")
             .replace("StaggeredPropagator", "ColorMatrix")
@@ -262,8 +331,18 @@ class BaseField:
 
     @data.setter
     def data(self, value):
-        location = "numpy" if isinstance(value, numpy.ndarray) else self.backend
-        self._data = arrayAsContiguous(value, location)
+        if isinstance(value, numpy.ndarray):
+            if self.location == "numpy":
+                self._data[:] = value
+            else:
+                self._data[:] = arrayDevice(value, self.backend)
+        elif arrayIsInstance(value, self.backend):
+            if self.location == "numpy":
+                self._data[:] = arrayHost(value, self.backend)
+            else:
+                self._data[:] = value
+        else:
+            self._data[:] = value
 
     @property
     def data_ptr(self) -> NDArray:
@@ -288,7 +367,6 @@ class BaseField:
     def _setField(self):
         field_shape, field_dtype = _field_shape_dtype(self._field(), self.latt_info.Ns, self.latt_info.Nc)
         self.field_shape = field_shape
-        self.field_size = prod(field_shape)
         self.field_dtype = field_dtype
         self.lattice_shape = self._latticeShape()
         self.shape: Tuple[int, ...] = (
@@ -301,11 +379,20 @@ class BaseField:
     def _initData(self, value: Union[NDArray, BackendType, None]):
         self._setField()
         if value is None:
-            self.data = arrayZeros(self.shape, self.dtype, self.backend)
+            self._data = arrayZeros(self.shape, self.dtype, self.backend)
         elif isinstance(value, str):
-            self.data = arrayZeros(self.shape, self.dtype, value)
+            self._data = arrayZeros(self.shape, self.dtype, value)
         else:
-            self.data = value.reshape(self.shape)
+            location = "numpy" if isinstance(value, numpy.ndarray) else self.backend
+            if self.L5 == 0:
+                self._data = arrayAsContiguous(value.reshape(self.shape), location)
+            else:
+                for index in range(self.L5):
+                    if not arrayIsContiguous(value[index], location):
+                        self._data = arrayAsContiguous(value.reshape(self.shape), location)
+                        break
+                else:
+                    self._data = value.reshape(self.shape)
 
     def lexico(self, force_numpy: bool = True):
         if not isinstance(self, _FULL_FILED_TUPLE):
@@ -314,6 +401,124 @@ class BaseField:
             return self.latt_info.lexico(self.getHost(), self.L5 > 0)
         else:
             return self.latt_info.lexico(self.data, self.L5 > 0, self.location)
+
+    def _select_lattice(self, coord: Tuple[Union[int, list, tuple, slice], ...]):
+        select = numpy.full(self.lattice_shape, True)
+        shape = []
+        subshape = []
+        for i, index in enumerate(coord):
+            X = self.latt_info.coordinate(i)
+            GL = self.latt_info.global_size[i]
+            g = self.latt_info.grid_coord[i]
+            L = self.latt_info.size[i]
+            subshape.append(0)
+            if isinstance(index, int):
+                shape.append(1)
+                if g * L <= index % GL < (g + 1) * L:
+                    subshape[-1] += 1
+                select &= X == (index % GL)
+            elif isinstance(index, (list, tuple)):
+                shape.append(len(index))
+                for i in index:
+                    if g * L <= i % GL < (g + 1) * L:
+                        subshape[-1] += 1
+                subselect = X == (index[0] % GL)
+                for i in range(1, len(index)):
+                    subselect |= X == (index[i] % GL)
+                select &= subselect
+            elif isinstance(index, slice):
+                start, stop, step = index.indices(GL)
+                if start >= stop or step <= 0:
+                    getLogger().critical(
+                        f"{self.__class__.__name__}[...] only accepts a:b:c with a<b and c>0", ValueError
+                    )
+                shape.append((stop - start + step - 1) // step)
+                for i in range(start, stop, step):
+                    if g * L <= i < (g + 1) * L:
+                        subshape[-1] += 1
+                select &= (X >= start) & (X < stop)
+                if step > 1:
+                    select &= (X - start) % step == 0
+            else:
+                getLogger().critical(
+                    f"{self.__class__.__name__}[...] only accepts "
+                    f"int, list, tuple or slice as index, got {type(index)}",
+                    ValueError,
+                )
+        select = numpy.where(select.reshape(-1))[0]
+        return self.latt_info.sortSelect(select), shape, subshape
+
+    def _select_field(self, field_coord, field_shape):
+        if len(field_coord) == 0:
+            return field_shape
+        shape = []
+        for index, L in zip(field_coord, field_shape):
+            if isinstance(index, int):
+                pass
+            elif isinstance(index, (list, tuple)):
+                shape.append(len(index))
+            elif isinstance(index, slice):
+                start, stop, step = index.indices(L)
+                if start >= stop or step <= 0:
+                    getLogger().critical(
+                        f"{self.__class__.__name__}[...] only accepts a:b:c with a<b and c>0", ValueError
+                    )
+                shape.append((stop - start + step - 1) // step)
+            else:
+                getLogger().critical(
+                    f"{self.__class__.__name__}[...] only accepts "
+                    f"int, list, tuple or slice as index, got {type(index)}",
+                    ValueError,
+                )
+        return shape
+
+    def __setitem__(self, key: Tuple[Union[int, list, tuple, slice], ...], value: Union[int, float, complex, NDArray]):
+        Nd = self.latt_info.Nd
+        if not isinstance(key, tuple):
+            key = (key,)
+        if len(key) == Nd or len(key) == Nd + len(self.field_shape):
+            select, shape, subshape = self._select_lattice(key[:Nd])
+            field_shape = self._select_field(key[Nd:], self.field_shape)
+            key_ = (select, *key[Nd:])
+            if isinstance(value, (int, float, complex)):
+                self.data.reshape(-1, *self.field_shape)[key_] = value
+            elif isinstance(value, numpy.ndarray):
+                if tuple(field_shape) == numpy.broadcast_shapes(field_shape, value.shape):
+                    self.data.reshape(-1, *self.field_shape)[key_] = arrayDevice(value, self.location)
+                else:
+                    self.data.reshape(-1, *self.field_shape)[key_] = arrayDevice(value, self.location).reshape(
+                        *subshape, *field_shape
+                    )
+            else:
+                getLogger().critical(
+                    f"{self.__class__.__name__}[...] only accepts "
+                    f"int, float, complex or ndarray as value, got {type(value)}",
+                    ValueError,
+                )
+        else:
+            getLogger().critical(
+                f"{self.__class__.__name__}[...] only accepts "
+                f"{Nd} or {Nd + len(self.field_shape)} indices, got {len(key)}",
+                ValueError,
+            )
+
+    def __getitem__(self, key: Tuple[Union[int, list, tuple, slice], ...]) -> NDArray:
+        Nd = self.latt_info.Nd
+        if not isinstance(key, tuple):
+            key = (key,)
+        if len(key) == Nd or len(key) == Nd + len(self.field_shape):
+            select, shape, subshape = self._select_lattice(key[:Nd])
+            field_shape = self._select_field(key[Nd:], self.field_shape)
+            key_ = (select, *key[Nd:])
+            return arrayHostCopy(self.data.reshape(-1, *self.field_shape)[key_], self.location).reshape(
+                *subshape, *field_shape
+            )
+        else:
+            getLogger().critical(
+                f"{self.__class__.__name__}[...] only accepts "
+                f"{Nd} or {Nd + len(self.field_shape)} indices, got {len(key)}",
+                ValueError,
+            )
 
     @classmethod
     def load(cls: Type[Self], filename: str) -> Self:
@@ -355,15 +560,15 @@ class BaseField:
         field = self.lexico()
         _, _, dtype = _field_spin_color_dtype(self._field(), self.field_shape, use_fp32)
         if self.L5 == 0:
-            write_array_header(filename, (*self.latt_info.global_size[::-1], *self.field_shape), dtype)
-            _, _, offset = read_array_header(filename)
+            global_shape = (*self.latt_info.global_size[::-1], *self.field_shape)
+            offset = write_array_header(filename, global_shape, dtype)
             shape = (*self.latt_info.size[::-1], *self.field_shape)
             axes = list(range(self.latt_info.Nd - 1, -1, -1))
             writeMPIFile(filename, dtype, offset, shape, axes, field.astype(dtype))
             gbytes += field.nbytes / 1024**3
         else:
-            write_array_header(filename, (self.L5, *self.latt_info.global_size[::-1], *self.field_shape), dtype)
-            _, _, offset = read_array_header(filename)
+            global_shape = (self.L5, *self.latt_info.global_size[::-1], *self.field_shape)
+            offset = write_array_header(filename, global_shape, dtype)
             shape = (self.L5, *self.latt_info.size[::-1], *self.field_shape)
             axes = list(range(self.latt_info.Nd, 0, -1))
             writeMPIFile(filename, dtype, offset, shape, axes, field.astype(dtype))
@@ -472,10 +677,10 @@ class BaseField:
             return self.__class__(self.latt_info, self.L5, arrayCopy(self.data, self.location))
 
     def toDevice(self):
-        self.data = arrayDevice(self.data, self.backend)
+        self._data = arrayDevice(self.data, self.backend)
 
     def toHost(self):
-        self.data = arrayHost(self.data, self.location)
+        self._data = arrayHost(self.data, self.location)
 
     def getHost(self):
         return arrayHostCopy(self.data, self.location)
@@ -561,13 +766,13 @@ class LexicoField(BaseField):
             self._initData(value)
 
     def _latticeShape(self):
-        return [L for L in self.latt_info.size[::-1]]
+        return tuple(self.latt_info.size[::-1])
 
     def shift(self, n: int, mu: int):
         assert 0 <= mu < 2 * self.latt_info.Nd
         Nd = self.latt_info.Nd
-        dir = 1 if mu < Nd else -1
-        dir *= 1 if n >= 0 else -1
+        direction = 1 if mu < Nd else -1
+        direction *= 1 if n >= 0 else -1
         mu = mu % Nd
         n = abs(n)
         location = self.location
@@ -578,16 +783,16 @@ class LexicoField(BaseField):
         rank = getMPIRank()
         coords = getGridCoord()
         g, G = coords[mu], getGridSize()[mu]
-        coords[mu] = (g - dir) % G
+        coords[mu] = (g - direction) % G
         dest = getRankFromCoord(coords)
-        coords[mu] = (g + dir) % G
+        coords[mu] = (g + direction) % G
         source = getRankFromCoord(coords)
 
         if n == 0:
             left, right = right, left
         while n > 0:
-            left_slice[mu] = slice(-1, None) if dir == 1 else slice(None, 1)
-            right_slice[mu] = slice(None, 1) if dir == 1 else slice(-1, None)
+            left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
+            right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
             sendbuf = right[tuple(right_slice[::-1])]
             if rank == source and rank == dest:
                 pass
@@ -595,12 +800,12 @@ class LexicoField(BaseField):
                 sendbuf_host = arrayHostCopy(sendbuf, location)
                 request = getMPIComm().Isend(sendbuf_host, dest)
 
-            left_slice[mu] = slice(None, -1) if dir == 1 else slice(1, None)
-            right_slice[mu] = slice(1, None) if dir == 1 else slice(None, -1)
+            left_slice[mu] = slice(None, -1) if direction == 1 else slice(1, None)
+            right_slice[mu] = slice(1, None) if direction == 1 else slice(None, -1)
             left[tuple(left_slice[::-1])] = right[tuple(right_slice[::-1])]
 
-            left_slice[mu] = slice(-1, None) if dir == 1 else slice(None, 1)
-            right_slice[mu] = slice(None, 1) if dir == 1 else slice(-1, None)
+            left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
+            right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
             if rank == source and rank == dest:
                 recvbuf = sendbuf
             else:
@@ -626,7 +831,7 @@ class ParityField(BaseField):
             self._initData(value)
 
     def _latticeShape(self):
-        return [L // 2 if d == self.latt_info.Nd - 1 else L for d, L in enumerate(self.latt_info.size[::-1])]
+        return tuple(self.latt_info.size[1:][::-1] + [self.latt_info.size[0] // 2])
 
 
 class FullField(BaseField, Generic[Field]):
@@ -643,7 +848,7 @@ class FullField(BaseField, Generic[Field]):
             self._initData(value)
 
     def _latticeShape(self):
-        return [2] + [L // 2 if d == self.latt_info.Nd - 1 else L for d, L in enumerate(self.latt_info.size[::-1])]
+        return tuple([2] + self.latt_info.size[1:][::-1] + [self.latt_info.size[0] // 2])
 
     @property
     def even(self) -> Field:
@@ -706,8 +911,8 @@ class FullField(BaseField, Generic[Field]):
     def shift(self, n: int, mu: int):
         assert 0 <= mu < 2 * self.latt_info.Nd
         Nd = self.latt_info.Nd
-        dir = 1 if mu < Nd else -1
-        dir *= 1 if n >= 0 else -1
+        direction = 1 if mu < Nd else -1
+        direction *= 1 if n >= 0 else -1
         mu = mu % Nd
         n = abs(n)
         location = self.location
@@ -718,38 +923,34 @@ class FullField(BaseField, Generic[Field]):
         rank = getMPIRank()
         coords = getGridCoord()
         g, G = coords[mu], getGridSize()[mu]
-        coords[mu] = (g - dir) % G
+        coords[mu] = (g - direction) % G
         dest = getRankFromCoord(coords)
-        coords[mu] = (g + dir) % G
+        coords[mu] = (g + direction) % G
         source = getRankFromCoord(coords)
 
         if n == 0:
             left, right = right, left
         while n > 0:
             if mu == 0 and n == 1:
-                left_flat = left.reshape(2, prod(self.latt_info.size[1:]), self.latt_info.size[0] // 2, -1)
-                right_flat = right.reshape(2 * prod(self.latt_info.size[1:]), self.latt_info.size[0] // 2, -1)
+                Lx = self.latt_info.size[0]
+                Sx = prod(self.latt_info.size[1:])
+                left_flat = left.reshape(2, Sx, Lx // 2, -1)
+                right_flat = right.reshape(2, Sx, Lx // 2, -1)
                 eo = numpy.sum(numpy.indices((2, *self.latt_info.size[1:][::-1])), axis=0).reshape(-1) % 2
-                even = eo == 0
-                odd = eo == 1
-                if dir == 1:
-                    sendbuf = right_flat[even, 0]
+                even = numpy.where(eo == 0)[0].reshape(2, -1) % Sx
+                odd = numpy.where(eo == 1)[0].reshape(2, -1) % Sx
+                if direction == 1:
+                    sendbuf = arrayDevice([right_flat[0, even[0], 0], right_flat[1, even[1], 0]], location)
                     if rank == source and rank == dest:
                         pass
                     else:
                         sendbuf_host = arrayHostCopy(sendbuf, location)
                         request = getMPIComm().Isend(sendbuf_host, dest)
 
-                    right_tmp = right_flat[odd].reshape(
-                        2, prod(self.latt_info.size[1:]) // 2, self.latt_info.size[0] // 2, -1
-                    )
-                    left_flat[1, even.reshape(2, -1)[1]] = right_tmp[0]
-                    left_flat[0, even.reshape(2, -1)[0]] = right_tmp[1]
-                    right_tmp = right_flat[even, 1:].reshape(
-                        2, prod(self.latt_info.size[1:]) // 2, self.latt_info.size[0] // 2 - 1, -1
-                    )
-                    left_flat[1, odd.reshape(2, -1)[1], :-1] = right_tmp[0]
-                    left_flat[0, odd.reshape(2, -1)[0], :-1] = right_tmp[1]
+                    left_flat[1, even[1]] = right_flat[0, odd[0]]
+                    left_flat[0, even[0]] = right_flat[1, odd[1]]
+                    left_flat[1, odd[1], :-1] = right_flat[0, even[0], 1:]
+                    left_flat[0, odd[0], :-1] = right_flat[1, even[1], 1:]
 
                     if rank == source and rank == dest:
                         recvbuf = sendbuf
@@ -758,27 +959,20 @@ class FullField(BaseField, Generic[Field]):
                         getMPIComm().Recv(recvbuf_host, source)
                         request.Wait()
                         recvbuf = arrayDevice(recvbuf_host, location)
-                    right_tmp = recvbuf.reshape(2, prod(self.latt_info.size[1:]) // 2, -1)
-                    left_flat[1, odd.reshape(2, -1)[1], -1] = right_tmp[0]
-                    left_flat[0, odd.reshape(2, -1)[0], -1] = right_tmp[1]
+                    left_flat[1, odd[1], -1] = recvbuf[0]
+                    left_flat[0, odd[0], -1] = recvbuf[1]
                 else:
-                    sendbuf = right_flat[odd, -1]
+                    sendbuf = arrayDevice([right_flat[0, odd[0], -1], right_flat[1, odd[1], -1]], location)
                     if rank == source and rank == dest:
                         pass
                     else:
                         sendbuf_host = arrayHostCopy(sendbuf, location)
                         request = getMPIComm().Isend(sendbuf_host, dest)
 
-                    right_tmp = right_flat[even].reshape(
-                        2, prod(self.latt_info.size[1:]) // 2, self.latt_info.size[0] // 2, -1
-                    )
-                    left_flat[1, odd.reshape(2, -1)[1]] = right_tmp[0]
-                    left_flat[0, odd.reshape(2, -1)[0]] = right_tmp[1]
-                    right_tmp = right_flat[odd, :-1].reshape(
-                        2, prod(self.latt_info.size[1:]) // 2, self.latt_info.size[0] // 2 - 1, -1
-                    )
-                    left_flat[1, even.reshape(2, -1)[1], 1:] = right_tmp[0]
-                    left_flat[0, even.reshape(2, -1)[0], 1:] = right_tmp[1]
+                    left_flat[1, odd[1]] = right_flat[0, even[0]]
+                    left_flat[0, odd[0]] = right_flat[1, even[1]]
+                    left_flat[1, even[1], 1:] = right_flat[0, odd[0], :-1]
+                    left_flat[0, even[0], 1:] = right_flat[1, odd[1], :-1]
 
                     if rank == source and rank == dest:
                         recvbuf = sendbuf
@@ -787,14 +981,13 @@ class FullField(BaseField, Generic[Field]):
                         getMPIComm().Recv(recvbuf_host, source)
                         request.Wait()
                         recvbuf = arrayDevice(recvbuf_host, location)
-                    right_tmp = recvbuf.reshape(2, prod(self.latt_info.size[1:]) // 2, -1)
-                    left_flat[1, even.reshape(2, -1)[1], 0] = right_tmp[0]
-                    left_flat[0, even.reshape(2, -1)[0], 0] = right_tmp[1]
+                    left_flat[1, even[1], 0] = recvbuf[0]
+                    left_flat[0, even[0], 0] = recvbuf[1]
 
                 n -= 1
             else:
-                left_slice[mu] = slice(-1, None) if dir == 1 else slice(None, 1)
-                right_slice[mu] = slice(None, 1) if dir == 1 else slice(-1, None)
+                left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
+                right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
                 sendbuf = right[(slice(None, None),) + tuple(right_slice[::-1])]
                 if rank == source and rank == dest:
                     pass
@@ -802,8 +995,8 @@ class FullField(BaseField, Generic[Field]):
                     sendbuf_host = arrayHostCopy(sendbuf, location)
                     request = getMPIComm().Isend(sendbuf_host, dest)
 
-                left_slice[mu] = slice(None, -1) if dir == 1 else slice(1, None)
-                right_slice[mu] = slice(1, None) if dir == 1 else slice(None, -1)
+                left_slice[mu] = slice(None, -1) if direction == 1 else slice(1, None)
+                right_slice[mu] = slice(1, None) if direction == 1 else slice(None, -1)
                 if mu == 0:
                     left[(0,) + tuple(left_slice[::-1])] = right[(0,) + tuple(right_slice[::-1])]
                     left[(1,) + tuple(left_slice[::-1])] = right[(1,) + tuple(right_slice[::-1])]
@@ -811,8 +1004,8 @@ class FullField(BaseField, Generic[Field]):
                     left[(0,) + tuple(left_slice[::-1])] = right[(1,) + tuple(right_slice[::-1])]
                     left[(1,) + tuple(left_slice[::-1])] = right[(0,) + tuple(right_slice[::-1])]
 
-                left_slice[mu] = slice(-1, None) if dir == 1 else slice(None, 1)
-                right_slice[mu] = slice(None, 1) if dir == 1 else slice(-1, None)
+                left_slice[mu] = slice(-1, None) if direction == 1 else slice(None, 1)
+                right_slice[mu] = slice(None, 1) if direction == 1 else slice(-1, None)
                 if rank == source and rank == dest:
                     recvbuf = sendbuf
                 else:
@@ -848,21 +1041,6 @@ class MultiField(BaseField, Generic[Field]):
         self.L5 = L5
         if init_data:
             self._initData(value)
-
-    @property
-    def data(self) -> NDArray:
-        return self._data
-
-    @data.setter
-    def data(self, value):
-        contiguous = True
-        location = "numpy" if isinstance(value, numpy.ndarray) else self.backend
-        for index in range(self.L5):
-            contiguous &= arrayIsContiguous(value[index], location)
-        if contiguous:
-            self._data = value
-        else:
-            self._data = arrayAsContiguous(value, location)
 
     @overload
     def __getitem__(self, key: int) -> Field: ...

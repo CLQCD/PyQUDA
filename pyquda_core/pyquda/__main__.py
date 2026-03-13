@@ -20,36 +20,22 @@ def main():
         "--latt",
         nargs=4,
         type=int,
-        help="Lattice size used as the default",
+        help="Lattice size used to set the default GPU grid",
         metavar=("Lx", "Ly", "Lz", "Lt"),
-    )
-    parser.add_argument(
-        "-t",
-        "--t-boundary",
-        type=int,
-        choices=(1, -1),
-        help="Lattice t boundary used as the default (required if the lattice size is set)",
-    )
-    parser.add_argument(
-        "-a",
-        "--anisotropy",
-        type=float,
-        help="Lattice anisotropy used as the default (required if the lattice size is set)",
-        metavar="xi",
     )
     parser.add_argument(
         "-m",
         "--grid-map",
         default="default",
-        choices=("default", "reversed", "shared"),
+        choices=("default", "t_fastest", "x_fastest", "minimize", "shared", "dist_graph"),
         help="Grid mapping used for PyQUDA (default: default)",
     )
     parser.add_argument(
         "-b",
         "--backend",
-        default="cupy",
+        default="numpy",
         choices=("numpy", "cupy", "torch", "dpnp"),
-        help="Array backend used for PyQUDA (default: cupy)",
+        help="Array backend used for PyQUDA (default: numpy)",
     )
     parser.add_argument(
         "-t",
@@ -64,6 +50,11 @@ def main():
         help="Don't initialize the QUDA library",
     )
     parser.add_argument(
+        "--use-malloc_quda",
+        action="store_true",
+        help="Use QUDA's allocator for array backends",
+    )
+    parser.add_argument(
         "-p",
         "--resource-path",
         help="(default: QUDA_RESOURCE_PATH)",
@@ -73,12 +64,11 @@ def main():
     init(
         args.grid,
         args.latt,
-        args.t_boundary,
-        args.anisotropy,
         args.grid_map,
         args.backend,
         args.backend_target,
         not args.no_init_quda,
+        args.use_malloc_quda,
         resource_path=args.resource_path,
     )
     exec(open(args.script).read(), globals(), globals())

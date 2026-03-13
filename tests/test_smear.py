@@ -2,11 +2,11 @@ from check_pyquda import weak_field, data
 
 from pyquda_utils import core, io
 
-core.init(None, [4, 4, 4, 8], resource_path=".cache")
+core.init(None, [4, 4, 4, 8], resource_path=".cache/quda")
 
 gauge = io.readQIOGauge(weak_field)
 gauge_ape = gauge.copy()
-gauge_ape.smearAPE(1, 2.5, 4)
+gauge_ape.apeSmearChroma(1, 2.5, 4)
 # gauge_ape.apeSmear(1, (4 - 1) / (4 - 1 + 2.5 / 2), 4)
 gauge_stout = gauge.copy()
 gauge_stout.stoutSmear(1, 0.241, 3)

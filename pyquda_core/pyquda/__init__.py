@@ -1,5 +1,5 @@
 from os import environ, path
-from typing import List, Literal, Optional, Union
+from typing import List, Literal, Optional
 
 from ._version import __version__  # noqa: F401
 from pyquda_comm import (  # noqa: F401
@@ -18,13 +18,13 @@ from pyquda_comm import (  # noqa: F401
     getGridMap,
     getGridSize,
     getGridCoord,
+    getGridRanks,
     getArrayBackend,
+    getArrayBackendTarget,
     getArrayDevice,
 )
-from pyquda_comm.field import LatticeInfo
 from . import quda_define
 
-_DEFAULT_LATTICE: Union[LatticeInfo, None] = None
 _QUDA_INITIALIZED: bool = False
 
 
@@ -57,25 +57,41 @@ def _setEnvironWarn(**kwargs):
         _setEnviron(f"QUDA_{key.upper()}", key, kwargs[key])
 
 
-def initQUDA(grid_size: List[int], device: int, use_quda_allocator: bool = False):
+def initQUDA(grid_size: List[int], device: int, use_malloc_quda: bool = False):
     import atexit
-    from . import pyquda as quda, malloc_pyquda
+    from . import quda
 
     global _QUDA_INITIALIZED
     if not isGridInitialized() or not isDeviceInitialized():
         getLogger().critical("initGrid and initDevice should be called before initQUDA", RuntimeError)
+    backend = getArrayBackend()
+    backend_target = getArrayBackendTarget()
 
-    if use_quda_allocator:
-        if getArrayBackend() == "cupy":
+    if use_malloc_quda:
+        import ctypes
+        import sysconfig
+
+        malloc_quda = ctypes.CDLL(
+            path.join(path.dirname(path.abspath(__file__)), "malloc_quda" + sysconfig.get_config_var("EXT_SUFFIX"))
+        )
+        quda_malloc = ctypes.cast(getattr(malloc_quda, f"{backend}_malloc"), ctypes.c_void_p).value
+        quda_free = ctypes.cast(getattr(malloc_quda, f"{backend}_free"), ctypes.c_void_p).value
+
+        if backend == "cupy" and backend_target in ("cuda", "hip"):
             import cupy
 
-            allocator = cupy.cuda.PythonFunctionAllocator(
-                malloc_pyquda.pyquda_device_malloc, malloc_pyquda.pyquda_device_free
-            )
-            cupy.cuda.set_allocator(allocator.malloc)
+            assert quda_malloc is not None and quda_free is not None
+            allocator = cupy.cuda.CFunctionAllocator(0, quda_malloc, quda_free, None).malloc
+            cupy.cuda.set_allocator(allocator)
+        elif backend == "torch" and backend_target in ("cuda", "hip"):
+            import torch
 
-    quda.initCommsGridQuda(4, grid_size, getGridMap().encode())
-    quda.initQuda(device)
+            assert quda_malloc is not None and quda_free is not None
+            allocator = torch._C._cuda_customAllocator(quda_malloc, quda_free)
+            torch._C._cuda_changeCurrentAllocator(allocator)
+
+    quda.initCommsGridQuda(4, grid_size, getGridRanks())
+    quda.initQuda(device if backend_target != "cpu" else -1)
     atexit.register(quda.endQuda)
     _QUDA_INITIALIZED = True
 
@@ -83,12 +99,11 @@ def initQUDA(grid_size: List[int], device: int, use_quda_allocator: bool = False
 def init(
     grid_size: Optional[List[int]] = None,
     latt_size: Optional[List[int]] = None,
-    t_boundary: Optional[Literal[1, -1]] = None,
-    anisotropy: Optional[float] = None,
     grid_map: GridMapType = "default",
     backend: BackendType = "cupy",
     backend_target: BackendTargetType = quda_define.target(),
     init_quda: bool = True,
+    use_malloc_quda: bool = False,
     *,
     resource_path: str = "",
     rank_verbosity: List[int] = [0],
@@ -123,19 +138,9 @@ def init(
     """
     Initialize MPI along with the QUDA library.
     """
-    global _DEFAULT_LATTICE
     if not isGridInitialized() or not isDeviceInitialized():
         initGrid(grid_map, grid_size, latt_size)
         initDevice(backend, backend_target, -1, enable_mps)
-
-        use_default_grid = grid_size is None and latt_size is not None
-        use_default_latt = latt_size is not None and t_boundary is not None and anisotropy is not None
-        if use_default_grid and not use_default_latt:
-            getLogger().info(f"Using lattice size {latt_size} only for getting the default grid size {getGridSize()}")
-        if use_default_latt:
-            assert latt_size is not None and t_boundary is not None and anisotropy is not None
-            _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
-            getLogger().info(f"Using LatticeInfo({latt_size}, {t_boundary}, {anisotropy}) as the default lattice")
 
     if init_quda:
         if not _QUDA_INITIALIZED:
@@ -178,20 +183,10 @@ def init(
                 device_reset="1" if device_reset else None,
                 max_multi_rhs=str(max_multi_rhs) if max_multi_rhs > 0 else None,
             )
-            initQUDA(getGridSize(), getArrayDevice())
+            initQUDA(getGridSize(), getArrayDevice(), use_malloc_quda)
         else:
             getLogger().warning("PyQUDA is already initialized", RuntimeWarning)
 
 
 def isQUDAInitialized():
     return _QUDA_INITIALIZED
-
-
-def setDefaultLattice(latt_size: List[int], t_boundary: Literal[1, -1], anisotropy: float):
-    global _DEFAULT_LATTICE
-    _DEFAULT_LATTICE = LatticeInfo(latt_size, t_boundary, anisotropy)
-
-
-def getDefaultLattice():
-    assert _DEFAULT_LATTICE is not None, "Default lattice is not set"
-    return _DEFAULT_LATTICE

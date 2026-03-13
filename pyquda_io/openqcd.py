@@ -1,10 +1,11 @@
+from math import isclose
 from os import path
 import struct
 from typing import List
 
 import numpy
 
-from pyquda_comm import getMPIComm, getMPIRank, getSublatticeSize, readMPIFile, writeMPIFile
+from .mpi_utils import getSublatticeSize, openReadHeader, openWriteHeader, readMPIFile, writeMPIFile
 from .io_utils import gaugeEvenOdd, gaugeLexico, gaugePlaquette, gaugeOddShiftForward, gaugeEvenShiftBackward
 
 Nd, Ns, Nc = 4, 4, 3
@@ -12,12 +13,12 @@ Nd, Ns, Nc = 4, 4, 3
 
 def readGauge(filename: str, plaquette: bool = True, lexico: bool = True):
     filename = path.expanduser(path.expandvars(filename))
-    with open(filename, "rb") as f:
-        latt_size = list(struct.unpack("<iiii", f.read(16))[::-1])
-        plaquette_ = struct.unpack("<d", f.read(8))[0] / Nc
-        offset = f.tell()
+    with openReadHeader(filename) as f:
+        if f.fp is not None:
+            latt_size = list(struct.unpack("<iiii", f.fp.read(16))[::-1])
+            plaquette_ = struct.unpack("<d", f.fp.read(8))[0] / Nc
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
-    dtype = "<c16"
+    dtype, offset = "<c16", f.offset
 
     gauge_reorder = readMPIFile(filename, dtype, offset, (Lt, Lx, Ly, Lz // 2, Nd, 2, Nc, Nc), (1, 2, 3, 0))
 
@@ -34,28 +35,26 @@ def readGauge(filename: str, plaquette: bool = True, lexico: bool = True):
     if lexico:
         gauge = gaugeLexico([Lx, Ly, Lz, Lt], gauge)
         if plaquette:
-            assert numpy.isclose(gaugePlaquette(latt_size, gauge)[0], plaquette_)
-    elif plaquette:
-        assert numpy.isclose(gaugePlaquette(latt_size, gaugeLexico([Lx, Ly, Lz, Lt], gauge))[0], plaquette_)
+            assert isclose(plaquette_, gaugePlaquette(latt_size, gauge))
+    else:
+        if plaquette:
+            assert isclose(plaquette_, gaugePlaquette(latt_size, gaugeLexico([Lx, Ly, Lz, Lt], gauge)))
     gauge = gauge.astype("<c16")
 
     return latt_size, gauge
 
 
-def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray, plaquette: float = 0.0, lexico: bool = True):
+def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray, lexico: bool = True):
     filename = path.expanduser(path.expandvars(filename))
     Lx, Ly, Lz, Lt = getSublatticeSize(latt_size)
     dtype, offset = "<c16", None
 
     gauge = gauge.astype(dtype)
-    if plaquette is None:
-        plaquette = 0.0
     if lexico:
-        if plaquette == 0.0:
-            plaquette = gaugePlaquette(latt_size, gauge)[0]
+        plaquette = gaugePlaquette(latt_size, gauge)
         gauge = gaugeEvenOdd([Lx, Ly, Lz, Lt], gauge)
-    elif plaquette == 0.0:
-        plaquette = gaugePlaquette(latt_size, gaugeLexico([Lx, Ly, Lz, Lt], gauge))[0]
+    else:
+        plaquette = gaugePlaquette(latt_size, gaugeLexico([Lx, Ly, Lz, Lt], gauge))
     gauge = gaugeEvenShiftBackward(latt_size, gauge)
     gauge_reorder = numpy.zeros((Lt, Lx, Ly, Lz // 2, Nd, 2, Nc, Nc), dtype)
     for t in range(Lt):
@@ -67,11 +66,10 @@ def writeGauge(filename: str, latt_size: List[int], gauge: numpy.ndarray, plaque
                     gauge_reorder[t, x_, y, z_] = gauge[[3, 0, 1, 2], :, t, z, y, x, :, :]
 
     gauge = gauge_reorder.astype(dtype)
-    if getMPIRank() == 0:
-        with open(filename, "wb") as f:
-            f.write(struct.pack("<iiii", *latt_size[::-1]))
-            f.write(struct.pack("<d", plaquette * Nc))
-            offset = f.tell()
-    offset = getMPIComm().bcast(offset)
+    with openWriteHeader(filename) as f:
+        if f.fp is not None:
+            f.fp.write(struct.pack("<iiii", *latt_size[::-1]))
+            f.fp.write(struct.pack("<d", plaquette * Nc))
+    offset = f.offset
 
     writeMPIFile(filename, dtype, offset, (Lt, Lx, Ly, Lz // 2, Nd, 2, Nc, Nc), (1, 2, 3, 0), gauge)

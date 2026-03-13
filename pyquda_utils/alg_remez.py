@@ -315,7 +315,7 @@ class AlgRemez:
         for i in range(self.n - 1, -1, -1):
             self.roots[i] = self.rtnewt(poly, i + 1, lower, upper, tol)
             if self.roots[i] == 0:
-                print(f"Failure to converge on root {i+1}/{self.n}")
+                print(f"Failure to converge on root {i + 1}/{self.n}")
                 return False
             poly[0] = -poly[0] / self.roots[i]
             for j in range(1, i + 1):
@@ -328,7 +328,7 @@ class AlgRemez:
         for i in range(self.d - 1, -1, -1):
             self.poles[i] = self.rtnewt(poly, i + 1, lower, upper, tol)
             if self.poles[i] == 0.0:
-                print(f"Failure to converge on pole {i+1}/{self.d}")
+                print(f"Failure to converge on pole {i + 1}/{self.d}")
                 return False
             poly[0] = -poly[0] / self.poles[i]
             for j in range(1, i + 1):

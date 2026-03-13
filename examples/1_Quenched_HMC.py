@@ -6,7 +6,7 @@ from pyquda.hmc import HMC, Integrator
 from pyquda_utils import core, io
 from pyquda_utils.core import X, Y, Z, T
 
-core.init(resource_path=".cache")
+core.init(resource_path=".cache/quda")
 latt_info = core.LatticeInfo([16, 16, 16, 32])
 
 u_0 = 0.855453

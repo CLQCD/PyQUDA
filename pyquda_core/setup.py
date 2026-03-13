@@ -30,8 +30,8 @@ elif "QUDA_PATH" in os.environ:
                 language="c",
             ),
             Extension(
-                name="pyquda.pyquda",
-                sources=["pyquda/src/pyquda.pyx"],
+                name="pyquda.quda",
+                sources=["pyquda/src/quda.pyx"],
                 include_dirs=[os.path.join(quda_path, "include"), numpy.get_include()],
                 define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
                 library_dirs=[os.path.join(quda_path, "lib")],
@@ -40,8 +40,8 @@ elif "QUDA_PATH" in os.environ:
                 language="c",
             ),
             Extension(
-                name="pyquda.malloc_pyquda",
-                sources=["pyquda/src/malloc_pyquda.pyx"],
+                name="pyquda.malloc_quda",
+                sources=["pyquda/src/malloc_quda.cpp"],
                 include_dirs=[os.path.join(quda_path, "include")],
                 library_dirs=[os.path.join(quda_path, "lib")],
                 libraries=["quda"],

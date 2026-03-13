@@ -3,27 +3,29 @@ from typing import List, Literal, NamedTuple, Optional
 import numpy
 from numpy.typing import NDArray
 
-from pyquda_comm import getLogger, getArrayBackendTarget
+from pyquda_comm import getArrayBackendTarget
+from pyquda_comm.pointer import Pointer
 from ..field import (
     LatticeInfo,
     LatticeGauge,
     LatticeClover,
-    LatticeFermion,
-    LatticeStaggeredFermion,
 )
-from ..pyquda import (
+from ..quda import (
     QudaGaugeParam,
     QudaInvertParam,
     QudaMultigridParam,
-    loadCloverQuda,
+    QudaEigParam,
     loadGaugeQuda,
-    invertQuda,
-    MatQuda,
-    MatDagMatQuda,
-    dslashQuda,
-    cloverQuda,
+    freeUniqueGaugeQuda,
+    loadCloverQuda,
+    freeCloverQuda,
     computeKSLinkQuda,
     staggeredPhaseQuda,
+    newMultigridQuda,
+    updateMultigridQuda,
+    destroyMultigridQuda,
+    newDeflationQuda,
+    destroyDeflationQuda,
 )
 from ..enum_quda import (
     QUDA_MAX_DIM,
@@ -34,6 +36,7 @@ from ..enum_quda import (
     QudaPrecision,
     QudaReconstructType,
     QudaGaugeFixed,
+    QudaDslashType,
     QudaInverterType,
     QudaSolutionType,
     QudaSolveType,
@@ -48,7 +51,6 @@ from ..enum_quda import (
     QudaDiracFieldOrder,
     QudaCloverFieldOrder,
     QudaVerbosity,
-    QudaParity,
     QudaFieldLocation,
     QudaGammaBasis,
     QudaUseInitGuess,
@@ -65,9 +67,9 @@ nullptrs = numpy.empty((0, 0), "<c16")
 
 
 class Precision(NamedTuple):
-    cpu: QudaPrecision
     cuda: QudaPrecision
     sloppy: QudaPrecision
+    refinement_sloppy: QudaPrecision
     precondition: QudaPrecision
     eigensolver: QudaPrecision
 
@@ -75,35 +77,45 @@ class Precision(NamedTuple):
 class Reconstruct(NamedTuple):
     cuda: QudaReconstructType
     sloppy: QudaReconstructType
+    refinement_sloppy: QudaReconstructType
     precondition: QudaReconstructType
     eigensolver: QudaReconstructType
 
 
+precision_cpu = QudaPrecision.QUDA_DOUBLE_PRECISION
 _precision = {
     "none": Precision(
         QudaPrecision.QUDA_DOUBLE_PRECISION,
-        QudaPrecision.QUDA_DOUBLE_PRECISION,
-        QudaPrecision.QUDA_DOUBLE_PRECISION,
-        QudaPrecision.QUDA_DOUBLE_PRECISION,
-        QudaPrecision.QUDA_DOUBLE_PRECISION,
+        QudaPrecision.QUDA_DOUBLE_PRECISION,  # cuda
+        QudaPrecision.QUDA_DOUBLE_PRECISION,  # cuda
+        QudaPrecision.QUDA_DOUBLE_PRECISION,  # cuda
+        QudaPrecision.QUDA_DOUBLE_PRECISION,  # cuda
     ),
     "invert": Precision(
         QudaPrecision.QUDA_DOUBLE_PRECISION,
-        QudaPrecision.QUDA_DOUBLE_PRECISION,
         QudaPrecision.QUDA_HALF_PRECISION,
-        QudaPrecision.QUDA_HALF_PRECISION,
-        QudaPrecision.QUDA_DOUBLE_PRECISION,
+        QudaPrecision.QUDA_HALF_PRECISION,  # sloppy
+        QudaPrecision.QUDA_HALF_PRECISION,  # sloppy
+        QudaPrecision.QUDA_DOUBLE_PRECISION,  # cuda
     ),
-    "multigrid": Precision(
-        QudaPrecision.QUDA_DOUBLE_PRECISION,
+    "multishift": Precision(
         QudaPrecision.QUDA_DOUBLE_PRECISION,
         QudaPrecision.QUDA_SINGLE_PRECISION,
         QudaPrecision.QUDA_HALF_PRECISION,
+        QudaPrecision.QUDA_SINGLE_PRECISION,  # sloppy
+        QudaPrecision.QUDA_DOUBLE_PRECISION,  # cuda
+    ),
+    "multigrid": Precision(
         QudaPrecision.QUDA_DOUBLE_PRECISION,
+        QudaPrecision.QUDA_SINGLE_PRECISION,
+        QudaPrecision.QUDA_SINGLE_PRECISION,  # sloppy
+        QudaPrecision.QUDA_HALF_PRECISION,
+        QudaPrecision.QUDA_DOUBLE_PRECISION,  # cuda
     ),
 }
 _reconstruct = {
     "none": Reconstruct(
+        QudaReconstructType.QUDA_RECONSTRUCT_NO,
         QudaReconstructType.QUDA_RECONSTRUCT_NO,
         QudaReconstructType.QUDA_RECONSTRUCT_NO,
         QudaReconstructType.QUDA_RECONSTRUCT_NO,
@@ -113,10 +125,12 @@ _reconstruct = {
         QudaReconstructType.QUDA_RECONSTRUCT_12,
         QudaReconstructType.QUDA_RECONSTRUCT_8,
         QudaReconstructType.QUDA_RECONSTRUCT_8,
+        QudaReconstructType.QUDA_RECONSTRUCT_8,
         QudaReconstructType.QUDA_RECONSTRUCT_12,
     ),
     "staggered": Reconstruct(
         QudaReconstructType.QUDA_RECONSTRUCT_13,
+        QudaReconstructType.QUDA_RECONSTRUCT_9,
         QudaReconstructType.QUDA_RECONSTRUCT_9,
         QudaReconstructType.QUDA_RECONSTRUCT_9,
         QudaReconstructType.QUDA_RECONSTRUCT_13,
@@ -124,24 +138,25 @@ _reconstruct = {
 }
 
 
-def getGlobalPrecision(key: Literal["none", "invert", "multigrid"]):
+def getGlobalPrecision(key: Literal["none", "invert", "multishift", "multigrid"]):
     return _precision[key]
 
 
 def setGlobalPrecision(
-    key: Literal["none", "invert", "multigrid"],
+    key: Literal["none", "invert", "multishift", "multigrid"],
     *,
     cuda: Optional[QudaPrecision] = None,
     sloppy: Optional[QudaPrecision] = None,
+    refinement_sloppy: Optional[QudaPrecision] = None,
     precondition: Optional[QudaPrecision] = None,
     eigensolver: Optional[QudaPrecision] = None,
 ):
     global _precision
     precision = _precision[key]
     _precision[key] = Precision(
-        precision.cpu,
         cuda if cuda is not None else precision.cuda,
         sloppy if sloppy is not None else precision.sloppy,
+        refinement_sloppy if refinement_sloppy is not None else precision.refinement_sloppy,
         precondition if precondition is not None else precision.precondition,
         eigensolver if eigensolver is not None else precision.eigensolver,
     )
@@ -156,6 +171,7 @@ def setGlobalReconstruct(
     *,
     cuda: Optional[QudaReconstructType] = None,
     sloppy: Optional[QudaReconstructType] = None,
+    refinement_sloppy: Optional[QudaReconstructType] = None,
     precondition: Optional[QudaReconstructType] = None,
     eigensolver: Optional[QudaReconstructType] = None,
 ):
@@ -164,6 +180,7 @@ def setGlobalReconstruct(
     _reconstruct[key] = Reconstruct(
         cuda if cuda is not None else reconstruct.cuda,
         sloppy if sloppy is not None else reconstruct.sloppy,
+        refinement_sloppy if refinement_sloppy is not None else reconstruct.refinement_sloppy,
         precondition if precondition is not None else reconstruct.precondition,
         eigensolver if eigensolver is not None else reconstruct.eigensolver,
     )
@@ -177,39 +194,41 @@ def setPrecisionParam(
     mg_inv_param: Optional[QudaInvertParam] = None,
 ):
     if gauge_param is not None:
-        gauge_param.cpu_prec = precision.cpu
+        gauge_param.cpu_prec = precision_cpu
         gauge_param.cuda_prec = precision.cuda
         gauge_param.cuda_prec_sloppy = precision.sloppy
-        gauge_param.cuda_prec_refinement_sloppy = precision.sloppy
+        gauge_param.cuda_prec_refinement_sloppy = precision.refinement_sloppy
         gauge_param.cuda_prec_precondition = precision.precondition
         gauge_param.cuda_prec_eigensolver = precision.eigensolver
 
     if invert_param is not None:
-        invert_param.cpu_prec = precision.cpu
+        invert_param.cpu_prec = precision_cpu
         invert_param.cuda_prec = precision.cuda
         invert_param.cuda_prec_sloppy = precision.sloppy
-        invert_param.cuda_prec_refinement_sloppy = precision.sloppy
+        invert_param.cuda_prec_refinement_sloppy = precision.refinement_sloppy
         invert_param.cuda_prec_precondition = precision.precondition
         invert_param.cuda_prec_eigensolver = precision.eigensolver
 
         if invert_param.clover_coeff != 0.0:
-            invert_param.clover_cpu_prec = precision.cpu
+            invert_param.clover_cpu_prec = precision_cpu
             invert_param.clover_cuda_prec = precision.cuda
             invert_param.clover_cuda_prec_sloppy = precision.sloppy
-            invert_param.clover_cuda_prec_refinement_sloppy = precision.sloppy
+            invert_param.clover_cuda_prec_refinement_sloppy = precision.refinement_sloppy
             invert_param.clover_cuda_prec_precondition = precision.precondition
             invert_param.clover_cuda_prec_eigensolver = precision.eigensolver
 
     if mg_inv_param is not None:
-        mg_inv_param.cpu_prec = precision.cpu
+        mg_inv_param.cpu_prec = precision_cpu
         mg_inv_param.cuda_prec = precision.cuda
         mg_inv_param.cuda_prec_sloppy = precision.sloppy
+        mg_inv_param.cuda_prec_refinement_sloppy = precision.refinement_sloppy
         mg_inv_param.cuda_prec_precondition = precision.precondition
         mg_inv_param.cuda_prec_eigensolver = precision.eigensolver
 
-        mg_inv_param.clover_cpu_prec = precision.cpu
+        mg_inv_param.clover_cpu_prec = precision_cpu
         mg_inv_param.clover_cuda_prec = precision.cuda
         mg_inv_param.clover_cuda_prec_sloppy = precision.sloppy
+        mg_inv_param.clover_cuda_prec_refinement_sloppy = precision.refinement_sloppy
         mg_inv_param.clover_cuda_prec_precondition = precision.precondition
         mg_inv_param.clover_cuda_prec_eigensolver = precision.eigensolver
 
@@ -221,7 +240,7 @@ def setReconstructParam(reconstruct: Reconstruct, gauge_param: Optional[QudaGaug
     if gauge_param is not None:
         gauge_param.reconstruct = reconstruct.cuda
         gauge_param.reconstruct_sloppy = reconstruct.sloppy
-        gauge_param.reconstruct_refinement_sloppy = reconstruct.sloppy
+        gauge_param.reconstruct_refinement_sloppy = reconstruct.refinement_sloppy
         gauge_param.reconstruct_precondition = reconstruct.precondition
         gauge_param.reconstruct_eigensolver = reconstruct.eigensolver
 
@@ -263,17 +282,18 @@ def newQudaGaugeParam(lattice: LatticeInfo):
     return gauge_param
 
 
-def newQudaMultigridParam(mass: float, kappa: float, geo_block_size: List[List[int]], staggered: bool):
+def newQudaMultigridParam(dslash_type: QudaDslashType, mass: float, kappa: float, geo_block_size: List[List[int]]):
+    is_staggered = dslash_type in (QudaDslashType.QUDA_STAGGERED_DSLASH, QudaDslashType.QUDA_ASQTAD_DSLASH)
     mg_param = QudaMultigridParam()
     mg_inv_param = QudaInvertParam()
 
-    # mg_inv_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
+    mg_inv_param.dslash_type = dslash_type
+    mg_inv_param.inv_type = QudaInverterType.QUDA_GCR_INVERTER
     mg_inv_param.mass = mass
     mg_inv_param.kappa = kappa
     mg_inv_param.m5 = 0.0
     mg_inv_param.Ls = 1
 
-    mg_inv_param.inv_type = QudaInverterType.QUDA_GCR_INVERTER
     mg_inv_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
     mg_inv_param.solve_type = QudaSolveType.QUDA_DIRECT_SOLVE
     mg_inv_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
@@ -304,14 +324,14 @@ def newQudaMultigridParam(mass: float, kappa: float, geo_block_size: List[List[i
     mg_param.invert_param = mg_inv_param
 
     geo_block_size = geo_block_size + [[4, 4, 4, 4]]
-    if staggered:
+    if is_staggered:
         geo_block_size = [[1, 1, 1, 1]] + geo_block_size
     n_level = len(geo_block_size)
     for i in range(n_level):
         geo_block_size[i] = geo_block_size[i] + [1] * (QUDA_MAX_DIM - len(geo_block_size[i]))
     mg_param.n_level = n_level
     mg_param.geo_block_size = geo_block_size
-    if staggered:
+    if is_staggered:
         mg_param.spin_block_size = [0] + [0] + [1] * (QUDA_MAX_MG_LEVEL - 2)
         mg_param.n_vec = [3] + [64] * (QUDA_MAX_MG_LEVEL - 1)
         mg_param.n_block_ortho = [1] + [2] * (QUDA_MAX_MG_LEVEL - 1)
@@ -353,7 +373,7 @@ def newQudaMultigridParam(mass: float, kappa: float, geo_block_size: List[List[i
 
     coarse_grid_solution_type = [QudaSolutionType.QUDA_MATPC_SOLUTION] * QUDA_MAX_MG_LEVEL
     smoother_solve_type = [QudaSolveType.QUDA_DIRECT_PC_SOLVE] * QUDA_MAX_MG_LEVEL
-    if staggered:
+    if is_staggered:
         coarse_grid_solution_type[1] = QudaSolutionType.QUDA_MAT_SOLUTION
         smoother_solve_type[1] = QudaSolveType.QUDA_DIRECT_SOLVE
     mg_param.coarse_grid_solution_type = coarse_grid_solution_type
@@ -371,7 +391,7 @@ def newQudaMultigridParam(mass: float, kappa: float, geo_block_size: List[List[i
 
     mg_param.mu_factor = [1.0] * QUDA_MAX_MG_LEVEL
     transfer_type = [QudaTransferType.QUDA_TRANSFER_AGGREGATE] * QUDA_MAX_MG_LEVEL
-    if staggered:
+    if is_staggered:
         transfer_type[0] = QudaTransferType.QUDA_TRANSFER_OPTIMIZED_KD
     mg_param.transfer_type = transfer_type
 
@@ -379,6 +399,7 @@ def newQudaMultigridParam(mass: float, kappa: float, geo_block_size: List[List[i
 
 
 def newQudaInvertParam(
+    dslash_type: QudaDslashType,
     mass: float,
     kappa: float,
     tol: float,
@@ -387,16 +408,20 @@ def newQudaInvertParam(
     clover_anisotropy: float,
     mg_param: Optional[QudaMultigridParam],
 ):
+    is_staggered = dslash_type in (QudaDslashType.QUDA_STAGGERED_DSLASH, QudaDslashType.QUDA_ASQTAD_DSLASH)
     invert_param = QudaInvertParam()
 
-    # invert_param.dslash_type = QudaDslashType.QUDA_WILSON_DSLASH
+    invert_param.dslash_type = dslash_type
+    if is_staggered:
+        invert_param.inv_type = QudaInverterType.QUDA_CG_INVERTER
+    else:
+        invert_param.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
     invert_param.mass = mass
     invert_param.kappa = kappa
     invert_param.m5 = 0.0
     invert_param.Ls = 1
     invert_param.laplace3D = 3
 
-    invert_param.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
     invert_param.solution_type = QudaSolutionType.QUDA_MAT_SOLUTION
     invert_param.solve_type = QudaSolveType.QUDA_DIRECT_PC_SOLVE
     invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_EVEN_EVEN
@@ -449,6 +474,111 @@ def newQudaInvertParam(
     invert_param.verbosity = QudaVerbosity.QUDA_SUMMARIZE
 
     return invert_param
+
+
+class Multigrid:
+    param: Optional[QudaMultigridParam]
+    inv_param: Optional[QudaInvertParam]
+    instance: Optional[Pointer]
+
+    def __init__(self, param: Optional[QudaMultigridParam], inv_param: Optional[QudaInvertParam]) -> None:
+        self.param = param
+        self.inv_param = inv_param
+        self.instance = None
+
+    def setParam(
+        self,
+        *,
+        coarse_tol: float = 0.25,
+        coarse_maxiter: int = 16,
+        setup_tol: float = 1e-6,
+        setup_maxiter: int = 1000,
+        smoother_tol: float = 0.25,
+        smoother_nu_pre: int = 0,
+        smoother_nu_post: int = 8,
+        smoother_omega: float = 1.0,
+    ):
+        assert self.param is not None
+        self.param.coarse_solver_tol = [coarse_tol] * QUDA_MAX_MG_LEVEL
+        self.param.coarse_solver_maxiter = [coarse_maxiter] * QUDA_MAX_MG_LEVEL
+        self.param.setup_tol = [setup_tol] * QUDA_MAX_MG_LEVEL
+        self.param.setup_maxiter = [setup_maxiter] * QUDA_MAX_MG_LEVEL
+        self.param.setup_maxiter_refresh = [setup_maxiter // 10] * QUDA_MAX_MG_LEVEL
+        self.param.smoother_tol = [smoother_tol] * QUDA_MAX_MG_LEVEL
+        self.param.nu_pre = [smoother_nu_pre] * QUDA_MAX_MG_LEVEL
+        self.param.nu_post = [smoother_nu_post] * QUDA_MAX_MG_LEVEL
+        self.param.omega = [smoother_omega] * QUDA_MAX_MG_LEVEL
+
+    def new(self):
+        assert self.param is not None
+        if self.instance is not None:
+            destroyMultigridQuda(self.instance)
+        self.instance = newMultigridQuda(self.param)
+
+    def update(self, thin_update_only: bool):
+        assert self.param is not None
+        if self.instance is not None:
+            self.param.thin_update_only = QudaBoolean(thin_update_only)
+            updateMultigridQuda(self.instance, self.param)
+            self.param.thin_update_only = QudaBoolean.QUDA_BOOLEAN_FALSE
+
+    def destroy(self):
+        if self.instance is not None:
+            destroyMultigridQuda(self.instance)
+        self.instance = None
+
+
+def loadMultigrid(multigrid: Multigrid, invert_param: QudaInvertParam, thin_update_only: bool):
+    if multigrid.param is not None:
+        if multigrid.instance is None:
+            multigrid.new()
+            assert multigrid.instance is not None
+            invert_param.preconditioner = multigrid.instance
+        else:
+            multigrid.update(thin_update_only)
+
+
+def freeMultigrid(multigrid: Multigrid, invert_param: QudaInvertParam):
+    if multigrid.param is not None:
+        multigrid.destroy()
+        invert_param.preconditioner = Pointer("void")
+
+
+class Deflation:
+    param: Optional[QudaEigParam]
+    inv_param: Optional[QudaInvertParam]
+    instance: Optional[Pointer]
+
+    def __init__(self, param: Optional[QudaEigParam], inv_param: Optional[QudaInvertParam]) -> None:
+        self.param = param
+        self.inv_param = inv_param
+        self.instance = None
+
+    def new(self):
+        assert self.param is not None
+        if self.instance is not None:
+            destroyDeflationQuda(self.instance)
+        self.instance = newDeflationQuda(self.param)
+
+    def destroy(self):
+        if self.instance is not None:
+            destroyMultigridQuda(self.instance)
+        self.instance = None
+
+
+def loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
+    gauge_in = gauge.copy()
+    if gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
+        gauge_in.setAntiPeriodicT()
+    if gauge_param.anisotropy != 1.0:
+        gauge_in.setAnisotropy(gauge_param.anisotropy)
+    gauge_param.use_resident_gauge = 0
+    loadGaugeQuda(gauge_in.data_ptrs, gauge_param)
+    gauge_param.use_resident_gauge = 1
+
+
+def freeGauge():
+    freeUniqueGaugeQuda(QudaLinkType.QUDA_WILSON_LINKS)
 
 
 def loadClover(
@@ -519,15 +649,8 @@ def saveClover(
     invert_param.return_clover_inverse = 0
 
 
-def loadGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
-    gauge_in = gauge.copy()
-    if gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
-        gauge_in.setAntiPeriodicT()
-    if gauge_param.anisotropy != 1.0:
-        gauge_in.setAnisotropy(gauge_param.anisotropy)
-    gauge_param.use_resident_gauge = 0
-    loadGaugeQuda(gauge_in.data_ptrs, gauge_param)
-    gauge_param.use_resident_gauge = 1
+def freeClover():
+    freeCloverQuda()
 
 
 def newAsqtadPathCoeff(tadpole_coeff: float):
@@ -689,6 +812,10 @@ def loadStaggeredGauge(gauge: LatticeGauge, gauge_param: QudaGaugeParam):
     gauge_param.use_resident_gauge = 1
 
 
+def freeStaggeredGauge():
+    freeUniqueGaugeQuda(QudaLinkType.QUDA_WILSON_LINKS)
+
+
 def loadFatLongGauge(
     fatlink: LatticeGauge,
     longlink: LatticeGauge,
@@ -718,88 +845,6 @@ def loadFatLongGauge(
     gauge_param.use_resident_gauge = 1
 
 
-def performance(invert_param: QudaInvertParam):
-    gflops, secs = invert_param.gflops, invert_param.secs
-    getLogger().info(f"Time = {secs:.3f} secs, Performance = {gflops / secs:.3f} GFLOPS")
-
-
-def invert(b: LatticeFermion, invert_param: QudaInvertParam):
-    x = LatticeFermion(b.latt_info)
-    invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    performance(invert_param)
-    return x
-
-
-def invertStaggered(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
-    x = LatticeStaggeredFermion(b.latt_info)
-    invertQuda(x.data_ptr, b.data_ptr, invert_param)
-    performance(invert_param)
-    return x
-
-
-def mat(x: LatticeFermion, invert_param: QudaInvertParam):
-    b = LatticeFermion(x.latt_info)
-    MatQuda(b.data_ptr, x.data_ptr, invert_param)
-    return b
-
-
-def matStaggered(x: LatticeStaggeredFermion, invert_param: QudaInvertParam):
-    b = LatticeStaggeredFermion(x.latt_info)
-    MatQuda(b.data_ptr, x.data_ptr, invert_param)
-    return b
-
-
-def matDagMat(x: LatticeFermion, invert_param: QudaInvertParam):
-    b = LatticeFermion(x.latt_info)
-    MatDagMatQuda(b.data_ptr, x.data_ptr, invert_param)
-    return b
-
-
-def matDagMatStaggered(x: LatticeStaggeredFermion, invert_param: QudaInvertParam):
-    b = LatticeStaggeredFermion(x.latt_info)
-    MatDagMatQuda(b.data_ptr, x.data_ptr, invert_param)
-    return b
-
-
-def invertPC(b: LatticeFermion, invert_param: QudaInvertParam):
-    kappa = invert_param.kappa
-    invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
-    invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
-
-    latt_info = b.latt_info
-    x = LatticeFermion(latt_info)
-
-    dslashQuda(x.odd_ptr, b.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
-    x.even = b.odd + kappa * x.odd
-    # * QUDA_ASYMMETRIC_MASS_NORMALIZATION makes the even part 1 / (2 * kappa) instead of 1
-    invertQuda(x.odd_ptr, x.even_ptr, invert_param)
-    performance(invert_param)
-    dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
-    x.even = kappa * (2 * b.even + x.even)
-
-    return x
-
-
-def invertCloverPC(b: LatticeFermion, invert_param: QudaInvertParam):
-    tmp = LatticeFermion(b.latt_info)
-    cloverQuda(tmp.even_ptr, b.even_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY, 1)
-    cloverQuda(tmp.odd_ptr, b.odd_ptr, invert_param, QudaParity.QUDA_ODD_PARITY, 1)
-    return invertPC(tmp, invert_param)
-
-
-def invertStaggeredPC(b: LatticeStaggeredFermion, invert_param: QudaInvertParam):
-    mass = invert_param.mass
-    invert_param.solution_type = QudaSolutionType.QUDA_MATPC_SOLUTION
-    invert_param.matpc_type = QudaMatPCType.QUDA_MATPC_ODD_ODD
-
-    latt_info = b.latt_info
-    x = LatticeStaggeredFermion(latt_info)
-
-    dslashQuda(x.odd_ptr, b.even_ptr, invert_param, QudaParity.QUDA_ODD_PARITY)
-    x.even = (2 * mass) * b.odd + x.odd
-    invertQuda(x.odd_ptr, x.even_ptr, invert_param)
-    performance(invert_param)
-    dslashQuda(x.even_ptr, x.odd_ptr, invert_param, QudaParity.QUDA_EVEN_PARITY)
-    x.even = (0.5 / mass) * (b.even + x.even)
-
-    return x
+def freeFatLongGauge():
+    freeUniqueGaugeQuda(QudaLinkType.QUDA_ASQTAD_FAT_LINKS)
+    freeUniqueGaugeQuda(QudaLinkType.QUDA_ASQTAD_LONG_LINKS)

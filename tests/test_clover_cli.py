@@ -1,4 +1,4 @@
-#!/usr/bin/env -S python3 -m pyquda -l 4 4 4 8 -t -1 -a 2.593684210526316 -p .cache
+#!/usr/bin/env -S python3 -m pyquda -l 4 4 4 8 -p .cache
 from tests.check_pyquda import weak_field, data
 
 from pyquda_utils import core, io
@@ -9,11 +9,11 @@ mass = 1 / (2 * kappa) - 4
 coeff_r, coeff_t = 0.91, 1.07
 
 gauge = io.readQIOGauge(weak_field)
+latt_info = core.LatticeInfo([4, 4, 4, 8], -1, xi_0 / nu)
+dirac = core.getClover(latt_info, mass, 1e-12, 1000, xi_0, coeff_t, coeff_r)
 
-dirac = core.getDefaultDirac(mass, 1e-12, 1000, xi_0, coeff_t, coeff_r)
-dirac.loadGauge(gauge)
-propagator = core.invert(dirac, "point", [0, 0, 0, 0])
-dirac.destroy()
+with dirac.useGauge(gauge):
+    propagator = core.invert(dirac, "point", [0, 0, 0, 0])
 
 propagator_chroma = io.readQIOPropagator(data("pt_prop_1"))
 propagator_chroma.toDevice()

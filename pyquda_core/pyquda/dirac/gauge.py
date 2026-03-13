@@ -12,7 +12,7 @@ from pyquda_comm.field import (
     MultiLatticeStaggeredFermion,
     LatticeReal,
 )
-from ..pyquda import (
+from ..quda import (
     QudaEigParam,
     QudaGaugeSmearParam,
     QudaGaugeObservableParam,
@@ -39,6 +39,7 @@ from ..pyquda import (
 )
 from ..enum_quda import (
     QudaBoolean,
+    QudaTboundary,
     QudaDslashType,
     QudaGaugeSmearType,
     QudaLinkType,
@@ -63,10 +64,11 @@ class GaugeDirac(Dirac):
 
     def newQudaGaugeParam(self):
         gauge_param = general.newQudaGaugeParam(self.latt_info)
+        gauge_param.t_boundary = QudaTboundary.QUDA_PERIODIC_T
         self.gauge_param = gauge_param
 
     def newQudaInvertParam(self):
-        invert_param = general.newQudaInvertParam(0, 1 / 8, 0, 0, 0.0, 1.0, None)
+        invert_param = general.newQudaInvertParam(QudaDslashType.QUDA_COVDEV_DSLASH, -3, 1 / 2, 0, 0, 0.0, 1.0, None)
         invert_param.solve_type = QudaSolveType.QUDA_DIRECT_SOLVE
         invert_param.mass_normalization = QudaMassNormalization.QUDA_KAPPA_NORMALIZATION
         self.invert_param = invert_param

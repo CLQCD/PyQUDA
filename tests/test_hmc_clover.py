@@ -5,6 +5,7 @@ from check_pyquda import test_dir
 
 from pyquda.hmc import HMC, O4Nf5Ng0V
 from pyquda.action import GaugeAction, CloverWilsonAction
+from pyquda.enum_quda import QudaVerbosity
 from pyquda_utils import core
 from pyquda_utils.hmc_param import (
     symanzikTreeGaugeLoopParam as loopParam,
@@ -17,7 +18,7 @@ tol, maxiter = 1e-6, 1000
 start, stop, warm, save = 0, 2000, 500, 5
 t = 1.0
 
-core.init([1, 1, 1, 1], resource_path=".cache", enable_force_monitor=True)
+core.init([1, 1, 1, 1], resource_path=".cache/quda", enable_force_monitor=True)
 latt_info = core.LatticeInfo([4, 4, 4, 8], t_boundary=-1, anisotropy=1.0)
 
 monomials = [
@@ -29,6 +30,7 @@ monomials = [
 # hmc_inner = HMC(latt_info, monomials[:1], O4Nf5Ng0V(4))
 # hmc = HMC(latt_info, monomials[1:], O4Nf5Ng0V(3), hmc_inner)
 hmc = HMC(latt_info, monomials, O4Nf5Ng0V(5))
+hmc.setFermionVerbosity(QudaVerbosity.QUDA_SILENT)
 gauge = core.LatticeGauge(latt_info)
 hmc.initialize(10086, gauge)
 

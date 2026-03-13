@@ -2,7 +2,7 @@ from typing import Any, List
 
 import numpy
 
-from pyquda import getLogger, getGridSize, pyquda as quda, enum_quda
+from pyquda import getLogger, getGridSize, quda, enum_quda
 from pyquda.field import LatticeFermion, LatticeGauge, LatticeInfo, LatticePropagator, Nc, Ns, evenodd
 from pyquda.dirac.abstract import FermionDirac
 

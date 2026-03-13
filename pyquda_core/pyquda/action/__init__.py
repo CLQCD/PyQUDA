@@ -1,5 +1,7 @@
 # flake8: noqa
 
+from .abstract import LoopParam, RationalParam
+
 # GaugeAction
 from .gauge import GaugeAction
 

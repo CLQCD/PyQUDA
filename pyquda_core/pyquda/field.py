@@ -173,22 +173,22 @@ class LatticeGauge(_LatticeGauge):
         for color in range(self.latt_info.Nc):
             self[index].data[:, :, :, :, :, :, color] = x.data[:, :, :, :, :, color, :]
 
+    def use(self):
+        return self.gauge_dirac.useGauge(self)
+
     def covDev(self, x: "LatticeFermion", covdev_mu: int):
-        self.gauge_dirac.loadGauge(self)
-        b = self._gauge_dirac.covDev(x, covdev_mu)
-        self._gauge_dirac.freeGauge()
+        with self.use() as dirac:
+            b = dirac.covDev(x, covdev_mu)
         return b
 
     def laplace(self, x: "LatticeStaggeredFermion", laplace3D: int):
-        self.gauge_dirac.loadGauge(self)
-        b = self._gauge_dirac.laplace(x, laplace3D)
-        self._gauge_dirac.freeGauge()
+        with self.use() as dirac:
+            b = dirac.laplace(x, laplace3D)
         return b
 
     def wuppertalSmear(self, x: Union["LatticeFermion", "LatticeStaggeredFermion"], n_steps: int, alpha: float):
-        self.gauge_dirac.loadGauge(self)
-        b = self._gauge_dirac.wuppertalSmear(x, n_steps, alpha)
-        self._gauge_dirac.freeGauge()
+        with self.use() as dirac:
+            b = dirac.wuppertalSmear(x, n_steps, alpha)
         return b
 
     def staggeredPhase(self, applied: bool):
@@ -204,9 +204,8 @@ class LatticeGauge(_LatticeGauge):
         return self.gauge_dirac.loop(self, loops, coeff)
 
     def loopTrace(self, loops: List[List[int]]):
-        self.gauge_dirac.loadGauge(self)
-        traces = self._gauge_dirac.loopTrace(loops)
-        self._gauge_dirac.freeGauge()
+        with self.use() as dirac:
+            traces = dirac.loopTrace(loops)
         return traces
 
     def apeSmear(
@@ -217,11 +216,10 @@ class LatticeGauge(_LatticeGauge):
         compute_plaquette: bool = False,
         compute_qcharge: bool = False,
     ):
-        self.gauge_dirac.loadGauge(self)
-        self._gauge_dirac.apeSmear(n_steps, alpha, dir_ignore, compute_plaquette, compute_qcharge)
-        self._gauge_dirac.saveSmearedGauge(self)
-        self._gauge_dirac.freeGauge()
-        self._gauge_dirac.freeSmearedGauge()
+        with self.use() as dirac:
+            dirac.apeSmear(n_steps, alpha, dir_ignore, compute_plaquette, compute_qcharge)
+            dirac.saveSmearedGauge(self)
+            dirac.freeSmearedGauge()
 
     def stoutSmear(
         self,
@@ -231,11 +229,10 @@ class LatticeGauge(_LatticeGauge):
         compute_plaquette: bool = False,
         compute_qcharge: bool = False,
     ):
-        self.gauge_dirac.loadGauge(self)
-        self._gauge_dirac.stoutSmear(n_steps, rho, dir_ignore, compute_plaquette, compute_qcharge)
-        self._gauge_dirac.saveSmearedGauge(self)
-        self._gauge_dirac.freeGauge()
-        self._gauge_dirac.freeSmearedGauge()
+        with self.use() as dirac:
+            dirac.stoutSmear(n_steps, rho, dir_ignore, compute_plaquette, compute_qcharge)
+            dirac.saveSmearedGauge(self)
+            dirac.freeSmearedGauge()
 
     def hypSmear(
         self,
@@ -247,86 +244,103 @@ class LatticeGauge(_LatticeGauge):
         compute_plaquette: bool = False,
         compute_qcharge: bool = False,
     ):
-        self.gauge_dirac.loadGauge(self)
-        self._gauge_dirac.hypSmear(n_steps, alpha1, alpha2, alpha3, dir_ignore, compute_plaquette, compute_qcharge)
-        self._gauge_dirac.saveSmearedGauge(self)
-        self._gauge_dirac.freeGauge()
-        self._gauge_dirac.freeSmearedGauge()
+        with self.use() as dirac:
+            dirac.hypSmear(n_steps, alpha1, alpha2, alpha3, dir_ignore, compute_plaquette, compute_qcharge)
+            dirac.saveSmearedGauge(self)
+            dirac.freeSmearedGauge()
 
-    def wilsonFlow(self, n_steps: int, epsilon: float, rk_order: int = 3):
-        self.gauge_dirac.loadGauge(self)
-        self._gauge_dirac.wilsonFlow(1, epsilon, 0, False, rk_order, False, False, False, True)
-        energy = [self._gauge_dirac.obs_param.energy]
-        for step in range(1, n_steps):
-            self._gauge_dirac.wilsonFlow(1, epsilon, step * epsilon, True, rk_order, False, False, False, True)
-            energy.append(self._gauge_dirac.obs_param.energy)
-        self._gauge_dirac.saveSmearedGauge(self)  # Save before the last step
-        self._gauge_dirac.wilsonFlow(1, epsilon, n_steps * epsilon, True, rk_order, False, False, False, True)
-        energy.append(self._gauge_dirac.obs_param.energy)
-        self._gauge_dirac.freeGauge()
-        self._gauge_dirac.freeSmearedGauge()
+    def wilsonFlow(
+        self,
+        n_steps: int,
+        epsilon: float,
+        compute_plaquette: bool = False,
+        compute_qcharge: bool = True,
+    ):
+        with self.use() as dirac:
+            dirac.wilsonFlow(1, epsilon, 0, False, compute_plaquette, compute_qcharge)
+            energy = [dirac.obs_param.energy]
+            for step in range(1, n_steps):
+                dirac.wilsonFlow(1, epsilon, step * epsilon, True, compute_plaquette, compute_qcharge)
+                energy.append(dirac.obs_param.energy)
+            energy.append(dirac.energy())
+            dirac.saveSmearedGauge(self)
+            dirac.freeSmearedGauge()
         return energy
 
-    def wilsonFlowScale(self, max_steps: int, epsilon: float, rk_order: int = 3):
-        self.gauge_dirac.loadGauge(self)
-        self._gauge_dirac.wilsonFlow(1, epsilon, 0, False, rk_order, False, False, False, True)
-        t2E, tdt2E = 0, 0
-        t0, w0 = 0, 0
-        for step in range(1, max_steps + 1):
-            if t2E >= 0.3 and tdt2E >= 0.3:
-                break
-            self._gauge_dirac.wilsonFlow(1, epsilon, step * epsilon, True, rk_order, False, False, False, True)
-            t2E_old, t2E = t2E, (step * epsilon) ** 2 * self._gauge_dirac.obs_param.energy[0]
-            tdt2E_old, tdt2E = tdt2E, (step - 0.5) * (t2E - t2E_old)
-            if t0 == 0 and t2E >= 0.3:
-                t0 = (step - (t2E - 0.3) / (t2E - t2E_old)) * epsilon
-            if w0 == 0 and tdt2E >= 0.3:
-                w0 = ((step - 0.5 - (tdt2E - 0.3) / (tdt2E - tdt2E_old)) * epsilon) ** 0.5
-            getLogger().info(f"t2E({step * epsilon:.3f})={t2E}, tdt2E({(step - 0.5) * epsilon:.3f})={tdt2E}")
-        else:
-            getLogger().error(
-                f"Wilson flow scale doesn't exceed 0.3 at max_steps*epsilon={max_steps * epsilon}", RuntimeError
-            )
-        self._gauge_dirac.freeGauge()
-        self._gauge_dirac.freeSmearedGauge()
+    def wilsonFlowScale(
+        self,
+        max_steps: int,
+        epsilon: float,
+        compute_plaquette: bool = False,
+        compute_qcharge: bool = True,
+    ):
+        with self.use() as dirac:
+            dirac.wilsonFlow(1, epsilon, 0, False, compute_plaquette, compute_qcharge)
+            t2E, tdt2E = 0, 0
+            t0, w0 = 0, 0
+            for step in range(1, max_steps + 1):
+                if t2E >= 0.3 and tdt2E >= 0.3:
+                    break
+                dirac.wilsonFlow(1, epsilon, step * epsilon, True, compute_plaquette, compute_qcharge)
+                t2E_old, t2E = t2E, (step * epsilon) ** 2 * dirac.obs_param.energy[0]
+                tdt2E_old, tdt2E = tdt2E, (step - 0.5) * (t2E - t2E_old)
+                if t0 == 0 and t2E >= 0.3:
+                    t0 = (step - (t2E - 0.3) / (t2E - t2E_old)) * epsilon
+                if w0 == 0 and tdt2E >= 0.3:
+                    w0 = ((step - 0.5 - (tdt2E - 0.3) / (tdt2E - tdt2E_old)) * epsilon) ** 0.5
+                getLogger().info(f"t2E({step * epsilon:.3f})={t2E}, tdt2E({(step - 0.5) * epsilon:.3f})={tdt2E}")
+            else:
+                getLogger().error(
+                    f"Wilson flow scale doesn't exceed 0.3 at max_steps*epsilon={max_steps * epsilon}", RuntimeError
+                )
+            dirac.freeSmearedGauge()
         return t0, w0
 
-    def symanzikFlow(self, n_steps: int, epsilon: float, rk_order: int = 3):
-        self.gauge_dirac.loadGauge(self)
-        self._gauge_dirac.symanzikFlow(1, epsilon, 0, False, rk_order, False, False, False, True)
-        energy = [self._gauge_dirac.obs_param.energy]
-        for step in range(1, n_steps):
-            self._gauge_dirac.symanzikFlow(1, epsilon, step * epsilon, True, rk_order, False, False, False, True)
-            energy.append(self._gauge_dirac.obs_param.energy)
-        self._gauge_dirac.saveSmearedGauge(self)  # Save before the last step
-        self._gauge_dirac.symanzikFlow(1, epsilon, n_steps * epsilon, True, rk_order, False, False, False, True)
-        energy.append(self._gauge_dirac.obs_param.energy)
-        self._gauge_dirac.freeGauge()
-        self._gauge_dirac.freeSmearedGauge()
+    def symanzikFlow(
+        self,
+        n_steps: int,
+        epsilon: float,
+        compute_plaquette: bool = False,
+        compute_qcharge: bool = True,
+    ):
+        with self.use() as dirac:
+            dirac.symanzikFlow(1, epsilon, 0, False, compute_plaquette, compute_qcharge)
+            energy = [dirac.obs_param.energy]
+            for step in range(1, n_steps):
+                dirac.symanzikFlow(1, epsilon, step * epsilon, True, compute_plaquette, compute_qcharge)
+                energy.append(dirac.obs_param.energy)
+            energy.append(dirac.energy())
+            dirac.saveSmearedGauge(self)
+            dirac.freeSmearedGauge()
         return energy
 
-    def symanzikFlowScale(self, max_steps: int, epsilon: float, rk_order: int = 3):
-        self.gauge_dirac.loadGauge(self)
-        self._gauge_dirac.symanzikFlow(1, epsilon, 0, False, rk_order, False, False, False, True)
-        t2E, tdt2E = 0, 0
-        t0, w0 = 0, 0
-        for step in range(1, max_steps + 1):
-            if t2E >= 0.3 and tdt2E >= 0.3:
-                break
-            self._gauge_dirac.symanzikFlow(1, epsilon, step * epsilon, True, rk_order, False, False, False, True)
-            t2E_old, t2E = t2E, (step * epsilon) ** 2 * self._gauge_dirac.obs_param.energy[0]
-            tdt2E_old, tdt2E = tdt2E, (step - 0.5) * (t2E - t2E_old)
-            if t0 == 0 and t2E >= 0.3:
-                t0 = (step - (t2E - 0.3) / (t2E - t2E_old)) * epsilon
-            if w0 == 0 and tdt2E >= 0.3:
-                w0 = ((step - 0.5 - (tdt2E - 0.3) / (tdt2E - tdt2E_old)) * epsilon) ** 0.5
-            getLogger().info(f"t2E({step * epsilon:.3f})={t2E}, tdt2E({(step - 0.5) * epsilon:.3f})={tdt2E}")
-        else:
-            getLogger().error(
-                f"Symanzik flow scale doesn't exceed 0.3 at max_steps*epsilon={max_steps * epsilon}", RuntimeError
-            )
-        self._gauge_dirac.freeGauge()
-        self._gauge_dirac.freeSmearedGauge()
+    def symanzikFlowScale(
+        self,
+        max_steps: int,
+        epsilon: float,
+        compute_plaquette: bool = False,
+        compute_qcharge: bool = True,
+    ):
+        with self.use() as dirac:
+            dirac.symanzikFlow(1, epsilon, 0, False, compute_plaquette, compute_qcharge)
+            t2E, tdt2E = 0, 0
+            t0, w0 = 0, 0
+            for step in range(1, max_steps + 1):
+                if t2E >= 0.3 and tdt2E >= 0.3:
+                    break
+                dirac.symanzikFlow(1, epsilon, step * epsilon, True, compute_plaquette, compute_qcharge)
+                t2E_old, t2E = t2E, (step * epsilon) ** 2 * dirac.obs_param.energy[0]
+                tdt2E_old, tdt2E = tdt2E, (step - 0.5) * (t2E - t2E_old)
+                if t0 == 0 and t2E >= 0.3:
+                    t0 = (step - (t2E - 0.3) / (t2E - t2E_old)) * epsilon
+                if w0 == 0 and tdt2E >= 0.3:
+                    w0 = ((step - 0.5 - (tdt2E - 0.3) / (tdt2E - tdt2E_old)) * epsilon) ** 0.5
+                getLogger().info(f"t2E({step * epsilon:.3f})={t2E}, tdt2E({(step - 0.5) * epsilon:.3f})={tdt2E}")
+            else:
+                getLogger().error(
+                    f"Symanzik flow scale doesn't exceed 0.3 at max_steps*epsilon={max_steps * epsilon}", RuntimeError
+                )
+            dirac.freeSmearedGauge()
         return t0, w0
 
     def gradientFlow(
@@ -337,10 +351,9 @@ class LatticeGauge(_LatticeGauge):
         epsilon: float,
         compute_plaquette: bool = False,
     ):
-        self.gauge_dirac.loadGauge(self)
-        b = self._gauge_dirac.gradientFlow(x, flow_type, n_steps, epsilon, 0, False, compute_plaquette)
-        self._gauge_dirac.freeGauge()
-        self._gauge_dirac.freeSmearedGauge()
+        with self.use() as dirac:
+            b = dirac.gradientFlow(x, flow_type, n_steps, epsilon, 0, False, compute_plaquette)
+            dirac.freeSmearedGauge()
         return b
 
     def adjointGradientFlowSafe(
@@ -350,10 +363,9 @@ class LatticeGauge(_LatticeGauge):
         n_steps: int,
         epsilon: float,
     ):
-        self.gauge_dirac.loadGauge(self)
-        b = self._gauge_dirac.adjointGradientFlowSafe(x, flow_type, n_steps, epsilon, 0, False)
-        self._gauge_dirac.freeGauge()
-        self._gauge_dirac.freeSmearedGauge()
+        with self.use() as dirac:
+            b = dirac.adjointGradientFlowSafe(x, flow_type, n_steps, epsilon, 0, False)
+            dirac.freeSmearedGauge()
         return b
 
     def adjointGradientFlowHierarchy(
@@ -366,15 +378,15 @@ class LatticeGauge(_LatticeGauge):
         adj_n_save: int = 5,
         hier_threshold: int = 6,
     ):
-        self.gauge_dirac.loadGauge(self)
-        b = self._gauge_dirac.adjointGradientFlowHierarchy(
-            x, flow_type, n_steps, epsilon, 0, False, rk_order, adj_n_save, hier_threshold
-        )
-        self._gauge_dirac.freeGauge()
-        self._gauge_dirac.freeSmearedGauge()
+        with self.use() as dirac:
+            self.gauge_dirac.loadGauge(self)
+            b = dirac.adjointGradientFlowHierarchy(
+                x, flow_type, n_steps, epsilon, 0, False, rk_order, adj_n_save, hier_threshold
+            )
+            dirac.freeSmearedGauge()
         return b
 
-    def smearAPE(
+    def apeSmearChroma(
         self,
         n_steps: int,
         factor: float,
@@ -386,68 +398,41 @@ class LatticeGauge(_LatticeGauge):
         dimAPE = 3 if dir_ignore >= 0 and dir_ignore <= 3 else 4
         self.apeSmear(n_steps, (dimAPE - 1) / (dimAPE - 1 + factor / 2), dir_ignore, compute_plaquette, compute_qcharge)
 
-    def smearSTOUT(
-        self,
-        n_steps: int,
-        rho: float,
-        dir_ignore: int,
-        compute_plaquette: bool = False,
-        compute_qcharge: bool = False,
+    def wilsonFlowChroma(
+        self, n_steps: int, time: float, compute_plaquette: bool = False, compute_qcharge: bool = True
     ):
-        self.stoutSmear(n_steps, rho, dir_ignore, compute_plaquette, compute_qcharge)
+        """Use total time instead of epsilon"""
+        return self.wilsonFlow(n_steps, time / n_steps, compute_plaquette, compute_qcharge)
 
-    def smearHYP(
-        self,
-        n_steps: int,
-        alpha1: float,
-        alpha2: float,
-        alpha3: float,
-        dir_ignore: int,
-        compute_plaquette: bool = False,
-        compute_qcharge: bool = False,
+    def symanzikFlowChroma(
+        self, n_steps: int, time: float, compute_plaquette: bool = False, compute_qcharge: bool = True
     ):
-        self.hypSmear(n_steps, alpha1, alpha2, alpha3, dir_ignore, compute_plaquette, compute_qcharge)
-
-    def flowWilson(self, n_steps: int, time: float, rk_order: int = 3):
-        return self.wilsonFlow(n_steps, time / n_steps, rk_order)
-
-    def flowWilsonScale(self, epsilon: float, rk_order: int = 3):
-        return self.wilsonFlowScale(100000, epsilon, rk_order)
-
-    def flowSymanzik(self, n_steps: int, time: float, rk_order: int = 3):
-        return self.symanzikFlow(n_steps, time / n_steps, rk_order)
-
-    def flowSymanzikScale(self, epsilon: float, rk_order: int = 3):
-        return self.symanzikFlowScale(100000, epsilon, rk_order)
+        """Use total time instead of epsilon"""
+        return self.symanzikFlow(n_steps, time / n_steps, compute_plaquette, compute_qcharge)
 
     def plaquette(self):
-        self.gauge_dirac.loadGauge(self)
-        plaquette = self._gauge_dirac.plaquette()
-        self._gauge_dirac.freeGauge()
+        with self.use() as dirac:
+            plaquette = dirac.plaquette()
         return plaquette
 
     def polyakovLoop(self):
-        self.gauge_dirac.loadGauge(self)
-        polyakovLoop = self._gauge_dirac.polyakovLoop()
-        self._gauge_dirac.freeGauge()
+        with self.use() as dirac:
+            polyakovLoop = dirac.polyakovLoop()
         return polyakovLoop
 
     def energy(self):
-        self.gauge_dirac.loadGauge(self)
-        energy = self._gauge_dirac.energy()
-        self._gauge_dirac.freeGauge()
+        with self.use() as dirac:
+            energy = dirac.energy()
         return energy
 
     def qcharge(self):
-        self.gauge_dirac.loadGauge(self)
-        qcharge = self._gauge_dirac.qcharge()
-        self._gauge_dirac.freeGauge()
+        with self.use() as dirac:
+            qcharge = dirac.qcharge()
         return qcharge
 
     def qchargeDensity(self):
-        self.gauge_dirac.loadGauge(self)
-        qcharge_density = self._gauge_dirac.qchargeDensity()
-        self._gauge_dirac.freeGauge()
+        with self.use() as dirac:
+            qcharge_density = dirac.qchargeDensity()
         return qcharge_density
 
     def gauss(self, seed: int, sigma: float):
@@ -466,10 +451,9 @@ class LatticeGauge(_LatticeGauge):
         sigma: float
             Width of Gaussian distrubution
         """
-        self.gauge_dirac.loadGauge(self)
-        self._gauge_dirac.gaussGauge(seed, sigma)
-        self._gauge_dirac.saveGauge(self)
-        self._gauge_dirac.freeGauge()
+        with self.use() as dirac:
+            dirac.gaussGauge(seed, sigma)
+            dirac.saveGauge(self)
 
     def fixingOVR(
         self,

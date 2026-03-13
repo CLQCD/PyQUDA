@@ -10,7 +10,7 @@ from pyquda_comm.field import LatticeInfo
 
 
 def checksumSciDAC(field) -> Tuple[int, int]:
-    buf: NDArray = field.lexico().reshape(field.latt_info.volume, field.field_size).view("<u4")
+    buf: NDArray = field.lexico().reshape(field.latt_info.volume, -1).view("<u4")
     latt_info: LatticeInfo = field.latt_info
 
     work = numpy.empty((latt_info.volume), "<u4")
