@@ -23,12 +23,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: 'recursive'
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.8'
 
@@ -40,7 +40,7 @@ jobs:
 
       - name: Upload sdist
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag != ''
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.event.inputs.tag }}
           files: pyquda_core/dist/pyquda-${{ github.event.inputs.tag }}.tar.gz
