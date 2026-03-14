@@ -1,4 +1,4 @@
-from typing import Callable, Literal, Sequence, Union
+from typing import Callable, Literal, Sequence
 
 import numpy
 from numpy.typing import NDArray, DTypeLike
@@ -80,23 +80,6 @@ def backendDeviceAPI(backend: BackendType, backend_target: BackendTargetType):
     return getDeviceCount, setDevice
 
 
-def arrayIsInstance(data, backend: BackendType):
-    if backend == "numpy":
-        return isinstance(data, numpy.ndarray)
-    elif backend == "cupy":
-        import cupy
-
-        return isinstance(data, cupy.ndarray)
-    elif backend == "dpnp":
-        import dpnp
-
-        return isinstance(data, dpnp.ndarray)
-    elif backend == "torch":
-        import torch
-
-        return isinstance(data, torch.Tensor)
-
-
 def arrayDType(dtype: DTypeLike, backend: BackendType) -> DTypeLike:
     if backend == "numpy":
         return numpy.dtype(dtype).type
@@ -128,7 +111,7 @@ def arrayDType(dtype: DTypeLike, backend: BackendType) -> DTypeLike:
         return numpy_to_torch_dtype_dict[numpy.dtype(dtype).type]
 
 
-def arrayHost(data, backend: BackendType) -> NDArray:
+def arrayAsNumpy(data, backend: BackendType) -> NDArray:
     if backend == "numpy":
         return numpy.asarray(data)
     elif backend == "cupy":
@@ -139,7 +122,7 @@ def arrayHost(data, backend: BackendType) -> NDArray:
         return data.cpu().numpy()
 
 
-def arrayHostCopy(data, backend: BackendType) -> NDArray:
+def arrayAsNumpyCopy(data, backend: BackendType) -> NDArray:
     if backend == "numpy":
         return data.copy()
     elif backend == "cupy":
@@ -150,7 +133,24 @@ def arrayHostCopy(data, backend: BackendType) -> NDArray:
         return data.cpu().numpy()
 
 
-def arrayDevice(data, backend: BackendType) -> NDArray:
+def arrayIsArray(data, backend: BackendType):
+    if backend == "numpy":
+        return isinstance(data, numpy.ndarray)
+    elif backend == "cupy":
+        import cupy
+
+        return isinstance(data, cupy.ndarray)
+    elif backend == "dpnp":
+        import dpnp
+
+        return isinstance(data, dpnp.ndarray)
+    elif backend == "torch":
+        import torch
+
+        return isinstance(data, torch.Tensor)
+
+
+def arrayAsArray(data, backend: BackendType) -> NDArray:
     if backend == "numpy":
         return numpy.asarray(data)
     elif backend == "cupy":
@@ -424,69 +424,69 @@ def arrayRandomSeed(seed: int, backend: BackendType):
         torch.manual_seed(seed)
 
 
-def arrayFFTN(data, axes: Union[int, Sequence[int]], backend: BackendType) -> NDArray:
-    if isinstance(axes, int):
-        axis = axes
-        if backend == "numpy":
-            return numpy.fft.fft(data, axis=axis)
-        elif backend == "cupy":
-            import cupy
+def arrayFFT(data, axis: int, backend: BackendType) -> NDArray:
+    if backend == "numpy":
+        return numpy.fft.fft(data, axis=axis)
+    elif backend == "cupy":
+        import cupy
 
-            return cupy.fft.fft(data, axis=axis)
-        elif backend == "torch":
-            import torch
+        return cupy.fft.fft(data, axis=axis)
+    elif backend == "torch":
+        import torch
 
-            return torch.fft.fft(data, dim=axis, norm="backward")
-        elif backend == "dpnp":
-            import dpnp
+        return torch.fft.fft(data, dim=axis, norm="backward")
+    elif backend == "dpnp":
+        import dpnp
 
-            return dpnp.fft.fft(data, axis=axis)
-    else:
-        if backend == "numpy":
-            return numpy.fft.fftn(data, axes=axes)
-        elif backend == "cupy":
-            import cupy
-
-            return cupy.fft.fftn(data, axes=axes)
-        elif backend == "torch":
-            import torch
-
-            return torch.fft.fftn(data, dim=axes, norm="backward")
-        elif backend == "dpnp":
-            import dpnp
-
-            return dpnp.fft.fftn(data, axes=axes)
+        return dpnp.fft.fft(data, axis=axis)
 
 
-def arrayIFFTN(data, axes: Union[int, Sequence[int]], backend: BackendType) -> NDArray:
-    if isinstance(axes, int):
-        axis = axes
-        if backend == "numpy":
-            return numpy.fft.ifft(data, axis=axis)
-        elif backend == "cupy":
-            import cupy
+def arrayFFTN(data, axes: Sequence[int], backend: BackendType) -> NDArray:
+    if backend == "numpy":
+        return numpy.fft.fftn(data, axes=axes)
+    elif backend == "cupy":
+        import cupy
 
-            return cupy.fft.ifft(data, axis=axis)
-        elif backend == "torch":
-            import torch
+        return cupy.fft.fftn(data, axes=axes)
+    elif backend == "torch":
+        import torch
 
-            return torch.fft.ifft(data, dim=axis, norm="backward")
-        elif backend == "dpnp":
-            import dpnp
+        return torch.fft.fftn(data, dim=axes, norm="backward")
+    elif backend == "dpnp":
+        import dpnp
 
-            return dpnp.fft.ifft(data, axis=axis)
-    else:
-        if backend == "numpy":
-            return numpy.fft.ifftn(data, axes=axes)
-        elif backend == "cupy":
-            import cupy
+        return dpnp.fft.fftn(data, axes=axes)
 
-            return cupy.fft.ifftn(data, axes=axes)
-        elif backend == "torch":
-            import torch
 
-            return torch.fft.ifftn(data, dim=axes, norm="backward")
-        elif backend == "dpnp":
-            import dpnp
+def arrayIFFT(data, axis: int, backend: BackendType) -> NDArray:
+    if backend == "numpy":
+        return numpy.fft.ifft(data, axis=axis)
+    elif backend == "cupy":
+        import cupy
 
-            return dpnp.fft.ifftn(data, axes=axes)
+        return cupy.fft.ifft(data, axis=axis)
+    elif backend == "torch":
+        import torch
+
+        return torch.fft.ifft(data, dim=axis, norm="backward")
+    elif backend == "dpnp":
+        import dpnp
+
+        return dpnp.fft.ifft(data, axis=axis)
+
+
+def arrayIFFTN(data, axes: Sequence[int], backend: BackendType) -> NDArray:
+    if backend == "numpy":
+        return numpy.fft.ifftn(data, axes=axes)
+    elif backend == "cupy":
+        import cupy
+
+        return cupy.fft.ifftn(data, axes=axes)
+    elif backend == "torch":
+        import torch
+
+        return torch.fft.ifftn(data, dim=axes, norm="backward")
+    elif backend == "dpnp":
+        import dpnp
+
+        return dpnp.fft.ifftn(data, axes=axes)
