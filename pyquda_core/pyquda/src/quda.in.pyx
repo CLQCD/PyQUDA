@@ -99,6 +99,11 @@ cdef class QudaEigParam:
             quda.printQudaEigParam(&self.param)
         return value.decode(sys.stdout.encoding)
 
+    def getPointer(self):
+        pointer = Pointer("void")
+        pointer.set_ptr(<void *>(&self.param))
+        return pointer
+
     cdef from_ptr(self, quda.QudaEigParam *ptr):
         self.param = dereference(ptr)
 

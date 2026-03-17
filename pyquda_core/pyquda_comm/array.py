@@ -6,16 +6,14 @@ from numpy.typing import NDArray, DTypeLike
 BackendType = Literal["numpy", "cupy", "dpnp", "torch"]
 BackendTargetType = Literal["cpu", "cuda", "hip", "sycl"]
 
-dpnp_device = None
 dpnp_sycl_queue = None
 
 
 def setDPNPDevice(device: str):
-    import dpctl.tensor
+    import dpctl
 
-    global dpnp_device, dpnp_sycl_queue
-    dpnp_device = dpctl.tensor.Device.create_device(device)
-    dpnp_sycl_queue = dpnp_device.sycl_queue
+    global dpnp_sycl_queue
+    dpnp_sycl_queue = dpctl.SyclQueue(device)
 
 
 def backendDeviceAPI(backend: BackendType, backend_target: BackendTargetType):
