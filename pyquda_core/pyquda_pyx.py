@@ -442,3 +442,7 @@ def build_pyquda_pyx(pyquda_root, quda_path):
         os.remove(os.path.join(pyquda_root, "yacctab.py"))
     if os.path.exists(os.path.join(pyquda_root, "lextab.py")):
         os.remove(os.path.join(pyquda_root, "lextab.py"))
+    if os.path.exists(os.path.join(os.getcwd(), "yacctab.py")):
+        os.remove(os.path.join(os.getcwd(), "yacctab.py"))
+    if os.path.exists(os.path.join(os.getcwd(), "lextab.py")):
+        os.remove(os.path.join(os.getcwd(), "lextab.py"))

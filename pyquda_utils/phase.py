@@ -3,7 +3,7 @@ from typing import Sequence
 
 import numpy
 
-from pyquda_comm.array import arrayDevice, arrayZeros, arrayExp
+from pyquda_comm.array import arrayAsArray, arrayZeros, arrayExp
 from .core import getLogger, getArrayBackend, LatticeInfo
 
 
@@ -48,7 +48,7 @@ class MomentumPhase:
         x[3] = numpy.arange(gt * Lt, (gt + 1) * Lt).reshape(1, Lt, 1, 1, 1)
 
         backend = getArrayBackend()
-        self.x = arrayDevice(x, backend)
+        self.x = arrayAsArray(x, backend)
 
     def getPhase(self, mom_mode: Sequence[int], x0: Sequence[int] = [0, 0, 0, 0]):
         x = self.x
@@ -96,7 +96,7 @@ class GridPhase:
         phase = self.latt_info.evenodd(phase, False)
 
         backend = getArrayBackend()
-        return arrayDevice(phase, backend)
+        return arrayAsArray(phase, backend)
 
     def getPhases(self, t_srce_list: Sequence[Sequence[int]]):
         Lx, Ly, Lz, Lt = self.latt_info.size

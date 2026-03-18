@@ -275,3 +275,7 @@ def build_plugin_pyx(plugins_root, lib: str, header: str, include: str):
         os.remove(os.path.join(plugins_root, "yacctab.py"))
     if os.path.exists(os.path.join(plugins_root, "lextab.py")):
         os.remove(os.path.join(plugins_root, "lextab.py"))
+    if os.path.exists(os.path.join(os.getcwd(), "yacctab.py")):
+        os.remove(os.path.join(os.getcwd(), "yacctab.py"))
+    if os.path.exists(os.path.join(os.getcwd(), "lextab.py")):
+        os.remove(os.path.join(os.getcwd(), "lextab.py"))

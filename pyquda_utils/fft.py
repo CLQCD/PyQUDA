@@ -8,7 +8,7 @@ from mpi4py import MPI
 from mpi4py.util import dtlib
 
 from pyquda_comm import getMPIComm, getMPISize, getMPIRank, getGridSize, getGridCoord, getCoordFromRank
-from pyquda_comm.array import BackendType, arrayHostCopy, arrayDevice, arrayFFTN, arrayIFFTN
+from pyquda_comm.array import BackendType, arrayAsNumpyCopy, arrayAsArray, arrayFFT, arrayFFTN, arrayIFFT, arrayIFFTN
 from pyquda_comm.field import (
     LatticeInfo,
     LatticeComplex,
@@ -242,15 +242,15 @@ def fft(field: Field, fft3d: bool, backend: BackendType = "numpy") -> Field:
     buf = field.lexico()
     if fft3d:
         buf = redistribute(latt_info, field_shape, Nd - 1, buf)
-        buf = arrayHostCopy(arrayFFTN(arrayDevice(buf, backend), (1, 2, 3), backend), backend)
+        buf = arrayAsNumpyCopy(arrayFFTN(arrayAsArray(buf, backend), (1, 2, 3), backend), backend)
         buf = redistribute_reverse(latt_info, field_shape, Nd - 1, buf)
     else:
         buf = redistribute(latt_info, field_shape, Nd - 1, buf)
-        buf = arrayHostCopy(arrayFFTN(arrayDevice(buf, backend), (1, 2, 3), backend), backend)
+        buf = arrayAsNumpyCopy(arrayFFTN(arrayAsArray(buf, backend), (1, 2, 3), backend), backend)
         buf = transform(latt_info, field_shape, Nd - 2, Nd - 1, buf)
-        buf = arrayHostCopy(arrayFFTN(arrayDevice(buf, backend), 0, backend), backend)
+        buf = arrayAsNumpyCopy(arrayFFT(arrayAsArray(buf, backend), 0, backend), backend)
         buf = redistribute_reverse(latt_info, field_shape, Nd - 2, buf)
-    return field.__class__(latt_info, arrayDevice(latt_info.evenodd(buf, False), field.location))
+    return field.__class__(latt_info, arrayAsArray(latt_info.evenodd(buf, False), field.location))
 
 
 def ifft(field: Field, fft3d: bool, backend: BackendType = "numpy") -> Field:
@@ -260,15 +260,15 @@ def ifft(field: Field, fft3d: bool, backend: BackendType = "numpy") -> Field:
     buf = field.lexico()
     if fft3d:
         buf = redistribute(latt_info, field_shape, Nd - 1, buf)
-        buf = arrayHostCopy(arrayIFFTN(arrayDevice(buf, backend), (1, 2, 3), backend), backend)
+        buf = arrayAsNumpyCopy(arrayIFFTN(arrayAsArray(buf, backend), (1, 2, 3), backend), backend)
         buf = redistribute_reverse(latt_info, field_shape, Nd - 1, buf)
     else:
         buf = redistribute(latt_info, field_shape, Nd - 1, buf)
-        buf = arrayHostCopy(arrayIFFTN(arrayDevice(buf, backend), (1, 2, 3), backend), backend)
+        buf = arrayAsNumpyCopy(arrayIFFTN(arrayAsArray(buf, backend), (1, 2, 3), backend), backend)
         buf = transform(latt_info, field_shape, Nd - 2, Nd - 1, buf)
-        buf = arrayHostCopy(arrayIFFTN(arrayDevice(buf, backend), 0, backend), backend)
+        buf = arrayAsNumpyCopy(arrayIFFT(arrayAsArray(buf, backend), 0, backend), backend)
         buf = redistribute_reverse(latt_info, field_shape, Nd - 2, buf)
-    return field.__class__(latt_info, arrayDevice(latt_info.evenodd(buf, False), field.location))
+    return field.__class__(latt_info, arrayAsArray(latt_info.evenodd(buf, False), field.location))
 
 
 def fft4(field: LatticePropagator):

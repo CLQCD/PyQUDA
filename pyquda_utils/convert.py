@@ -1,6 +1,6 @@
 from typing import Sequence, Union, overload
 
-from pyquda_comm.array import arrayDevice
+from pyquda_comm.array import arrayAsArray
 from pyquda import getLogger
 from pyquda.field import (
     LatticeInt,
@@ -122,23 +122,23 @@ def multiField(
     field_0 = fields[0]
     if isinstance(field_0, LatticeInt):
         return MultiLatticeInt(
-            field_0.latt_info, len(fields), arrayDevice([field.data for field in fields], field_0.location)
+            field_0.latt_info, len(fields), arrayAsArray([field.data for field in fields], field_0.location)
         )
     elif isinstance(field_0, LatticeReal):
         return MultiLatticeReal(
-            field_0.latt_info, len(fields), arrayDevice([field.data for field in fields], field_0.location)
+            field_0.latt_info, len(fields), arrayAsArray([field.data for field in fields], field_0.location)
         )
     elif isinstance(field_0, LatticeComplex):
         return MultiLatticeComplex(
-            field_0.latt_info, len(fields), arrayDevice([field.data for field in fields], field_0.location)
+            field_0.latt_info, len(fields), arrayAsArray([field.data for field in fields], field_0.location)
         )
     elif isinstance(field_0, LatticeFermion):
         return MultiLatticeFermion(
-            field_0.latt_info, len(fields), arrayDevice([field.data for field in fields], field_0.location)
+            field_0.latt_info, len(fields), arrayAsArray([field.data for field in fields], field_0.location)
         )
     elif isinstance(field_0, LatticeStaggeredFermion):
         return MultiLatticeStaggeredFermion(
-            field_0.latt_info, len(fields), arrayDevice([field.data for field in fields], field_0.location)
+            field_0.latt_info, len(fields), arrayAsArray([field.data for field in fields], field_0.location)
         )
     else:
         getLogger().critical(f"Unknown field type {type(field_0)}", ValueError)
