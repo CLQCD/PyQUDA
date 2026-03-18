@@ -359,8 +359,6 @@ class GaugeDirac(Dirac):
         restart: bool,
         rk_order: int = 3,
         compute_plaquette: bool = False,
-        compute_rectangle: bool = False,
-        compute_polyakov_loop: bool = False,
         compute_qcharge: bool = True,
     ):
         self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_WILSON_FLOW
@@ -371,13 +369,9 @@ class GaugeDirac(Dirac):
         self.smear_param.meas_interval = n_steps + 1
         self.smear_param.rk_order = rk_order
         self.obs_param.compute_plaquette = QudaBoolean(compute_plaquette)
-        self.obs_param.compute_rectangle = QudaBoolean(compute_rectangle)
-        self.obs_param.compute_polyakov_loop = QudaBoolean(compute_polyakov_loop)
         self.obs_param.compute_qcharge = QudaBoolean(compute_qcharge)
         performWFlowQuda(self.smear_param, self.obs_param)
         self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_FALSE
-        self.obs_param.compute_rectangle = QudaBoolean.QUDA_BOOLEAN_FALSE
-        self.obs_param.compute_polyakov_loop = QudaBoolean.QUDA_BOOLEAN_FALSE
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
 
     def symanzikFlow(
@@ -388,11 +382,40 @@ class GaugeDirac(Dirac):
         restart: bool,
         rk_order: int = 3,
         compute_plaquette: bool = False,
-        compute_rectangle: bool = False,
-        compute_polyakov_loop: bool = False,
         compute_qcharge: bool = True,
     ):
         self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_SYMANZIK_FLOW
+        self.smear_param.n_steps = n_steps
+        self.smear_param.epsilon = epsilon
+        self.smear_param.t0 = t0
+        self.smear_param.restart = QudaBoolean(restart)
+        self.smear_param.meas_interval = n_steps + 1
+        self.smear_param.rk_order = rk_order
+        self.obs_param.compute_plaquette = QudaBoolean(compute_plaquette)
+        self.obs_param.compute_qcharge = QudaBoolean(compute_qcharge)
+        performWFlowQuda(self.smear_param, self.obs_param)
+        self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_FALSE
+        self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
+
+    def gradientGaugeFlow(
+        self,
+        flow_type: Literal["wilson", "symanzik"],
+        n_steps: int,
+        epsilon: float,
+        t0: float,
+        restart: bool,
+        rk_order: int = 3,
+        compute_plaquette: bool = False,
+        compute_rectangle: bool = False,
+        compute_polyakov_loop: bool = False,
+        compute_qcharge: bool = False,
+    ):
+        if flow_type == "wilson":
+            self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_WILSON_FLOW
+        elif flow_type == "symanzik":
+            self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_SYMANZIK_FLOW
+        else:
+            raise ValueError("flow_type should be 'wilson' or 'symanzik'")
         self.smear_param.n_steps = n_steps
         self.smear_param.epsilon = epsilon
         self.smear_param.t0 = t0
