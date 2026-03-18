@@ -351,52 +351,6 @@ class GaugeDirac(Dirac):
         self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_FALSE
         self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
 
-    def wilsonFlow(
-        self,
-        n_steps: int,
-        epsilon: float,
-        t0: float,
-        restart: bool,
-        rk_order: int = 3,
-        compute_plaquette: bool = False,
-        compute_qcharge: bool = True,
-    ):
-        self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_WILSON_FLOW
-        self.smear_param.n_steps = n_steps
-        self.smear_param.epsilon = epsilon
-        self.smear_param.t0 = t0
-        self.smear_param.restart = QudaBoolean(restart)
-        self.smear_param.meas_interval = n_steps + 1
-        self.smear_param.rk_order = rk_order
-        self.obs_param.compute_plaquette = QudaBoolean(compute_plaquette)
-        self.obs_param.compute_qcharge = QudaBoolean(compute_qcharge)
-        performWFlowQuda(self.smear_param, self.obs_param)
-        self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_FALSE
-        self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
-
-    def symanzikFlow(
-        self,
-        n_steps: int,
-        epsilon: float,
-        t0: float,
-        restart: bool,
-        rk_order: int = 3,
-        compute_plaquette: bool = False,
-        compute_qcharge: bool = True,
-    ):
-        self.smear_param.smear_type = QudaGaugeSmearType.QUDA_GAUGE_SMEAR_SYMANZIK_FLOW
-        self.smear_param.n_steps = n_steps
-        self.smear_param.epsilon = epsilon
-        self.smear_param.t0 = t0
-        self.smear_param.restart = QudaBoolean(restart)
-        self.smear_param.meas_interval = n_steps + 1
-        self.smear_param.rk_order = rk_order
-        self.obs_param.compute_plaquette = QudaBoolean(compute_plaquette)
-        self.obs_param.compute_qcharge = QudaBoolean(compute_qcharge)
-        performWFlowQuda(self.smear_param, self.obs_param)
-        self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_FALSE
-        self.obs_param.compute_qcharge = QudaBoolean.QUDA_BOOLEAN_FALSE
-
     def gradientGaugeFlow(
         self,
         flow_type: Literal["wilson", "symanzik"],

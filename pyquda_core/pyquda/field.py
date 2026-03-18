@@ -253,15 +253,15 @@ class LatticeGauge(_LatticeGauge):
         self,
         n_steps: int,
         epsilon: float,
-        rk_order: int = 3,
         compute_plaquette: bool = False,
-        compute_qcharge: bool = True,
     ):
         with self.use() as dirac:
-            dirac.wilsonFlow(1, epsilon, 0, False, rk_order, compute_plaquette, compute_qcharge)
+            dirac.gradientGaugeFlow("wilson", 1, epsilon, 0, False, 3, compute_plaquette, False, False, True)
             energy = [dirac.obs_param.energy]
             for step in range(1, n_steps):
-                dirac.wilsonFlow(1, epsilon, step * epsilon, True, rk_order, compute_plaquette, compute_qcharge)
+                dirac.gradientGaugeFlow(
+                    "wilson", 1, epsilon, step * epsilon, True, 3, compute_plaquette, False, False, True
+                )
                 energy.append(dirac.obs_param.energy)
             energy.append(dirac.energy())
             dirac.saveSmearedGauge(self)
@@ -272,17 +272,18 @@ class LatticeGauge(_LatticeGauge):
         self,
         max_steps: int,
         epsilon: float,
-        rk_order: int = 3,
         compute_plaquette: bool = False,
     ):
         with self.use() as dirac:
-            dirac.wilsonFlow(1, epsilon, 0, False, rk_order, compute_plaquette, True)
+            dirac.gradientGaugeFlow("wilson", 1, epsilon, 0, False, 3, compute_plaquette, False, False, True)
             t2E, tdt2E = 0, 0
             t0, w0 = 0, 0
             for step in range(1, max_steps + 1):
                 if t2E >= 0.3 and tdt2E >= 0.3:
                     break
-                dirac.wilsonFlow(1, epsilon, step * epsilon, True, rk_order, compute_plaquette, True)
+                dirac.gradientGaugeFlow(
+                    "wilson", 1, epsilon, step * epsilon, True, 3, compute_plaquette, False, False, True
+                )
                 t2E_old, t2E = t2E, (step * epsilon) ** 2 * dirac.obs_param.energy[0]
                 tdt2E_old, tdt2E = tdt2E, (step - 0.5) * (t2E - t2E_old)
                 if t0 == 0 and t2E >= 0.3:
@@ -301,15 +302,15 @@ class LatticeGauge(_LatticeGauge):
         self,
         n_steps: int,
         epsilon: float,
-        rk_order: int = 3,
         compute_plaquette: bool = False,
-        compute_qcharge: bool = True,
     ):
         with self.use() as dirac:
-            dirac.symanzikFlow(1, epsilon, 0, False, rk_order, compute_plaquette, compute_qcharge)
+            dirac.gradientGaugeFlow("symanzik", 1, epsilon, 0, False, 3, compute_plaquette, False, False, True)
             energy = [dirac.obs_param.energy]
             for step in range(1, n_steps):
-                dirac.symanzikFlow(1, epsilon, step * epsilon, True, rk_order, compute_plaquette, compute_qcharge)
+                dirac.gradientGaugeFlow(
+                    "symanzik", 1, epsilon, step * epsilon, True, 3, compute_plaquette, False, False, True
+                )
                 energy.append(dirac.obs_param.energy)
             energy.append(dirac.energy())
             dirac.saveSmearedGauge(self)
@@ -320,17 +321,18 @@ class LatticeGauge(_LatticeGauge):
         self,
         max_steps: int,
         epsilon: float,
-        rk_order: int = 3,
         compute_plaquette: bool = False,
     ):
         with self.use() as dirac:
-            dirac.symanzikFlow(1, epsilon, 0, False, rk_order, compute_plaquette, True)
+            dirac.gradientGaugeFlow("symanzik", 1, epsilon, 0, False, 3, compute_plaquette, False, False, True)
             t2E, tdt2E = 0, 0
             t0, w0 = 0, 0
             for step in range(1, max_steps + 1):
                 if t2E >= 0.3 and tdt2E >= 0.3:
                     break
-                dirac.symanzikFlow(1, epsilon, step * epsilon, True, rk_order, compute_plaquette, True)
+                dirac.gradientGaugeFlow(
+                    "symanzik", 1, epsilon, step * epsilon, True, 3, compute_plaquette, False, False, True
+                )
                 t2E_old, t2E = t2E, (step * epsilon) ** 2 * dirac.obs_param.energy[0]
                 tdt2E_old, tdt2E = tdt2E, (step - 0.5) * (t2E - t2E_old)
                 if t0 == 0 and t2E >= 0.3:
@@ -443,17 +445,13 @@ class LatticeGauge(_LatticeGauge):
         dimAPE = 3 if dir_ignore >= 0 and dir_ignore <= 3 else 4
         self.apeSmear(n_steps, (dimAPE - 1) / (dimAPE - 1 + factor / 2), dir_ignore, compute_plaquette, compute_qcharge)
 
-    def wilsonFlowChroma(
-        self, n_steps: int, time: float, compute_plaquette: bool = False, compute_qcharge: bool = True
-    ):
+    def wilsonFlowChroma(self, n_steps: int, time: float, compute_plaquette: bool = False):
         """Use total time instead of epsilon"""
-        return self.wilsonFlow(n_steps, time / n_steps, 3, compute_plaquette, compute_qcharge)
+        return self.wilsonFlow(n_steps, time / n_steps, compute_plaquette)
 
-    def symanzikFlowChroma(
-        self, n_steps: int, time: float, compute_plaquette: bool = False, compute_qcharge: bool = True
-    ):
+    def symanzikFlowChroma(self, n_steps: int, time: float, compute_plaquette: bool = False):
         """Use total time instead of epsilon"""
-        return self.symanzikFlow(n_steps, time / n_steps, 3, compute_plaquette, compute_qcharge)
+        return self.symanzikFlow(n_steps, time / n_steps, compute_plaquette)
 
     def plaquette(self):
         with self.use() as dirac:
