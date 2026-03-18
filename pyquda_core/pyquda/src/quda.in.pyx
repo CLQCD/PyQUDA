@@ -244,6 +244,12 @@ def eigensolveQuda(h_evecs, ndarray[double_complex, ndim=1] h_evals, QudaEigPara
     _h_evals = _NDArray(h_evals)
     quda.eigensolveQuda(_h_evecs.ptrs, <double_complex *>_h_evals.ptr, &param.param)
 
+def loadOverlapQuda(QudaInvertParam inv_param, QudaEigParam eig_param):
+    quda.loadOverlapQuda(&inv_param.param, &eig_param.param)
+
+def freeOverlapQuda():
+    quda.freeOverlapQuda()
+
 def invertQuda(h_x, h_b, QudaInvertParam param):
     _h_x = _NDArray(h_x, 1)
     _h_b = _NDArray(h_b, 1)

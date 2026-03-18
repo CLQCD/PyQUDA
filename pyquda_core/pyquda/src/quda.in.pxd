@@ -344,6 +344,20 @@ cdef extern from "quda.h":
     void eigensolveQuda(void **h_evecs, double_complex *h_evals, QudaEigParam *param)
 
     #
+    # Load resources required by overlap solves.
+    # It is assumed that the gauge field has already been loaded via
+    # loadGaugeQuda().
+    # @param inv_param Contains overlap operator and inversion metadata
+    # @param eig_param Contains overlap eigensolver metadata
+    #
+    void loadOverlapQuda(QudaInvertParam *inv_param, QudaEigParam *eig_param)
+    
+    #
+    # Free resources allocated by loadOverlapQuda().
+    #
+    void freeOverlapQuda()
+
+    #
     # Perform the solve, according to the parameters set in param.  It
     # is assumed that the gauge field has already been loaded via
     # loadGaugeQuda().
