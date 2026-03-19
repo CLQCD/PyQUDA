@@ -276,47 +276,48 @@ class HMC:
         import os
         import cupy as cp
 
+        rho = 0.125
+        dim = 4
+
         if not hasattr(self, "_stout_smear"):
             with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "stout_smear.cu")) as f:
                 self._stout_smear = cp.RawModule(
-                    code=f.read(), options=("--std=c++11",), name_expressions=("stout_smear<double, 3>",)
-                ).get_function("stout_smear<double, 3>")
+                    code=f.read(), options=("--std=c++11",), name_expressions=(f"stout_smear<double, {dim}>",)
+                ).get_function(f"stout_smear<double, {dim}>")
 
         Lx, Ly, Lz, Lt = self.smeared.latt_info.size
-        gauge_lexico = self.smeared.lexico(False)
-        smeared_lexico = cp.zeros_like(gauge_lexico)
-        self._stout_smear((Lx * Ly * Lz, 3, 1), (Lt, 1, 1), (smeared_lexico, gauge_lexico, 1e-15, Lx, Ly, Lz, Lt))
-        self.smeared.data[:3] = self.smeared.latt_info.evenodd(smeared_lexico[:3], True, "cupy")
+        gauge = self.smeared.data
+        smeared = self.smeared.data.copy()
+        self._stout_smear((Lx * Ly * Lz // 2, dim, 2), (Lt, 1, 1), (smeared, gauge, rho, Lx, Ly, Lz, Lt))
+        self.smeared.data = smeared
 
     def _stoutSmearReverse(self):
         import os
         import cupy as cp
 
+        rho = 0.125
+        dim = 4
+
         if not hasattr(self, "_compute_lambda_kernel"):
             with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "stout_smear.cu")) as f:
                 self._compute_lambda_kernel = cp.RawModule(
-                    code=f.read(), options=("--std=c++11",), name_expressions=("compute_lambda_kernel<double, 3>",)
-                ).get_function("compute_lambda_kernel<double, 3>")
+                    code=f.read(), options=("--std=c++11",), name_expressions=(f"compute_lambda_kernel<double, {dim}>",)
+                ).get_function(f"compute_lambda_kernel<double, {dim}>")
         if not hasattr(self, "_stout_smear_reverse"):
             with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "stout_smear.cu")) as f:
                 self._stout_smear_reverse = cp.RawModule(
-                    code=f.read(), options=("--std=c++11",), name_expressions=("stout_smear_reverse<double, 3>",)
-                ).get_function("stout_smear_reverse<double, 3>")
+                    code=f.read(), options=("--std=c++11",), name_expressions=(f"stout_smear_reverse<double, {dim}>",)
+                ).get_function(f"stout_smear_reverse<double, {dim}>")
 
         Lx, Ly, Lz, Lt = self.smeared.latt_info.size
-        gauge_lexico = self.smeared.lexico(False)
-        force_lexico = self.force_v2.lexico(False)
-        lambda_lexico = cp.zeros_like(gauge_lexico)
+        gauge = self.smeared.data
+        force = self.force_v2.data.copy()
+        lambda_ = self.force_v2.data.copy()
         self._compute_lambda_kernel(
-            (Lx * Ly * Lz, 3, 1), (Lt, 1, 1), (force_lexico, lambda_lexico, gauge_lexico, 1e-15, Lx, Ly, Lz, Lt)
+            (Lx * Ly * Lz // 2, dim, 2), (Lt, 1, 1), (force, lambda_, gauge, rho, Lx, Ly, Lz, Lt)
         )
-        self._stout_smear_reverse(
-            (Lx * Ly * Lz, 3, 1), (Lt, 1, 1), (force_lexico, lambda_lexico, gauge_lexico, 1e-15, Lx, Ly, Lz, Lt)
-        )
-        print(self.force_v2.data[0, 1, 0, 0, 0, 0])
-        print(force_lexico[0, 0, 0, 0, 1])
-        print(cp.where(self.force_v2.lexico(False)[:3] - force_lexico[:3] > 1e-12))
-        self.force_v2.data[:3] = self.smeared.latt_info.evenodd(force_lexico[:3], True, "cupy")
+        self._stout_smear_reverse((Lx * Ly * Lz // 2, dim, 2), (Lt, 1, 1), (force, lambda_, gauge, rho, Lx, Ly, Lz, Lt))
+        self.force_v2.data = force
 
     def loadGaugeMomSmeared(self):
         if self.gauge is not None and self.smeared is not None and self.force is not None and self.mom is not None:
