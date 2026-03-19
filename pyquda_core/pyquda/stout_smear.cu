@@ -277,7 +277,7 @@ __global__ void stout_smear(
       Q += staple1 + staple2;
     }
   }
-  Q = antiherm((Q * rho) * adjoint(U));
+  Q = i_herm((Q * rho) * adjoint(U));
 
   ColorMatrix Q_sq = Q * Q;
   double c0 = trace(Q_sq * Q).real() / 3;
@@ -376,7 +376,7 @@ __global__ void compute_lambda_kernel(
       Q += staple1 + staple2;
     }
   }
-  Q = antiherm((Q * rho) * adjoint(U));
+  Q = i_herm((Q * rho) * adjoint(U));
 
   ColorMatrix Q_sq = Q * Q;
   double c0 = trace(Q_sq * Q).real() / 3;
