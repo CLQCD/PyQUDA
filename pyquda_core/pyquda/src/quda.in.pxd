@@ -650,6 +650,7 @@ cdef extern from "quda.h":
     #
     void createCloverQuda(QudaInvertParam* param)
 
+    void computeStoutForceQuda(void *h_force, QudaGaugeParam *gauge_param, QudaGaugeSmearParam *smear_param)
     void computeCloverForceV2Quda(void *h_force, double dt, void **h_x, void **, double *coeff, double kappa2, double ck,
                                   int nvector, double multiplicity, void *, QudaGaugeParam *gauge_param,
                                   QudaInvertParam *inv_param)

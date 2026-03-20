@@ -15,11 +15,12 @@ from pyquda_utils.hmc_param import (
 beta, u_0 = 7.4, 0.890
 clover_csw = 1 / u_0**3
 tol, maxiter = 1e-6, 1000
-start, stop, warm, save = 0, 5, 500, 5
+start, stop, warm, save = 0, 10, 500, 50
 t = 1.0
 
-core.init([1, 1, 1, 1], resource_path=".cache/stout", enable_force_monitor=True)
-latt_info = core.LatticeInfo([4, 4, 4, 8], t_boundary=1, anisotropy=1.0)
+latt_size = [4, 4, 4, 8]
+core.init(None, latt_size, resource_path=".cache/stout", enable_force_monitor=True)
+latt_info = core.LatticeInfo(latt_size, t_boundary=1, anisotropy=1.0)
 
 monomials = [
     GaugeAction(latt_info, loopParam(u_0), beta),

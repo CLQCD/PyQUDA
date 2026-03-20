@@ -273,51 +273,65 @@ class HMC:
             fermion_monomial.setVerbosity(verbosity)
 
     def _stoutSmear(self):
-        import os
-        import cupy as cp
+        # import os
+        # import cupy as cp
 
-        rho = 0.125
-        dim = 4
+        # rho = 0.125
+        # dim = 4
 
-        if not hasattr(self, "_stout_smear"):
-            with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "stout_smear.cu")) as f:
-                self._stout_smear = cp.RawModule(
-                    code=f.read(), options=("--std=c++11",), name_expressions=(f"stout_smear<double, {dim}>",)
-                ).get_function(f"stout_smear<double, {dim}>")
+        # if not hasattr(self, "_stout_smear"):
+        #     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "stout_smear.cu")) as f:
+        #         self._stout_smear = cp.RawModule(
+        #             code=f.read(), options=("--std=c++11",), name_expressions=(f"stout_smear<double, {dim}>",)
+        #         ).get_function(f"stout_smear<double, {dim}>")
 
-        Lx, Ly, Lz, Lt = self.smeared.latt_info.size
-        gauge = self.smeared.data
-        smeared = self.smeared.data.copy()
-        self._stout_smear((Lx * Ly * Lz // 2, dim, 2), (Lt, 1, 1), (smeared, gauge, rho, Lx, Ly, Lz, Lt))
-        self.smeared.data = smeared
+        # Lx, Ly, Lz, Lt = self.smeared.latt_info.size
+        # gauge = self.smeared.data
+        # smeared = self.smeared.data.copy()
+        # self._stout_smear((Lx * Ly * Lz // 2, dim, 2), (Lt, 1, 1), (smeared, gauge, rho, Lx, Ly, Lz, Lt))
+        # self.smeared.data = smeared
+
+        self.smeared.stoutSmear(1, 0.125, 4)
 
     def _stoutSmearReverse(self):
-        import os
-        import cupy as cp
+        # import os
+        # import cupy as cp
 
-        rho = 0.125
-        dim = 4
+        # rho = 0.125
+        # dim = 4
 
-        if not hasattr(self, "_compute_lambda_kernel"):
-            with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "stout_smear.cu")) as f:
-                self._compute_lambda_kernel = cp.RawModule(
-                    code=f.read(), options=("--std=c++11",), name_expressions=(f"compute_lambda_kernel<double, {dim}>",)
-                ).get_function(f"compute_lambda_kernel<double, {dim}>")
-        if not hasattr(self, "_stout_smear_reverse"):
-            with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "stout_smear.cu")) as f:
-                self._stout_smear_reverse = cp.RawModule(
-                    code=f.read(), options=("--std=c++11",), name_expressions=(f"stout_smear_reverse<double, {dim}>",)
-                ).get_function(f"stout_smear_reverse<double, {dim}>")
+        # if not hasattr(self, "_compute_lambda_kernel"):
+        #     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "stout_smear.cu")) as f:
+        #         self._compute_lambda_kernel = cp.RawModule(
+        #             code=f.read(), options=("--std=c++11",), name_expressions=(f"compute_lambda_kernel<double, {dim}>",)
+        #         ).get_function(f"compute_lambda_kernel<double, {dim}>")
+        # if not hasattr(self, "_stout_smear_reverse"):
+        #     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "stout_smear.cu")) as f:
+        #         self._stout_smear_reverse = cp.RawModule(
+        #             code=f.read(), options=("--std=c++11",), name_expressions=(f"stout_smear_reverse<double, {dim}>",)
+        #         ).get_function(f"stout_smear_reverse<double, {dim}>")
 
-        Lx, Ly, Lz, Lt = self.smeared.latt_info.size
-        gauge = self.smeared.data
-        force = self.force_v2.data.copy()
-        lambda_ = self.force_v2.data.copy()
-        self._compute_lambda_kernel(
-            (Lx * Ly * Lz // 2, dim, 2), (Lt, 1, 1), (force, lambda_, gauge, rho, Lx, Ly, Lz, Lt)
-        )
-        self._stout_smear_reverse((Lx * Ly * Lz // 2, dim, 2), (Lt, 1, 1), (force, lambda_, gauge, rho, Lx, Ly, Lz, Lt))
-        self.force_v2.data = force
+        # Lx, Ly, Lz, Lt = self.smeared.latt_info.size
+        # gauge = self.smeared.data
+        # force = self.force_v2.data.copy()
+        # force_ori = self.force_v2.data.copy()
+        # lambda_ = self.force_v2.data.copy()
+        # self._compute_lambda_kernel(
+        #     (Lx * Ly * Lz // 2, dim, 2), (Lt, 1, 1), (force, lambda_, gauge, rho, Lx, Ly, Lz, Lt)
+        # )
+        # self._stout_smear_reverse((Lx * Ly * Lz // 2, dim, 2), (Lt, 1, 1), (force, lambda_, gauge, rho, Lx, Ly, Lz, Lt))
+        # self.force_v2.data = force
+
+        from pyquda import quda
+
+        smear_param = quda.QudaGaugeSmearParam()
+        smear_param.smear_type = 1
+        smear_param.rho = 0.125
+        smear_param.dir_ignore = 4
+        self.gauge_param.use_resident_force = 0
+        self.gauge_param.return_result_force = 1
+        self.gauge_param.overwrite_force = 0
+        quda.computeStoutForceQuda(self.force_v2.data_ptrs, self.gauge_param, smear_param)
 
     def loadGaugeMomSmeared(self):
         if self.gauge is not None and self.smeared is not None and self.force is not None and self.mom is not None:
@@ -346,6 +360,10 @@ class HMC:
 
     def loadGaugeMom(self):
         if self.gauge is not None and self.smeared is not None and self.force is not None and self.mom is not None:
+            self.gauge_param.use_resident_gauge = 0
+            loadGaugeQuda(self.gauge.data_ptrs, self.gauge_param)
+            self.gauge_param.use_resident_gauge = 1
+
             self.smeared.data = self.gauge.data
             if self.gauge_param.t_boundary == QudaTboundary.QUDA_ANTI_PERIODIC_T:
                 self.smeared.setAntiPeriodicT()
@@ -370,9 +388,6 @@ class HMC:
 
             self.mom += self.force
 
-            self.gauge_param.use_resident_gauge = 0
-            loadGaugeQuda(self.gauge.data_ptrs, self.gauge_param)
-            self.gauge_param.use_resident_gauge = 1
             momResidentQuda(self.mom.data_ptrs, self.gauge_param)
 
     def seed(self, state):

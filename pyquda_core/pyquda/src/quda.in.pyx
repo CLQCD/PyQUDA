@@ -417,6 +417,10 @@ def momActionQuda(momentum, QudaGaugeParam param):
 def createCloverQuda(QudaInvertParam param):
     quda.createCloverQuda(&param.param)
 
+def computeStoutForceQuda(force, QudaGaugeParam gauge_param, QudaGaugeSmearParam smear_param):
+    _force = _NDArray(force, 2)
+    quda.computeStoutForceQuda(_force.ptr, &gauge_param.param, &smear_param.param)
+
 def computeCloverForceV2Quda(force, double dt, x, ndarray[double, ndim=1] coeff, double kappa2, double ck, int nvector, double multiplicity, QudaGaugeParam gauge_param, QudaInvertParam inv_param):
     _force = _NDArray(force, 2)
     _x = _NDArray(x, 2)

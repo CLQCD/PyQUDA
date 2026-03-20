@@ -331,8 +331,7 @@ __global__ void stout_smear(
 
 template <typename T, int DIM>
 __global__ void compute_lambda_kernel(
-    // const T *sigma,
-    complex<T> *sigma,
+    const complex<T> *sigma,
     complex<T> *lambda,
     const complex<T> *U_in,
     const T rho,
@@ -417,19 +416,19 @@ __global__ void compute_lambda_kernel(
   f[1] = {T(f1_real), T(f1_imag)};
   f[2] = {T(f2_real), T(f2_imag)};
 
-  double sinc1_w = -1 / 3 + w_sq / 30 * (1 - w_sq / 260 * (1 - w_sq / 54 * (1 - w_sq / 88)));
+  double dsinc_w_w = -1 / 3 + w_sq / 30 * (1 - w_sq / 260 * (1 - w_sq / 54 * (1 - w_sq / 88)));
   if (fabs(w) > 0.05) {
-    sinc1_w = cos_w / w_sq - sin_w / (w_sq * w);
+    dsinc_w_w = cos_w / w_sq - sin_w / (w_sq * w);
   }
   complex<T> r[3][3];
   complex<T> e_2iu = cos(2. * u) + I * sin(2. * u);
   complex<T> e__iu = cos(u) - I * sin(u);
   r[0][1] = 2. * (u + I * (u_sq - w_sq)) * e_2iu + 2. * e__iu * (4. * u * (2. - I * u) * cos(w) + I * (9. * u_sq + w_sq - I * u * (3. * u_sq + w_sq)) * sinc_w);
-  r[0][2] = -2. * e_2iu + 2. * I * u * e__iu * (cos(w) + (1. + 4. * I * u) * sinc_w + 3. * u_sq * sinc1_w);
+  r[0][2] = -2. * e_2iu + 2. * I * u * e__iu * (cos(w) + (1. + 4. * I * u) * sinc_w + 3. * u_sq * dsinc_w_w);
   r[1][1] = 2. * (1. + 2. * I * u) * e_2iu + e__iu * (-2. * (1. - I * u) * cos(w) + I * (6. * u + I * (w_sq - 3. * u_sq)) * sinc_w);
-  r[1][2] = -I * e__iu * (cos(w) + (1. + 2. * I * u) * sinc_w - 3. * u_sq * sinc1_w);
+  r[1][2] = -I * e__iu * (cos(w) + (1. + 2. * I * u) * sinc_w - 3. * u_sq * dsinc_w_w);
   r[2][1] = 2. * I * e_2iu + I * e__iu * (cos(w) - 3. * (1. - I * u) * sinc_w);
-  r[2][2] = e__iu * (sinc_w - 3. * I * u * sinc1_w);
+  r[2][2] = e__iu * (sinc_w - 3. * I * u * dsinc_w_w);
   complex<T> b[3][3];
   double b_denom = 1 / (2 * (9 * u_sq - w_sq) * (9 * u_sq - w_sq));
   for (int j = 0; j < 3; ++j) {
@@ -457,7 +456,7 @@ __global__ void compute_lambda_kernel(
   B1 = Q_sq * b[1][2] + Q * b[1][1] + b[1][0];
   B2 = Q_sq * b[2][2] + Q * b[2][1] + b[2][0];
   ColorMatrix S(sigma + index_from_pcoord(p_X, p_coord, mu, volume));
-  ColorMatrix gamma = (Q * trace(S * B1 * U)) + (Q_sq * trace(S * B2 * U)) + (U * S * f[1]) + (Q * U * S * f[2]) + (U * S * Q * f[2]);
+  ColorMatrix gamma = (Q * trace(U * S * B1)) + (Q_sq * trace(U * S * B2)) + (U * S * f[1]) + (Q * U * S * f[2]) + (U * S * Q * f[2]);
   ColorMatrix L = herm(gamma);
   for (int i = 0; i < Nc; ++i) {
     for (int j = 0; j < Nc; ++j) {
@@ -468,7 +467,6 @@ __global__ void compute_lambda_kernel(
 
 template <typename T, int DIM>
 __global__ void stout_smear_reverse(
-    // T *sigma,
     complex<T> *sigma,
     const complex<T> *lambda,
     const complex<T> *U_in,
@@ -571,10 +569,13 @@ __global__ void stout_smear_reverse(
 
       //  Staple 1
       //                                ( [ U_nu(x+mu) * U^+_mu(x+nu) ] U^+_nu(x) ) * Lambda_nu(x)
+      //                   (U3 * conj(U2)) * conj(U1) * L1
       //  Staple 5
       //            - Lambda_nu(x+mu) * ( [ U_nu(x+mu) * U^+_mu(x+nu) ] U^+_nu(x) )
+      //              L3 * (U3 * conj(U2)) * conj(U1)
       //  Staple 6
       //                                  [ U_nu(x+mu) * U^+_mu(x+nu) ] Lambda_mu(x + nu) * U^+_nu(x)
+      //                   (U3 * conj(U2)) * L2 * conj(U1)
 
       coord[mu] = (coord[mu] + 1 + X[mu]) % X[mu];
       ColorMatrix tM1(U_in + index_from_coord(p_X, coord, nu, volume));
@@ -588,12 +589,15 @@ __global__ void stout_smear_reverse(
       ColorMatrix tL1(lambda + index_from_coord(p_X, coord, nu, volume));                      // Lambda_nu(x)
       ColorMatrix dU156 = (tM1 * tM2 * tL1) - (tL2 * tM1 * tM2) + (tM1 * tL3 * tM2);
 
-      // // Staple 2
-      // //                U^+_nu(x-nu+mu) * [ U^+_mu(x-nu) * Lambda_mu(x-nu)    ] * U_nu(x-nu)
-      // // Staple 3
-      // //                U^+_nu(x-nu+mu) * [ Lambda_nu(x-nu+mu) * U^+_mu(x-nu) ] * U_nu(x-nu)
-      // // Staple 4
-      // //              - U^+_nu(x-nu+mu) * [ U^+_mu(x-nu) * Lambda_nu(x-nu)    ] * U_nu(x-nu)
+      // Staple 2
+      //                U^+_nu(x-nu+mu) * [ U^+_mu(x-nu) * Lambda_mu(x-nu)    ] * U_nu(x-nu)
+      //                    conj(U3) * conj(U2) * L2 * U1
+      // Staple 3
+      //                U^+_nu(x-nu+mu) * [ Lambda_nu(x-nu+mu) * U^+_mu(x-nu) ] * U_nu(x-nu)
+      //                    conj(U3) * L3 * conj(U2) * U1
+      // Staple 4
+      //              - U^+_nu(x-nu+mu) * [ U^+_mu(x-nu) * Lambda_nu(x-nu)    ] * U_nu(x-nu)
+      //                    conj(U3) * conj(U2) * L1 * U1
 
       coord[nu] = (coord[nu] - 1 + X[nu]) % X[nu];
       tM1 = ColorMatrix(U_in + index_from_coord(p_X, coord, nu, volume));          // U_nu(x-nu)
