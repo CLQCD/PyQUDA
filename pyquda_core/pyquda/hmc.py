@@ -5,7 +5,7 @@ from typing import List, Optional, Union
 
 import numpy
 
-from pyquda_comm import getLogger, getArrayBackend
+from pyquda_comm import getLogger, getMPIComm, getMPIRank, getArrayBackend
 from pyquda_comm.array import arrayRandomGetState, arrayRandomSetState, arrayRandomSeed
 from .field import LatticeInfo, LatticeGauge, LatticeMom, LatticeReal
 from .quda import (
@@ -250,7 +250,7 @@ class HMC:
             ]
 
     def initializeRNG(self, seed: int):
-        self.random = Random(seed * self.latt_info.volume + self.latt_info.mpi_rank)
+        self.random = Random(seed * self.latt_info.volume + getMPIRank())
         self.random.setstate(
             (
                 self.random.VERSION,
@@ -425,7 +425,7 @@ class HMC:
             self.projectSU3(project_tol)
 
     def accept(self, delta_s: float):
-        return self.latt_info.mpi_comm.bcast(self.random.random() < exp(min(-delta_s, 0)))
+        return getMPIComm().bcast(self.random.random() < exp(min(-delta_s, 0)))
 
     def plaquette(self):
         self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_TRUE

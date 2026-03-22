@@ -33,7 +33,7 @@ for t_idx, t_src in enumerate(t_src_list):
 dirac.freeGauge()
 
 tmp = core.gatherLattice(pion.real.get(), [2, -1, -1, -1])
-if latt_info.mpi_rank == 0:
+if core.getMPIRank() == 0:
     for t_idx, t_src in enumerate(t_src_list):
         tmp[t_idx] = np.roll(tmp[t_idx], -t_src, 1)
     twopt = tmp.mean(0)

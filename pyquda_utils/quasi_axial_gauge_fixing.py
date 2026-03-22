@@ -1,6 +1,6 @@
 import numpy as np
 
-from .core import getRankFromCoord, LatticeGauge, LatticeFermion, X, Y, Z, T
+from .core import getRankFromCoord, getMPIComm, LatticeGauge, LatticeFermion, X, Y, Z, T
 
 
 def quasiAxialGaugeFixing(gauge: LatticeGauge, dir: int):
@@ -15,7 +15,7 @@ def quasiAxialGaugeFixing(gauge: LatticeGauge, dir: int):
         latt_info.size[dir],
     )
     Nc = latt_info.Nc
-    comm = latt_info.mpi_comm
+    comm = getMPIComm()
 
     def get_neighbor_rank(value: int):
         return getRankFromCoord(

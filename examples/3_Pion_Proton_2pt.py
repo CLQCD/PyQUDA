@@ -69,7 +69,7 @@ for t_idx, t_src in enumerate(t_src_list):
 dirac.freeGauge()
 
 tmp = core.gatherLattice(pion.real.get(), [1, -1, -1, -1])
-if latt_info.mpi_rank == 0:
+if core.getMPIRank() == 0:
     for t_idx, t_src in enumerate(t_src_list):
         tmp[t_idx] = np.roll(tmp[t_idx], -t_src, 0)
     twopt = tmp.mean(0)
@@ -85,7 +85,7 @@ if latt_info.mpi_rank == 0:
     # np.save("pion.npy", tmp)
     print(tmp)
 tmp = core.gatherLattice(proton.real.get(), [1, -1, -1, -1])
-if latt_info.mpi_rank == 0:
+if core.getMPIRank() == 0:
     for t_idx, t_src in enumerate(t_src_list):
         tmp[t_idx] = np.roll(tmp[t_idx], -t_src, 0)
     twopt = tmp.mean(0)
