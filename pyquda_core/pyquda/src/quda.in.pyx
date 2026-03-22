@@ -180,37 +180,9 @@ cdef class QudaBLASParam:
 def setVerbosityQuda(quda.QudaVerbosity verbosity, const char prefix[]):
     quda.setVerbosityQuda(verbosity, prefix, stdout)
 
-ctypedef struct CommsMapData:
-    int ndim
-    int dims[6]
-    int size
-    int *ranks
-
-cdef CommsMapData map_data
-
-cdef int commsMap(const int *coords, void *fdata) noexcept:
-    cdef CommsMapData *md = <CommsMapData *>fdata
-
-    cdef int rank = 0
-    for i in range(md.ndim):
-        rank = rank * md.dims[i] + coords[i]
-
-    for i in range(md.size):
-        if rank == md.ranks[i]:
-            return i
-    else:
-        return rank
-
-def initCommsGridQuda(int nDim, list dims, list ranks):
-    map_data.ndim = nDim
-    map_data.size = 1
-    for i in range(map_data.ndim):
-        map_data.dims[i] = dims[i]
-        map_data.size *= dims[i]
-    map_data.ranks = <int *>malloc(map_data.size * sizeof(int))
-    for i in range(map_data.size):
-        map_data.ranks[i] = ranks[i]
-    quda.initCommsGridQuda(map_data.ndim, map_data.dims, commsMap, <void *>(&map_data))
+def initCommsGridQuda(list dims):
+    cdef int[4] _dims = dims
+    quda.initCommsGridQuda(4, _dims, NULL, NULL)
 
 def initQudaDevice(int device):
     quda.initQudaDevice(device)
@@ -497,6 +469,9 @@ def destroyDeflationQuda(Pointer df_instance):
 
 def flushPoolQuda(quda.QudaMemoryType type_):
     quda.flushPoolQuda(type_)
+
+def setMPICommHandleQuda(size_t mycomm):
+    quda.setMPICommHandleQuda(<void *>mycomm)
 
 cdef class QudaQuarkSmearParam:
     cdef quda.QudaQuarkSmearParam param

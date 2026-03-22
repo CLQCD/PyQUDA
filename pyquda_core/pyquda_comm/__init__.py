@@ -30,55 +30,60 @@ class _MPILogger:
         self.logger.handlers = [stdout_handler, stderr_handler]
 
     def debug(self, msg: str):
-        if _MPI_RANK == self.root:
+        if _MPI_RANK_WORLD == self.root:
             self.logger.debug(msg)
 
     def info(self, msg: str):
-        if _MPI_RANK == self.root:
+        if _MPI_RANK_WORLD == self.root:
             self.logger.info(msg)
 
     def warning(self, msg: str, category: Type[Warning]):
-        if _MPI_RANK == self.root:
+        if _MPI_RANK_WORLD == self.root:
             self.logger.warning(msg, exc_info=category(msg))
 
     def error(self, msg: str, category: Type[Exception]):
-        if _MPI_RANK == self.root:
+        if _MPI_RANK_WORLD == self.root:
             self.logger.error(msg, exc_info=category(msg), stack_info=True)
 
     def critical(self, msg: str, category: Type[Exception]):
-        if _MPI_RANK == self.root:
+        if _MPI_RANK_WORLD == self.root:
             self.logger.critical(msg, exc_info=category(msg), stack_info=True)
         raise category(msg)
 
 
 _MPI_LOGGER: _MPILogger = _MPILogger()
-_MPI_COMM: MPI.Intracomm = MPI.COMM_WORLD
-_MPI_SIZE: int = _MPI_COMM.Get_size()
-_MPI_RANK: int = _MPI_COMM.Get_rank()
-_SHARED_COMM: MPI.Comm = _MPI_COMM.Split_type(MPI.COMM_TYPE_SHARED)
+_MPI_COMM_WORLD: MPI.Intracomm = MPI.COMM_WORLD
+_MPI_SIZE_WORLD: int = _MPI_COMM_WORLD.Get_size()
+_MPI_RANK_WORLD: int = _MPI_COMM_WORLD.Get_rank()
+_SHARED_COMM: MPI.Comm = _MPI_COMM_WORLD.Split_type(MPI.COMM_TYPE_SHARED)
 _SHARED_SIZE: int = _SHARED_COMM.Get_size()
 _SHARED_RANK: int = _SHARED_COMM.Get_rank()
-_SHARED_SIZE_MAX: int = _MPI_COMM.allreduce(_SHARED_SIZE, MPI.MAX)
-_SHARED_SIZE_MIN: int = _MPI_COMM.allreduce(_SHARED_SIZE, MPI.MIN)
+_SHARED_SIZE_MAX: int = _MPI_COMM_WORLD.allreduce(_SHARED_SIZE, MPI.MAX)
+_SHARED_SIZE_MIN: int = _MPI_COMM_WORLD.allreduce(_SHARED_SIZE, MPI.MIN)
 _MPI_IO_MAX_COUNT: int = 2**30
 _GRID_MAP: GridMapType = "default"
 """For MPI, the default node mapping is lexicographical with t varying fastest."""
+_MPI_COMM: Optional[MPI.Comm] = None
+_MPI_SIZE: Optional[int] = None
+_MPI_RANK: Optional[int] = None
 _GRID_SIZE: Optional[Tuple[int, ...]] = None
 _GRID_COORD: Optional[Tuple[int, ...]] = None
-_GRID_RANKS: Optional[Tuple[int, ...]] = None
 _ARRAY_BACKEND: BackendType = "numpy"
 _ARRAY_BACKEND_TARGET: BackendTargetType = "cpu"
 _ARRAY_DEVICE: int = -1
 
 
-def _defaultRankFromCoord(coords: Sequence[int], dims: Sequence[int]) -> int:
+def getCartesianRank(coords: Sequence[int], dims: Sequence[int]) -> int:
+    """Cartcomm.Get_cart_rank(coords)"""
+    assert len(coords) == len(dims)
     rank = 0
     for coord, dim in zip(coords, dims):
         rank = rank * dim + coord
     return rank
 
 
-def _defaultCoordFromRank(rank: int, dims: Sequence[int]) -> List[int]:
+def getCartesianCoords(rank: int, dims: Sequence[int]) -> List[int]:
+    """Cartcomm.Get_coords(rank)"""
     coords = []
     for dim in dims[::-1]:
         coords.append(rank % dim)
@@ -86,34 +91,24 @@ def _defaultCoordFromRank(rank: int, dims: Sequence[int]) -> List[int]:
     return coords[::-1]
 
 
-def _defaultCoordFromSharedRank(shared_rank: int, shared_dims: Sequence[int], rank: int, dims: Sequence[int]):
-    leader_comm = _MPI_COMM.Split(0 if shared_rank == 0 else MPI.UNDEFINED, rank)
+def getCartesianCoordsWithShared(shared_rank: int, shared_dims: Sequence[int], rank: int, dims: Sequence[int]):
+    assert len(shared_dims) == len(dims)
+    leader_comm = _MPI_COMM_WORLD.Split(0 if shared_rank == 0 else MPI.UNDEFINED, rank)
     leader_rank = leader_comm.Get_rank() if shared_rank == 0 else -1
     leader_comm.Free() if shared_rank == 0 else None
     node_rank = _SHARED_COMM.bcast(leader_rank)
     node_dims = [G // S for S, G in zip(shared_dims, dims)]
-    node_coords = _defaultCoordFromRank(node_rank, node_dims)
-    shared_coords = _defaultCoordFromRank(shared_rank, shared_dims)
+    node_coords = getCartesianCoords(node_rank, node_dims)
+    shared_coords = getCartesianCoords(shared_rank, shared_dims)
     return [n * S + s for n, s, S in zip(node_coords, shared_coords, shared_dims)]
 
 
 def getRankFromCoord(grid_coord: List[int]) -> int:
-    grid_size = getGridSize()
-    if len(grid_coord) != len(grid_size):
-        _MPI_LOGGER.critical(
-            f"Grid coordinate {grid_coord} and grid size {grid_size} must have the same dimension",
-            ValueError,
-        )
-    grid_ranks = getGridRanks()
-    mpi_rank = grid_ranks.index(_defaultRankFromCoord(grid_coord, grid_size))
-    return mpi_rank
+    return getCartesianRank(grid_coord, getGridSize())
 
 
 def getCoordFromRank(mpi_rank: int) -> List[int]:
-    grid_size = getGridSize()
-    grid_ranks = getGridRanks()
-    grid_coord = _defaultCoordFromRank(grid_ranks[mpi_rank], grid_size)
-    return grid_coord
+    return getCartesianCoords(mpi_rank, getGridSize())
 
 
 def getNeighbourRank():
@@ -125,9 +120,9 @@ def getNeighbourRank():
     for d in range(len(grid_size)):
         g, G = grid_coord[d], grid_size[d]
         grid_coord[d] = (g + 1) % G
-        neighbour_forward.append(getRankFromCoord(grid_coord))
+        neighbour_forward.append(getCartesianRank(grid_coord, grid_size))
         grid_coord[d] = (g - 1) % G
-        neighbour_backward.append(getRankFromCoord(grid_coord))
+        neighbour_backward.append(getCartesianRank(grid_coord, grid_size))
         grid_coord[d] = g
     return neighbour_forward + neighbour_backward
 
@@ -268,24 +263,25 @@ def initGrid(
     latt_size: Optional[Sequence[int]] = None,
     evenodd: bool = True,
 ):
-    global _GRID_MAP, _GRID_SIZE, _GRID_COORD, _GRID_RANKS
+    global _MPI_COMM, _MPI_SIZE, _MPI_RANK
+    global _GRID_MAP, _GRID_SIZE, _GRID_COORD
     if _GRID_SIZE is None:
         if grid_map not in get_args(GridMapType):
             _MPI_LOGGER.critical(f"Unsupported grid mapping type: {grid_map}", ValueError)
         _MPI_LOGGER.info(f"Using {grid_map} grid mapping")
 
         if grid_size is not None:
-            if math.prod(grid_size) != _MPI_SIZE:
-                _MPI_LOGGER.critical(f"Grid size {grid_size} must matches MPI size {_MPI_SIZE}", ValueError)
+            if math.prod(grid_size) != _MPI_SIZE_WORLD:
+                _MPI_LOGGER.critical(f"Grid size {grid_size} must matches MPI size {_MPI_SIZE_WORLD}", ValueError)
             if grid_map == "minimize":
                 _MPI_LOGGER.critical("Grid size must not be set while using minimize grid mapping", ValueError)
         elif latt_size is not None:
             _MPI_LOGGER.info(f"Using lattice size {latt_size} to determine grid size")
             if grid_map == "minimize":
                 assert _SHARED_SIZE_MAX == _SHARED_SIZE_MIN
-                grid_size, shared_grid_size = getDefaultGrid(_MPI_SIZE, _SHARED_SIZE, latt_size, evenodd)
+                grid_size, shared_grid_size = getDefaultGrid(_MPI_SIZE_WORLD, _SHARED_SIZE, latt_size, evenodd)
             else:
-                grid_size, shared_grid_size = getDefaultGrid(_MPI_SIZE, 1, latt_size, evenodd)
+                grid_size, shared_grid_size = getDefaultGrid(_MPI_SIZE_WORLD, 1, latt_size, evenodd)
         else:
             if grid_map == "minimize":
                 _MPI_LOGGER.critical("Lattice size must be set while using minimize grid mapping", ValueError)
@@ -293,18 +289,18 @@ def initGrid(
         _MPI_LOGGER.info(f"Using grid size {grid_size}")
 
         if grid_map == "default":
-            grid_coord = _defaultCoordFromRank(_MPI_RANK, grid_size)
-            grid_ranks = list(range(_MPI_SIZE))
+            grid_coord = getCartesianCoords(_MPI_RANK_WORLD, grid_size)
+            grid_rank = _MPI_RANK_WORLD
         elif grid_map == "t_fastest":
-            grid_coord = _defaultCoordFromRank(_MPI_RANK, grid_size)
-            grid_ranks = list(range(_MPI_SIZE))
+            grid_coord = getCartesianCoords(_MPI_RANK_WORLD, grid_size)
+            grid_rank = _MPI_RANK_WORLD
         elif grid_map == "x_fastest":
-            grid_coord = _defaultCoordFromRank(_MPI_RANK, grid_size[::-1])[::-1]
-            grid_ranks = _MPI_COMM.allgather(_defaultRankFromCoord(grid_coord, grid_size))
+            grid_coord = getCartesianCoords(_MPI_RANK_WORLD, grid_size[::-1])[::-1]
+            grid_rank = getCartesianRank(grid_coord, grid_size)
         elif grid_map == "minimize":
             assert _SHARED_SIZE_MAX == _SHARED_SIZE_MIN
-            grid_coord = _defaultCoordFromSharedRank(_SHARED_RANK, shared_grid_size, _MPI_RANK, grid_size)
-            grid_ranks = _MPI_COMM.allgather(_defaultRankFromCoord(grid_coord, grid_size))
+            grid_coord = getCartesianCoordsWithShared(_SHARED_RANK, shared_grid_size, _MPI_RANK_WORLD, grid_size)
+            grid_rank = getCartesianRank(grid_coord, grid_size)
         elif grid_map == "shared":
             assert _SHARED_SIZE_MAX == _SHARED_SIZE_MIN
             shared_size = _SHARED_SIZE
@@ -323,10 +319,10 @@ def initGrid(
                     if last_dim == dim:
                         _MPI_LOGGER.critical("GlobalSharedMemory::GetShmDims failed", ValueError)
                 dim = (dim + 1) % len(grid_size)
-            grid_coord = _defaultCoordFromSharedRank(_SHARED_RANK, shared_grid_size, _MPI_RANK, grid_size)
-            grid_ranks = _MPI_COMM.allgather(_defaultRankFromCoord(grid_coord, grid_size))
+            grid_coord = getCartesianCoordsWithShared(_SHARED_RANK, shared_grid_size, _MPI_RANK_WORLD, grid_size)
+            grid_rank = getCartesianRank(grid_coord, grid_size)
         elif grid_map == "dist_graph":
-            grid_coord = _defaultCoordFromRank(_MPI_RANK, grid_size)
+            grid_coord = getCartesianCoords(_MPI_RANK_WORLD, grid_size)
             if latt_size is None:
                 sublatt_size = [1 for G in grid_size]
             else:
@@ -338,8 +334,8 @@ def initGrid(
             destweights: List[int] = []
             for i in range(len(grid_size)):
                 grid_coord[i] = (grid_coord[i] + 1) % grid_size[i]
-                mpi_rank = _defaultRankFromCoord(grid_coord, grid_size)
-                if mpi_rank != _MPI_RANK:
+                mpi_rank = getCartesianRank(grid_coord, grid_size)
+                if mpi_rank != _MPI_RANK_WORLD:
                     sources.append(mpi_rank)
                     destinations.append(mpi_rank)
                     sourceweights.append(subvolume // sublatt_size[i])
@@ -347,28 +343,34 @@ def initGrid(
                 grid_coord[i] = (grid_coord[i] - 1) % grid_size[i]
 
                 grid_coord[i] = (grid_coord[i] - 1) % grid_size[i]
-                mpi_rank = _defaultRankFromCoord(grid_coord, grid_size)
-                if mpi_rank != _MPI_RANK:
+                mpi_rank = getCartesianRank(grid_coord, grid_size)
+                if mpi_rank != _MPI_RANK_WORLD:
                     sources.append(mpi_rank)
                     destinations.append(mpi_rank)
                     sourceweights.append(subvolume // sublatt_size[i])
                     destweights.append(subvolume // sublatt_size[i])
                 grid_coord[i] = (grid_coord[i] + 1) % grid_size[i]
 
-            dist_graph_comm = _MPI_COMM.Create_dist_graph_adjacent(
+            dist_graph_comm = _MPI_COMM_WORLD.Create_dist_graph_adjacent(
                 sources, destinations, sourceweights, destweights, reorder=True
             )
             dist_graph_rank = dist_graph_comm.Get_rank()
             dist_graph_comm.Free()
-            grid_ranks = _MPI_COMM.allgather(dist_graph_rank)
+            grid_coord = getCartesianCoords(dist_graph_rank, grid_size)
+            grid_rank = dist_graph_rank
 
+        grid_ranks = _MPI_COMM_WORLD.allgather(grid_rank)
         if grid_map != "default":
+            _MPI_LOGGER.root = grid_ranks.index(0)
             _MPI_LOGGER.info(f"Mapping ranks to {grid_ranks}")
+
+        _MPI_COMM = _MPI_COMM_WORLD.Split(0, grid_rank)
+        _MPI_SIZE = _MPI_COMM.Get_size()
+        _MPI_RANK = _MPI_COMM.Get_rank()
 
         _GRID_MAP = grid_map
         _GRID_SIZE = tuple(grid_size)
         _GRID_COORD = tuple(grid_coord)
-        _GRID_RANKS = tuple(grid_ranks)
     else:
         _MPI_LOGGER.warning("Grid is already initialized", RuntimeWarning)
 
@@ -395,7 +397,7 @@ def initDevice(
         # quda/include/communicator_quda.h
         # determine which GPU this rank will use
         hostname = gethostname()
-        hostname_recv_buf = _MPI_COMM.allgather(hostname)
+        hostname_recv_buf = getMPIComm().allgather(hostname)
 
         if device < 0:
             device_count = getDeviceCount()
@@ -404,14 +406,14 @@ def initDevice(
 
             # We initialize gpuid if it's still negative.
             device = 0
-            for i in range(_MPI_RANK):
+            for i in range(getMPIRank()):
                 if hostname == hostname_recv_buf[i]:
                     device += 1
 
             if device >= device_count:
                 if enable_mps or os.environ.get("QUDA_ENABLE_MPS") == "1":
                     device %= device_count
-                    print(f"MPS enabled, rank={_MPI_RANK:3d} -> gpu={device}")
+                    print(f"MPS enabled, rank={getMPIRank():3d} -> gpu={device}")
                 else:
                     _MPI_LOGGER.critical(f"Too few GPUs available on {hostname}", RuntimeError)
 
@@ -443,14 +445,26 @@ def setLoggerLevel(level: Literal["debug", "info", "warning", "error", "critical
 
 
 def getMPIComm():
+    if _MPI_COMM is None:
+        _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
     return _MPI_COMM
 
 
+def getMPICommAddress():
+    if _MPI_COMM is None:
+        _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
+    return MPI._addressof(_MPI_COMM)
+
+
 def getMPISize():
+    if _MPI_SIZE is None:
+        _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
     return _MPI_SIZE
 
 
 def getMPIRank():
+    if _MPI_RANK is None:
+        _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
     return _MPI_RANK
 
 
@@ -468,12 +482,6 @@ def getGridCoord():
     if _GRID_COORD is None:
         _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
     return list(_GRID_COORD)
-
-
-def getGridRanks():
-    if _GRID_RANKS is None:
-        _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
-    return list(_GRID_RANKS)
 
 
 def getArrayBackend():
@@ -514,12 +522,12 @@ def openReadHeader(filename: str):
 @contextmanager
 def openWriteHeader(filename: str, root: int = 0):
     fp, e_ = None, None
-    if _MPI_RANK == root:
+    if _MPI_RANK_WORLD == root:
         try:
             fp = open(filename, "wb")
         except Exception as e:
             e_ = e
-    e_ = _MPI_COMM.bcast(e_, root)
+    e_ = _MPI_COMM_WORLD.bcast(e_, root)
     if e_ is not None:
         _MPI_LOGGER.critical(str(e_), type(e_))
     try:
@@ -528,13 +536,13 @@ def openWriteHeader(filename: str, root: int = 0):
     except Exception as e:
         e_ = e
     finally:
-        e_ = _MPI_COMM.bcast(e_, root)
+        e_ = _MPI_COMM_WORLD.bcast(e_, root)
         if e_ is not None:
             _MPI_LOGGER.critical(str(e_), type(e_))
         if fp is not None:
             f.offset = fp.tell()
             fp.close()
-        f.offset = _MPI_COMM.bcast(f.offset, root)
+        f.offset = _MPI_COMM_WORLD.bcast(f.offset, root)
 
 
 def _getSubarray(dtype: DTypeLike, shape: Sequence[int], axes: Sequence[int]):
@@ -557,7 +565,7 @@ def readMPIFile(filename: str, dtype: DTypeLike, offset: int, shape: Sequence[in
     buf = numpy.empty(shape, native_dtype_str)
     buf_flat = buf.reshape(-1)
 
-    fh = MPI.File.Open(_MPI_COMM, filename, MPI.MODE_RDONLY)
+    fh = MPI.File.Open(_MPI_COMM_WORLD, filename, MPI.MODE_RDONLY)
     filetype.Commit()
     fh.Set_view(disp=offset, filetype=filetype)
     for start in range(0, buf.size, _MPI_IO_MAX_COUNT):
@@ -575,10 +583,10 @@ def readMPIFileInChunks(
     buf = numpy.empty(shape, native_dtype_str)
     buf_flat = buf.reshape(-1)
 
-    fh = MPI.File.Open(_MPI_COMM, filename, MPI.MODE_RDONLY)
+    fh = MPI.File.Open(_MPI_COMM_WORLD, filename, MPI.MODE_RDONLY)
     filetype.Commit()
     for i in range(count):
-        fh.Set_view(disp=offset + i * _MPI_SIZE * filetype.size, filetype=filetype)
+        fh.Set_view(disp=offset + i * _MPI_SIZE_WORLD * filetype.size, filetype=filetype)
         for start in range(0, buf.size, _MPI_IO_MAX_COUNT):
             fh.Read_all(buf_flat[start : start + _MPI_IO_MAX_COUNT])
         yield i, buf.view(dtype)
@@ -591,7 +599,7 @@ def writeMPIFile(filename: str, dtype: DTypeLike, offset: int, shape: Sequence[i
     buf = buf.view(native_dtype_str)
     buf_flat = buf.reshape(-1)
 
-    fh = MPI.File.Open(_MPI_COMM, filename, MPI.MODE_WRONLY | MPI.MODE_CREATE)
+    fh = MPI.File.Open(_MPI_COMM_WORLD, filename, MPI.MODE_WRONLY | MPI.MODE_CREATE)
     filetype.Commit()
     fh.Set_view(disp=offset, filetype=filetype)
     for start in range(0, buf.size, _MPI_IO_MAX_COUNT):
@@ -607,10 +615,10 @@ def writeMPIFileInChunks(
     buf = buf.view(native_dtype_str)
     buf_flat = buf.reshape(-1)
 
-    fh = MPI.File.Open(_MPI_COMM, filename, MPI.MODE_WRONLY | MPI.MODE_CREATE)
+    fh = MPI.File.Open(_MPI_COMM_WORLD, filename, MPI.MODE_WRONLY | MPI.MODE_CREATE)
     filetype.Commit()
     for i in range(count):
-        fh.Set_view(disp=offset + i * _MPI_SIZE * filetype.size, filetype=filetype)
+        fh.Set_view(disp=offset + i * _MPI_SIZE_WORLD * filetype.size, filetype=filetype)
         yield i  # Waiting for buf
         for start in range(0, buf.size, _MPI_IO_MAX_COUNT):
             fh.Write_all(buf_flat[start : start + _MPI_IO_MAX_COUNT])

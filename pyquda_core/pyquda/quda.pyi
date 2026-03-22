@@ -1232,17 +1232,13 @@ def setVerbosityQuda(verbosity: QudaVerbosity, prefix: bytes) -> None:
     """
     ...
 
-def initCommsGridQuda(nDim: int, dims: List[int, 4], ranks: List[int]) -> None:
+def initCommsGridQuda(dims: List[int, 4]) -> None:
     """
     Declare the grid mapping ("logical topology" in QMP parlance)
     used for communications in a multi-GPU grid.  This function
     should be called prior to initQuda().  The only case in which
     it's optional is when QMP is used for communication and the
     logical topology has already been declared by the application.
-
-    @param nDim:
-        Number of grid dimensions.  "4" is the only supported
-        value currently.
 
     @param dims:
         Array of grid dimensions.  dims[0]*dims[1]*dims[2]*dims[3]
@@ -2201,6 +2197,8 @@ def flushPoolQuda(type: QudaMemoryType):
         The memory type whose pool we wish to flush.
     """
     ...
+
+def setMPICommHandleQuda(mycomm: int): ...
 
 class QudaQuarkSmearParam:
     """

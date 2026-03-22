@@ -13,12 +13,12 @@ from pyquda_comm import (  # noqa: F401
     getLogger,
     setLoggerLevel,
     getMPIComm,
+    getMPICommAddress,
     getMPISize,
     getMPIRank,
     getGridMap,
     getGridSize,
     getGridCoord,
-    getGridRanks,
     getArrayBackend,
     getArrayBackendTarget,
     getArrayDevice,
@@ -90,7 +90,8 @@ def initQUDA(grid_size: List[int], device: int, use_malloc_quda: bool = False):
             allocator = torch._C._cuda_customAllocator(quda_malloc, quda_free)
             torch._C._cuda_changeCurrentAllocator(allocator)
 
-    quda.initCommsGridQuda(4, grid_size, getGridRanks())
+    quda.setMPICommHandleQuda(getMPICommAddress())
+    quda.initCommsGridQuda(grid_size)
     quda.initQuda(device if backend_target != "cpu" else -1)
     atexit.register(quda.endQuda)
     _QUDA_INITIALIZED = True
