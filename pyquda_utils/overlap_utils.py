@@ -2,7 +2,7 @@ from os import path
 from time import perf_counter
 import numpy as np
 from mpi4py import MPI
-from pyquda import pyquda as quda
+from pyquda import quda
 from pyquda import enum_quda
 from pyquda_utils import core
 from pyquda_comm import  getLogger, readMPIFile
