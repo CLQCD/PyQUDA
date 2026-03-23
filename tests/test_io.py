@@ -21,7 +21,7 @@ hash = [checksum.checksumSciDAC(gauge[i]) for i in range(4)]
 print([(f"{i:08x}", f"{j:08x}") for i, j in hash])
 gauge.saveH5("weak_field.h5")
 propagator.saveH5("pt_prop_1.h5", 0)
-convert.propagatorToMultiFermion(propagator).appendH5("pt_prop_1.h5", range(12))
+convert.propagatorToMultiFermion(propagator).saveH5("pt_prop_1.h5", range(12))
 gauge.save("weak_field.npy")
 propagator.save("pt_prop_1.npy")
 
