@@ -1,6 +1,6 @@
 from math import prod
 from time import perf_counter
-from typing import List, Sequence, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy
 from mpi4py import MPI
@@ -147,6 +147,56 @@ class File(h5py.File):
         """
         super().__init__(name, mode, driver="mpio", comm=getMPIComm(), **kwds)
 
+    def get_group(self, key: str) -> h5py.Group:
+        g = self[key]
+        if not isinstance(g, h5py.Group):
+            raise TypeError(f'"{key}" is not a group')
+        return g
+
+    def get_group_attrs(self, key: str) -> Tuple[str, List[int], Optional[int], Optional[int]]:
+        g = self.get_group(key)
+        annotation = g.attrs["Annotation"]
+        if not isinstance(annotation, str):
+            raise TypeError('"Annotation" is not a string attribute')
+        latt_size = g.attrs["Lattice"]
+        if not isinstance(latt_size, str):
+            raise TypeError('"Lattice" is not a string attribute')
+        latt_size = [int(GL) for GL in latt_size.split()]
+        if "Spin" in key:
+            Ns = g.attrs["Spin"]
+            if not isinstance(Ns, str):
+                raise TypeError('"Spin" is not a string attribute')
+            Ns = int(Ns)
+        else:
+            Ns = None
+        if "Color" in key:
+            Nc = g.attrs["Color"]
+            if not isinstance(Nc, str):
+                raise TypeError('"Color" is not a string attribute')
+            Nc = int(Nc)
+        else:
+            Nc = None
+        return annotation, latt_size, Ns, Nc
+
+    def set_group_attrs(self, key: str, annotation: str, latt_size: List[int], Ns: Optional[int], Nc: Optional[int]):
+        g = self.get_group(key)
+        g.attrs["Annotation"] = str(annotation)
+        g.attrs["Lattice"] = " ".join([str(GL) for GL in latt_size])
+        if "Spin" in key:
+            if Ns is None:
+                raise KeyError('"Spin" is not defined')
+            g.attrs["Spin"] = str(Ns)
+        if "Color" in key:
+            if Nc is None:
+                raise KeyError('"Color" is not defined')
+            g.attrs["Color"] = str(Nc)
+
+    def get_dataset(self, key: str) -> h5py.Dataset:
+        ds = self[key]
+        if not isinstance(ds, h5py.Dataset):
+            raise TypeError(f'"{key}" is not a dataset')
+        return ds
+
     @classmethod
     def _load(cls, latt_info: _LatticeInfo, dataset: h5py.Dataset, check: bool = True):
         data: numpy.ndarray = dataset[latt_info.slice]
@@ -159,33 +209,29 @@ class File(h5py.File):
     def load(self, group: str, label: Union[int, str, Sequence[int], Sequence[str]], *, check: bool = True):
         s = perf_counter()
         gbytes = 0
-        g = self[group]
-        # assert g.attrs["Lattice"] == " ".join([str(L) for L in latt_size])
-        # assert g.attrs["Spin"] == str(Ns)
-        # assert g.attrs["Color"] == str(Nc)
-        latt_size = [int(GL) for GL in g.attrs["Lattice"].split()]
-        Ns = int(g.attrs["Spin"]) if "Spin" in group else None
-        Nc = int(g.attrs["Color"]) if "Color" in group else None
+        annotation, latt_size, Ns, Nc = self.get_group_attrs(group)
         if isinstance(label, (int, str)):
             keys = str(label)
         elif isinstance(label, (list, tuple, range)):
-            assert len(label) <= len(g)
             keys = [str(key) for key in label]
 
         latt_info = _LatticeInfo(latt_size)
         if isinstance(keys, str):
             key = keys
-            field_dtype = g[key].dtype.str.replace("<c8", "<c16").replace("<f4", "<f8")
-            value = self._load(latt_info, g[key], check).astype(field_dtype)
-            gbytes += g[key].nbytes / 1024**3
+            ds = self.get_dataset(f"{group}/{key}")
+            field_dtype = ds.dtype.str.replace("<c8", "<c16").replace("<f4", "<f8")
+            value = self._load(latt_info, ds, check).astype(field_dtype)
+            gbytes += ds.nbytes / 1024**3
         else:
-            field_dtype = g[keys[0]].dtype.str.replace("<c8", "<c16").replace("<f4", "<f8")
+            ds0 = self.get_dataset(f"{group}/{keys[0]}")
+            field_dtype = ds0.dtype.str.replace("<c8", "<c16").replace("<f4", "<f8")
             value = numpy.empty(
-                (len(keys), *latt_info.size[::-1], *g[keys[0]].shape[len(latt_info.size) :]), dtype=field_dtype
+                (len(keys), *latt_info.size[::-1], *ds0.shape[len(latt_info.size) :]), dtype=field_dtype
             )
             for index, key in enumerate(keys):
-                value[index] = self._load(latt_info, g[key], check).astype(field_dtype)
-                gbytes += g[key].nbytes / 1024**3
+                ds = self.get_dataset(f"{group}/{key}")
+                value[index] = self._load(latt_info, ds, check).astype(field_dtype)
+                gbytes += ds.nbytes / 1024**3
         secs = perf_counter() - s
         getLogger().info(f"Loaded {group} from {self.filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
         return latt_size, Ns, Nc, value
@@ -211,104 +257,19 @@ class File(h5py.File):
         s = perf_counter()
         gbytes = 0
         keys, latt_size, Ns, Nc, field_shape, field_dtype = _field_info(group, label, field, use_fp32)
-        g = self.create_group(group)
-        g.attrs["Annotation"] = annotation
-        g.attrs["Lattice"] = " ".join([str(GL) for GL in latt_size])
-        if "Spin" in group:
-            assert Ns is not None
-            g.attrs["Spin"] = str(Ns)
-        if "Color" in group:
-            assert Nc is not None
-            g.attrs["Color"] = str(Nc)
+        g = self.require_group(group)
+        self.set_group_attrs(group, annotation, latt_size, Ns, Nc)
 
         latt_info = _LatticeInfo(latt_size)
         if isinstance(keys, str):
             key = keys
-            g.create_dataset(key, (*latt_size[::-1], *field_shape), field_dtype)
-            self._save(latt_info, g[key], field.astype(field_dtype), check)
-            gbytes += g[key].nbytes / 1024**3
+            ds = g.require_dataset(key, (*latt_size[::-1], *field_shape), field_dtype)
+            self._save(latt_info, ds, field.astype(field_dtype), check)
+            gbytes += ds.nbytes / 1024**3
         else:
             for index, key in enumerate(keys):
-                g.create_dataset(key, (*latt_size[::-1], *field_shape), field_dtype)
-                self._save(latt_info, g[key], field[index].astype(field_dtype), check)
-                gbytes += g[key].nbytes / 1024**3
+                ds = g.require_dataset(key, (*latt_size[::-1], *field_shape), field_dtype)
+                self._save(latt_info, ds, field[index].astype(field_dtype), check)
+                gbytes += ds.nbytes / 1024**3
         secs = perf_counter() - s
         getLogger().info(f"Saved {group} to {self.filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
-
-    def append(
-        self,
-        group: str,
-        label: Union[int, str, Sequence[int], Sequence[str]],
-        field: numpy.ndarray,
-        *,
-        annotation: str = "",
-        check: bool = True,
-        use_fp32: bool = False,
-    ):
-        s = perf_counter()
-        gbytes = 0
-        keys, latt_size, Ns, Nc, field_shape, field_dtype = _field_info(group, label, field, use_fp32)
-        g = self.create_group(group)
-        g.attrs["Annotation"] = annotation
-        g.attrs["Lattice"] = " ".join([str(GL) for GL in latt_size])
-        if "Spin" in group:
-            assert Ns is not None
-            g.attrs["Spin"] = str(Ns)
-        if "Color" in group:
-            assert Nc is not None
-            g.attrs["Color"] = str(Nc)
-
-        latt_info = _LatticeInfo(latt_size)
-        if isinstance(keys, str):
-            key = keys
-            g.create_dataset(key, (*latt_size[::-1], *field_shape), field_dtype)
-            self._save(latt_info, g[key], field.astype(field_dtype), check)
-            gbytes += g[key].nbytes / 1024**3
-        else:
-            for index, key in enumerate(keys):
-                g.create_dataset(key, (*latt_size[::-1], *field_shape), field_dtype)
-                self._save(latt_info, g[key], field[index].astype(field_dtype), check)
-                gbytes += g[key].nbytes / 1024**3
-        secs = perf_counter() - s
-        getLogger().info(f"Append {group} to {self.filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
-
-    def update(
-        self,
-        group: str,
-        label: Union[int, str, Sequence[int], Sequence[str]],
-        field: numpy.ndarray,
-        *,
-        annotation: str = "",
-        check: bool = True,
-        use_fp32: bool = False,
-    ):
-        s = perf_counter()
-        gbytes = 0
-        keys, latt_size, Ns, Nc, field_shape, field_dtype = _field_info(group, label, field, use_fp32)
-        g = self[group]
-        if annotation != "":
-            g.attrs["Annotation"] = annotation
-        assert g.attrs["Lattice"] == " ".join([str(L) for L in latt_size])
-        if "Spin" in group:
-            assert g.attrs["Spin"] == str(Ns)
-        if "Color" in group:
-            assert g.attrs["Color"] == str(Nc)
-
-        for key in g.keys():
-            field_dtype = g[key].dtype.str
-            break
-        latt_info = _LatticeInfo(latt_size)
-        if isinstance(keys, str):
-            key = keys
-            if key not in g:
-                g.create_dataset(key, (*latt_size[::-1], *field_shape), field_dtype)
-            self._save(latt_info, g[key], field.astype(field_dtype), check)
-            gbytes += g[key].nbytes / 1024**3
-        else:
-            for index, key in enumerate(keys):
-                if key not in g:
-                    g.create_dataset(key, (*latt_size[::-1], *field_shape), field_dtype)
-                self._save(latt_info, g[key], field[index].astype(field_dtype), check)
-                gbytes += g[key].nbytes / 1024**3
-        secs = perf_counter() - s
-        getLogger().info(f"Updated {group} to {self.filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")

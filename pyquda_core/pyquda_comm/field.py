@@ -619,56 +619,10 @@ class BaseField:
         filename = path.expanduser(path.expandvars(filename))
         if not filename.endswith(".h5") and not filename.endswith(".hdf5"):
             filename += ".h5"
-        with File(filename, "w") as f:
+        with File(filename, "a") as f:
             f.save(self._groupName(), label, self.lexico(), annotation=annotation, check=check, use_fp32=use_fp32)
         secs = perf_counter() - s
         getLogger().debug(f"Saved {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
-
-    def appendH5(
-        self,
-        filename: str,
-        label: Union[int, str, Sequence[int], Sequence[str]],
-        *,
-        annotation: str = "",
-        check: bool = True,
-        use_fp32: bool = False,
-    ):
-        from .hdf5 import File
-
-        if not isinstance(self, _FULL_FILED_TUPLE):
-            getLogger().critical(
-                f"{self.__class__.__name__}.append(filename, label, **kwargs) not implemented", NotImplementedError
-            )
-        s = perf_counter()
-        gbytes = 0
-        filename = path.expanduser(path.expandvars(filename))
-        with File(filename, "r+") as f:
-            f.append(self._groupName(), label, self.lexico(), annotation=annotation, check=check, use_fp32=use_fp32)
-        secs = perf_counter() - s
-        getLogger().debug(f"Appended {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
-
-    def updateH5(
-        self,
-        filename: str,
-        label: Union[int, str, Sequence[int], Sequence[str]],
-        *,
-        annotation: str = "",
-        check: bool = True,
-        use_fp32: bool = False,
-    ):
-        from .hdf5 import File
-
-        if not isinstance(self, _FULL_FILED_TUPLE):
-            getLogger().critical(
-                f"{self.__class__.__name__}.update(filename, label, **kwargs) not implemented", NotImplementedError
-            )
-        s = perf_counter()
-        gbytes = 0
-        filename = path.expanduser(path.expandvars(filename))
-        with File(filename, "r+") as f:
-            f.update(self._groupName(), label, self.lexico(), annotation=annotation, check=check, use_fp32=use_fp32)
-        secs = perf_counter() - s
-        getLogger().debug(f"Updated {filename} in {secs:.3f} secs, {gbytes / secs:.3f} GB/s")
 
     def copy(self):
         if self.L5 == 0:
