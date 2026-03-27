@@ -107,6 +107,32 @@ def invertEigenvector(
     return propag
 
 
+def invertSequential(
+    dirac: FermionDirac,
+    source_propag: LatticePropagator,
+    t_srce: int,
+    mrhs: int = 1,
+    restart: int = 0,
+):
+    latt_info = dirac.latt_info
+    gt, Lt = latt_info.gt, latt_info.Lt
+
+    propag = LatticePropagator(latt_info)
+    s = 0
+    while s < Ns * Nc:
+        b = MultiLatticeFermion(latt_info, min(mrhs, Ns * Nc - s))
+        if gt * Lt <= t_srce < (gt + 1) * Lt:
+            t = t_srce % Lt
+            for i in range(b.L5):
+                b[i].data[:, t] = source_propag.data[:, t, :, :, :, :, (s + i) // Nc, :, (s + i) % Nc]
+        x = dirac.invertMultiSrcRestart(b, restart)
+        for i in range(b.L5):
+            propag.setFermion(x[i], (s + i) // Nc, (s + i) % Nc)
+        s += mrhs
+
+    return propag
+
+
 def invertPropagator(
     dirac: FermionDirac,
     source_propag: LatticePropagator,
@@ -120,7 +146,7 @@ def invertPropagator(
     while s < Ns * Nc:
         b = MultiLatticeFermion(latt_info, min(mrhs, Ns * Nc - s))
         for i in range(b.L5):
-            b[i] = source_propag.getFermion((s + i) // Nc, (s + i) % Nc)
+            b[i].data[:] = source_propag.data[:, :, :, :, :, :, (s + i) // Nc, :, (s + i) % Nc]
         x = dirac.invertMultiSrcRestart(b, restart)
         for i in range(b.L5):
             propag.setFermion(x[i], (s + i) // Nc, (s + i) % Nc)
@@ -153,6 +179,32 @@ def invertStaggered(
     return propag
 
 
+def invertStaggeredSequential(
+    dirac: StaggeredFermionDirac,
+    source_propag: LatticeStaggeredPropagator,
+    t_srce: int,
+    mrhs: int = 1,
+    restart: int = 0,
+):
+    latt_info = dirac.latt_info
+    gt, Lt = latt_info.gt, latt_info.Lt
+
+    propag = LatticeStaggeredPropagator(latt_info)
+    s = 0
+    while s < Nc:
+        b = MultiLatticeStaggeredFermion(latt_info, min(mrhs, Nc - s))
+        if gt * Lt <= t_srce < (gt + 1) * Lt:
+            t = t_srce % Lt
+            for i in range(b.L5):
+                b[i].data[:, t] = source_propag.data[:, t, :, :, :, :, s + i]
+        x = dirac.invertMultiSrcRestart(b, restart)
+        for i in range(b.L5):
+            propag.setFermion(x[i], s + i)
+        s += mrhs
+
+    return propag
+
+
 def invertStaggeredPropagator(
     dirac: StaggeredFermionDirac,
     source_propag: LatticeStaggeredPropagator,
@@ -166,7 +218,7 @@ def invertStaggeredPropagator(
     while s < Nc:
         b = MultiLatticeStaggeredFermion(latt_info, min(mrhs, Nc - s))
         for i in range(b.L5):
-            b[i] = source_propag.getFermion(s + i)
+            b[i].data[:] = source_propag.data[:, :, :, :, :, :, s + i]
         x = dirac.invertMultiSrcRestart(b, restart)
         for i in range(b.L5):
             propag.setFermion(x[i], s + i)
