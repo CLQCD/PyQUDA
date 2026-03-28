@@ -1,11 +1,10 @@
 import math
 from time import perf_counter
-from mpi4py import MPI
 
 from check_pyquda import weak_field
 
 from pyquda_io.chroma import readQIOGauge as readChromaQIOGauge
-from pyquda_utils.gauge_nd_sun import init, LatticeGauge, link
+from pyquda_utils.gauge_nd_sun import getMPIComm, init, LatticeGauge, link
 
 GPU = False
 if GPU:
@@ -74,7 +73,7 @@ elif MODE == "link_four":
     plaq[3] = numpy.einsum("tzyxaa->", link(gauge[0], gauge[3], gauge[4], gauge[7]).data).real
     plaq[4] = numpy.einsum("tzyxaa->", link(gauge[1], gauge[3], gauge[5], gauge[7]).data).real
     plaq[5] = numpy.einsum("tzyxaa->", link(gauge[2], gauge[3], gauge[6], gauge[7]).data).real
-plaq = MPI.COMM_WORLD.allreduce(plaq, op=MPI.SUM)
+plaq = getMPIComm().allreduce(plaq)
 plaq /= math.prod(latt_size) * gauge.Nc
 print(plaq.mean(), plaq[:3].mean(), plaq[3:].mean())
 print(f"Compute: {perf_counter() - s:.3f} s")
