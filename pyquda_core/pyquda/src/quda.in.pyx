@@ -194,7 +194,6 @@ def initQuda(int device):
     quda.initQuda(device)
 
 def endQuda():
-    free(map_data.ranks)
     quda.endQuda()
 
 def updateR():

@@ -66,7 +66,7 @@ _MPI_LOGGER: _MPILogger = _MPILogger()
 _MPI_COMM_WORLD: MPI.Intracomm = MPI.COMM_WORLD
 _MPI_SIZE_WORLD: int = _MPI_COMM_WORLD.Get_size()
 _MPI_RANK_WORLD: int = _MPI_COMM_WORLD.Get_rank()
-_MPI_COMM: MPI.Intracomm = MPI.COMM_WORLD
+_MPI_COMM: MPI.Intracomm = MPI.COMM_WORLD.Dup()
 _MPI_SIZE: int = _MPI_COMM.Get_size()
 _MPI_RANK: int = _MPI_COMM.Get_rank()
 _SHARED_COMM: MPI.Intracomm = cast(MPI.Intracomm, _MPI_COMM.Split_type(MPI.COMM_TYPE_SHARED))
@@ -269,14 +269,29 @@ def getDefaultGrid(mpi_size: int, shared_size: int, latt_size: Sequence[int], ev
 
 
 def initGrid(
+    mpi_comm: Optional[MPI.Intracomm] = None,
     grid_map: GridMapType = "default",
     grid_size: Optional[Sequence[int]] = None,
     latt_size: Optional[Sequence[int]] = None,
     evenodd: bool = True,
 ):
     global _MPI_COMM, _MPI_SIZE, _MPI_RANK
+    global _SHARED_COMM, _SHARED_SIZE, _SHARED_RANK, _SHARED_SIZE_MAX, _SHARED_SIZE_MIN
     global _GRID_MAP, _GRID_SIZE, _GRID_COORD
     if _GRID_SIZE is None:
+        if mpi_comm is not None and MPI.Comm.Compare(mpi_comm, _MPI_COMM) not in [MPI.IDENT, MPI.CONGRUENT]:
+            if not isinstance(mpi_comm, MPI.Intracomm):
+                _MPI_LOGGER.critical(f"Cannot setup MPI communicator with {mpi_comm}", TypeError)
+            _MPI_COMM.Free()
+            _MPI_COMM = mpi_comm.Dup()
+            _MPI_SIZE = _MPI_COMM.Get_size()
+            _MPI_RANK = _MPI_COMM.Get_rank()
+            _SHARED_COMM.Free()
+            _SHARED_COMM = cast(MPI.Intracomm, _MPI_COMM.Split_type(MPI.COMM_TYPE_SHARED))
+            _SHARED_SIZE = _SHARED_COMM.Get_size()
+            _SHARED_RANK = _SHARED_COMM.Get_rank()
+            _SHARED_SIZE_MAX = _MPI_COMM.allreduce(_SHARED_SIZE, MPI.MAX)
+            _SHARED_SIZE_MIN = _MPI_COMM.allreduce(_SHARED_SIZE, MPI.MIN)
         if grid_map not in get_args(GridMapType):
             _MPI_LOGGER.critical(f"Unsupported grid mapping type: {grid_map}", ValueError)
         _MPI_LOGGER.info(f"Using {grid_map} grid mapping")
@@ -373,8 +388,7 @@ def initGrid(
         grid_ranks = _MPI_COMM.allgather(grid_rank)
         if grid_ranks != list(range(_MPI_SIZE)):
             _MPI_LOGGER.info(f"Mapping ranks to {grid_ranks}")
-            if _MPI_COMM is not MPI.COMM_WORLD:
-                _MPI_COMM.Free()
+            _MPI_COMM.Free()
             _MPI_COMM = cast(MPI.Intracomm, _MPI_COMM.Split(0, grid_rank))
             _MPI_SIZE = _MPI_COMM.Get_size()
             _MPI_RANK = _MPI_COMM.Get_rank()
@@ -403,7 +417,7 @@ def initDevice(
         if backend_target not in get_args(BackendTargetType):
             _MPI_LOGGER.critical(f"Unsupported Array API backend target: {backend_target}", ValueError)
         getDeviceCount, setDevice = backendDeviceAPI(backend, backend_target)
-        _MPI_LOGGER.info(f"Using {backend} with {backend_target} as Array API")
+        _MPI_LOGGER.info(f"Using {backend} on {backend_target} as the Array API")
 
         # quda/include/communicator_quda.h
         # determine which GPU this rank will use
@@ -453,26 +467,6 @@ def getLogger():
 
 def setLoggerLevel(level: Literal["debug", "info", "warning", "error", "critical"]):
     _MPI_LOGGER.logger.setLevel(level.upper())
-
-
-def setMPIComm(mpi_comm: MPI.Intracomm):
-    if isGridInitialized():
-        _MPI_LOGGER.critical("Cannot setup MPI communicator after initialization", RuntimeError)
-    if not isinstance(mpi_comm, MPI.Intracomm):
-        _MPI_LOGGER.critical(f"Cannot setup MPI Communicator with {mpi_comm}", TypeError)
-    global _MPI_COMM, _MPI_SIZE, _MPI_RANK
-    global _SHARED_COMM, _SHARED_SIZE, _SHARED_RANK, _SHARED_SIZE_MAX, _SHARED_SIZE_MIN
-    if mpi_comm is not _MPI_COMM:
-        if _MPI_COMM is not MPI.COMM_WORLD:
-            _MPI_COMM.Free()
-        _MPI_COMM = mpi_comm
-        _MPI_SIZE = _MPI_COMM.Get_size()
-        _MPI_RANK = _MPI_COMM.Get_rank()
-        _SHARED_COMM = cast(MPI.Intracomm, _MPI_COMM.Split_type(MPI.COMM_TYPE_SHARED))
-        _SHARED_SIZE = _SHARED_COMM.Get_size()
-        _SHARED_RANK = _SHARED_COMM.Get_rank()
-        _SHARED_SIZE_MAX = _MPI_COMM.allreduce(_SHARED_SIZE, MPI.MAX)
-        _SHARED_SIZE_MIN = _MPI_COMM.allreduce(_SHARED_SIZE, MPI.MIN)
 
 
 def getMPIComm():

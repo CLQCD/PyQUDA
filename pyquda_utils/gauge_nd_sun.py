@@ -1,12 +1,17 @@
-from typing import Literal, Sequence
+from typing import Literal, Optional, Sequence
 
 import numpy
 
-from pyquda_comm import initGrid, initDevice, getMPIComm, getMPIRank, getGridSize, getGridCoord, getRankFromCoord
+from pyquda_comm import MPI, initGrid, initDevice, getMPIComm, getMPIRank, getGridSize, getGridCoord, getRankFromCoord
 
 
-def init(grid_size: Sequence[int], latt_size: Sequence[int] = None, backend: Literal["cupy", "numpy"] = "numpy"):
-    initGrid("default", grid_size, latt_size)
+def init(
+    grid_size: Sequence[int],
+    latt_size: Optional[Sequence[int]] = None,
+    mpi_comm: Optional[MPI.Intracomm] = None,
+    backend: Literal["cupy", "numpy"] = "numpy",
+):
+    initGrid(mpi_comm, "default", grid_size, latt_size)
     initDevice(backend)
 
 

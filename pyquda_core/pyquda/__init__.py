@@ -3,6 +3,7 @@ from typing import List, Literal, Optional
 
 from ._version import __version__  # noqa: F401
 from pyquda_comm import (  # noqa: F401
+    MPI,
     GridMapType,
     BackendType,
     BackendTargetType,
@@ -100,6 +101,7 @@ def initQUDA(grid_size: List[int], device: int, use_malloc_quda: bool = False):
 def init(
     grid_size: Optional[List[int]] = None,
     latt_size: Optional[List[int]] = None,
+    mpi_comm: Optional[MPI.Intracomm] = None,
     grid_map: GridMapType = "default",
     backend: BackendType = "cupy",
     backend_target: BackendTargetType = quda_define.target(),
@@ -140,7 +142,7 @@ def init(
     Initialize MPI along with the QUDA library.
     """
     if not isGridInitialized() or not isDeviceInitialized():
-        initGrid(grid_map, grid_size, latt_size)
+        initGrid(mpi_comm, grid_map, grid_size, latt_size)
         initDevice(backend, backend_target, -1, enable_mps)
 
     if init_quda:

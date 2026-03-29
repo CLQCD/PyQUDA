@@ -1,18 +1,18 @@
 from os import path
 from time import perf_counter
-from typing import Sequence
+from typing import Optional, Sequence
 
 import numpy as np
 
-from pyquda_comm import initGrid, initDevice, getLogger, readMPIFile, readMPIFileInChunks
+from pyquda_comm import MPI, initGrid, initDevice, getLogger, readMPIFile, readMPIFileInChunks
 from pyquda_comm.field import LatticeInfo, LatticeGauge, LatticeFermion, MultiLatticeFermion
 from . import gwu
 
 
-def init(latt_size: Sequence[int]):
+def init(latt_size: Sequence[int], mpi_comm: Optional[MPI.Intracomm] = None):
     import atexit
 
-    initGrid("x_fastest", None, latt_size)
+    initGrid(mpi_comm, "x_fastest", None, latt_size)
     initDevice()
     gwu.gwu_init_machine(np.asarray(latt_size, "<i4"))
     atexit.register(gwu.gwu_shutdown_machine)
