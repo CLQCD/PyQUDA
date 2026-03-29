@@ -17,7 +17,6 @@ from pyquda_comm import (  # noqa: F401
     getMPICommAddress,
     getMPISize,
     getMPIRank,
-    getGridMap,
     getGridSize,
     getGridCoord,
     getArrayBackend,

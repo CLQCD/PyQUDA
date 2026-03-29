@@ -69,14 +69,7 @@ _MPI_RANK_WORLD: int = _MPI_COMM_WORLD.Get_rank()
 _MPI_COMM: MPI.Intracomm = MPI.COMM_WORLD.Dup()
 _MPI_SIZE: int = _MPI_COMM.Get_size()
 _MPI_RANK: int = _MPI_COMM.Get_rank()
-_SHARED_COMM: MPI.Intracomm = cast(MPI.Intracomm, _MPI_COMM.Split_type(MPI.COMM_TYPE_SHARED))
-_SHARED_SIZE: int = _SHARED_COMM.Get_size()
-_SHARED_RANK: int = _SHARED_COMM.Get_rank()
-_SHARED_SIZE_MAX: int = _MPI_COMM.allreduce(_SHARED_SIZE, MPI.MAX)
-_SHARED_SIZE_MIN: int = _MPI_COMM.allreduce(_SHARED_SIZE, MPI.MIN)
 _MPI_IO_MAX_COUNT: int = 2**30
-_GRID_MAP: GridMapType = "default"
-"""For MPI, the default node mapping is lexicographical with t varying fastest."""
 _GRID_SIZE: Optional[Tuple[int, ...]] = None
 _GRID_COORD: Optional[Tuple[int, ...]] = None
 _ARRAY_BACKEND: BackendType = "numpy"
@@ -102,16 +95,11 @@ def getCartesianCoords(rank: int, dims: Sequence[int]) -> List[int]:
     return coords[::-1]
 
 
-def getCartesianCoordsWithShared(shared_rank: int, shared_dims: Sequence[int], rank: int, dims: Sequence[int]):
-    assert len(shared_dims) == len(dims)
-    leader_comm = _MPI_COMM.Split(0 if shared_rank == 0 else MPI.UNDEFINED, rank)
-    leader_rank = leader_comm.Get_rank() if shared_rank == 0 else -1
-    leader_comm.Free() if shared_rank == 0 else None
-    node_rank = _SHARED_COMM.bcast(leader_rank)
-    node_dims = [G // S for S, G in zip(shared_dims, dims)]
+def getCartesianCoordsWithLocal(local_rank: int, local_dims: Sequence[int], node_rank: int, node_dims: Sequence[int]):
+    assert len(local_dims) == len(node_dims)
     node_coords = getCartesianCoords(node_rank, node_dims)
-    shared_coords = getCartesianCoords(shared_rank, shared_dims)
-    return [n * S + s for n, s, S in zip(node_coords, shared_coords, shared_dims)]
+    local_coords = getCartesianCoords(local_rank, local_dims)
+    return [n * L + l for n, L, l in zip(node_coords, local_dims, local_coords)]
 
 
 def getRankFromCoord(grid_coord: List[int]) -> int:
@@ -225,11 +213,11 @@ def _partition(
                 )
 
 
-def getDefaultGrid(mpi_size: int, shared_size: int, latt_size: Sequence[int], evenodd: bool = True):
+def getDefaultGrid(mpi_size: int, local_size: int, latt_size: Sequence[int], evenodd: bool = True):
     Lx, Ly, Lz, Lt = latt_size
     latt_vol = Lx * Ly * Lz * Lt
     assert latt_vol % mpi_size == 0, "lattice volume must be divisible by MPI size"
-    node_size = mpi_size // shared_size
+    node_size = mpi_size // local_size
     node_latt_vol = latt_vol // node_size
     local_latt_vol = latt_vol // mpi_size
     min_comm, min_grid = (4 * 2 * node_latt_vol, 4 * 2 * local_latt_vol, 4 * 2), []
@@ -243,26 +231,26 @@ def getDefaultGrid(mpi_size: int, shared_size: int, latt_size: Sequence[int], ev
     node_partition = _partition(node_size, [Lx_, Ly_, Lz_, Lt_])
     for node_grid_size in node_partition:
         Nx, Ny, Nz, Nt = node_grid_size
-        shared_partition = _partition(shared_size, [Lx_ // Nx, Ly_ // Ny, Lz_ // Nz, Lt_ // Nt])
-        for shared_grid_size in shared_partition:
-            grid_size = [node_grid_size[dir] * shared_grid_size[dir] for dir in range(4)]
+        local_partition = _partition(local_size, [Lx_ // Nx, Ly_ // Ny, Lz_ // Nz, Lt_ // Nt])
+        for local_grid_size in local_partition:
+            grid_size = [node_grid_size[dir] * local_grid_size[dir] for dir in range(4)]
             comm, nic_size, nic_count = 0, 0, 0
             for dir in range(4):
                 if node_grid_size[dir] > 1:
                     node_latt_surf = node_latt_vol // (latt_size[dir] // node_grid_size[dir])
                     local_latt_surf = local_latt_vol // (latt_size[dir] // grid_size[dir])
                     comm += 2 * node_latt_surf
-                    if shared_grid_size[dir] == 1:
+                    if local_grid_size[dir] == 1:
                         nic_size += 2 * local_latt_surf
                         nic_count += 2
-                    else:  # shared_grid_size[dir] > 1
+                    else:  # local_grid_size[dir] > 1
                         nic_size += 1 * local_latt_surf
                         nic_count += 1
 
             if (comm, nic_size, nic_count) < min_comm:
-                min_comm, min_grid = (comm, nic_size, nic_count), [(grid_size, shared_grid_size)]
+                min_comm, min_grid = (comm, nic_size, nic_count), [(grid_size, local_grid_size)]
             elif (comm, nic_size, nic_count) == min_comm:
-                min_grid.append((grid_size, shared_grid_size))
+                min_grid.append((grid_size, local_grid_size))
     if min_grid == []:
         raise ValueError(f"Cannot get proper grid for lattice size {latt_size} with {mpi_size} MPI processes")
     return min(min_grid)
@@ -276,8 +264,7 @@ def initGrid(
     evenodd: bool = True,
 ):
     global _MPI_COMM, _MPI_SIZE, _MPI_RANK
-    global _SHARED_COMM, _SHARED_SIZE, _SHARED_RANK, _SHARED_SIZE_MAX, _SHARED_SIZE_MIN
-    global _GRID_MAP, _GRID_SIZE, _GRID_COORD
+    global _GRID_SIZE, _GRID_COORD
     if _GRID_SIZE is None:
         if mpi_comm is not None and MPI.Comm.Compare(mpi_comm, _MPI_COMM) not in [MPI.IDENT, MPI.CONGRUENT]:
             if not isinstance(mpi_comm, MPI.Intracomm):
@@ -286,71 +273,87 @@ def initGrid(
             _MPI_COMM = mpi_comm.Dup()
             _MPI_SIZE = _MPI_COMM.Get_size()
             _MPI_RANK = _MPI_COMM.Get_rank()
-            _SHARED_COMM.Free()
-            _SHARED_COMM = cast(MPI.Intracomm, _MPI_COMM.Split_type(MPI.COMM_TYPE_SHARED))
-            _SHARED_SIZE = _SHARED_COMM.Get_size()
-            _SHARED_RANK = _SHARED_COMM.Get_rank()
-            _SHARED_SIZE_MAX = _MPI_COMM.allreduce(_SHARED_SIZE, MPI.MAX)
-            _SHARED_SIZE_MIN = _MPI_COMM.allreduce(_SHARED_SIZE, MPI.MIN)
-        if grid_map not in get_args(GridMapType):
-            _MPI_LOGGER.critical(f"Unsupported grid mapping type: {grid_map}", ValueError)
-        _MPI_LOGGER.info(f"Using {grid_map} grid mapping")
 
-        if grid_size is not None:
-            if math.prod(grid_size) != _MPI_SIZE:
-                _MPI_LOGGER.critical(f"Grid size {grid_size} must matches MPI size {_MPI_SIZE}", ValueError)
-            if grid_map == "minimize":
-                _MPI_LOGGER.critical("Grid size must not be set while using minimize grid mapping", ValueError)
-        elif latt_size is not None:
-            _MPI_LOGGER.info(f"Using lattice size {latt_size} to determine grid size")
-            if grid_map == "minimize":
-                assert _SHARED_SIZE_MAX == _SHARED_SIZE_MIN
-                grid_size, shared_grid_size = getDefaultGrid(_MPI_SIZE, _SHARED_SIZE, latt_size, evenodd)
+        local_comm = _MPI_COMM.Split_type(MPI.COMM_TYPE_SHARED)
+        local_size = local_comm.Get_size()
+        local_rank = local_comm.Get_rank()
+        local_size_max = _MPI_COMM.allreduce(local_size, MPI.MAX)
+        local_size_min = _MPI_COMM.allreduce(local_size, MPI.MIN)
+        cross_comm = _MPI_COMM.Split(local_rank, _MPI_RANK)
+        cross_rank = cross_comm.Get_rank()
+        cross_comm.Free()
+        node_rank = local_comm.bcast(cross_rank)
+        local_comm.Free()
+
+        def ensureGridSize(grid_size: Optional[Sequence[int]], latt_size: Optional[Sequence[int]], local_size: int):
+            if grid_size is not None:
+                if math.prod(grid_size) != _MPI_SIZE:
+                    _MPI_LOGGER.critical(f"Grid size {grid_size} must matches MPI size {_MPI_SIZE}", ValueError)
+                local_grid_size = [1 for _ in grid_size]
+            elif latt_size is not None:
+                _MPI_LOGGER.info(f"Using lattice size {latt_size} to determine grid size")
+                grid_size, local_grid_size = getDefaultGrid(_MPI_SIZE, local_size, latt_size, evenodd)
             else:
-                grid_size, shared_grid_size = getDefaultGrid(_MPI_SIZE, 1, latt_size, evenodd)
-        else:
-            if grid_map == "minimize":
-                _MPI_LOGGER.critical("Lattice size must be set while using minimize grid mapping", ValueError)
-            grid_size = [1, 1, 1, 1]
-        _MPI_LOGGER.info(f"Using grid size {grid_size}")
+                grid_size, local_grid_size = [1, 1, 1, 1], [1, 1, 1, 1]
+            _MPI_LOGGER.info(f"Using grid size {grid_size}")
+            return grid_size, local_grid_size
 
+        _MPI_LOGGER.info(f'Using "{grid_map}" grid mapping')
         if grid_map == "default":
+            grid_size, _ = ensureGridSize(grid_size, latt_size, 1)
             grid_coord = getCartesianCoords(_MPI_RANK, grid_size)
-            grid_rank = _MPI_RANK
+            mpi_rank = _MPI_RANK
         elif grid_map == "t_fastest":
+            grid_size, _ = ensureGridSize(grid_size, latt_size, 1)
             grid_coord = getCartesianCoords(_MPI_RANK, grid_size)
-            grid_rank = _MPI_RANK
+            mpi_rank = _MPI_RANK
         elif grid_map == "x_fastest":
+            grid_size, _ = ensureGridSize(grid_size, latt_size, 1)
             grid_coord = getCartesianCoords(_MPI_RANK, grid_size[::-1])[::-1]
-            grid_rank = getCartesianRank(grid_coord, grid_size)
+            mpi_rank = getCartesianRank(grid_coord, grid_size)
         elif grid_map == "minimize":
-            assert _SHARED_SIZE_MAX == _SHARED_SIZE_MIN
-            grid_coord = getCartesianCoordsWithShared(_SHARED_RANK, shared_grid_size, _MPI_RANK, grid_size)
-            grid_rank = getCartesianRank(grid_coord, grid_size)
+            if grid_size is not None or latt_size is None:
+                _MPI_LOGGER.critical(
+                    '"minimize" grid mapping requires None as the gird size and a valid lattice size',
+                    ValueError,
+                )
+            if local_size_max != local_size_min:
+                _MPI_LOGGER.error(
+                    '"minimize" grid mapping is not valid for heterogeneous node configuration', RuntimeError
+                )
+                _MPI_LOGGER.error('"minimize" grid mapping falls back to "default"', RuntimeError)
+            grid_size, local_grid_size = ensureGridSize(grid_size, latt_size, local_size)
+            node_grid_size = [G // L for G, L in zip(grid_size, local_grid_size)]
+            grid_coord = getCartesianCoordsWithLocal(local_rank, local_grid_size, node_rank, node_grid_size)
+            mpi_rank = getCartesianRank(grid_coord, grid_size)
         elif grid_map == "shared":
-            assert _SHARED_SIZE_MAX == _SHARED_SIZE_MIN
-            shared_size = _SHARED_SIZE
+            if local_size_max != local_size_min:
+                _MPI_LOGGER.critical(
+                    '"shared" grid mapping is not valid for heterogeneous node configuration', RuntimeError
+                )
+            grid_size, _ = ensureGridSize(grid_size, latt_size, 1)
             node_grid_size = [G for G in grid_size]
-            shared_grid_size = [1 for _ in grid_size]
+            local_grid_size = [1 for _ in grid_size]
             dim, last_dim = 0, len(grid_size) - 1
-            while shared_size > 1:
+            while local_size > 1:
                 for prime in [2, 3, 5]:
-                    if node_grid_size[dim] % prime == 0 and shared_size % prime == 0:
+                    if node_grid_size[dim] % prime == 0 and local_size % prime == 0:
                         node_grid_size[dim] //= prime
-                        shared_grid_size[dim] *= prime
-                        shared_size //= prime
+                        local_grid_size[dim] *= prime
+                        local_size //= prime
                         last_dim = dim
                         break
                 else:
                     if last_dim == dim:
                         _MPI_LOGGER.critical("GlobalSharedMemory::GetShmDims failed", ValueError)
                 dim = (dim + 1) % len(grid_size)
-            grid_coord = getCartesianCoordsWithShared(_SHARED_RANK, shared_grid_size, _MPI_RANK, grid_size)
-            grid_rank = getCartesianRank(grid_coord, grid_size)
+            grid_coord = getCartesianCoordsWithLocal(local_rank, local_grid_size, node_rank, node_grid_size)
+            mpi_rank = getCartesianRank(grid_coord, grid_size)
         elif grid_map == "dist_graph":
+            grid_size, _ = ensureGridSize(grid_size, latt_size, 1)
             grid_coord = getCartesianCoords(_MPI_RANK, grid_size)
             if latt_size is None:
-                sublatt_size = [1 for G in grid_size]
+                sublatt_size = [1 for _ in grid_size]
             else:
                 sublatt_size = [GL // G for G, GL in zip(grid_size, latt_size)]
             subvolume = math.prod(sublatt_size)
@@ -383,17 +386,18 @@ def initGrid(
             dist_graph_rank = dist_graph_comm.Get_rank()
             dist_graph_comm.Free()
             grid_coord = getCartesianCoords(dist_graph_rank, grid_size)
-            grid_rank = dist_graph_rank
+            mpi_rank = dist_graph_rank
+        else:
+            _MPI_LOGGER.critical(f"Unsupported grid mapping type: {grid_map}", ValueError)
 
-        grid_ranks = _MPI_COMM.allgather(grid_rank)
-        if grid_ranks != list(range(_MPI_SIZE)):
-            _MPI_LOGGER.info(f"Mapping ranks to {grid_ranks}")
+        mpi_ranks = _MPI_COMM.allgather(mpi_rank)
+        if mpi_ranks != list(range(_MPI_SIZE)):
+            _MPI_LOGGER.info(f"Mapping ranks to {mpi_ranks}")
             _MPI_COMM.Free()
-            _MPI_COMM = cast(MPI.Intracomm, _MPI_COMM.Split(0, grid_rank))
+            _MPI_COMM = cast(MPI.Intracomm, _MPI_COMM.Split(0, mpi_rank))
             _MPI_SIZE = _MPI_COMM.Get_size()
             _MPI_RANK = _MPI_COMM.Get_rank()
 
-        _GRID_MAP = grid_map
         _GRID_SIZE = tuple(grid_size)
         _GRID_COORD = tuple(grid_coord)
     else:
@@ -491,10 +495,6 @@ def getMPIRank():
     if _MPI_RANK is None:
         _MPI_LOGGER.critical("Grid is not initialized", RuntimeError)
     return _MPI_RANK
-
-
-def getGridMap():
-    return _GRID_MAP
 
 
 def getGridSize():

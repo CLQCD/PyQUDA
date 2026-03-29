@@ -11,7 +11,6 @@ from pyquda import (  # noqa: F401
     getMPIRank,
     getGridSize,
     getGridCoord,
-    getGridMap,
     getArrayBackend,
     getArrayDevice,
     getLogger,
