@@ -10,6 +10,10 @@ from . import contract
 from .contract import BaryonContractType, BaryonSequentialType
 
 
+def init(device: int):
+    contract.init(device)
+
+
 def mesonTwoPoint(
     propag_a: LatticePropagator,
     propag_b: LatticePropagator,
