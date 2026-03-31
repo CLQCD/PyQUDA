@@ -2,7 +2,7 @@ from typing import Union
 import numpy
 from numpy.typing import NDArray
 
-from pyquda_comm import getLogger
+from pyquda_comm import getLogger, getArrayDevice, isDeviceInitialized
 from pyquda_comm.field import LatticeComplex, MultiLatticeComplex, LatticePropagator
 from pyquda_utils.gamma import Gamma, Polarize
 
@@ -10,8 +10,10 @@ from . import contract
 from .contract import BaryonContractType, BaryonSequentialType
 
 
-def init(device: int):
-    contract.init(device)
+def init():
+    if not isDeviceInitialized():
+        getLogger().critical("Device must be set before initialization", RuntimeError)
+    contract.init(getArrayDevice())
 
 
 def mesonTwoPoint(
