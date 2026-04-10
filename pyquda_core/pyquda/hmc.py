@@ -5,7 +5,7 @@ from typing import List, Optional, Union
 
 import numpy
 
-from pyquda_comm import getLogger, getArrayBackend
+from pyquda_comm import getLogger, getMPIComm, getArrayBackend
 from pyquda_comm.array import arrayRandomGetState, arrayRandomSetState, arrayRandomSeed
 from .field import LatticeInfo, LatticeGauge, LatticeMom, LatticeReal
 from .quda import (
@@ -258,6 +258,16 @@ class HMC:
                 None,
             )
         )
+        current = self
+        while current.hmc_inner is not None:
+            current.hmc_inner.random = current.random
+            current = current.hmc_inner
+
+    def initializeFields(self):
+        self.gauge = LatticeGauge(self.latt_info)
+        self.smeared = LatticeGauge(self.latt_info)
+        self.mom = LatticeMom(self.latt_info)
+        self.force = LatticeMom(self.latt_info)
 
     def initialize(self, seed: int, gauge: LatticeGauge, mom: Optional[LatticeMom] = None):
         self.initializeRNG(seed)
@@ -425,7 +435,7 @@ class HMC:
             self.projectSU3(project_tol)
 
     def accept(self, delta_s: float):
-        return self.latt_info.mpi_comm.bcast(self.random.random() < exp(min(-delta_s, 0)))
+        return getMPIComm().bcast(self.random.random() < exp(min(-delta_s, 0)))
 
     def plaquette(self):
         self.obs_param.compute_plaquette = QudaBoolean.QUDA_BOOLEAN_TRUE
