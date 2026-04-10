@@ -537,10 +537,10 @@ def loadMultigrid(multigrid: Multigrid, invert_param: QudaInvertParam, thin_upda
     if multigrid.param is not None:
         if multigrid.instance is None:
             multigrid.new()
-            assert multigrid.instance is not None
-            invert_param.preconditioner = multigrid.instance
         else:
             multigrid.update(thin_update_only)
+        assert multigrid.instance is not None
+        invert_param.preconditioner = multigrid.instance
 
 
 def freeMultigrid(multigrid: Multigrid, invert_param: QudaInvertParam):

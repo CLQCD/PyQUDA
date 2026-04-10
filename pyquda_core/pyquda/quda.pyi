@@ -666,6 +666,7 @@ class QudaEigParam:
 
     def __init__(self) -> None: ...
     def __repr__(self) -> str: ...
+    def getPointer(self) -> Pointer: ...
 
     struct_size: size_t
     """Size of this struct in bytes.  Used to ensure that the host application and QUDA see the same struct size"""
@@ -1211,7 +1212,7 @@ def setVerbosityQuda(verbosity: QudaVerbosity, prefix: bytes) -> None:
     """
     ...
 
-def initCommsGridQuda(nDim: int, dims: List[int, 4], grid_map: bytes) -> None:
+def initCommsGridQuda(nDim: int, dims: List[int, 4], ranks: List[int]) -> None:
     """
     Declare the grid mapping ("logical topology" in QMP parlance)
     used for communications in a multi-GPU grid.  This function

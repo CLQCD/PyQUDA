@@ -6,7 +6,7 @@ RUN apt-get update && apt-get dist-upgrade -y && \
     pkg-config \
     git
 
-RUN curl https://gitlab.gnome.org/GNOME/libxml2/-/archive/v2.9.14/libxml2-v2.9.14.tar.gz -o libxml2-v2.9.14.tar.gz && tar -xzf libxml2-v2.9.14.tar.gz && \
+RUN curl -LO https://gitlab.gnome.org/GNOME/libxml2/-/archive/v2.9.14/libxml2-v2.9.14.tar.gz && tar -xzf libxml2-v2.9.14.tar.gz && \
     git clone --recursive --branch devel --depth 1 https://github.com/usqcd-software/qdpxx.git && \
     git clone --recursive --branch devel --depth 1 https://github.com/JeffersonLab/chroma.git
 
@@ -20,7 +20,7 @@ RUN cd libxml2-v2.9.14 && \
     --disable-shared \
     --with-minimum \
     --with-sax1 \
-    --with-writer \
+    --with-output \
     --with-xpath && \
     make -j32 && make install -j32
 

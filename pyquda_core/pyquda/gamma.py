@@ -4,7 +4,7 @@ import numpy
 from numpy.typing import NDArray
 
 from pyquda_comm import getArrayBackend
-from pyquda_comm.array import arrayDevice
+from pyquda_comm.array import arrayAsArray
 
 
 class _GammaMatrix:
@@ -22,7 +22,7 @@ class _GammaMatrix:
             @ (cls.gamma_3 if index & 0b0100 else cls.gamma_0)
             @ (cls.gamma_4 if index & 0b1000 else cls.gamma_0)
         )
-        return arrayDevice(gamma, getArrayBackend())
+        return arrayAsArray(gamma, getArrayBackend())
 
 
 class DeGrandRossiMatrix(_GammaMatrix):

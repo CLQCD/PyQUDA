@@ -242,15 +242,16 @@ def writeKYUPropagatorF(filename: str, propagator: LatticePropagator):
     writeXQCDPropagator(filename, propagator)
 
 
-from pyquda_comm.array import arrayDevice
+from pyquda_comm import getArrayBackend
+from pyquda_comm.array import arrayAsNumpy, arrayAsArray
 
 
 def rotateToDiracPauli(propagator: LatticePropagator):
     from opt_einsum import contract
 
     location = propagator.location
-    P = arrayDevice(_DR_TO_DP, location)
-    Pinv = arrayDevice(_DP_TO_DR, location) / 2
+    P = arrayAsArray(_DR_TO_DP, location)
+    Pinv = arrayAsArray(_DP_TO_DR, location) / 2
 
     return LatticePropagator(
         propagator.latt_info, contract("ij,wtzyxjkab,kl->wtzyxilab", P, propagator.data, Pinv, optimize=True)
@@ -261,8 +262,8 @@ def rotateToDeGrandRossi(propagator: LatticePropagator):
     from opt_einsum import contract
 
     location = propagator.location
-    P = arrayDevice(_DP_TO_DR, location)
-    Pinv = arrayDevice(_DR_TO_DP, location) / 2
+    P = arrayAsArray(_DP_TO_DR, location)
+    Pinv = arrayAsArray(_DR_TO_DP, location) / 2
 
     return LatticePropagator(
         propagator.latt_info, contract("ij,wtzyxjkab,kl->wtzyxilab", P, propagator.data, Pinv, optimize=True)
@@ -270,15 +271,13 @@ def rotateToDeGrandRossi(propagator: LatticePropagator):
 
 
 def readXQCDPropagatorFast(filename: str, latt_size: List[int]):
-    from pyquda_comm import getArrayBackend
-    from pyquda_comm.array import arrayDevice
     from pyquda_io.xqcd import readPropagatorFast as read
 
     latt_info = LatticeInfo(latt_size)
     propagator_raw = read(filename, latt_size)
     propagator = LatticePropagator(
         latt_info,
-        arrayDevice(evenodd(propagator_raw, [2, 3, 4, 5]), getArrayBackend())
+        arrayAsArray(evenodd(propagator_raw, [2, 3, 4, 5]), getArrayBackend())
         .transpose(2, 3, 4, 5, 6, 7, 0, 8, 1)
         .astype("<c16"),
     )
@@ -293,14 +292,12 @@ def readXQCDPropagatorFast(filename: str, latt_size: List[int]):
 
 
 def writeXQCDPropagatorFast(filename: str, propagator: LatticePropagator):
-    from pyquda_comm import getArrayBackend
-    from pyquda_comm.array import arrayHost
     from pyquda_io.xqcd import writePropagatorFast as write
 
     latt_info = propagator.latt_info
     propagator = rotateToDiracPauli(propagator)
     propagator_raw = lexico(
-        arrayHost(propagator.data.transpose(6, 8, 0, 1, 2, 3, 4, 5, 7).astype("<c8"), getArrayBackend()),
+        arrayAsNumpy(propagator.data.transpose(6, 8, 0, 1, 2, 3, 4, 5, 7).astype("<c8"), getArrayBackend()),
         [2, 3, 4, 5, 6],
     )
     # Ns, Nc = 4, 3

@@ -29,11 +29,11 @@ from . import (
 )
 from .array import (
     BackendType,
-    arrayIsInstance,
     arrayDType,
-    arrayHost,
-    arrayHostCopy,
-    arrayDevice,
+    arrayAsNumpy,
+    arrayAsNumpyCopy,
+    arrayIsArray,
+    arrayAsArray,
     arrayCopy,
     arrayIsContiguous,
     arrayAsContiguous,
@@ -335,10 +335,10 @@ class BaseField:
             if self.location == "numpy":
                 self._data[:] = value
             else:
-                self._data[:] = arrayDevice(value, self.backend)
-        elif arrayIsInstance(value, self.backend):
+                self._data[:] = arrayAsArray(value, self.backend)
+        elif arrayIsArray(value, self.backend):
             if self.location == "numpy":
-                self._data[:] = arrayHost(value, self.backend)
+                self._data[:] = arrayAsNumpy(value, self.backend)
             else:
                 self._data[:] = value
         else:
@@ -484,9 +484,9 @@ class BaseField:
                 self.data.reshape(-1, *self.field_shape)[key_] = value
             elif isinstance(value, numpy.ndarray):
                 if tuple(field_shape) == numpy.broadcast_shapes(field_shape, value.shape):
-                    self.data.reshape(-1, *self.field_shape)[key_] = arrayDevice(value, self.location)
+                    self.data.reshape(-1, *self.field_shape)[key_] = arrayAsArray(value, self.location)
                 else:
-                    self.data.reshape(-1, *self.field_shape)[key_] = arrayDevice(value, self.location).reshape(
+                    self.data.reshape(-1, *self.field_shape)[key_] = arrayAsArray(value, self.location).reshape(
                         *subshape, *field_shape
                     )
             else:
@@ -510,7 +510,7 @@ class BaseField:
             select, shape, subshape = self._select_lattice(key[:Nd])
             field_shape = self._select_field(key[Nd:], self.field_shape)
             key_ = (select, *key[Nd:])
-            return arrayHostCopy(self.data.reshape(-1, *self.field_shape)[key_], self.location).reshape(
+            return arrayAsNumpyCopy(self.data.reshape(-1, *self.field_shape)[key_], self.location).reshape(
                 *subshape, *field_shape
             )
         else:
@@ -677,13 +677,13 @@ class BaseField:
             return self.__class__(self.latt_info, self.L5, arrayCopy(self.data, self.location))
 
     def toDevice(self):
-        self._data = arrayDevice(self.data, self.backend)
+        self._data = arrayAsArray(self.data, self.backend)
 
     def toHost(self):
-        self._data = arrayHost(self.data, self.location)
+        self._data = arrayAsNumpy(self.data, self.location)
 
     def getHost(self):
-        return arrayHostCopy(self.data, self.location)
+        return arrayAsNumpyCopy(self.data, self.location)
 
     def norm2(self, all_reduce=True) -> float:
         norm2 = arrayLinalgNorm(self.data, self.location) ** 2
@@ -797,7 +797,7 @@ class LexicoField(BaseField):
             if rank == source and rank == dest:
                 pass
             else:
-                sendbuf_host = arrayHostCopy(sendbuf, location)
+                sendbuf_host = arrayAsNumpyCopy(sendbuf, location)
                 request = getMPIComm().Isend(sendbuf_host, dest)
 
             left_slice[mu] = slice(None, -1) if direction == 1 else slice(1, None)
@@ -812,7 +812,7 @@ class LexicoField(BaseField):
                 recvbuf_host = numpy.empty_like(sendbuf_host)
                 getMPIComm().Recv(recvbuf_host, source)
                 request.Wait()
-                recvbuf = arrayDevice(recvbuf_host, location)
+                recvbuf = arrayAsArray(recvbuf_host, location)
             left[tuple(left_slice[::-1])] = recvbuf
 
             n -= 1
@@ -940,11 +940,11 @@ class FullField(BaseField, Generic[Field]):
                 even = numpy.where(eo == 0)[0].reshape(2, -1) % Sx
                 odd = numpy.where(eo == 1)[0].reshape(2, -1) % Sx
                 if direction == 1:
-                    sendbuf = arrayDevice([right_flat[0, even[0], 0], right_flat[1, even[1], 0]], location)
+                    sendbuf = arrayAsArray([right_flat[0, even[0], 0], right_flat[1, even[1], 0]], location)
                     if rank == source and rank == dest:
                         pass
                     else:
-                        sendbuf_host = arrayHostCopy(sendbuf, location)
+                        sendbuf_host = arrayAsNumpyCopy(sendbuf, location)
                         request = getMPIComm().Isend(sendbuf_host, dest)
 
                     left_flat[1, even[1]] = right_flat[0, odd[0]]
@@ -958,15 +958,15 @@ class FullField(BaseField, Generic[Field]):
                         recvbuf_host = numpy.empty_like(sendbuf_host)
                         getMPIComm().Recv(recvbuf_host, source)
                         request.Wait()
-                        recvbuf = arrayDevice(recvbuf_host, location)
+                        recvbuf = arrayAsArray(recvbuf_host, location)
                     left_flat[1, odd[1], -1] = recvbuf[0]
                     left_flat[0, odd[0], -1] = recvbuf[1]
                 else:
-                    sendbuf = arrayDevice([right_flat[0, odd[0], -1], right_flat[1, odd[1], -1]], location)
+                    sendbuf = arrayAsArray([right_flat[0, odd[0], -1], right_flat[1, odd[1], -1]], location)
                     if rank == source and rank == dest:
                         pass
                     else:
-                        sendbuf_host = arrayHostCopy(sendbuf, location)
+                        sendbuf_host = arrayAsNumpyCopy(sendbuf, location)
                         request = getMPIComm().Isend(sendbuf_host, dest)
 
                     left_flat[1, odd[1]] = right_flat[0, even[0]]
@@ -980,7 +980,7 @@ class FullField(BaseField, Generic[Field]):
                         recvbuf_host = numpy.empty_like(sendbuf_host)
                         getMPIComm().Recv(recvbuf_host, source)
                         request.Wait()
-                        recvbuf = arrayDevice(recvbuf_host, location)
+                        recvbuf = arrayAsArray(recvbuf_host, location)
                     left_flat[1, even[1], 0] = recvbuf[0]
                     left_flat[0, even[0], 0] = recvbuf[1]
 
@@ -992,7 +992,7 @@ class FullField(BaseField, Generic[Field]):
                 if rank == source and rank == dest:
                     pass
                 else:
-                    sendbuf_host = arrayHostCopy(sendbuf, location)
+                    sendbuf_host = arrayAsNumpyCopy(sendbuf, location)
                     request = getMPIComm().Isend(sendbuf_host, dest)
 
                 left_slice[mu] = slice(None, -1) if direction == 1 else slice(1, None)
@@ -1012,7 +1012,7 @@ class FullField(BaseField, Generic[Field]):
                     recvbuf_host = numpy.empty_like(sendbuf_host)
                     getMPIComm().Recv(recvbuf_host, source)
                     request.Wait()
-                    recvbuf = arrayDevice(recvbuf_host, location)
+                    recvbuf = arrayAsArray(recvbuf_host, location)
                 if mu == 0:
                     left[(0,) + tuple(left_slice[::-1])] = recvbuf[0]
                     left[(1,) + tuple(left_slice[::-1])] = recvbuf[1]

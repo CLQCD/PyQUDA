@@ -11,6 +11,8 @@ from pyquda_utils import core, io, gamma
 from pyquda_plugins import pycontract
 
 core.init(resource_path=".cache/quda")
+pycontract.init()
+
 latt_info = core.LatticeInfo([4, 4, 4, 8])
 
 epsilon = cp.zeros((3, 3, 3), "<i4")
@@ -344,22 +346,6 @@ for contract_type in [
     core.getLogger().info(f"Relative error: {(twopt - twopt_).norm2() ** 0.5 / twopt.norm2() ** 0.5}")
     # core.getLogger().info(twopt.data[0, 0, 0, 0, 0])
     # core.getLogger().info(twopt_.data[0, 0, 0, 0, 0])
-
-    deviceSynchronize()
-    s = perf_counter()
-    twopt2 = baryonTwoPoint_v2(propag_i, propag_j, propag_m, contract_type, CG_A, CG_B, Pp)
-    deviceSynchronize()
-    core.getLogger().info(f"Time for baryonTwoPoint_v2: {perf_counter() - s:.3f} sec")
-
-    deviceSynchronize()
-    s = perf_counter()
-    twopt2_ = pycontract.baryonTwoPoint_v2(propag_i, propag_j, propag_m, contract_type, CG_A, CG_B, Pp)
-    deviceSynchronize()
-    core.getLogger().info(f"Time for pycontract.baryonTwoPoint_v2: {perf_counter() - s:.3f} sec")
-
-    core.getLogger().info(f"Relative error: {(twopt2 - twopt2_).norm2() ** 0.5 / twopt2.norm2() ** 0.5}")
-    # core.getLogger().info(twopt2.data[0, 0, 0, 0, 0])
-    # core.getLogger().info(twopt2_.data[0, 0, 0, 0, 0])
 
 for sequential_type in [
     pycontract.BaryonSequentialType.SEQUENTIAL_I,
