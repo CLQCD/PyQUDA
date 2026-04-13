@@ -233,11 +233,11 @@ class HMC:
         self.obs_param = QudaGaugeObservableParam()
         self.obs_param.remove_staggered_phase = QudaBoolean(self.is_staggered)
         self.fuseFermionAction()
-        self.gauge = LatticeGauge(latt_info)
-        self.smeared = LatticeGauge(latt_info)
-        self.mom = LatticeMom(latt_info)
-        self.force = LatticeMom(latt_info)
-        self.force_v2 = LatticeGauge(latt_info)
+        self.gauge = None
+        self.smeared = None
+        self.mom = None
+        self.force = None
+        self.force_v2 = None
 
     def fuseFermionAction(self):
         if self.is_staggered:
@@ -269,6 +269,7 @@ class HMC:
         self.smeared = LatticeGauge(self.latt_info)
         self.mom = LatticeMom(self.latt_info)
         self.force = LatticeMom(self.latt_info)
+        self.force_v2 = LatticeMom(self.latt_info)
 
     def initialize(self, seed: int, gauge: LatticeGauge, mom: Optional[LatticeMom] = None):
         self.initializeRNG(seed)
