@@ -271,6 +271,7 @@ class HMC:
 
     def initialize(self, seed: int, gauge: LatticeGauge, mom: Optional[LatticeMom] = None):
         self.initializeRNG(seed)
+        self.initializeFields()
         self.loadGauge(gauge)
         if mom is None:
             self.loadMom(LatticeMom(gauge.latt_info))
