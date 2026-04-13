@@ -269,7 +269,7 @@ class HMC:
         self.smeared = LatticeGauge(self.latt_info)
         self.mom = LatticeMom(self.latt_info)
         self.force = LatticeMom(self.latt_info)
-        self.force_v2 = LatticeMom(self.latt_info)
+        self.force_v2 = LatticeGauge(self.latt_info)
 
     def initialize(self, seed: int, gauge: LatticeGauge, mom: Optional[LatticeMom] = None):
         self.initializeRNG(seed)
@@ -462,7 +462,8 @@ class HMC:
         for monomial in self.fermion_monomials:
             # monomial.force(dt, self.force)
             monomial.force_v2(dt, self.force_v2)
-        self.force_v2 *= dt
+        if self.force_v2 is not None:
+            self.force_v2 *= dt
 
         self.loadGaugeMom()
 
