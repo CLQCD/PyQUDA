@@ -358,16 +358,13 @@ class HMC:
             action += self.hmc_inner.gaugeAction()
         return action
 
-    def fermionAction(self, use_action_param: bool = False) -> float:
-        """
-        use_action_param: use rational parameters for fermion action istead of molecular dynamics.
-        """
+    def fermionAction(self, use_force_param: bool = True) -> float:
         action = 0
         self.loadGaugeMomSmeared()
         for monomial in self.fermion_monomials:
-            action += monomial.action()  # if not use_action_param else monomial.actionFA()
+            action += monomial.action(use_force_param)
         if self.hmc_inner is not None:
-            action += self.hmc_inner.fermionAction()
+            action += self.hmc_inner.fermionAction(use_force_param)
         self.loadGaugeMom()
         return action
 

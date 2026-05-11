@@ -69,6 +69,10 @@ class FermionAction(Action):
         self.dirac.setVerbosity(verbosity)
 
     @abstractmethod
+    def action(self, use_force_param: bool) -> float:
+        pass
+
+    @abstractmethod
     def sample(self):
         pass
 
