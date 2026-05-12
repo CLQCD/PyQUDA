@@ -49,7 +49,7 @@ def baryonTwoPoint(
     contract_type,
     gamma_ij: gamma.Gamma,
     gamma_kl: gamma.Gamma,
-    gamma_mn: Union[gamma.Gamma, gamma.Polarize],
+    gamma_mn: Union[gamma.Gamma, gamma.Projector],
 ):
     latt_info = propag_i.latt_info
     if contract_type == pycontract.BaryonContractType.IK_JL_NM:
@@ -130,7 +130,7 @@ def baryonTwoPoint_v2(
     contract_type,
     gamma_ij: gamma.Gamma,
     gamma_kl: gamma.Gamma,
-    gamma_mn: Union[gamma.Gamma, gamma.Polarize],
+    gamma_mn: Union[gamma.Gamma, gamma.Projector],
 ):
     latt_info = propag_i.latt_info
     if contract_type == pycontract.BaryonContractType.IK_JL_MN:
@@ -169,7 +169,7 @@ def baryonSequentialTwoPoint(
     sequential_type,
     gamma_ij: gamma.Gamma,
     gamma_kl: gamma.Gamma,
-    gamma_mn: Union[gamma.Gamma, gamma.Polarize],
+    gamma_mn: Union[gamma.Gamma, gamma.Projector],
 ):
     latt_info = propag_i.latt_info
     if sequential_type == pycontract.BaryonSequentialType.SEQUENTIAL_I:
@@ -273,7 +273,7 @@ gamma_5 = gamma.Gamma(15)
 C = gamma_2 @ gamma_4
 CG_A = C @ gamma_4 @ gamma_5
 CG_B = C @ gamma_5
-Pp = (gamma_0 - gamma_3) / 2
+Pp = (gamma_0 + gamma_4) / 2
 
 deviceSynchronize()
 s = perf_counter()

@@ -429,14 +429,14 @@ def arrayFFT(data, axis: int, backend: BackendType) -> NDArray:
         import cupy
 
         return cupy.fft.fft(data, axis=axis)
-    elif backend == "torch":
-        import torch
-
-        return torch.fft.fft(data, dim=axis, norm="backward")
     elif backend == "dpnp":
         import dpnp
 
         return dpnp.fft.fft(data, axis=axis)
+    elif backend == "torch":
+        import torch
+
+        return torch.fft.fft(data, dim=axis, norm="backward")
 
 
 def arrayFFTN(data, axes: Sequence[int], backend: BackendType) -> NDArray:
@@ -446,14 +446,14 @@ def arrayFFTN(data, axes: Sequence[int], backend: BackendType) -> NDArray:
         import cupy
 
         return cupy.fft.fftn(data, axes=axes)
-    elif backend == "torch":
-        import torch
-
-        return torch.fft.fftn(data, dim=axes, norm="backward")
     elif backend == "dpnp":
         import dpnp
 
         return dpnp.fft.fftn(data, axes=axes)
+    elif backend == "torch":
+        import torch
+
+        return torch.fft.fftn(data, dim=axes, norm="backward")
 
 
 def arrayIFFT(data, axis: int, backend: BackendType) -> NDArray:
@@ -463,14 +463,14 @@ def arrayIFFT(data, axis: int, backend: BackendType) -> NDArray:
         import cupy
 
         return cupy.fft.ifft(data, axis=axis)
-    elif backend == "torch":
-        import torch
-
-        return torch.fft.ifft(data, dim=axis, norm="backward")
     elif backend == "dpnp":
         import dpnp
 
         return dpnp.fft.ifft(data, axis=axis)
+    elif backend == "torch":
+        import torch
+
+        return torch.fft.ifft(data, dim=axis, norm="backward")
 
 
 def arrayIFFTN(data, axes: Sequence[int], backend: BackendType) -> NDArray:
@@ -480,11 +480,11 @@ def arrayIFFTN(data, axes: Sequence[int], backend: BackendType) -> NDArray:
         import cupy
 
         return cupy.fft.ifftn(data, axes=axes)
-    elif backend == "torch":
-        import torch
-
-        return torch.fft.ifftn(data, dim=axes, norm="backward")
     elif backend == "dpnp":
         import dpnp
 
         return dpnp.fft.ifftn(data, axes=axes)
+    elif backend == "torch":
+        import torch
+
+        return torch.fft.ifftn(data, dim=axes, norm="backward")

@@ -4,7 +4,7 @@ from numpy.typing import NDArray
 
 from pyquda_comm import getLogger, getArrayDevice, isDeviceInitialized
 from pyquda_comm.field import LatticeComplex, MultiLatticeComplex, LatticePropagator
-from pyquda_utils.gamma import Gamma, Polarize
+from pyquda_utils.gamma import Gamma, Projector
 
 from . import contract
 from .contract import BaryonContractType, BaryonSequentialType
@@ -103,10 +103,10 @@ def baryonTwoPoint(
     contract_type: BaryonContractType,
     gamma_ij: Gamma,
     gamma_kl: Gamma,
-    gamma_mn: Union[Gamma, Polarize],
+    gamma_mn: Union[Gamma, Projector],
 ) -> LatticeComplex:
+    latt_info = propag_i.latt_info
     if isinstance(gamma_mn, Gamma):
-        latt_info = propag_i.latt_info
         assert latt_info.Nd == 4 and latt_info.Ns == 4 and latt_info.Nc == 3
         correl = LatticeComplex(latt_info)
         contract.baryon_two_point(
@@ -122,12 +122,22 @@ def baryonTwoPoint(
         )
         correl *= gamma_ij.factor * gamma_kl.factor * gamma_mn.factor
         return correl
-    elif isinstance(gamma_mn, Polarize):
-        correl_left = baryonTwoPoint(propag_i, propag_j, propag_n, contract_type, gamma_ij, gamma_kl, gamma_mn.left)
-        correl_right = baryonTwoPoint(propag_i, propag_j, propag_n, contract_type, gamma_ij, gamma_kl, gamma_mn.right)
-        return correl_left + correl_right
+    elif isinstance(gamma_mn, Projector):
+        correl = LatticeComplex(latt_info)
+        for index in range(16):
+            if gamma_mn.factors[index] != 0:
+                correl += baryonTwoPoint(
+                    propag_i,
+                    propag_j,
+                    propag_n,
+                    contract_type,
+                    gamma_ij,
+                    gamma_kl,
+                    Gamma(index, gamma_mn.factors[index]),
+                )
+        return correl
     else:
-        raise getLogger().critical("gamma_mn should be Gamma or Polarize", ValueError)
+        raise getLogger().critical("gamma_mn should be Gamma or Projector", ValueError)
 
 
 def baryonGeneralTwoPoint(
@@ -165,10 +175,10 @@ def baryonSequentialTwoPoint(
     sequential_type: BaryonSequentialType,
     gamma_ij: Gamma,
     gamma_kl: Gamma,
-    gamma_mn: Union[Gamma, Polarize],
+    gamma_mn: Union[Gamma, Projector],
 ) -> LatticePropagator:
+    latt_info = propag_i.latt_info
     if isinstance(gamma_mn, Gamma):
-        latt_info = propag_i.latt_info
         assert latt_info.Nd == 4 and latt_info.Ns == 4 and latt_info.Nc == 3
         sequential = LatticePropagator(latt_info)
         if sequential_type == BaryonSequentialType.SEQUENTIAL_I:
@@ -190,16 +200,23 @@ def baryonSequentialTwoPoint(
         )
         sequential *= gamma_ij.factor * gamma_kl.factor * gamma_mn.factor
         return sequential
-    elif isinstance(gamma_mn, Polarize):
-        sequential_left = baryonSequentialTwoPoint(
-            propag_i, propag_j, propag_n, contract_type, sequential_type, gamma_ij, gamma_kl, gamma_mn.left
-        )
-        sequential_right = baryonSequentialTwoPoint(
-            propag_i, propag_j, propag_n, contract_type, sequential_type, gamma_ij, gamma_kl, gamma_mn.right
-        )
-        return sequential_left + sequential_right
+    elif isinstance(gamma_mn, Projector):
+        sequential = LatticePropagator(latt_info)
+        for index in range(16):
+            if gamma_mn.factors[index] != 0:
+                sequential += baryonSequentialTwoPoint(
+                    propag_i,
+                    propag_j,
+                    propag_n,
+                    contract_type,
+                    sequential_type,
+                    gamma_ij,
+                    gamma_kl,
+                    Gamma(index, gamma_mn.factors[index]),
+                )
+        return sequential
     else:
-        raise getLogger().critical("gamma_mn should be Gamma or Polarize", ValueError)
+        raise getLogger().critical("gamma_mn should be Gamma or Projector", ValueError)
 
 
 def baryonTwoPoint_v2(
@@ -209,10 +226,10 @@ def baryonTwoPoint_v2(
     contract_type: BaryonContractType,
     gamma_ij: Gamma,
     gamma_kl: Gamma,
-    gamma_mn: Union[Gamma, Polarize],
+    gamma_mn: Union[Gamma, Projector],
 ) -> LatticeComplex:
+    latt_info = propag_i.latt_info
     if isinstance(gamma_mn, Gamma):
-        latt_info = propag_i.latt_info
         assert latt_info.Nd == 4 and latt_info.Ns == 4 and latt_info.Nc == 3
         correl = LatticeComplex(latt_info)
         contract.baryon_two_point_v2(
@@ -228,11 +245,19 @@ def baryonTwoPoint_v2(
         )
         correl.data *= gamma_ij.factor * gamma_kl.factor * gamma_mn.factor
         return correl
-    elif isinstance(gamma_mn, Polarize):
-        correl_left = baryonTwoPoint_v2(propag_i, propag_j, propag_m, contract_type, gamma_ij, gamma_kl, gamma_mn.left)
-        correl_right = baryonTwoPoint_v2(
-            propag_i, propag_j, propag_m, contract_type, gamma_ij, gamma_kl, gamma_mn.right
-        )
-        return correl_left + correl_right
+    elif isinstance(gamma_mn, Projector):
+        correl = LatticeComplex(latt_info)
+        for index in range(16):
+            if gamma_mn.factors[index] != 0:
+                correl += baryonTwoPoint_v2(
+                    propag_i,
+                    propag_j,
+                    propag_m,
+                    contract_type,
+                    gamma_ij,
+                    gamma_kl,
+                    Gamma(index, gamma_mn.factors[index]),
+                )
+        return correl
     else:
-        raise getLogger().critical("gamma_mn should be Gamma or Polarize", ValueError)
+        raise getLogger().critical("gamma_mn should be Gamma or Projector", ValueError)

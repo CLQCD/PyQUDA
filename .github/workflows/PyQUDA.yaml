@@ -40,7 +40,7 @@ jobs:
 
       - name: Upload sdist
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag != ''
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ github.event.inputs.tag }}
           files: pyquda_core/dist/pyquda-${{ github.event.inputs.tag }}.tar.gz
