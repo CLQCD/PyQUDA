@@ -23,21 +23,21 @@ for i in range(3):
 
 
 def mesonTwoPoint(
-    propag_a: core.LatticePropagator,
-    propag_b: core.LatticePropagator,
-    gamma_ab: gamma.Gamma,
-    gamma_de: gamma.Gamma,
+    propag_i: core.LatticePropagator,
+    propag_j: core.LatticePropagator,
+    gamma_ij: gamma.Gamma,
+    gamma_kl: gamma.Gamma,
 ):
-    latt_info = propag_a.latt_info
-    subscripts = "AB,DE,...ADab,...BEab->..."
+    latt_info = propag_i.latt_info
+    subscripts = "ij,kl,...ikab,...jlab->..."
     return core.LatticeComplex(
         latt_info,
         contract(
             subscripts,
-            (gamma_ab.T @ gamma_5).matrix,
-            (gamma_de @ gamma_5).matrix,
-            propag_a.data,
-            propag_b.data.conj(),
+            (gamma_ij.T @ gamma_5).matrix,
+            (gamma_kl @ gamma_5).matrix,
+            propag_i.data,
+            propag_j.data.conj(),
         ),
     )
 
@@ -277,29 +277,25 @@ Pp = (gamma_0 + gamma_4) / 2
 
 deviceSynchronize()
 s = perf_counter()
-twopt = mesonTwoPoint_v2(propag_i, propag_j, CG_A, CG_B)
-deviceSynchronize()
-core.getLogger().info(f"Time for mesonTwoPoint: {perf_counter() - s:.3f} sec")
-
-deviceSynchronize()
-s = perf_counter()
-twopt_ = pycontract.mesonTwoPoint(propag_i, propag_j, CG_A, CG_B)
-deviceSynchronize()
-core.getLogger().info(f"Time for pycontract.mesonTwoPoint: {perf_counter() - s:.3f} sec")
-
-deviceSynchronize()
-s = perf_counter()
 twopts_ = pycontract.mesonAllSinkTwoPoint(propag_i, propag_j, CG_B)
 deviceSynchronize()
 core.getLogger().info(f"Time for pycontract.mesonAllSinkTwoPoint: {perf_counter() - s:.3f} sec")
 
-core.getLogger().info(f"Relative error: {(twopt - twopt_).norm2() ** 0.5 / twopt.norm2() ** 0.5}")
-core.getLogger().info(
-    f"Relative error: {(twopt - CG_A.factor * twopts_[CG_A.index]).norm2() ** 0.5 / twopt.norm2() ** 0.5}"
-)
-core.getLogger().info(twopt.data[0, 0, 0, 0, 0])
-core.getLogger().info(twopt_.data[0, 0, 0, 0, 0])
-core.getLogger().info(twopts_[CG_A.index].data[0, 0, 0, 0, 0])
+for snk in range(16):
+    deviceSynchronize()
+    s = perf_counter()
+    twopt = mesonTwoPoint_v2(propag_i, propag_j, gamma.Gamma(snk), CG_B)
+    deviceSynchronize()
+    core.getLogger().info(f"Time for mesonTwoPoint: {perf_counter() - s:.3f} sec")
+
+    deviceSynchronize()
+    s = perf_counter()
+    twopt_ = pycontract.mesonTwoPoint(propag_i, propag_j, gamma.Gamma(snk), CG_B)
+    deviceSynchronize()
+    core.getLogger().info(f"Time for pycontract.mesonTwoPoint: {perf_counter() - s:.3f} sec")
+
+    core.getLogger().info(f"Relative error: {(twopt - twopt_).norm2() ** 0.5 / twopt.norm2() ** 0.5}")
+    core.getLogger().info(f"Relative error: {(twopt - twopts_[snk]).norm2() ** 0.5 / twopt.norm2() ** 0.5}")
 
 deviceSynchronize()
 s = perf_counter()
