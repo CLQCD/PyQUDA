@@ -1,5 +1,4 @@
 from argparse import ArgumentParser
-from distutils import log
 import logging
 import os
 import shutil
@@ -49,12 +48,12 @@ def build_and_install(module):
 
     build_temp = tempfile.mkdtemp(prefix="pyquda_plugins_")
     try:
-        # log.info("running build_py")
+        # logging.info("running build_py")
         # _build_py = build_py(dist)
         # _build_py.build_lib = build_temp
         # _build_py.ensure_finalized()
         # _build_py.run()
-        log.info("running build_ext")
+        logging.info("running build_ext")
         _build_ext = build_ext(dist)
         _build_ext.build_lib = build_temp
         _build_ext.build_temp = build_temp
@@ -62,7 +61,7 @@ def build_and_install(module):
         _build_ext.ensure_finalized()
         _build_ext.run()
         # if not inplace:
-        #     log.info("running install_lib")
+        #     logging.info("running install_lib")
         #     _install_lib = install_lib(dist)
         #     _install_lib.inplace = inplace
         #     _install_lib.ensure_finalized()

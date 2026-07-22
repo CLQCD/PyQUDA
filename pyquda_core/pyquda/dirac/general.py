@@ -151,7 +151,6 @@ def setGlobalPrecision(
     precondition: Optional[QudaPrecision] = None,
     eigensolver: Optional[QudaPrecision] = None,
 ):
-    global _precision
     precision = _precision[key]
     _precision[key] = Precision(
         cuda if cuda is not None else precision.cuda,
@@ -175,7 +174,6 @@ def setGlobalReconstruct(
     precondition: Optional[QudaReconstructType] = None,
     eigensolver: Optional[QudaReconstructType] = None,
 ):
-    global _reconstruct
     reconstruct = _reconstruct[key]
     _reconstruct[key] = Reconstruct(
         cuda if cuda is not None else reconstruct.cuda,

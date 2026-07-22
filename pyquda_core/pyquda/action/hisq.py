@@ -99,17 +99,17 @@ class HISQAction(StaggeredFermionAction):
         self.updateFatLong()
         self.invertMultiShift("sample")
 
-    def action(self) -> float:
+    def action(self, use_force_param: bool) -> float:
         self.updateFatLong()
-        self.invert_param.compute_action = 1
-        self.invertMultiShift("force")
-        self.invert_param.compute_action = 0
-        return self.invert_param.action[0]
-
-    def actionFA(self) -> float:
-        self.updateFatLong()
-        self.invertMultiShift("action")
-        return self.eta.even.norm2()  # - norm_molecular_dynamics * self.phi.even.norm2()
+        if use_force_param:
+            self.invert_param.compute_action = 1
+            self.invertMultiShift("force")
+            self.invert_param.compute_action = 0
+            action = self.invert_param.action[0]
+        else:
+            self.invertMultiShift("action")
+            action = self.eta.even.norm2()  # - self.rational_param.norm_force * self.phi.even.norm2()
+        return action
 
     def force(self, dt, mom: Optional[LatticeMom] = None):
         assert self.quark is not None
@@ -216,26 +216,20 @@ class MultiHISQAction(StaggeredFermionAction):
             pseudo_fermion.quark = self.quark
             pseudo_fermion.invertMultiShift("sample")
 
-    def action(self) -> float:
-        action = 0
-        self.prepareFatLong()
-        for pseudo_fermion in self.pseudo_fermions:
-            self.updateFatLong(pseudo_fermion)
-            pseudo_fermion.invert_param.compute_action = 1
-            pseudo_fermion.quark = self.quark
-            pseudo_fermion.invertMultiShift("force")
-            pseudo_fermion.invert_param.compute_action = 0
-            action += pseudo_fermion.invert_param.action[0]
-        return action
-
-    def actionFA(self) -> float:
+    def action(self, use_force_param: bool) -> float:
         action = 0
         self.prepareFatLong()
         for pseudo_fermion in self.pseudo_fermions:
             self.updateFatLong(pseudo_fermion)
             pseudo_fermion.quark = self.quark
-            pseudo_fermion.invertMultiShift("action")
-            action += pseudo_fermion.eta.even.norm2()
+            if use_force_param:
+                pseudo_fermion.invert_param.compute_action = 1
+                pseudo_fermion.invertMultiShift("force")
+                pseudo_fermion.invert_param.compute_action = 0
+                action += pseudo_fermion.invert_param.action[0]
+            else:
+                pseudo_fermion.invertMultiShift("action")
+                action += pseudo_fermion.eta.even.norm2()
         return action
 
     def force(self, dt, mom: Optional[LatticeMom] = None):

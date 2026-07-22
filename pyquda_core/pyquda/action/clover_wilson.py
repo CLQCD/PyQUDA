@@ -72,15 +72,20 @@ class CloverWilsonAction(FermionAction):
         self.updateClover()
         self.invertMultiShift("sample")
 
-    def action(self) -> float:
+    def action(self, use_force_param: bool) -> float:
         self.invert_param.compute_clover_trlog = 1
         self.updateClover()
         self.invert_param.compute_clover_trlog = 0
-        self.invert_param.compute_action = 1
-        self.invertMultiShift("force")
-        self.invert_param.compute_action = 0
+        if use_force_param:
+            self.invert_param.compute_action = 1
+            self.invertMultiShift("force")
+            self.invert_param.compute_action = 0
+            action = self.invert_param.action[0]
+        else:
+            self.invertMultiShift("action")
+            action = self.eta.even.norm2()  # - self.rational_param.norm_force * self.phi.even.norm2()
         return (
-            self.invert_param.action[0]
+            action
             - self.latt_info.volume // 2 * self.latt_info.Ns * self.latt_info.Nc  # volume_cb2 here
             - self.multiplicity * self.invert_param.trlogA[1]
         )

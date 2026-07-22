@@ -1,77 +1,7 @@
-from typing import Union
-
 from pyquda_comm.field import LatticeFermion, LatticePropagator
-from pyquda.gamma import DeGrandRossiMatrix, Gamma
+from pyquda.gamma import DeGrandRossiMatrix, Gamma, Projector
 
-
-def gamma_add_gamma(lhs: Gamma, rhs: Gamma) -> Union[Gamma, "Polarize"]:
-    if not isinstance(rhs, Gamma):
-        return NotImplemented
-    if lhs.index == rhs.index:
-        return Gamma(lhs.index, lhs.factor + rhs.factor)
-    else:
-        return Polarize(lhs, rhs)
-
-
-def gamma_sub_gamma(lhs: Gamma, rhs: Gamma) -> Union[Gamma, "Polarize"]:
-    if not isinstance(rhs, Gamma):
-        return NotImplemented
-    if lhs.index == rhs.index:
-        return Gamma(lhs.index, lhs.factor - rhs.factor)
-    else:
-        return Polarize(lhs, -rhs)
-
-
-Gamma.__add__ = lambda self, rhs: gamma_add_gamma(self, rhs)
-Gamma.__sub__ = lambda self, rhs: gamma_sub_gamma(self, rhs)
-
-
-class Polarize:
-    def __init__(self, left: Gamma, right: Gamma) -> None:
-        assert isinstance(left, Gamma), "left should be Gamma"
-        assert isinstance(right, Gamma), "right should be Gamma"
-        assert left.index != right.index, "left and right should be different"
-        self.left = left
-        self.right = right
-
-    def __repr__(self) -> str:
-        return (
-            f"{self.left} + {self.right}"
-            if not isinstance(self.right.factor, complex) and self.right.factor > 0
-            else f"{self.left} - {Gamma(self.right.index, -self.right.factor)}"
-        )
-
-    def __neg__(self) -> "Polarize":
-        return Polarize(-self.left, -self.right)
-
-    def __mul__(self, rhs: Union[int, float, complex]):
-        if not isinstance(rhs, (int, float, complex)):
-            return NotImplemented
-        return Polarize(self.left * rhs, self.right * rhs)
-
-    def __rmul__(self, lhs: Union[int, float, complex]):
-        if not isinstance(lhs, (int, float, complex)):
-            return NotImplemented
-        return Polarize(lhs * self.left, lhs * self.right)
-
-    def __truediv__(self, rhs: Union[int, float, complex]):
-        if not isinstance(rhs, (int, float, complex)):
-            return NotImplemented
-        return Polarize(self.left / rhs, self.right / rhs)
-
-    def __matmul__(self, rhs: Gamma) -> "Polarize":
-        if not isinstance(rhs, Gamma):
-            return NotImplemented
-        return Polarize(self.left @ rhs, self.right @ rhs)
-
-    def __rmatmul__(self, lhs: Gamma) -> "Polarize":
-        if not isinstance(lhs, Gamma):
-            return NotImplemented
-        return Polarize(lhs @ self.left, lhs @ self.right)
-
-    @property
-    def matrix(self):
-        return self.left.matrix + self.right.matrix
+__all__ = ["gamma", "Gamma", "Projector"]
 
 
 def gamma_mul_fermion(lhs: Gamma, propag: LatticeFermion):
