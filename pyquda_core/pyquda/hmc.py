@@ -129,6 +129,66 @@ class O2Nf2Ng0P(Integrator):
         updateGauge(self.lambda_ * dt)
 
 
+class O4Nf4Ng0V(Integrator):
+    R"""https://doi.org/10.1016/S0010-4655(02)00754-3
+    BABABABAB: Eq.(48), Eq.(57)"""
+
+    theta_ = 0.5209433391039899
+    vartheta_ = 0.1644986515575760
+    lambda_ = 1.2356926511389169
+
+    def integrate(self, updateGauge, updateMom, t: float):
+        dt = t / self.n_steps
+        updateMom(self.vartheta_ * dt)
+        for _ in range(self.n_steps - 1):
+            updateGauge(self.theta_ * dt)
+            updateMom(self.lambda_ * dt)
+            updateGauge((1 - 2 * self.theta_) * dt / 2)
+            updateMom((1 - 2 * (self.lambda_ + self.vartheta_)) * dt)
+            updateGauge((1 - 2 * self.theta_) * dt / 2)
+            updateMom(self.lambda_ * dt)
+            updateGauge(self.theta_ * dt)
+            updateMom(2 * self.vartheta_ * dt)
+        updateGauge(self.theta_ * dt)
+        updateMom(self.lambda_ * dt)
+        updateGauge((1 - 2 * self.theta_) * dt / 2)
+        updateMom((1 - 2 * (self.lambda_ + self.vartheta_)) * dt)
+        updateGauge((1 - 2 * self.theta_) * dt / 2)
+        updateMom(self.lambda_ * dt)
+        updateGauge(self.theta_ * dt)
+        updateMom(self.vartheta_ * dt)
+
+
+class O4Nf4Ng0P(Integrator):
+    R"""https://doi.org/10.1016/S0010-4655(02)00754-3
+    ABABABABA: Eq.(58), Eq.(62)"""
+
+    rho_ = 0.1786178958448091
+    theta_ = -0.06626458266981843
+    lambda_ = 0.7123418310626056
+
+    def integrate(self, updateGauge, updateMom, t: float):
+        dt = t / self.n_steps
+        updateGauge(self.rho_ * dt)
+        for _ in range(self.n_steps - 1):
+            updateMom(self.lambda_ * dt)
+            updateGauge(self.theta_ * dt)
+            updateMom((1 - 2 * self.lambda_) * dt / 2)
+            updateGauge((1 - 2 * (self.theta_ + self.rho_)) * dt)
+            updateMom((1 - 2 * self.lambda_) * dt / 2)
+            updateGauge(self.theta_ * dt)
+            updateMom(self.lambda_ * dt)
+            updateGauge(2 * self.rho_ * dt)
+        updateMom(self.lambda_ * dt)
+        updateGauge(self.theta_ * dt)
+        updateMom((1 - 2 * self.lambda_) * dt / 2)
+        updateGauge((1 - 2 * (self.theta_ + self.rho_)) * dt)
+        updateMom((1 - 2 * self.lambda_) * dt / 2)
+        updateGauge(self.theta_ * dt)
+        updateMom(self.lambda_ * dt)
+        updateGauge(self.rho_ * dt)
+
+
 class O4Nf5Ng0V(Integrator):
     R"""https://doi.org/10.1016/S0010-4655(02)00754-3
     BABABABABAB: Eq.(63), Eq.(71)"""
