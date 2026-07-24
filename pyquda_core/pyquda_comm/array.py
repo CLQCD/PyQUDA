@@ -1,4 +1,4 @@
-from typing import Callable, Literal, Sequence
+from typing import Any, Callable, Literal, Sequence
 
 import numpy
 from numpy.typing import NDArray, DTypeLike
@@ -165,17 +165,6 @@ def arrayAsArray(data, backend: BackendType) -> NDArray:
         return torch.as_tensor(data)
 
 
-def arrayCopy(data, backend: BackendType) -> NDArray:
-    if backend == "numpy":
-        return data.copy()
-    elif backend == "cupy":
-        return data.copy()
-    elif backend == "dpnp":
-        return data.copy(sycl_queue=dpnp_sycl_queue)
-    elif backend == "torch":
-        return data.clone()
-
-
 def arrayIsContiguous(data, backend: BackendType) -> bool:
     if backend == "numpy":
         return data.flags.c_contiguous
@@ -202,38 +191,15 @@ def arrayAsContiguous(data, backend: BackendType) -> NDArray:
         return data.contiguous()
 
 
-def arrayLinalgNorm(data, backend: BackendType) -> float:
+def arrayCopy(data, backend: BackendType) -> NDArray:
     if backend == "numpy":
-        return numpy.linalg.norm(data).item()
+        return data.copy()
     elif backend == "cupy":
-        import cupy
-
-        return cupy.linalg.norm(data).item()
+        return data.copy()
     elif backend == "dpnp":
-        import dpnp.linalg
-
-        return dpnp.linalg.norm(data).item()
+        return data.copy(sycl_queue=dpnp_sycl_queue)
     elif backend == "torch":
-        import torch
-
-        return torch.linalg.norm(data).item()
-
-
-def arrayZeros(shape: Sequence[int], dtype: DTypeLike, backend: BackendType) -> NDArray:
-    if backend == "numpy":
-        return numpy.zeros(shape, dtype)
-    elif backend == "cupy":
-        import cupy
-
-        return cupy.zeros(shape, dtype)
-    elif backend == "dpnp":
-        import dpnp
-
-        return dpnp.zeros(shape, dtype=dtype, sycl_queue=dpnp_sycl_queue)
-    elif backend == "torch":
-        import torch
-
-        return torch.zeros(shape, dtype=dtype)
+        return data.clone()
 
 
 def arrayEmpty(shape: Sequence[int], dtype: DTypeLike, backend: BackendType) -> NDArray:
@@ -253,6 +219,74 @@ def arrayEmpty(shape: Sequence[int], dtype: DTypeLike, backend: BackendType) -> 
         return torch.empty(shape, dtype=dtype)
 
 
+def arrayIdentity(n: int, dtype: DTypeLike, backend: BackendType) -> NDArray:
+    if backend == "numpy":
+        return numpy.identity(n, dtype)
+    elif backend == "cupy":
+        import cupy
+
+        return cupy.identity(n, dtype)
+    elif backend == "dpnp":
+        import dpnp
+
+        return dpnp.identity(n, dtype, sycl_queue=dpnp_sycl_queue)
+    elif backend == "torch":
+        import torch
+
+        return torch.eye(n, dtype=dtype)
+
+
+def arrayOnes(shape: Sequence[int], dtype: DTypeLike, backend: BackendType) -> NDArray:
+    if backend == "numpy":
+        return numpy.ones(shape, dtype)
+    elif backend == "cupy":
+        import cupy
+
+        return cupy.ones(shape, dtype)
+    elif backend == "dpnp":
+        import dpnp
+
+        return dpnp.ones(shape, dtype=dtype, sycl_queue=dpnp_sycl_queue)
+    elif backend == "torch":
+        import torch
+
+        return torch.ones(shape, dtype=dtype)
+
+
+def arrayZeros(shape: Sequence[int], dtype: DTypeLike, backend: BackendType) -> NDArray:
+    if backend == "numpy":
+        return numpy.zeros(shape, dtype)
+    elif backend == "cupy":
+        import cupy
+
+        return cupy.zeros(shape, dtype)
+    elif backend == "dpnp":
+        import dpnp
+
+        return dpnp.zeros(shape, dtype=dtype, sycl_queue=dpnp_sycl_queue)
+    elif backend == "torch":
+        import torch
+
+        return torch.zeros(shape, dtype=dtype)
+
+
+def arrayFull(shape: Sequence[int], fill_value: Any, dtype: DTypeLike, backend: BackendType) -> NDArray:
+    if backend == "numpy":
+        return numpy.full(shape, fill_value, dtype)
+    elif backend == "cupy":
+        import cupy
+
+        return cupy.full(shape, fill_value, dtype)
+    elif backend == "dpnp":
+        import dpnp
+
+        return dpnp.full(shape, fill_value, dtype=dtype, sycl_queue=dpnp_sycl_queue)
+    elif backend == "torch":
+        import torch
+
+        return torch.full(shape, fill_value, dtype=dtype)
+
+
 def arrayExp(data, backend: BackendType) -> NDArray:
     if backend == "numpy":
         return numpy.exp(data)
@@ -270,21 +304,21 @@ def arrayExp(data, backend: BackendType) -> NDArray:
         return torch.exp(data)
 
 
-def arrayIdentity(n: int, dtype: DTypeLike, backend: BackendType) -> NDArray:
+def arrayLinalgNorm(data, backend: BackendType) -> float:
     if backend == "numpy":
-        return numpy.identity(n, dtype)
+        return numpy.linalg.norm(data).item()
     elif backend == "cupy":
         import cupy
 
-        return cupy.identity(n, dtype)
+        return cupy.linalg.norm(data).item()
     elif backend == "dpnp":
-        import dpnp
+        import dpnp.linalg
 
-        return dpnp.identity(n, dtype, sycl_queue=dpnp_sycl_queue)
+        return dpnp.linalg.norm(data).item()
     elif backend == "torch":
         import torch
 
-        return torch.eye(n, dtype=dtype)
+        return torch.linalg.norm(data).item()
 
 
 def arrayRandomRandom(size: Sequence[int], backend: BackendType) -> NDArray:
@@ -422,7 +456,7 @@ def arrayRandomSeed(seed: int, backend: BackendType):
         torch.manual_seed(seed)
 
 
-def arrayFFT(data, axis: int, backend: BackendType) -> NDArray:
+def arrayFftFft(data, axis: int, backend: BackendType) -> NDArray:
     if backend == "numpy":
         return numpy.fft.fft(data, axis=axis)
     elif backend == "cupy":
@@ -439,7 +473,7 @@ def arrayFFT(data, axis: int, backend: BackendType) -> NDArray:
         return torch.fft.fft(data, dim=axis, norm="backward")
 
 
-def arrayFFTN(data, axes: Sequence[int], backend: BackendType) -> NDArray:
+def arrayFftFftn(data, axes: Sequence[int], backend: BackendType) -> NDArray:
     if backend == "numpy":
         return numpy.fft.fftn(data, axes=axes)
     elif backend == "cupy":
@@ -456,7 +490,7 @@ def arrayFFTN(data, axes: Sequence[int], backend: BackendType) -> NDArray:
         return torch.fft.fftn(data, dim=axes, norm="backward")
 
 
-def arrayIFFT(data, axis: int, backend: BackendType) -> NDArray:
+def arrayFftIfft(data, axis: int, backend: BackendType) -> NDArray:
     if backend == "numpy":
         return numpy.fft.ifft(data, axis=axis)
     elif backend == "cupy":
@@ -473,7 +507,7 @@ def arrayIFFT(data, axis: int, backend: BackendType) -> NDArray:
         return torch.fft.ifft(data, dim=axis, norm="backward")
 
 
-def arrayIFFTN(data, axes: Sequence[int], backend: BackendType) -> NDArray:
+def arrayFftIfftn(data, axes: Sequence[int], backend: BackendType) -> NDArray:
     if backend == "numpy":
         return numpy.fft.ifftn(data, axes=axes)
     elif backend == "cupy":

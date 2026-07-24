@@ -3,7 +3,7 @@ from typing import Sequence
 
 import numpy
 
-from pyquda_comm.array import arrayAsArray
+from pyquda_comm.array import arrayAsArray, arrayDType, arrayExp, arrayOnes, arrayZeros
 from pyquda_comm.field import LatticeInt, MultiLatticeInt, LatticeComplex, MultiLatticeComplex
 from .core import getArrayBackend, LatticeInfo
 
@@ -11,16 +11,16 @@ from .core import getArrayBackend, LatticeInfo
 class LocationPhase:
     def __init__(self, latt_info: LatticeInfo) -> None:
         self.latt_info = latt_info
-        self.x = latt_info.coordinate()
+        self.x = arrayAsArray(latt_info.coordinate(), getArrayBackend())
 
     def getPhase(self):
-        return MultiLatticeInt(self.latt_info, self.latt_info.Nd, arrayAsArray(self.x, getArrayBackend()))
+        return MultiLatticeInt(self.latt_info, self.latt_info.Nd, self.x)
 
 
 class DistancePhase:
     def __init__(self, latt_info: LatticeInfo) -> None:
         self.latt_info = latt_info
-        self.x = latt_info.coordinate()
+        self.x = arrayAsArray(latt_info.coordinate(), getArrayBackend())
 
     def getPhase(self, x0: Sequence[int]):
         phase = MultiLatticeInt(self.latt_info, self.latt_info.Nd)
@@ -33,13 +33,14 @@ class DistancePhase:
 class MomentumPhase:
     def __init__(self, latt_info: LatticeInfo) -> None:
         self.latt_info = latt_info
-        self.x = latt_info.coordinate()
+        self.x = arrayAsArray(latt_info.coordinate(), getArrayBackend())
 
     def getPhase(self, mom: Sequence[int], x0: Sequence[int] = [0, 0, 0, 0]):
-        ipx = numpy.zeros(self.x[0].shape, "<c16")
+        backend = getArrayBackend()
+        ipx = arrayZeros(self.x[0].shape, arrayDType("<c16", backend), backend)
         for i in range(len(mom)):
             ipx += 2j * pi * mom[i] / self.latt_info.global_size[i] * (self.x[i] - x0[i])
-        return LatticeComplex(self.latt_info, arrayAsArray(numpy.exp(ipx), getArrayBackend()))
+        return LatticeComplex(self.latt_info, arrayExp(ipx, backend))
 
     def getPhases(self, mom_mode_list: Sequence[Sequence[int]], x0: Sequence[int] = [0, 0, 0, 0]):
         phases = MultiLatticeComplex(self.latt_info, len(mom_mode_list))
@@ -52,14 +53,15 @@ class GridPhase:
     def __init__(self, latt_info: LatticeInfo, stride: Sequence[int]) -> None:
         self.latt_info = latt_info
         self.stride = stride
-        self.x = latt_info.coordinate()
+        self.x = arrayAsArray(latt_info.coordinate(), getArrayBackend())
 
     def getPhase(self, t_srce: Sequence[int]):
+        backend = getArrayBackend()
         # sx, sy, sz, st = (x + gx * Lx) % Sx, (y + gy * Ly) % Sy, (z + gz * Lz) % Sz, (t + gt * Lt) % St
-        phase = numpy.ones(self.x[0].shape, "<i4")
+        phase = arrayOnes(self.x[0].shape, arrayDType("<i4", backend), backend)
         for i in range(self.latt_info.Nd):
             phase &= (self.x[i] >= t_srce[i]) & ((self.x[i] - t_srce[i]) % self.stride[i] == 0)
-        return LatticeInt(self.latt_info, arrayAsArray(phase, getArrayBackend()))
+        return LatticeInt(self.latt_info, phase)
 
     def getPhases(self, t_srce_list: Sequence[Sequence[int]]):
         phases = MultiLatticeInt(self.latt_info, len(t_srce_list))
