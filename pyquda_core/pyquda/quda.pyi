@@ -269,6 +269,8 @@ class QudaInvertParam:
     covdev_mu: int
     """Apply forward/backward covariant derivative in direction mu(mu<=3)/mu-4(mu>3)"""
 
+    angular_velocity: double
+    """Angular velocity of the rotating frame."""
     tol: double
     """Solver tolerance in the L2 residual norm"""
     tol_restart: double
@@ -1545,6 +1547,29 @@ def MatQuda(h_out: NDArray[_field], h_in: NDArray[_field], inv_param: QudaInvert
     """
     ...
 
+def createStaggeredRotatingLinkContextQuda() -> int: ...
+
+def destroyStaggeredRotatingLinkContextQuda(context: int) -> None: ...
+
+def activateStaggeredRotatingLinkContextQuda(context: int) -> None: ...
+
+def loadRotatingXGaugeQuda(
+    context: int, level2_x_link: NDArray[_fields], gauge_param: QudaGaugeParam
+) -> None: ...
+
+def loadHISQRotatingOrbitalSpinLinkCacheQuda(
+    context: int, level2_x_link: NDArray[_fields], gauge_param: QudaGaugeParam
+) -> None: ...
+
+def saveHISQRotatingOrbitalSpinLinkCacheQuda(
+    vxxtau_minus_t: NDArray[_fields],
+    vxxtau_plus_t: NDArray[_fields],
+    vxyt_minus_t: NDArray[_fields],
+    vxyt_plus_t: NDArray[_fields],
+    context: int,
+    gauge_param: QudaGaugeParam,
+) -> None: ...
+
 def MatDagMatQuda(h_out: NDArray[_field], h_in: NDArray[_field], inv_param: QudaInvertParam) -> None:
     R"""
     Apply M^{\dag}M, possibly even/odd preconditioned.
@@ -1630,6 +1655,31 @@ def computeGaugeForceQuda(
         The parameters of the external fields and the computation settings
     """
     ...
+
+def createGaugeRotatingContextQuda(
+    local_dim: NDArray[int32],
+    radius: NDArray[int32],
+    action_path: NDArray[int32],
+    action_length: NDArray[int32],
+    action_coeff: NDArray[float64],
+    action_field_index: NDArray[int32],
+    force_path: NDArray[int32],
+    force_length: NDArray[int32],
+    force_coeff: NDArray[float64],
+    force_field_index: NDArray[int32],
+    force_field_offset: NDArray[int32],
+) -> int: ...
+
+def destroyGaugeRotatingContextQuda(context: int) -> None: ...
+
+def computeGaugeRotatingActionQuda(context: int) -> double: ...
+
+def computeGaugeRotatingForceQuda(
+    mom: NDArray[_fields],
+    context: int,
+    dt: double,
+    param: QudaGaugeParam,
+) -> int: ...
 
 def computeGaugePathQuda(
     out: NDArray[_fields],
@@ -1851,6 +1901,23 @@ def computeHISQForceQuda(
         The field parameters.
     """
     ...
+
+def computeHISQRotatingForceQuda(
+    momentum: NDArray[_fields],
+    dt: double,
+    level2_coeff: NDArray[float64],
+    fat7_coeff: NDArray[float64],
+    level2_fat: NDArray[_fields],
+    w_link: NDArray[_fields],
+    v_link: NDArray[_fields],
+    u_link: NDArray[_fields],
+    quark: NDArray[_fields],
+    num: int,
+    num_naik: int,
+    coeff: NDArray[float64],
+    angular_velocity: double,
+    param: QudaGaugeParam,
+) -> None: ...
 
 def gaussGaugeQuda(seed: int, sigma: double) -> None:
     """
