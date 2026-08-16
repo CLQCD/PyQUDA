@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from cython.operator cimport dereference
 from libc.stdio cimport stdout
 from libc.stdlib cimport malloc, free
+from libc.stdint cimport uintptr_t
 from libc.string cimport strcmp
 from numpy cimport ndarray
 ctypedef double complex double_complex
@@ -281,6 +282,36 @@ def MatQuda(h_out, h_in, QudaInvertParam inv_param):
     _h_in = _NDArray(h_in, 1)
     quda.MatQuda(_h_out.ptr, _h_in.ptr, &inv_param.param)
 
+def createStaggeredRotatingLinkContextQuda():
+    return <uintptr_t>quda.createStaggeredRotatingLinkContextQuda()
+
+def destroyStaggeredRotatingLinkContextQuda(uintptr_t context):
+    quda.destroyStaggeredRotatingLinkContextQuda(<void *>context)
+
+def activateStaggeredRotatingLinkContextQuda(uintptr_t context):
+    quda.activateStaggeredRotatingLinkContextQuda(<void *>context)
+
+def loadRotatingXGaugeQuda(uintptr_t context, level2_x_link, QudaGaugeParam gauge_param):
+    _level2_x_link = _NDArray(level2_x_link, 2)
+    quda.loadRotatingXGaugeQuda(<void *>context, _level2_x_link.ptr, &gauge_param.param)
+
+def loadHISQRotatingOrbitalSpinLinkCacheQuda(uintptr_t context, level2_x_link,
+                                              QudaGaugeParam gauge_param):
+    _level2_x_link = _NDArray(level2_x_link, 2)
+    quda.loadHISQRotatingOrbitalSpinLinkCacheQuda(
+        <void *>context, _level2_x_link.ptr, &gauge_param.param)
+
+def saveHISQRotatingOrbitalSpinLinkCacheQuda(vxxtau_minus_t, vxxtau_plus_t,
+                                              vxyt_minus_t, vxyt_plus_t,
+                                              uintptr_t context, QudaGaugeParam gauge_param):
+    _vxxtau_minus_t = _NDArray(vxxtau_minus_t, 2)
+    _vxxtau_plus_t = _NDArray(vxxtau_plus_t, 2)
+    _vxyt_minus_t = _NDArray(vxyt_minus_t, 2)
+    _vxyt_plus_t = _NDArray(vxyt_plus_t, 2)
+    quda.saveHISQRotatingOrbitalSpinLinkCacheQuda(
+        _vxxtau_minus_t.ptr, _vxxtau_plus_t.ptr, _vxyt_minus_t.ptr, _vxyt_plus_t.ptr,
+        <void *>context, &gauge_param.param)
+
 def MatDagMatQuda(h_out, h_in, QudaInvertParam inv_param):
     _h_out = _NDArray(h_out, 1)
     _h_in = _NDArray(h_in, 1)
@@ -313,6 +344,73 @@ def computeGaugeForceQuda(mom, sitelink, ndarray[int, ndim=3] input_path_buf, nd
     _path_length = _NDArray(path_length)
     _loop_coeff = _NDArray(loop_coeff)
     return quda.computeGaugeForceQuda(_mom.ptr, _sitelink.ptr, <int ***>_input_path_buf.ptrss, <int *>_path_length.ptr, <double *>_loop_coeff.ptr, num_paths, max_length, dt, &qudaGaugeParam.param)
+
+def createGaugeRotatingContextQuda(
+    ndarray[int, ndim=1] local_dim,
+    ndarray[int, ndim=1] radius,
+    ndarray[int, ndim=2] action_path,
+    ndarray[int, ndim=1] action_length,
+    ndarray[double, ndim=1] action_coeff,
+    ndarray[int, ndim=1] action_field_index,
+    ndarray[int, ndim=3] force_path,
+    ndarray[int, ndim=2] force_length,
+    ndarray[double, ndim=2] force_coeff,
+    ndarray[int, ndim=2] force_field_index,
+    ndarray[int, ndim=3] force_field_offset,
+):
+    if local_dim.shape[0] != 4 or radius.shape[0] != 4:
+        raise ValueError("rotating gauge geometry must have shapes (4,) and (4,)")
+    action_num_paths = action_path.shape[0]
+    action_max_length = action_path.shape[1]
+    if action_num_paths == 0 or action_max_length == 0:
+        raise ValueError("rotating gauge action paths must be non-empty")
+    if (action_length.shape[0] != action_num_paths
+            or action_coeff.shape[0] != action_num_paths
+            or action_field_index.shape[0] != action_num_paths):
+        raise ValueError("rotating gauge action metadata shapes do not match action_path")
+    if force_path.shape[0] != 4 or force_field_offset.shape[2] != 4:
+        raise ValueError("rotating gauge force paths and offsets must have four directions")
+    force_num_paths = force_path.shape[1]
+    force_max_length = force_path.shape[2]
+    if force_num_paths == 0 or force_max_length == 0:
+        raise ValueError("rotating gauge force paths must be non-empty")
+    if (force_length.shape[0] != 4 or force_length.shape[1] != force_num_paths
+            or force_coeff.shape[0] != 4 or force_coeff.shape[1] != force_num_paths
+            or force_field_index.shape[0] != 4 or force_field_index.shape[1] != force_num_paths
+            or force_field_offset.shape[0] != 4
+            or force_field_offset.shape[1] != force_num_paths):
+        raise ValueError("rotating gauge force metadata shapes do not match force_path")
+
+    _local_dim = _NDArray(local_dim)
+    _radius = _NDArray(radius)
+    _action_path = _NDArray(action_path)
+    _action_length = _NDArray(action_length)
+    _action_coeff = _NDArray(action_coeff)
+    _action_field_index = _NDArray(action_field_index)
+    _force_path = _NDArray(force_path)
+    _force_length = _NDArray(force_length)
+    _force_coeff = _NDArray(force_coeff)
+    _force_field_index = _NDArray(force_field_index)
+    _force_field_offset = _NDArray(force_field_offset)
+    return <uintptr_t>quda.createGaugeRotatingContextQuda(
+        <int *>_local_dim.ptr, <int *>_radius.ptr,
+        <int **>_action_path.ptrs, <int *>_action_length.ptr, <double *>_action_coeff.ptr,
+        <int *>_action_field_index.ptr, action_num_paths, action_max_length,
+        <int ***>_force_path.ptrss, <int **>_force_length.ptrs, <double **>_force_coeff.ptrs,
+        <int **>_force_field_index.ptrs, <int ***>_force_field_offset.ptrss,
+        force_num_paths, force_max_length)
+
+def destroyGaugeRotatingContextQuda(uintptr_t context):
+    quda.destroyGaugeRotatingContextQuda(<void *>context)
+
+def computeGaugeRotatingActionQuda(uintptr_t context):
+    return quda.computeGaugeRotatingActionQuda(<void *>context)
+
+def computeGaugeRotatingForceQuda(mom, uintptr_t context, double dt, QudaGaugeParam param):
+    _mom = _NDArray(mom, 2)
+    return quda.computeGaugeRotatingForceQuda(
+        _mom.ptr, <void *>context, dt, &param.param)
+
 
 def computeGaugePathQuda(out, sitelink, ndarray[int, ndim=3] input_path_buf, ndarray[int, ndim=1] path_length, ndarray[double, ndim=1] loop_coeff, int num_paths, int max_length, double dt, QudaGaugeParam qudaGaugeParam):
     _out = _NDArray(out, 2)
@@ -371,6 +469,20 @@ def computeHISQForceQuda(momentum, double dt, ndarray[double, ndim=1] level2_coe
     _quark = _NDArray(quark, 2)
     _coeff = _NDArray(coeff)
     quda.computeHISQForceQuda(_momentum.ptr, dt, <double *>_level2_coeff.ptr, <double *>_fat7_coeff.ptr, _w_link.ptr, _v_link.ptr, _u_link.ptr, _quark.ptrs, num, num_naik, <double **>_coeff.ptrs, &param.param)
+
+def computeHISQRotatingForceQuda(momentum, double dt, ndarray[double, ndim=1] level2_coeff, ndarray[double, ndim=1] fat7_coeff, level2_fat, w_link, v_link, u_link, quark, int num, int num_naik, ndarray[double, ndim=2] coeff, double angular_velocity, QudaGaugeParam param):
+    _momentum = _NDArray(momentum, 2)
+    _level2_coeff = _NDArray(level2_coeff)
+    _fat7_coeff = _NDArray(fat7_coeff)
+    _level2_fat = _NDArray(level2_fat, 2)
+    _w_link = _NDArray(w_link, 2)
+    _v_link = _NDArray(v_link, 2)
+    _u_link = _NDArray(u_link, 2)
+    _quark = _NDArray(quark, 2)
+    _coeff = _NDArray(coeff)
+    quda.computeHISQRotatingForceQuda(_momentum.ptr, dt, <double *>_level2_coeff.ptr, <double *>_fat7_coeff.ptr,
+                                      _level2_fat.ptr, _w_link.ptr, _v_link.ptr, _u_link.ptr, _quark.ptrs, num,
+                                      num_naik, <double **>_coeff.ptrs, angular_velocity, &param.param)
 
 def gaussGaugeQuda(unsigned long long seed, double sigma):
     quda.gaussGaugeQuda(seed, sigma)

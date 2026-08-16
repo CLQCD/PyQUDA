@@ -1052,3 +1052,41 @@ cdef extern from "quda.h":
 
 
 
+cdef extern from "staggered_rotating_links.h":
+    void *createStaggeredRotatingLinkContextQuda()
+    void destroyStaggeredRotatingLinkContextQuda(void *context)
+    void activateStaggeredRotatingLinkContextQuda(void *context)
+    void loadRotatingXGaugeQuda(void *context, void *level2_x_link, QudaGaugeParam *param)
+    void loadHISQRotatingOrbitalSpinLinkCacheQuda(void *context, void *level2_x_link, QudaGaugeParam *param)
+    void saveHISQRotatingOrbitalSpinLinkCacheQuda(
+        void *vxxtau_minus_t, void *vxxtau_plus_t, void *vxyt_minus_t, void *vxyt_plus_t,
+        void *context, QudaGaugeParam *param)
+
+cdef extern from "hisq_force_rotating.h":
+    void computeHISQRotatingForceQuda(void *momentum,
+                                      double dt,
+                                      const double level2_coeff[6],
+                                      const double fat7_coeff[6],
+                                      const void *level2_fat,
+                                      const void *w_link,
+                                      const void *v_link,
+                                      const void *u_link,
+                                      void **quark,
+                                      int num,
+                                      int num_naik,
+                                      double **coeff,
+                                      double angular_velocity,
+                                      QudaGaugeParam *param)
+
+cdef extern from "gauge_rotating.h":
+    void *createGaugeRotatingContextQuda(
+        const int *local_dim, const int *radius,
+        int **action_path, const int *action_length, const double *action_coeff,
+        const int *action_field_index, int action_num_paths, int action_max_length,
+        int ***force_path, int **force_length, double **force_coeff,
+        int **force_field_index, int ***force_field_offset, int force_num_paths,
+        int force_max_length)
+    void destroyGaugeRotatingContextQuda(void *context)
+    double computeGaugeRotatingActionQuda(void *context)
+    int computeGaugeRotatingForceQuda(void *mom, void *context, double dt,
+                                      QudaGaugeParam *param)
