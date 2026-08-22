@@ -37,6 +37,7 @@ from pyquda.field import (  # noqa: F401
     LatticeRotation,
     LatticeGauge,
     LatticeMom,
+    LatticeClover,
     HalfLatticeFermion,
     MultiHalfLatticeFermion,
     LatticeFermion,

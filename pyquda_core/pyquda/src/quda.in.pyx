@@ -132,16 +132,33 @@ cdef class QudaGaugeSmearParam:
     def __init__(self):
         self.param = quda.newQudaGaugeSmearParam()
 
-    # def __repr__(self):
-    #     value = bytearray()
-    #     with redirect_stdout(value):
-    #         quda.printQudaGaugeSmearParam(&self.param)
-    #     return value.decode(sys.stdout.encoding)
+    def __repr__(self):
+        value = bytearray()
+        with redirect_stdout(value):
+            quda.printQudaGaugeSmearParam(&self.param)
+        return value.decode(sys.stdout.encoding)
 
     cdef from_ptr(self, quda.QudaGaugeSmearParam *ptr):
         self.param = dereference(ptr)
 
 ##%%!! QudaGaugeSmearParam
+
+cdef class QudaGaugeFixParam:
+    cdef quda.QudaGaugeFixParam param
+
+    def __init__(self):
+        self.param = quda.newQudaGaugeFixParam()
+
+    def __repr__(self):
+        value = bytearray()
+        with redirect_stdout(value):
+            quda.printQudaGaugeFixParam(&self.param)
+        return value.decode(sys.stdout.encoding)
+
+    cdef from_ptr(self, quda.QudaGaugeFixParam *ptr):
+        self.param = dereference(ptr)
+
+##%%!! QudaGaugeFixParam
 
 cdef class QudaBLASParam:
     cdef quda.QudaBLASParam param
@@ -422,6 +439,16 @@ def contractQuda(x, y, result, quda.QudaContractType cType, QudaInvertParam para
     _result = _NDArray(result, 1)
     _X = _NDArray(X)
     quda.contractQuda(_x.ptr, _y.ptr, _result.ptr, cType, &param.param, <int *>_X.ptr)
+
+def performGaugeRotateQuda(rotation, gauge, QudaGaugeParam param):
+    _rotation = _NDArray(rotation, 2)
+    _gauge = _NDArray(gauge, 2)
+    quda.performGaugeRotateQuda(_rotation.ptr, _gauge.ptr, &param.param)
+
+def performGaugeFixQuda(rotation, gauge, QudaGaugeParam param, QudaGaugeFixParam fix_param):
+    _rotation = _NDArray(rotation, 2)
+    _gauge = _NDArray(gauge, 2)
+    quda.performGaugeFixQuda(_rotation.ptr, _gauge.ptr, &param.param, &fix_param.param)
 
 def computeGaugeFixingOVRQuda(gauge, unsigned int gauge_dir, unsigned int Nsteps, unsigned int verbose_interval, double relax_boost, double tolerance, unsigned int reunit_interval, unsigned int stopWtheta, QudaGaugeParam param):
     _gauge = _NDArray(gauge, 2)

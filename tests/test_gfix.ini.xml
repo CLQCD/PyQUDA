@@ -16,8 +16,8 @@
           <version>1</version>
           <GFAccu>2e-15</GFAccu>
           <GFMax>1000</GFMax>
-          <OrDo>false</OrDo>
-          <OrPara>1.0</OrPara>
+          <OrDo>true</OrDo>
+          <OrPara>1.3</OrPara>
           <j_decay>4</j_decay>
         </Param>
         <NamedObject>
