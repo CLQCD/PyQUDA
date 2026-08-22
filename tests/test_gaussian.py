@@ -1,0 +1,25 @@
+from check_pyquda import weak_field, data
+
+from pyquda_utils import core, io, source
+
+xi_0, nu = 2.464, 0.95
+kappa = 0.115
+mass = 1 / (2 * kappa) - 4
+coeff_r, coeff_t = 0.91, 1.07
+
+core.init(None, [4, 4, 4, 8], resource_path=".cache/quda")
+
+gauge = io.readQIOGauge(weak_field)
+latt_info = core.LatticeInfo([4, 4, 4, 8], -1, xi_0 / nu)
+
+rho, n_steps = 2.0, 5
+point_source = source.propagator(latt_info, "point", [0, 0, 0, 0])
+shell_source = source.gaussianSmear(point_source, gauge, rho, n_steps)
+
+dirac = core.getClover(latt_info, mass, 1e-12, 1000, xi_0, coeff_t, coeff_r)
+with dirac.useGauge(gauge):
+    propagator = core.invertPropagator(dirac, shell_source)
+
+propagator_chroma = io.readQIOPropagator(data("pt_prop_4"))
+propagator_chroma.toDevice()
+print((propagator - propagator_chroma).norm2() ** 0.5)

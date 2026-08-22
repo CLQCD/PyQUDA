@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools", "wheel", "Cython", "numpy"]
+
+[tool.setuptools.packages.find]
+include = ["pyquda_comm*", "pyquda*"]
+
+[tool.setuptools.package-data]
+pyquda_comm = ["*.pyi", "*.pxd", "src/*.pxd", "src/*.pyx"]
+pyquda = ["*.pyi", "*.pxd", "src/*.pxd", "src/*.pyx"]
+
+[tool.setuptools.dynamic]
+version = { attr = "pyquda._version.__version__" }
+
+[project]
+dynamic = ["version"]
+name = "PyQUDA"
+dependencies = ["mpi4py", "numpy"]
+requires-python = ">=3.8"
+authors = [
+    { name = "SaltyChiang", email = "SaltyChiang@users.noreply.github.com" },
+]
+maintainers = [
+    { name = "SaltyChiang", email = "SaltyChiang@users.noreply.github.com" },
+]
+description = "Python wrapper for QUDA written in Cython"
+readme = "README.md"
+license = { file = "LICENSE" }
+keywords = [
+    "lattice-gauge-theory",
+    "lattice-field-theory",
+    "lattice-qcd",
+    "hep-lat",
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Cython",
+    "Operating System :: POSIX :: Linux",
+    "Environment :: GPU",
+    "Environment :: GPU :: NVIDIA CUDA",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+
+[project.urls]
+Homepage = "https://github.com/CLQCD/PyQUDA"
+Documentation = "https://github.com/CLQCD/PyQUDA/wiki/Documentation"
+Repository = "https://github.com/CLQCD/PyQUDA.git"
+Issues = "https://github.com/CLQCD/PyQUDA/issues"
+
+[project.scripts]
+pyquda = "pyquda.__main__:main"

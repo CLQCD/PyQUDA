@@ -1,0 +1,1 @@
+docker build --net host --output bin .

@@ -1,14 +1,1 @@
-# .gitignore
-exclude pyquda/src/quda_constants.pxd
-exclude pyquda/src/enum_quda.pxd
-exclude pyquda/src/quda.pxd
-exclude pyquda/src/pyquda.pyx
-exclude pyquda/enum_quda.py
-exclude pyquda/src/*.c
-exclude pyquda/src/*.cpp
-
 exclude tests/*
-include pyquda_pyx.py
-include pycparser/LICENSE
-recursive-include pycparser/pycparser *.py *.cfg LICENSE
-recursive-include pycparser/utils/fake_libc_include *.h

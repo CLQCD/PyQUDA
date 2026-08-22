@@ -1,54 +1,16 @@
 import os
 import sys
-from setuptools import Extension, setup
-from pyquda_pyx import build_pyquda_pyx
+from setuptools import setup
 
-if "QUDA_PATH" in os.environ:
-    quda_path = os.path.realpath(os.environ["QUDA_PATH"])
-    build_pyquda_pyx(os.path.dirname(__file__), quda_path)
-    if os.path.exists(os.path.join(quda_path, "lib", "libquda.so")):
-        _STATIC = False
-    elif os.path.exists(os.path.join(quda_path, "lib", "libquda.a")):
-        _STATIC = True
-    else:
-        raise FileNotFoundError(f"Cannot find libquda.so or libquda.a in {os.path.join(quda_path, 'lib')}")
-elif "sdist" in sys.argv:
-    setup()
-    exit(0)
-else:
-    raise EnvironmentError("QUDA_PATH environment is needed to link against libquda")
 
-from Cython.Build import cythonize
-import numpy
+if "egg_info" in sys.argv or "dist_info" in sys.argv or "sdist" in sys.argv:
+    describe = os.popen("git describe --tags", "r").read().strip()
+    if describe != "":
+        if "-" in describe:
+            tag, post, _ = describe.split("-")
+        else:
+            tag, post = describe, 0
+        with open(os.path.join(os.path.dirname(__file__), "pyquda_utils", "_version.py"), "w") as f:
+            f.write(f'__version__ = "{tag[1:]}.post{post}"\n')
 
-extensions = cythonize(
-    [
-        Extension(
-            name="pyquda.pointer",
-            sources=["pyquda/src/pointer.pyx"],
-            language="c",
-        ),
-        Extension(
-            name="pyquda.pyquda",
-            sources=["pyquda/src/pyquda.pyx"],
-            include_dirs=[os.path.join(quda_path, "include"), numpy.get_include()],
-            define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
-            library_dirs=[os.path.join(quda_path, "lib")],
-            libraries=["quda"],
-            extra_link_args=[f"-Wl,-rpath={os.path.join(quda_path, 'lib')}"] if not _STATIC else None,
-            language="c",
-        ),
-        Extension(
-            name="pyquda.malloc_pyquda",
-            sources=["pyquda/src/malloc_pyquda.pyx"],
-            include_dirs=[os.path.join(quda_path, "include")],
-            library_dirs=[os.path.join(quda_path, "lib")],
-            libraries=["quda"],
-            extra_link_args=[f"-Wl,-rpath={os.path.join(quda_path, 'lib')}"] if not _STATIC else None,
-            language="c++",
-        ),
-    ],
-    language_level="3",
-)
-
-setup(ext_modules=extensions)
+setup()
